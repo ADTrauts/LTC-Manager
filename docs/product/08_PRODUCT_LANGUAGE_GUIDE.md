@@ -1,7 +1,8 @@
 # 08 — Product Language Guide
 
 **Status:** Canonical terminology for UI, docs, and AI prompts  
-**Rule:** Prefer one term. Avoid synonym drift.
+**Rule:** Prefer one term. Avoid synonym drift.  
+**Plug-in contract:** [Current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026). Words that must stay apart are defined there and repeated in the domain table below.
 
 ---
 
@@ -52,7 +53,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Facility** | Operational site | Site *(vision alias — migrate language to Facility)* |
 | **Organization** | Canonical company entity (Facility parent and/or Department operator) | Company, Tenant *(unless billing copy)*; do not invent ManagementCompany / OperatorCompany tables |
 | **Parent Organization** | Organization that owns/groups the Facility | Treating a contracted department operator as the Facility parent |
-| **Operating Organization** | Organization responsible for operating a Department (date-effective) | Management company string on Facility; Vendor; FacilityOrganization; Partner Organization *(different concept)* |
+| **Operating Organization** | The company that runs one Department for a period of dates. Customer language for a company other than the facility's own is **vendor-run**. | A stored self-operated switch; a repair vendor; the parent Organization |
 | **Partner Organization** | External Organization with an explicit Facility partnership | Inferring partnership from operators, vendors, or parent Organization |
 | **Partner Department Scope** | Departments explicitly authorized under a partnership (timestamp periods) | Auto-syncing from Operating Organization; undated permanent rows |
 | **Organization member / Organization administrator** | `ORG_MEMBER` / `ORG_ADMIN` on membership role periods | Facility Administrator; Vendor admin; putting ORG_* on RoleKey; inferring a partner Facility role |
@@ -83,7 +84,12 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **enterGrantedContext** | Enter one explicit created/accepted context; missing target recovers to account `/access` | Listing every context first; minting from `User.facilityId` / `User.roleId` |
 | **enterContext** | Live target revalidation and exclusive session mint from any User session | Listing every context then trusting a posted role; silent fallback to another workspace |
 | **Client Facility** | Current `FacilityPartnerOrganization` relationship, or a partner Facility workspace entered via that partnership | Inferring partnership from operators, vendors, or parent Organization; treating org visibility as personal entry |
-| **Self-operated / Vendor-run** | Derived from the operator: the facility's own company, or another company. Never a stored switch. | Persisted SELF_OPERATED / CONTRACTED enum |
+| **Repair vendor** | The company called to fix one piece of equipment | The operating partner; a vendor-run Department; a partner company |
+| **Vendor account** | A person from the operating partner, signed in on the partner workspace | A repair vendor; a Facility Administrator |
+| **Self-operated / Vendor-run** | Derived from the operator: the facility's own company, or another company. Never a stored switch. | A persisted operating-model switch |
+| **Vssyl Console** | Vssyl's own desk at `/console`. It creates a customer facility, creates a partner company, invites that company's first people, and publishes Catalog forms. | A customer workspace; Harbor as the product name |
+| **Marketplace** | Where a facility adds ready-made content inside a Department it already installed. The items run on Platform engines. | A second catalog; a new Department Product; a store of engines |
+| **Marketplace item** | A Records form, Work preset, Operating Rhythm starter, or Menu template. Included or Paid. | A Department; a license |
 | **Facility Administrator** | The one person who governs the facility account. Views a self-operated Department unless they are its head. Sees a vendor-run Department as a summary plus compliance Records. | Several Facility Administrators; operating every Department |
 | **Department head / GM** | The person who runs one Department | The Facility Administrator by default |
 | **Operator period** | The dates one company runs a Department | A permanent operator flag |
@@ -131,8 +137,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Plant Operations** | Default local Department name for an installed Facility Plant Operations Product | Official Product name |
 | **Employee** | Facility-specific workforce/employment record. One Vssyl account may have many Employees; at most one Employee per account per Facility. New Employees are always account-backed. | Treating Employee as the global person identity; inferring identity from email; PIN-only as a permanent person type |
 | **User.role** | Compatibility / home-default Facility RoleKey only. Active internal authority is the current `UserFacilityRolePeriod` for the selected Facility grant. | Treating `User.roleId` as the RoleKey at every Facility; Employee.roleType; job title |
-| **Facility Administrator** | Facility-scoped administrative authority | Equating GM with FA |
-| **Call-down** | Coverage change needing attention | Call-off *(synonym risk — pick Call-down in product)* |
+| **Call-off** | A mark on the shift: that person is not working it. The day's Assignment is a separate move. | Call-down as the name of the shift mark |
 
 ---
 

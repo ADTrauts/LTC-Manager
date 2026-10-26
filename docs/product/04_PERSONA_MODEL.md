@@ -1,6 +1,6 @@
 # 04 — Persona Model
 
-**Status:** Role homes. Architecture map is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). Audit / Reports is the manager history surface. Review is not a workspace.  
+**Status:** Role homes. The plug-in contract is the [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026). Audit / Reports is the manager history surface. Review is not a workspace.  
 
 Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TEAM_MEMBER`, `STAFF` (display often “Team Member”).
 
@@ -24,7 +24,7 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 
 | Field | Content |
 |-------|---------|
-| **Goals** | Own Department. When the Dashboard flag is on, the Dashboard shows that Department only. |
+| **Goals** | Own the Departments they run. The Dashboard shows those Departments. |
 | **Responsibilities** | Oversight similar to Manager with broader facility authority; may own FA-adjacent setup depending on deployment. |
 | **Decisions** | Cross-department priorities; staffing crises; when to involve FA/corporate. |
 | **Primary workspace** | **Dashboard**. |
@@ -63,8 +63,8 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 | **Goals** | Execute unit work + light lead tasks without admin noise. |
 | **Responsibilities** | Logs, servery marks, report issues, unit inspections as assigned. |
 | **Decisions** | Completing queue items in priority order. |
-| **Primary workspace** | **Unit Workspace** (or due Logs if no unit: `/staffing/logs` when canonical Logs are on, otherwise legacy `/logs`). |
-| **Primary workflows** | Unit work queue; PIN/device bind when kiosk; no Business Workspace home. |
+| **Primary workspace** | **Unit Workspace** (or `/logs` when no unit is open). |
+| **Primary workflows** | Unit work queue; PIN/device bind when kiosk. `/logs` is their page. It does not send them to the Dashboard. |
 
 ---
 
@@ -110,6 +110,6 @@ Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TE
 
 | Persona | Default home |
 |---------|----------------|
-| FA / GM / Manager | `/dashboard` |
-| Supervisor | `/dashboard` |
-| Lead / Staff / PIN | `/unit/{id}` or due Logs (`/staffing/logs` when `CANONICAL_LOGS_ENABLED`; otherwise legacy `/logs`) |
+| FA / GM / Manager / Supervisor | `/dashboard` |
+| Lead / Staff / PIN | `/unit/{id}`, or `/logs` when no unit is open |
+| Partner head, Operator, Viewer | `/partner` |

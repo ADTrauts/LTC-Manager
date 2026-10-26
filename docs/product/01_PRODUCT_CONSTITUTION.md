@@ -7,8 +7,9 @@
 **Department Product contract:** [13 — Department Product](./13_DEPARTMENT_PRODUCT.md)  
 **Facility Plant Operations architecture:** [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md)  
 **Compatibility systems:** [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md)  
+**Plug-in contract:** [Current foundation — October 26, 2026](#current-foundation--october-26-2026)
 
-This document is the one current map. Deeper documents explain a layer. Dated `LTC_MANAGER_*.md` files, wave roadmaps, and domain guidebooks are historical or operational references. They do not override this constitution.
+This document is the one current map. Deeper documents explain a layer. Dated `LTC_MANAGER_*.md` files, wave roadmaps, and domain guidebooks are historical or operational references. They do not override this constitution. Where an older paragraph in this document disagrees with the current foundation, the current foundation wins.
 
 ---
 
@@ -107,8 +108,8 @@ Vssyl Platform                 every facility
   - It is the employee's "my day" screen in every Department, always on.
   - It shows the Assignment, the current window, what is expected now and next, Work items, Records due, and problems at the person's places, with one next action.
   - It stores nothing. It reads Assignments, Cycles, Work Plans, Records and work orders.
-  - Today it is off by default (`DIETARY_JOB_FLOW_ENABLED`), and it lists no Work without the Assignments switch. Both switches retire in LEG-05 (LEG-D20).
-  - Adding assigned work orders and preventive maintenance to it touches Plant. It is not scheduled and needs its own authorized scope.
+  - The capability switches retired in LEG-05. Job Flow is the my-work view in every installed Department.
+  - Assigned work orders and preventive maintenance appear beside Work and Records. They stay in their own stores.
 - **Employee goals** do not exist. They are recorded as a future idea: not designed, not scheduled.
 
 **Stale text in this document.** These lines name surfaces that are retired or being replaced. The program named corrects them; they are not current guidance.
@@ -119,6 +120,66 @@ Vssyl Platform                 every facility
 | "Managers begin in Business Workspace", "Supervisors begin in Today's Work", "Manager daily home (Business Workspace)" | The Dashboard ([DSH-04](../dashboard/PHASED_PLAN.md)) |
 | "Department operating Organization as date-effective governance metadata" | Vendor-run Departments ([CDA-07](../contracted-departments/PHASED_PLAN.md)) |
 | Legacy `/logs` as a live record store | The Catalog record chain. The legacy tables were dropped in LEG-06. |
+| `RecordEngineRollout`, `OperationalTemplate`, and a department staying on a previous record engine | The rollout and template tables were dropped in LEG-06. One Catalog chain is the Record path. |
+
+### Current foundation — October 26, 2026
+
+The product owner asked that future building add a part to this structure. A new feature plugs into a layer that already exists. It does not create a second platform, a second Department, a second catalog, a second people model, or a second home.
+
+Deeper documents keep the detail: [what a Department is](./13_DEPARTMENT_PRODUCT.md), [who owns each fact](./03_PRODUCT_DOMAIN_MODEL.md), [the words](./08_PRODUCT_LANGUAGE_GUIDE.md), [who starts where](./04_PERSONA_MODEL.md), [what we sell](./11_COMMERCIAL_MODEL.md). Program logs under `docs/contracted-departments/`, `docs/dashboard/`, `docs/legacy-retirement/`, and `docs/onboarding/` record how a decision was reached. They do not replace this section.
+
+**What the platform is.** Vssyl is one Business Operations Platform for a physical facility. Every facility gets the same engines: the building, Location Functions, Operational Cycles, Work, Records, Assets and repairs, shifts, and daily Assignments. A Department Product is a Vssyl-authored operating model installed into that facility. A Marketplace item is ready-made content added inside one Department. Run is what is true today. History answers a past service date from the configuration that was effective that day. Governance is the company, the facility account, and who may enter.
+
+**What a Department is.** A Department Product and a Department are not the same thing. Healthcare Food & Nutrition is the Product. Dietary is a facility's local name for the installed Department. The Product brings its Location Functions, rhythm starters, Work presets, Record forms, and coverage needs. The facility binds those to its own rooms, times, and people. Environmental Services stays DEVELOPMENT. Healthcare Food & Nutrition and Facility Plant Operations are AVAILABLE. A Department does not receive its own location tree, Cycle engine, Work engine, Record engine, or history store.
+
+**Who runs a Department.** Each facility has one Facility Administrator. That person keeps the building, the account, and which company operates each Department, and can transfer the role. Every Department is run by its head and its members. The Facility Administrator only views a self-operated Department unless they are its head. A vendor-run Department is controlled by the operating partner, who owns that period's data. The Facility Administrator sees a summary plus compliance Records. Self-operated and vendor-run are derived from who the operator is. They are not a stored switch.
+
+**Who can exist.**
+
+| Person | What they are | What they are not |
+|---|---|---|
+| User | The global person. One identity, many places they can enter. | An Employee, a PIN, or a Department |
+| Employee | That person's workforce record at one facility. At most one per User per facility. | The global identity |
+| Facility role | Staff, Lead, Supervisor, Manager, GM, Facility Administrator, on the current facility grant | An Organization role |
+| Organization Administrator / member | Affiliation with a company. Membership grants no facility access. | A facility role, and not a partner login by itself |
+| Partner head, Operator, Viewer | A vendor account inside a facility the company operates | Facility Builder, Administration, or another Department |
+| PIN | Workplace sign-in for one Employee at a unit | A separate person |
+| Harbor staff | A Vssyl Console operator | A customer user |
+
+A partner company is born in Vssyl Console. Console invites the first Organization Administrator and the first members. That invitation does not open a facility. The Facility Administrator attaches a company that already exists and records it as a Department's operator. Saving a partnership does not create the company.
+
+**Words that must stay apart.**
+
+| Word | Means |
+|---|---|
+| Parent Organization | The company that owns the facility |
+| Operating Organization | The company that runs one Department for a period of dates |
+| Vendor-run | That operating company is not the facility's own company |
+| Partner Organization | The facility's explicit partnership with an outside company |
+| Repair vendor | The company called to fix a piece of equipment |
+| Vendor account | A person from the operating partner, signed in on the partner workspace |
+
+**Assets.** The operating partner can add equipment in their Department, in the facility's rooms, and set title, responsible maintainer, and repair vendor. Title is the facility or that partner. Existing equipment stays facility-titled. While it is on site, the using Department, Plant, and the Facility Administrator see it, including title. When the contract ends, facility-titled equipment stays and partner-titled equipment leaves. The facility keeps a closed note of what left. That note is not an active asset. Only the company operating that Department can title an asset to itself.
+
+**What is happening, and what is mine.** "What's happening now" is only the published Cycle and Phase. The shift says who is scheduled. The daily Assignment says where they cover. A call-off marks the shift. A move changes the Assignment. Neither creates the other. Job Flow is the one "my work" view in every Department. It shows Work Plan items, Records due, and assigned work orders side by side, without merging their stores. An empty Assignment never hides Work.
+
+**Homes.** Supervisors and above begin at `/dashboard`. Floor staff begin at their unit, or at `/logs` when they have no unit. `/logs` is a short page for them. It does not send them back to the Dashboard. `/workspace` and `/today` open the Dashboard. The partner workspace begins at `/partner`. The accepted Partner head also sets up that Department at `/partner/people`, `/partner/coverage`, `/partner/rhythm`, `/partner/work`, `/partner/menus`, and `/partner/assets`. They do not receive Facility Builder or Administration.
+
+**Marketplace.** It exists so a facility can add ready-made content inside a Department it already installed, without buying a new engine. The items are Records forms, Work presets, Operating Rhythm starters, and Menu templates. Each is Included or Paid. Included is the default. A Department Product's starter content is the items pre-selected for it. Forms a Department head or a vendor builds live in the same Catalog, are visible only to their owner, and are never sold. Today only Records forms are Catalog items. The other kinds still ship with the Product. Moving them into the Marketplace reuses the Catalog. It does not add a second one.
+
+**Vssyl Console.** Console (`/console`) is Vssyl's own operating desk, not a customer workspace. It creates a customer facility and its Facility Administrator, creates a partner company and invites its first people, publishes Catalog forms, and holds the claim queue for a company that already exists and has no administrator. Customers do not enter Console to run a shift.
+
+**How a new part plugs in.**
+
+1. Name the layer: Platform, Department Product, Marketplace item, Run, History, or Governance.
+2. Use an engine that already exists. A missing reusable mechanism is the only reason to add one, and that reason is written down before the build.
+3. A new Department Product follows [How to build one](./13_DEPARTMENT_PRODUCT.md#how-to-build-one) and fills the blueprint, including its Dashboard contribution. It contributes capabilities. It does not ship dashboard UI.
+4. A new Department write is classified in `src/lib/department-authority/write-manifest.ts`. A role check alone is not authority.
+5. A new fact names its owner in the [Domain Model](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) and its word in the [Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md).
+6. Schema changes are a new forward migration. Applied migrations stay as they are.
+7. Release status, price, and sellability do not change as a side effect of a build.
+
+**A major change is a conversation first.** A major change is one that replaces a layer, adds an engine, changes who runs a Department, changes a home, or changes what the Marketplace or Vssyl Console is. Stop and discuss it with the product owner. Decide whether it is the best situation. Do not build it during that conversation. After the decision, update the foundation, the language guide, the domain model, the Department Product contract, and any persona, commercial, `AGENTS.md`, or Cursor rule that still describes the old shape. Those materials move together. A small addition that follows the seven steps above is not a major change.
 
 ### Shared mechanisms
 
@@ -146,7 +207,7 @@ This chain is the Record path. The legacy log, inspection, and operational-templ
 
 Harbor / Vssyl Template Studio (`/console/catalog`) authors `CatalogLogDefinition` + `CatalogLogField` using the existing `OperationalEvidenceFieldType` set. Field identity is `fieldKey`, not the label. Catalog schedule and applicability metadata are Marketplace recommendations only; the facility `LogAttachment` remains the live requirement.
 
-Exception behavior is declarative data on the Catalog definition (`rulesJson`) plus the existing per-field standard. `evaluateEvidenceRules` is the shared evaluator. Submitted meaning is pinned in the Catalog version snapshot. A later version does not reinterpret earlier evidence. Corrective action stays on `OperationalEvidenceRecord`. A supervisor may create an existing Asset Issue from eligible asset evidence. Follow-up evidence uses `followsRecordId`. A recheck is another canonical record on the originating Log Attachment, including scheduled attachments, and it uses the originating snapshot’s Catalog version. It does not satisfy another scheduled slot. Photos, files, and signatures are `OperationalEvidenceAttachment` rows on that record. The row stores metadata and a provider-neutral storage key. Bytes live in private durable object storage, not in the relational record and not on an application-instance filesystem. An INSPECTION is still a Catalog purpose. Its score, section totals, critical failures, and outcome (Pass, Pass with exceptions, or Fail) are derived from the immutable submission snapshot and the submitted answers. Formal PDF, Excel, and CSV packets are projections of that same evidence and the derived requirements. They are not a second record. Requirement occurrence state is derived once from the expected requirement, submitted canonical evidence, waiver state, service-day timing, and as-of timestamp. Review and formal reporting consume the same occurrence classification and summary. Presentation layers do not redefine completed, missed, overdue, or waived. Completed evidence stays completed when it is out of standard or needs review. A waiver is excused work, not a completed record, unless evidence was also submitted — evidence wins. Overdue means the window has passed and the service date is still open. Missed means that service date has closed with no evidence and no waiver. A failed inspection is completed evidence with a derived score; missed, waived, and overdue inspections do not receive a zero score. N/A is a real compliance response and leaves that question out of the possible points. Evidence status stays the submission lifecycle and is not the audit grade. A later Catalog version does not rescore an earlier audit. Repeating groups, calculated fields, and reusable authoring sections are Catalog structure. A reusable section is copied into the draft when an author inserts it. The published definition and the submission snapshot contain that copy. Runtime does not read the component library. Calculated values are derived from the pinned snapshot and the submitted answers. A later formula does not recalculate an earlier record. Record-engine authority for new work is `resolveRecordEngine`: the deployment capability gate, plus append-only `RecordEngineRollout` rows for a facility and department, plus the facility service date. Turning the environment gate off does not rewrite those rows. A department without a canonical row stays on the previous engine. Historical Log submissions are not copied into canonical Records. A recheck does not rewrite the original score. Corrective action does not turn a failed audit into a pass. There is no Finding entity yet: a failed question stays on the evidence record, record-level corrective action is the immediate response, and an Asset Issue remains an optional escalation when the problem is an asset. Submitted media is not deleted by a correction, and a follow-up does not copy the original record’s files. Attestation remains a boolean confirmation. A signature is a PNG artifact plus the signed-in person and time. Local facility upload helpers are not the evidence-media store.
+Exception behavior is declarative data on the Catalog definition (`rulesJson`) plus the existing per-field standard. `evaluateEvidenceRules` is the shared evaluator. Submitted meaning is pinned in the Catalog version snapshot. A later version does not reinterpret earlier evidence. Corrective action stays on `OperationalEvidenceRecord`. A supervisor may create an existing Asset Issue from eligible asset evidence. Follow-up evidence uses `followsRecordId`. A recheck is another canonical record on the originating Log Attachment, including scheduled attachments, and it uses the originating snapshot’s Catalog version. It does not satisfy another scheduled slot. Photos, files, and signatures are `OperationalEvidenceAttachment` rows on that record. The row stores metadata and a provider-neutral storage key. Bytes live in private durable object storage, not in the relational record and not on an application-instance filesystem. An INSPECTION is still a Catalog purpose. Its score, section totals, critical failures, and outcome (Pass, Pass with exceptions, or Fail) are derived from the immutable submission snapshot and the submitted answers. Formal PDF, Excel, and CSV packets are projections of that same evidence and the derived requirements. They are not a second record. Requirement occurrence state is derived once from the expected requirement, submitted canonical evidence, waiver state, service-day timing, and as-of timestamp. Review and formal reporting consume the same occurrence classification and summary. Presentation layers do not redefine completed, missed, overdue, or waived. Completed evidence stays completed when it is out of standard or needs review. A waiver is excused work, not a completed record, unless evidence was also submitted — evidence wins. Overdue means the window has passed and the service date is still open. Missed means that service date has closed with no evidence and no waiver. A failed inspection is completed evidence with a derived score; missed, waived, and overdue inspections do not receive a zero score. N/A is a real compliance response and leaves that question out of the possible points. Evidence status stays the submission lifecycle and is not the audit grade. A later Catalog version does not rescore an earlier audit. Repeating groups, calculated fields, and reusable authoring sections are Catalog structure. A reusable section is copied into the draft when an author inserts it. The published definition and the submission snapshot contain that copy. Runtime does not read the component library. Calculated values are derived from the pinned snapshot and the submitted answers. A later formula does not recalculate an earlier record. Record-engine authority for new work follows `CANONICAL_LOGS_ENABLED`. The rollout table was dropped in LEG-06. With the flag on, a Department uses this Catalog chain. With the flag off, new work stays off that chain. Historical log submissions were not copied into canonical Records. A recheck does not rewrite the original score. Corrective action does not turn a failed audit into a pass. There is no Finding entity yet: a failed question stays on the evidence record, record-level corrective action is the immediate response, and an Asset Issue remains an optional escalation when the problem is an asset. Submitted media is not deleted by a correction, and a follow-up does not copy the original record’s files. Attestation remains a boolean confirmation. A signature is a PNG artifact plus the signed-in person and time. Local facility upload helpers are not the evidence-media store.
 
 Log Book is a projection over `OperationalEvidenceRecord`. Audit / Reports (Review) is a derived expected-versus-actual layer. Neither is a submitted-evidence store.
 
@@ -250,7 +311,7 @@ Issues, readiness, call-downs, and recovery assistants exist so the day can cont
 
 ### 7. Engines serve homes — homes do not duplicate engines
 
-Operations Engine, Work Engine, and Readiness are **substrate**. Business Workspace, Operations Center, Today's Work, and Unit Workspace are **homes**. Homes compose engines; they do not re-implement domain rules.
+The Platform engines are the substrate. The Dashboard, Unit Workspace, and the partner workspace are the homes. Homes compose engines. They do not re-implement domain rules. Operations Center, Business Workspace, and Today's Work are retired names for homes.
 
 ---
 
@@ -272,7 +333,7 @@ Operations Engine, Work Engine, and Readiness are **substrate**. Business Worksp
 - Facility-day operational readiness and exception awareness  
 - Location / unit execution (logs, meal rhythm, issues, inspections)  
 - Supervisor walk, coverage, call-downs, handoffs  
-- Manager daily home (Business Workspace) composing those signals  
+- Manager daily home is the **Dashboard**  
 - Department operational modes via Vssyl-defined Department Products (Healthcare Food & Nutrition, EVS, Plant…) that a facility selects, licenses, then installs
 - Assets / vendors as operational equipment context  
 - Employee roster and operational HR **adjacent to staffing** (not a full HRIS replacement)  

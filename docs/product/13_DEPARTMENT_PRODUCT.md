@@ -1,6 +1,7 @@
 # 13 — Department Product
 
 **Status:** Binding product/architecture rule  
+**Plug-in contract:** [Current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026). This document is what a Department is, and the blueprint a new Department Product must fill.  
 **Does not:** Persist a second Facility Industry column, redesign Stripe SKUs, delete Department history, start EVS product design, or change Facility Plant Operations release status  
 **Facility Plant Operations architecture:** [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md)
 
@@ -116,14 +117,14 @@ Configuration readiness is derived from those operational facts. Do not persist 
 | **Department Product** | Vssyl Inc. | Code registry (`src/lib/department-products/`) |
 | **Entitlement** | Commercial authorization | `FacilityDepartmentEntitlement.departmentKey` |
 | **Department** | Facility installation | Existing `Department` row (`facilityId` + `key`) |
-| **Operating Organization** | Facility Administrator chooses the operator. A vendor-run Department is controlled by that operator. | `DepartmentOperatorRelationship` (date-effective). |
-| **Partner Organization** | Facility Administrator (governance) | `FacilityPartnerOrganization` + access periods. External Facility partnership — not user access. |
-| **Partner Department Scope** | Facility Administrator (governance) | `FacilityPartnerDepartmentScope` (timestamp periods). Explicit eligibility for later partner access. |
+| **Operating Organization** | Facility Administrator chooses the operator. A vendor-run Department is controlled by that operator, who owns that period's data. | `DepartmentOperatorRelationship` (date-effective). |
+| **Partner Organization** | Facility Administrator attaches a company that already exists. Vssyl Console creates the company and invites its first people. The invitation does not open the facility. | `FacilityPartnerOrganization` + access periods. |
+| **Partner Department Scope** | Facility Administrator | `FacilityPartnerDepartmentScope` (timestamp periods). The Departments that company may operate here. |
 | **isActive** | Operational state | `Department.isActive` |
 
 New Department installs initialize an explicit facility-operated operator relationship (`organizationId = Facility.organizationId`) as of the install date. Contracted operators are configured under Admin → Departments → Manage → Operating organization.
 
-External Facility partnerships are managed under Admin → Organization → Partners. **Partner relationship + Department scope does not grant any user Facility access in Phase 2A.** Operating Organization and Partner Organization remain independent; neither auto-syncs the other.
+External Facility partnerships are managed under Admin → Organization → Partners. Saving a partnership does not create the company, and it does not by itself open the facility to that company's people. After the company is attached and the head is accepted, vendor accounts open the Departments that company runs. They do not open Facility Builder, Administration, or another Department.
 
 `Department.key` is the facility installation key. For Healthcare Food & Nutrition it remains `DIETARY`. For EVS and Plant it matches the Product key. Existing facility rows with those keys remain installations. No backfill, no retroactive charges, no automatic entitlements for legacy rows. DEVELOPMENT rows stay in the database; they are filtered out of customer pickers and Marketplace.
 
@@ -203,9 +204,9 @@ Published **Operational Cycles** are the current Run rhythm. **Phases** are one-
 
 **Work.** Product Work presets copy into facility drafts when a manager applies them. They are never auto-published. A published Work Plan determines expected Work. Work may bind to a Cycle or Phase stable key. It does not bind to Key Points. An empty Cycle binding means not configured. Expected Work is derived from department-responsible locations, then applicability (including a Location Function key when used), then cycle participation when the item is cycle-bound. Assignment does not create Work. Occurrences stay sparse.
 
-**Records.** One engine. A Vssyl Catalog definition (`CatalogLogDefinition`) is installed (`FacilityCatalogInstall`) and placed as a facility requirement segment (`LogAttachment`). Expected slots are derived. The fact is `OperationalEvidenceRecord`. A permitted waiver, correction, and follow-up stay distinct from the Record. Run projects Location Function requirements through the same ACTIVE bindings Cycles and Work use. `OperationalTemplate` is compatibility, not the Catalog install path.
+**Records.** One engine. A Vssyl Catalog definition (`CatalogLogDefinition`) is installed (`FacilityCatalogInstall`) and placed as a facility requirement segment (`LogAttachment`). Expected slots are derived. The fact is `OperationalEvidenceRecord`. A permitted waiver, correction, and follow-up stay distinct from the Record. Run projects Location Function requirements through the same ACTIVE bindings Cycles and Work use. Operational templates were dropped in LEG-06. They are not the next layer after the Catalog.
 
-Today’s Work combines the current Cycle with expected Work. Audit / Reports answers a service date. It is not a second Run.
+Job Flow is the employee's view of the current Cycle, expected Work, and Records due. The Dashboard is the supervisor home. Audit / Reports answers a service date. None of these is a second Run.
 
 Department Products that exist today:
 
@@ -221,9 +222,26 @@ Configure Locations, Operating Rhythm, Work, People & Coverage, and Records in D
 
 ---
 
+## How to build one
+
+A new Department Product is a registry entry plus the blueprint below. It is not a new application, and it does not receive its own copy of the platform.
+
+Facility Plant Operations is the filled example: [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md). Environmental Services has not filled this contract.
+
+1. Write every blueprint row before implementation.
+2. Add the Product to `src/lib/department-products/registry.ts` with status **DEVELOPMENT**. Customers cannot see, buy, or install it until a separate decision marks it **AVAILABLE**.
+3. Use the Platform engines: Location Functions, Operational Cycles, Work, Records, Assets and repairs, shifts, Assignments, and Job Flow. Empty starters are allowed. A second engine is allowed only when the platform-gap row names a mechanism the platform does not have.
+4. Put starter forms in the existing Catalog (`CatalogLogDefinition`). Do not add a template model or a second catalog.
+5. Declare the Dashboard contribution. The Product contributes capabilities. It does not ship dashboard screens. The rules are the [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md).
+6. Classify every new Department write in `src/lib/department-authority/write-manifest.ts`. Who may run a vendor-run Department is already decided by the platform. The Product does not add roles or a separate partner application.
+7. Do not add a capability environment switch. An installed Department receives the shared engines. Release status is what keeps a DEVELOPMENT Product away from customers.
+8. Remain DEVELOPMENT until the blueprint, the Dashboard release gate, and the write classification are complete. Becoming AVAILABLE does not change price or sellability by itself.
+
+A Department that needs its own engine, home, catalog, or authority model is a major change. Stop and decide that with the product owner before building it. After the decision, update this contract together with the [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026).
+
 ## Department Product blueprint
 
-Every new Department Product must define these before implementation. Facility Plant Operations has filled this contract in [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md). Environmental Services has not.
+Every new Department Product must define these before implementation.
 
 | Contract item | Question it answers |
 |----------------|---------------------|

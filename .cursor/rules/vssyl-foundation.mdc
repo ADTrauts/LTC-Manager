@@ -1,0 +1,27 @@
+---
+description: Keep every structural decision inside the Vssyl foundation and Department build order
+alwaysApply: true
+---
+
+# Stay inside the Vssyl structure
+
+The current structure lives in the product documents. Read them before a change that adds or reshapes a Department, home, catalog, role, route, store, or engine. Do not rebuild a part that already has a home.
+
+Authority, in order:
+
+1. [Current foundation](docs/product/01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026)
+2. [How to build one](docs/product/13_DEPARTMENT_PRODUCT.md#how-to-build-one) for any new Department Product
+3. [Language guide](docs/product/08_PRODUCT_LANGUAGE_GUIDE.md) for the word, [domain model](docs/product/03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) for who owns the fact
+
+A chat, a program log, or an older paragraph in those files does not override that order.
+
+Before writing the structural change:
+
+- Name the layer: Platform, Department Product, Marketplace item, Run, History, or Governance.
+- Use an engine that already exists. A second location tree, Cycle engine, Work engine, Record engine, catalog, people model, or home is a miss.
+- A Department Product starts as DEVELOPMENT in `src/lib/department-products/registry.ts` and fills the blueprint first. It contributes Dashboard capabilities and does not ship dashboard UI.
+- Classify a new Department write in `src/lib/department-authority/write-manifest.ts`. A role check alone is not authority.
+- Do not add a capability environment switch. Do not change release status, price, or sellability as a side effect.
+- Schema changes are a new forward migration. Do not edit an applied migration.
+
+A major change replaces a layer, adds an engine, changes who runs a Department, changes a home, or changes what the Marketplace or Vssyl Console is. Stop and discuss it with the product owner. Do not build it in that conversation. After the decision, update the foundation and every material that still describes the old shape: the language guide, the domain model, the Department Product contract, and any persona, commercial, `AGENTS.md`, or this rule that the decision touches. A small addition that follows the list above is not a major change.

@@ -2,7 +2,7 @@
 
 **Status:** Current domain relationships. Authority for the platform map is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md).  
 **Rule:** Product language follows [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md). Persistence names below are compatibility, not a second model.  
-**Amended:** October 20, 2026 ([Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026)). It adds Marketplace items, Shift and Assignment, marks retired entities and diagrams, and records the foundation round's ownership rows.
+**Amended:** October 26, 2026. The [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026) is the plug-in contract. This document owns the business relationships.
 
 ---
 
@@ -123,7 +123,7 @@ Active Facility session: HighPointe
 User.facilityId remains: Terrace View
 ```
 
-Organization membership grants **zero** Facility access. First ORG_ADMIN is established only through Harbor-approved Organization claim (Phase 2B2). General member invitations remain a later phase (2B3).
+Organization membership grants **zero** Facility access. Vssyl Console creates the partner company and invites the first Organization Administrator and the first members. That invitation does not open a facility. The claim queue remains for a company that already exists and has no administrator. The Facility Administrator attaches a company that already exists. Saving a partnership does not create the company.
 
 **Phase 2C warning:** Do not set a partner user's home `User.facilityId` to a customer Facility. Active Facility must remain session-scoped for Path B.
 
@@ -168,8 +168,8 @@ Disruption path
 | Where does published Work apply? | Published Work Plan applicability, including a Location Function key when the plan uses one |
 | What window is active (what is happening now)? | Published Operational Cycle and Phase effective now. Build uses the working profile; Run uses ACTIVE. No published Cycle means no window, never a meal-time guess (foundation round, October 20, 2026). |
 | What was expected on a past service date? | Audit / Reports, using the profile and requirement segment effective that day |
-| Where should the supervisor walk? | Today's Work walk/coverage, until DSH-04 replaces it with the Dashboard |
-| What should **I** do next (manager)? | Business Workspace Manager Focus, until DSH-04 replaces it with the Dashboard |
+| Where should the supervisor look first? | The Dashboard |
+| What should **I** do next (manager)? | The Dashboard |
 | What do I do **at this unit**? | The "my work" view (below), for this place |
 | Issue lifecycle | Issue / Repair module |
 | Whether a Record was required | Derived expected slot from the requirement segment effective that day |
@@ -179,6 +179,8 @@ Disruption path
 | What is **my** work? | One "my work" view: Work Plan items for my assigned places, or for the place I'm signed into when I have no Assignment; Records due there; work orders and preventive maintenance assigned to me. Each source keeps its own store. The view is **Job Flow**, in every Department. |
 | Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks the shift. |
 | Who covers this location or Work right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. |
+| Who owns this equipment? | Title on the asset: the facility, or the company operating that Department. Existing assets stay facility-titled. A partner-titled asset leaves when the contract ends, and the facility keeps a closed note. |
+| Who maintains it, and who is called to repair it? | The responsible maintainer, and a repair vendor from that maintainer's list. Title and maintainer are separate facts. |
 | Am I on, and where? | My shift and my Assignment, not the Cycle |
 
 Homes **must not** invent alternate truth for the rows above.
@@ -206,8 +208,8 @@ Constitution prefers **product terms** in UI and docs; schema renames are option
 
 1. **Site vs Facility** — vision docs say Site; shipped model is Facility. Prefer Facility until a deliberate rename.  
 2. **Issue vs Repair** — dual language remains; destination URLs still mixed.  
-3. **Operation engine** — retired September 25, 2026. Some surfaces still use meal-heuristic context until Food & Nutrition timing moves to Key Points (LEG-D07).  
-4. **Task** — legacy. Work never needs Task rows. Removed in LEG-05.  
-5. **Unit vs Location** — UI prefers "Location"; model is `Unit`. UnitSpace will add room-level granularity. See `docs/location-architecture/`.  
-6. **Location Function vs Operational Type** — code and some Build labels still say Operational Type or Archetype. The older profile and Experience editor is removed (LEG-D12). Location Function binding and publishing stay. The profile tables stay until LEG-06.  
-7. **Capability switches** — retired in LEG-05 (LEG-D20). Cycles, Job Flow, evidence, Work Plans, assets, and Assignments come with the Department. Plant still follows install plus Harbor or customer access. `CANONICAL_LOGS_ENABLED` remains.
+3. **Operation engine** — retired September 25, 2026. Its tables were dropped in LEG-06. "What's happening now" is the published Cycle and Phase.
+4. **Task** — removed. Work never needs Task rows. The table was dropped in LEG-06.
+5. **Unit vs Location** — UI prefers "Location"; model is `Unit`. UnitSpace is the room. See `docs/location-architecture/`.
+6. **Location Function vs Operational Type** — code and some Build labels still say Operational Type or Archetype. The product word is Location Function. The older profile editor is removed.
+7. **Capability switches** — retired in LEG-05 (LEG-D20). Cycles, Job Flow, evidence, Work Plans, assets, and Assignments come with the Department. `CANONICAL_LOGS_ENABLED` remains a code flag. The record-engine rollout table was dropped in LEG-06.

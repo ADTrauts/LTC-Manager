@@ -2,7 +2,7 @@
 
 **Current identity:** **Vssyl** is a Business Operations Platform. See [12 — Vssyl Brand](./12_VSSYL_BRAND.md).
 
-**Current architecture authority** is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md), certified through `06935aef0d2e257c1ff616694992f522360a83c1`. Its [Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) (October 20, 2026) adds Marketplace items inside a Department, marks each item Included or Paid, and ties capabilities to the installed Department. Its foundation round names one owner each for shifts, Assignments, "my work" (Job Flow) and "what's happening now".
+**Current architecture authority** is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). Its [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026) (October 26, 2026) is the plug-in contract: what the platform is, what a Department is, who can exist, which words stay apart, where people start, why the Marketplace and Vssyl Console exist, and how a new part is added. The [Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) (October 20, 2026) is the decision that amendment records.
 
 ## Current authority
 
@@ -24,12 +24,7 @@ Current execution program: [Vssyl onboarding](../onboarding/README.md), with its
 
 Accepted program (DSH-00 record): [Vssyl Dashboard](../dashboard/README.md), with its audit, decisions, architecture, card catalog, [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md), phased plan, and single phase tracker. It applies this architecture and schedules the amendments it supersedes.
 
-Accepted program (CDA-00 record): [Contracted Department Authority](../contracted-departments/README.md). It covers:
-- one Facility Administrator per facility
-- Departments run by their heads
-- vendor-run Departments controlled by the vendor, with vendor accounts and vendor-owned data
-
-It schedules amendments to the domain model, doc 13, the Constitution, the Language Guide and the Persona Model at CDA-07.
+Accepted program (CDA-00 through CDA-09): [Contracted Department Authority](../contracted-departments/README.md). One Facility Administrator, Departments run by their heads, vendor-run Departments controlled by the operating partner, partner setup inside the facility, and partner companies born in Vssyl Console. Those decisions are in the constitution's current foundation. The program log keeps the decision history.
 
 Accepted program (LEG-00 record): [Legacy Retirement](../legacy-retirement/README.md). It retires every surface in the [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md) before the first real customer, and amends the register phase by phase.
 
