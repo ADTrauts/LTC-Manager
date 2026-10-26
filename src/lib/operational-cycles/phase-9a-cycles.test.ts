@@ -130,9 +130,8 @@ test(
           applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
           effectiveFrom,
           mealType: "BREAKFAST",
-          locationMode: "UNIT_TYPES",
-          applicableUnitTypes: ["SERVERY"],
-          expectedMilestones: ["READY", "SERVICE_STARTED"],
+          locationMode: "ALL_DEPARTMENT_UNITS",
+          expectedMilestones: [],
         },
       });
       assert.equal(draft.status, "DRAFT");
@@ -248,7 +247,7 @@ test(
           effectiveFrom,
           mealType: "BREAKFAST",
           locationMode: "ALL_DEPARTMENT_UNITS",
-          expectedMilestones: ["READY"],
+          expectedMilestones: [],
         },
       });
       await publishCycle(mgrSession, {
@@ -274,7 +273,7 @@ test(
           effectiveFrom,
           mealType: "BREAKFAST",
           locationMode: "ALL_DEPARTMENT_UNITS",
-          expectedMilestones: ["READY"],
+          expectedMilestones: [],
         },
       });
 

@@ -50,6 +50,9 @@ function cuidLike() {
 export type PmRecordRequirementInput = {
   templateId?: string | null;
   catalogDefinitionId?: string | null;
+  templateStableKey?: string | null;
+  templateVersion?: number | null;
+  templateName?: string | null;
   sortOrder?: number;
 };
 
@@ -89,14 +92,17 @@ function civilDateValue(value: CivilDate | Date): Date {
 }
 
 function requirementCreates(rows: PmRecordRequirementInput[] | undefined) {
-  return (rows ?? []).map((row, index) => ({
-    id: cuidLike(),
-    templateStableKey: row.catalogDefinitionId ? null : row.templateId ? "retired" : null,
-    templateVersion: null,
-    templateName: null,
-    catalogDefinitionId: row.catalogDefinitionId ?? null,
-    sortOrder: row.sortOrder ?? index,
-  }));
+  return (rows ?? []).map((row, index) => {
+    const retiredPin = Boolean(row.templateId) && !row.catalogDefinitionId;
+    return {
+      id: cuidLike(),
+      templateStableKey: row.templateStableKey ?? (retiredPin ? "retired" : null),
+      templateVersion: row.templateVersion ?? (retiredPin ? 1 : null),
+      templateName: row.templateName ?? (retiredPin ? "Retired template" : null),
+      catalogDefinitionId: row.catalogDefinitionId ?? null,
+      sortOrder: row.sortOrder ?? index,
+    };
+  });
 }
 
 async function contractedOrganizationId(
@@ -150,7 +156,7 @@ async function snapshotRecordRequirements(
 ) {
   const unique = new Map<string, PmRecordRequirementInput>();
   for (const row of input.rows) {
-    const key = row.catalogDefinitionId ?? row.templateId;
+    const key = row.catalogDefinitionId ?? row.templateId ?? row.templateStableKey;
     if (!key) throw new Error("A required Record must name a form.");
     unique.set(key, row);
   }
@@ -162,6 +168,21 @@ async function snapshotRecordRequirements(
   const snapshots = [];
   let sort = 0;
   for (const row of unique.values()) {
+    if (!row.catalogDefinitionId && (row.templateStableKey || row.templateId)) {
+      snapshots.push({
+        id: cuidLike(),
+        planVersionId: input.planVersionId,
+        templateStableKey: row.templateStableKey ?? "retired",
+        templateVersion: row.templateVersion ?? 1,
+        templateName: row.templateName ?? "Retired template",
+        catalogDefinitionId: null,
+        catalogStableKey: null,
+        catalogVersion: null,
+        sortOrder: row.sortOrder ?? sort,
+      });
+      sort += 1;
+      continue;
+    }
     const catalog = await publishedCatalogForRequirement(client, row, null);
     if (
       catalog &&
@@ -501,6 +522,9 @@ export async function publishPmPlanVersion(
       defaultAssignedEmployeeId: draft.defaultAssignedEmployeeId,
       recordRequirements: draft.recordRequirements.map((row) => ({
         catalogDefinitionId: row.catalogDefinitionId,
+        templateStableKey: row.templateStableKey,
+        templateVersion: row.templateVersion,
+        templateName: row.templateName,
         sortOrder: row.sortOrder,
       })),
     };

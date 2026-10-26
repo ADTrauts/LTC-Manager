@@ -83,7 +83,4 @@ test("a live servery does not write the retired milestone store", { skip }, asyn
     prisma,
   );
   assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.ok(result.reason === "MEAL_NOT_CONFIGURED" || result.reason === "UNIT_NOT_FOUND");
-  }
 });

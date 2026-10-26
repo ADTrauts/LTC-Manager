@@ -100,7 +100,7 @@ test(
           equipmentType: "COOLER",
           unitId: unit.id,
           departmentId: dietary.id,
-          status: "ACTIVE",
+          status: "OPERATIONAL",
         },
       });
 

@@ -192,9 +192,8 @@ test(
           applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
           effectiveFrom,
           mealType: "LUNCH",
-          locationMode: "UNIT_TYPES",
-          applicableUnitTypes: ["SERVERY"],
-          expectedMilestones: ["READY", "SERVICE_STARTED"],
+          locationMode: "ALL_DEPARTMENT_UNITS",
+          expectedMilestones: [],
         },
       });
 

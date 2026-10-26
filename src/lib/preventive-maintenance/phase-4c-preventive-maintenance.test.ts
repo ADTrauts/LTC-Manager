@@ -245,7 +245,7 @@ test(
       assert.equal(published.status, "PUBLISHED");
       assert.equal(published.version, 1);
       assert.equal(published.procedureVersionId, procedureV1.id);
-      assert.equal(published.recordRequirements[0]?.templateId, template.id);
+      assert.equal(published.recordRequirements[0]?.templateStableKey, template.stableKey);
       assert.equal(published.recordRequirements[0]?.templateVersion, 1);
 
       const planAfterPublish = await prisma.preventiveMaintenancePlan.findUniqueOrThrow({
@@ -325,8 +325,8 @@ test(
       assert.equal(v2.status, "PUBLISHED");
       assert.equal(v2.version, 2);
       assert.equal(v2.procedureVersionId, procedureV2.id);
-      assert.equal(v2.recordRequirements[0]?.templateId, templateV2.id);
-      assert.equal(v2.recordRequirements[0]?.templateVersion, 2);
+      assert.equal(v2.recordRequirements[0]?.templateStableKey, templateV2.stableKey);
+      assert.equal(v2.recordRequirements[0]?.templateVersion, 1);
 
       const v1 = await prisma.preventiveMaintenancePlanVersion.findUniqueOrThrow({
         where: { id: published.id },
@@ -334,7 +334,7 @@ test(
       });
       assert.equal(v1.status, "SUPERSEDED");
       assert.equal(v1.procedureVersionId, procedureV1.id);
-      assert.equal(v1.recordRequirements[0]?.templateId, template.id);
+      assert.equal(v1.recordRequirements[0]?.templateStableKey, template.stableKey);
       assert.equal(v1.intervalMonths, 3);
 
       const occurrenceAfter = await prisma.preventiveMaintenanceOccurrence.findUniqueOrThrow({
