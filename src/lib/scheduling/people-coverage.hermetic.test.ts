@@ -22,6 +22,13 @@ test("the people action does not write an assignment override", () => {
   assert.equal(source.includes("assignmentOverride.create"), false);
   assert.match(source, /markShiftsCalledOff/);
   assert.match(source, /moveDayAssignment/);
+  assert.match(source, /return \{ ok: false, message \}/);
+});
+
+test("a missing shift stays on the call-off form", () => {
+  const form = readFileSync("src/components/scheduling/log-call-off.tsx", "utf8");
+  assert.match(form, /if \(!result\.ok\)/);
+  assert.match(form, /role="status"/);
 });
 
 const SKIP_DIR = new Set(["node_modules", "migrations", ".next", "dist"]);

@@ -37,11 +37,13 @@ function revalidateStaffingViews() {
   revalidatePath("/unit/[unitId]", "page");
 }
 
-export async function createOverrideAction(formData: FormData) {
+export type CoverageChangeResult = { ok: true } | { ok: false; message: string };
+
+export async function createOverrideAction(formData: FormData): Promise<CoverageChangeResult> {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "SUPERVISOR");
 
-  const parsed = createOverrideSchema.parse({
+  const parsed = createOverrideSchema.safeParse({
     scheduleEntryId: toOptional(formData.get("scheduleEntryId")),
     employeeId: formData.get("employeeId"),
     oldUnitId: toOptional(formData.get("oldUnitId")),
@@ -52,32 +54,48 @@ export async function createOverrideAction(formData: FormData) {
     reasonDetails: toOptional(formData.get("reasonDetails")),
     reason: toOptional(formData.get("reason")),
   });
+  if (!parsed.success) {
+    return { ok: false, message: "Check the person, date, and reason, then try again." };
+  }
 
-  const reason = callOffReasonFromForm(parsed);
+  const reason = callOffReasonFromForm(parsed.data);
   const employee = await prisma.employee.findFirst({
-    where: { id: parsed.employeeId, facilityId: session.facilityId },
+    where: { id: parsed.data.employeeId, facilityId: session.facilityId },
     select: { id: true },
   });
-  if (!employee) throw new Error("Employee not found.");
+  if (!employee) return { ok: false, message: "That person is not in this facility." };
 
-  if (peopleChangeIsMove(parsed.reasonTemplate)) {
-    if (!parsed.newUnitId) throw new Error("Choose the location for the move.");
-    await moveDayAssignment({
-      facilityId: session.facilityId,
-      employeeId: parsed.employeeId,
-      serviceDate: parsed.date,
-      unitId: parsed.newUnitId,
-      reason,
-      actorUserId: session.authKind === "user" ? session.uid : null,
-    });
-  } else {
-    await markShiftsCalledOff({
-      facilityId: session.facilityId,
-      employeeId: parsed.employeeId,
-      serviceDate: parsed.date,
-      reason,
-    });
+  try {
+    if (peopleChangeIsMove(parsed.data.reasonTemplate)) {
+      if (!parsed.data.newUnitId) return { ok: false, message: "Choose the location for the move." };
+      await moveDayAssignment({
+        facilityId: session.facilityId,
+        employeeId: parsed.data.employeeId,
+        serviceDate: parsed.data.date,
+        unitId: parsed.data.newUnitId,
+        reason,
+        actorUserId: session.authKind === "user" ? session.uid : null,
+      });
+    } else {
+      await markShiftsCalledOff({
+        facilityId: session.facilityId,
+        employeeId: parsed.data.employeeId,
+        serviceDate: parsed.data.date,
+        reason,
+      });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (
+      message === "No shift on that date to mark." ||
+      message === "No assignment on that date to move." ||
+      message === "Location not found."
+    ) {
+      return { ok: false, message };
+    }
+    throw error;
   }
 
   revalidateStaffingViews();
+  return { ok: true };
 }

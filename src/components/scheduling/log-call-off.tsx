@@ -22,12 +22,16 @@ export function LogCallOff({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [template, setTemplate] = useState("call-off");
+  const [message, setMessage] = useState<string | null>(null);
 
   return (
     <div>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setMessage(null);
+          setOpen(true);
+        }}
         data-testid="log-call-off"
         className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
       >
@@ -40,12 +44,22 @@ export function LogCallOff({
       >
         <form
           action={async (formData) => {
-            await createOverrideAction(formData);
+            const result = await createOverrideAction(formData);
+            if (!result.ok) {
+              setMessage(result.message);
+              return;
+            }
+            setMessage(null);
             setOpen(false);
             router.refresh();
           }}
           className="grid gap-3"
         >
+          {message ? (
+            <p role="status" className="text-sm text-amber-800">
+              {message}
+            </p>
+          ) : null}
           <label className="grid gap-1 text-sm text-zinc-800">
             Who is out
             <select name="employeeId" required className="rounded-md border border-zinc-300 px-3 py-2">
