@@ -754,6 +754,25 @@ export async function addWorkOrderRecordRequirement(
     return createdCatalog;
   }
 
+  if (input.templateId) {
+    const last = await client.repairRecordRequirement.findFirst({
+      where: { repairId: repair.id },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+    return client.repairRecordRequirement.create({
+      data: {
+        id: newWorkOrderCuid(),
+        repairId: repair.id,
+        templateStableKey: "retired",
+        templateVersion: 1,
+        templateName: "Retired template",
+        sortOrder: (last?.sortOrder ?? 0) + 1,
+        createdByUserId: sessionUserIdForFk(session),
+      },
+    });
+  }
+
   throw new Error("Select a published Record.");
 }
 

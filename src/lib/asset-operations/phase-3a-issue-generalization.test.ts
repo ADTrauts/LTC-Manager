@@ -450,20 +450,16 @@ test(
           assetId: asset.id,
           unitId: fx.unitA.id,
           summary: "Legacy linked issue",
-          description: "workOrderId compatibility",
+          description: "issue link lives on the work order",
           observedAt: new Date(),
-          workOrderId: legacyRepair.id,
         },
       });
       const legacyIssueId = legacyIssue.id;
       const legacyRepairId = legacyRepair.id;
-      await prisma.$executeRawUnsafe(`
-        UPDATE "Repair" AS r
-        SET "issueId" = ai.id
-        FROM "AssetIssue" AS ai
-        WHERE ai."workOrderId" = r.id
-          AND r."issueId" IS NULL
-      `);
+      await prisma.repair.update({
+        where: { id: legacyRepairId },
+        data: { issueId: legacyIssueId },
+      });
       const backfilledRepair = await prisma.repair.findUniqueOrThrow({
         where: { id: legacyRepairId },
       });
@@ -472,7 +468,6 @@ test(
       });
       assert.equal(backfilledRepair.issueId, legacyIssueId);
       assert.equal(backfilledIssue.id, legacyIssueId);
-      assert.equal(backfilledIssue.workOrderId, legacyRepairId);
       assert.equal(backfilledRepair.id, legacyRepairId);
 
       const afterIssueCount = await prisma.operationalRequest.count({

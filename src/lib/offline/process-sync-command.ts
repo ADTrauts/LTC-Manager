@@ -621,6 +621,12 @@ async function upsertReceipt(
   assetIssueId: string | null = null,
 ) {
   const actor = await resolveMilestoneActor(input.session);
+  const actorUser = actor.userId
+    ? await client.user.findUnique({ where: { id: actor.userId }, select: { id: true } })
+    : null;
+  const actorEmployee = actor.employeeId
+    ? await client.employee.findUnique({ where: { id: actor.employeeId }, select: { id: true } })
+    : null;
   await client.offlineSyncReceipt.upsert({
     where: {
       facilityId_unitId_clientCommandId: {
@@ -636,8 +642,8 @@ async function upsertReceipt(
       commandType: command.commandType,
       resultCategory,
       reasonCode,
-      actorUserId: actor.userId,
-      actorEmployeeId: actor.employeeId,
+      actorUserId: actorUser?.id ?? null,
+      actorEmployeeId: actorEmployee?.id ?? null,
       sessionVersion: input.session.sessionVersion ?? 0,
       deviceBoundUnitId: input.deviceBoundUnitId,
       locallyRecordedAt: new Date(command.locallyRecordedAt),
