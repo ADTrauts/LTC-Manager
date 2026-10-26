@@ -449,7 +449,7 @@ test(
         where: { repairId: wo1.id },
       });
       assert.equal(reqs.length, 1);
-      assert.equal(reqs[0]?.templateId, template.id);
+      assert.equal(reqs[0]?.templateStableKey, template.stableKey);
       assert.equal(reqs[0]?.templateStableKey, template.stableKey);
 
       await prisma.knowledgeArticleVersion.update({
@@ -1102,7 +1102,7 @@ test(
         where: { repairId: wo.id },
       });
       assert.equal(reqs.length, 1);
-      assert.equal(reqs[0]?.templateId, kit.template.id);
+      assert.equal(reqs[0]?.templateStableKey, kit.template.stableKey);
     } finally {
       if (prevPlant === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;
       else process.env.PLANT_OPERATIONS_ENABLED = prevPlant;

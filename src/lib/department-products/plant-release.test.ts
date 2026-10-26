@@ -824,7 +824,7 @@ test(
       const aprilReqs = await prisma.repairRecordRequirement.findMany({
         where: { repairId: aprilWo.id },
       });
-      assert.equal(aprilReqs[0]?.templateId, template.id);
+      assert.equal(aprilReqs[0]?.templateStableKey, template.stableKey);
       await addWorkOrderLabor(supervisor, {
         facilityId: facility.id,
         departmentId: plant.id,

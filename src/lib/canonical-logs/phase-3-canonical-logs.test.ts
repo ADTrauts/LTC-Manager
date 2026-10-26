@@ -201,7 +201,6 @@ test(
       });
       assert.equal(record.logAttachmentId, attachment.id);
       assert.equal(record.attachmentStableKey, attachment.stableKey);
-      assert.equal(record.templateId, null);
       assert.equal(record.status, "COMPLETED");
       const snap = record.templateSnapshotJson as { snapshotSchemaVersion?: number; kind?: string };
       assert.equal(snap.snapshotSchemaVersion, 2);

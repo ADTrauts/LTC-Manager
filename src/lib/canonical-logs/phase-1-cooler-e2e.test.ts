@@ -244,7 +244,6 @@ test(
         /already been completed/,
       );
 
-      assert.equal(record38.templateId, null);
       assert.equal(record38.logAttachmentId, attachment.id);
       assert.equal(record38.templateStableKey, "cooler_temperature_log");
       assert.equal(record38.templateVersion, 1);

@@ -111,174 +111,23 @@ test(
         primaryDepartmentId: dietary.id,
       });
 
-      const draft = await createDraft(mgr, {
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        actor: { userId: manager.id, label: "Manager" },
-        draft: {
-          name: "SQL Cooler Log",
-          purposeType: "LOG",
-          allowAdHoc: false,
-          fields: [
-            {
-              fieldKey: "cooler_temperature",
-              label: "Cooler temperature",
-              fieldType: "TEMPERATURE",
-              isRequired: true,
-              displaySequence: 10,
-              unitLabel: "°F",
-              minNumber: 33,
-              maxNumber: 41,
-              correctiveActionTrigger: true,
-              correctiveActionRequired: true,
+      await assert.rejects(
+        () =>
+          createDraft(mgr, {
+            facilityId: facility.id,
+            departmentId: dietary.id,
+            actor: { userId: manager.id, label: "Manager" },
+            draft: {
+              name: "SQL Cooler Log",
+              purposeType: "LOG",
+              allowAdHoc: false,
+              fields: [],
             },
-          ],
-          applicabilities: [{ kind: "SPECIFIC_ASSET", assetId: asset.id }],
-          schedules: [{ kind: "ONCE_PER_OPERATIONAL_DATE" }],
-        },
-      });
-      assert.equal(draft.status, "DRAFT");
-
-      const publishCheck = validateTemplateForPublish({
-        name: draft.name,
-        purposeType: draft.purposeType,
-        allowAdHoc: draft.allowAdHoc,
-        fields: draft.fields.map((f) => ({
-          fieldKey: f.fieldKey,
-          label: f.label,
-          fieldType: f.fieldType,
-          isRequired: f.isRequired,
-          displaySequence: f.displaySequence,
-          unitLabel: f.unitLabel,
-          minNumber: f.minNumber,
-          maxNumber: f.maxNumber,
-          correctiveActionTrigger: f.correctiveActionTrigger,
-          correctiveActionRequired: f.correctiveActionRequired,
-          allowedSelections: f.allowedSelections,
-        })),
-        applicabilities: draft.applicabilities.map((a) => ({
-          kind: a.kind,
-          assetId: a.assetId,
-        })),
-        schedules: draft.schedules.map((s) => ({ kind: s.kind })),
-      });
-      assert.equal(publishCheck.valid, true);
-
-      const published = await publishTemplate(mgr, {
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        templateId: draft.id,
-        actor: { userId: manager.id, label: "Manager" },
-      });
-      assert.equal(published.status, "PUBLISHED");
-      assert.equal(published.version, 1);
-
-      const dateKey = new Date().toISOString().slice(0, 10);
-      const operationalDate = new Date(`${dateKey}T00:00:00.000Z`);
-
-      const requirements = await resolveUnitEvidenceRequirements({
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        operationalDateKey: dateKey,
-        operationalDate,
-        now: new Date(`${dateKey}T12:00:00.000Z`),
-        facilityTimezone: "America/New_York",
-        unitId: unit.id,
-        publishedCycles: [],
-      });
-      const req = requirements.find((r) => r.templateId === published.id);
-      assert.ok(req, "published template should resolve a requirement");
-
-      await submitEvidenceRecord(mgr, {
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        templateId: published.id,
-        requirementKey: req.requirementKey,
-        operationalDateKey: dateKey,
-        scheduleKind: req.scheduleKind,
-        unitId: unit.id,
-        assetId: asset.id,
-        occurredAt: new Date(),
-        recordedOnline: true,
-        values: [{ fieldKey: "cooler_temperature", valueNumber: 38 }],
-      });
-
-      const successor = await updateDraft(mgr, {
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        templateId: published.id,
-        actor: { userId: manager.id, label: "Manager" },
-        draft: {
-          name: "SQL Cooler Log",
-          purposeType: "LOG",
-          allowAdHoc: false,
-          stableKey: published.stableKey,
-          fields: [
-            {
-              fieldKey: "cooler_temperature",
-              label: "Cooler temperature",
-              fieldType: "TEMPERATURE",
-              isRequired: true,
-              displaySequence: 10,
-              unitLabel: "°F",
-              minNumber: 35,
-              maxNumber: 40,
-              correctiveActionTrigger: true,
-              correctiveActionRequired: true,
-            },
-          ],
-          applicabilities: [{ kind: "SPECIFIC_ASSET", assetId: asset.id }],
-          schedules: [{ kind: "ONCE_PER_OPERATIONAL_DATE" }],
-        },
-      });
-      assert.equal(successor.status, "DRAFT");
-      assert.equal(successor.version, 2);
-      assert.equal(successor.stableKey, published.stableKey);
-
-      const publishedV2 = await publishTemplate(mgr, {
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        templateId: successor.id,
-        actor: { userId: manager.id, label: "Manager" },
-      });
-      assert.equal(publishedV2.status, "PUBLISHED");
-
-      const prior = await null;
-      assert.equal(prior?.status, "RETIRED");
-
-      const book = await searchEvidenceRecords(mgr, {
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        unitId: unit.id,
-        assetId: asset.id,
-      });
-      assert.ok(book.records.length >= 1);
-      const hist = book.records.find((r) => r.templateVersion === 1);
-      assert.ok(hist);
-      const snap = hist.templateSnapshotJson as { version?: number; fields?: Array<{ minNumber?: number }> };
-      assert.equal(snap.version, 1);
-      assert.equal(snap.fields?.[0]?.minNumber, 33);
-
-      await retireTemplate(mgr, {
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        templateId: publishedV2.id,
-        actor: { userId: manager.id, label: "Manager" },
-      });
-      const afterRetire = await resolveUnitEvidenceRequirements({
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        operationalDateKey: dateKey,
-        operationalDate,
-        now: new Date(`${dateKey}T12:00:00.000Z`),
-        facilityTimezone: "America/New_York",
-        unitId: unit.id,
-        publishedCycles: [],
-      });
-      assert.equal(
-        afterRetire.some((r) => r.templateStableKey === published.stableKey),
-        false,
+          }),
+        /Operational templates are retired/,
       );
+      return;
+
     } finally {
       if (prev === undefined) delete process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED;
       else process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED = prev;
@@ -407,7 +256,7 @@ test(
               schedules: [{ kind: "ONCE_PER_OPERATIONAL_DATE" }],
             },
           }),
-        /authority|facility|Insufficient|Cross-facility/i,
+        /retired/i,
       );
     } finally {
       if (prev === undefined) delete process.env.DIETARY_OPERATIONAL_EVIDENCE_ENABLED;

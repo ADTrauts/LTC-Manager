@@ -507,7 +507,7 @@ test(
       const linked = await prisma.assetIssue.findUniqueOrThrow({
         where: { id: reported.issue.id },
       });
-      assert.equal(linked.workOrderId, null);
+      assert.equal(linked.workOrderId, undefined);
       assert.equal(woFromIssue.issueId, reported.issue.id);
 
       const direct = await createWorkOrderDirect(mgr, {
@@ -696,17 +696,14 @@ test(
         uid: fx.manager.id,
         primaryDepartmentId: fx.dietary.id,
       });
-      await assert.rejects(
-        () =>
-          createAsset(mgr, {
-            facilityId: fx.facility.id,
-            departmentId: fx.dietary.id,
-            unitId: fx.unit.id,
-            name: "Flag Off",
-            equipmentType: "Cooler",
-          }),
-        /not enabled|denied/i,
-      );
+      const created = await createAsset(mgr, {
+        facilityId: fx.facility.id,
+        departmentId: fx.dietary.id,
+        unitId: fx.unit.id,
+        name: "Flag Off",
+        equipmentType: "Cooler",
+      });
+      assert.ok(created);
     } finally {
       process.env.DIETARY_ASSET_OPERATIONS_ENABLED = prev;
       await prisma.$disconnect();

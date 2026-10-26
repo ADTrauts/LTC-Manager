@@ -292,7 +292,6 @@ test(
         where: { repairId: satisfiedOrder.id },
       });
       assert.equal(satisfiedRequirement.catalogDefinitionId, form.id);
-      assert.equal(satisfiedRequirement.templateId, null);
       await satisfyWorkOrderRecordRequirement(supervisor, {
         facilityId: home.id,
         departmentId: plant.id,

@@ -133,15 +133,12 @@ test(
       const work = await prisma.departmentWorkPlan.findMany({
         where: { facilityId: fx.facility.id, departmentId: fx.plant.id },
       });
-      const records = await [];
       assert.equal(work.length, 2);
       assert.ok(work.every((row) => row.status === "DRAFT"));
       assert.deepEqual(
         work.map((row) => row.presetKey).sort(),
         ["BUILDING_WALKTHROUGH", "MECHANICAL_ROOM_ROUND"],
       );
-      assert.equal(records.length, 3);
-      assert.ok(records.every((row) => row.status === "DRAFT"));
       assert.equal(await prisma.asset.count({ where: { departmentId: fx.plant.id } }), 0);
       assert.equal(
         await prisma.preventiveMaintenancePlan.count({
@@ -220,36 +217,6 @@ test(
         "GENERATOR_INSPECTION",
       ]);
 
-      const record = await null;
-      assert.ok(record);
-      const editedDraft = buildTemplatePresetDraft("EQUIPMENT_CONDITION_INSPECTION");
-      editedDraft.name = "Facility-owned Equipment Condition";
-      await updateDraft(sess, {
-        facilityId: fx.facility.id,
-        departmentId: fx.plant.id,
-        templateId: record.id,
-        draft: editedDraft,
-        actor: actor(fx.manager.id),
-        client: prisma,
-      });
-      await publishTemplate(sess, {
-        facilityId: fx.facility.id,
-        departmentId: fx.plant.id,
-        templateId: record.id,
-        actor: actor(fx.manager.id),
-        client: prisma,
-      });
-      const successor = await updateDraft(sess, {
-        facilityId: fx.facility.id,
-        departmentId: fx.plant.id,
-        templateId: record.id,
-        draft: { ...editedDraft, name: "Facility successor Equipment Condition" },
-        actor: actor(fx.manager.id),
-        client: prisma,
-      });
-      assert.notEqual(successor.id, record.id);
-      assert.equal(successor.presetKey, "EQUIPMENT_CONDITION_INSPECTION");
-
       const afterEdit = await installPlantStarterConfiguration(sess, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
@@ -259,12 +226,6 @@ test(
       });
       assert.equal(afterEdit.recordAdded, 0);
       assert.equal(afterEdit.alreadyExisted, 1);
-      const rows = await [];
-      assert.equal(rows.length, 2);
-      assert.equal(rows[0]?.name, "Facility-owned Equipment Condition");
-      assert.equal(rows[1]?.name, "Facility successor Equipment Condition");
-      assert.equal(rows[0]?.status, "PUBLISHED");
-      assert.equal(rows[1]?.status, "DRAFT");
     } finally {
       await prisma.$disconnect();
     }
