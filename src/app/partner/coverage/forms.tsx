@@ -81,7 +81,7 @@ export function PartnerCoverageForms({
         <Result state={callOff} />
       </form>
       <form action={moveAction} className="space-y-2 rounded-lg border border-zinc-200 bg-white p-4">
-        <h2 className="text-sm font-semibold">Move the day's assignment</h2>
+        <h2 className="text-sm font-semibold">Move this day&apos;s assignment</h2>
         <select name="employeeId" required className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm">
           <option value="">Person</option>
           {people.map((person) => (

@@ -53,7 +53,7 @@ export default async function PartnerWorkPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Work</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Work plans for this Department. A step can open one of your organization's Catalog Records.
+          Work plans for this Department. A step can open a Catalog Record owned by your organization.
         </p>
       </div>
       <PartnerWorkForms

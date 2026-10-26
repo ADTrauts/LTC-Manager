@@ -28,6 +28,7 @@ import {
   useActionState,
   useEffect,
   useState,
+  useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
@@ -313,7 +314,11 @@ export function DashboardEditor({
     items.map((item) => ({ ...item, rows: cardRows(item.rows) })),
   );
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [live, setLive] = useState(false);
+  const live = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const [saveState, saveAction, savePending] = useActionState<DashboardLayoutActionResult | null, FormData>(
     saveDashboardLayout,
     null,
@@ -332,9 +337,6 @@ export function DashboardEditor({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  useEffect(() => {
-    setLive(true);
-  }, []);
   useEffect(() => {
     if (saveState?.ok || resetState?.ok) router.push(returnHref);
   }, [resetState, returnHref, router, saveState]);

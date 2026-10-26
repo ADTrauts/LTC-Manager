@@ -53,7 +53,7 @@ export default async function PartnerRhythmPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Operating Rhythm</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Cycles, phases, and key points for this Department. They use the facility's rooms.
+          Cycles, phases, and key points for this Department. They use the facility rooms.
         </p>
       </div>
       <PartnerRhythmForms drafts={drafts} />

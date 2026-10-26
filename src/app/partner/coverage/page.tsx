@@ -57,7 +57,7 @@ export default async function PartnerCoveragePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">People & Coverage</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Shifts, call-offs, and moves for this Department. Rooms stay the facility's.
+          Shifts, call-offs, and moves for this Department. Rooms stay with the facility.
         </p>
       </div>
       <PartnerCoverageForms people={people} places={places} />
