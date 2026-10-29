@@ -2,13 +2,14 @@
 
 **Current identity:** **Vssyl** is a Business Operations Platform. See [12 — Vssyl Brand](./12_VSSYL_BRAND.md).
 
-**Current architecture authority** is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). Its [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026) (October 26, 2026) is the plug-in contract: what the platform is, what a Department is, who can exist, which words stay apart, where people start, why the Marketplace and Vssyl Console exist, and how a new part is added. The [Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) (October 20, 2026) is the decision that amendment records.
+**Current architecture authority** is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md). Its [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026) (October 26, 2026) is the plug-in contract: what the platform is, what a Department is, who can exist, which words stay apart, where people start, why the Marketplace and Vssyl Console exist, and how a new part is added. The [Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) (October 20, 2026) is the decision that amendment records. The [Platform Primitives & Engines Registry](./15_PLATFORM_PRIMITIVES_AND_ENGINES_REGISTRY.md) is the companion reuse map: what already owns a fact, and the guardrail to extend that owner before inventing another. It does not supersede the Constitution.
 
 ## Current authority
 
 | Document | Owns |
 |----------|------|
 | [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md) | Platform, Department Product, Facility configuration, Run, History / Audit, Governance |
+| [15 — Platform Primitives & Engines Registry](./15_PLATFORM_PRIMITIVES_AND_ENGINES_REGISTRY.md) | Companion reuse registry. Extend before inventing. Does not supersede the Constitution. |
 | [03 — Domain Model](./03_PRODUCT_DOMAIN_MODEL.md) | Business relationships for those layers |
 | [05 — Operational Philosophy](./05_OPERATIONAL_PHILOSOPHY.md) | How a service day runs |
 | [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md) | Manager vocabulary |
