@@ -159,6 +159,14 @@ ONB-03 was separately authorized after ONB-02. D09 and the approved commercial p
 
 Actual verification and the final phase verdict belong in [the tracker](./PHASE_TRACKER.md).
 
+## Setup guide — October 26, 2026
+
+The product owner replaced the free section tabs on `/setup` with one guided path. Each question opens the next question. Earlier answers can be reopened. Later questions stay closed until reached. The questions stay in this order: Vssyl, Products, the building, equipment, one page per chosen or already licensed Product, people, then acknowledgement. The first question is titled Set up your Vssyl. Checkout returns to the building. A licensed Product waits for its own question. No Product choice, and billing that is not ready, continue to the building with nothing licensed. Opening Facility Builder or Asset Builder leaves the question in place and hides the rest of the platform. Back to setup opens the next question. Facility Builder and Asset Builder remain the tools for the building and equipment. Acknowledgement still grants no license, readiness, or publication. ONB-D10 records the workspace that this guide replaces.
+
+On October 27, 2026 the product owner kept Department building out of this guide. The Department question names the operating company and the Department head. A partner is an existing company; Vssyl Console still creates a new company. Naming the head takes their name and email in one step. Someone already on the roster is named immediately. Someone new is invited, and acceptance creates their account, adds them to that Department, and assigns them as its head. The head sets up locations, rhythm, work, and records after acknowledgement, in Department Builder or the partner workspace. Who runs a Department is unchanged.
+
+On October 27, 2026 the product owner accepted this guide as complete. The questions are Vssyl, Products, the building, equipment, who runs each ready Department, people, and acknowledgement. A partner runs a Department only when that switch is on. This acceptance does not complete ONB-07, authorize a pilot, or authorize a live charge.
+
 
 ## ONB-D11 — ONB-04 canonical imports, credentials and recovery — implemented design
 

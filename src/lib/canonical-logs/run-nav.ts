@@ -6,7 +6,8 @@
  *   Log Book — what has already been recorded
  *
  * SUPERVISOR+ keep both. STAFF keep due Logs only (Log Book is SUPERVISOR-gated).
- * Legacy `/logs` is hidden while canonical logs are enabled.
+ * Legacy `/logs` is hidden while canonical logs are on, including All Departments.
+ * A department still on the previous engine keeps legacy `/logs` and drops due Logs.
  * `/staffing/templates` is not the canonical Build surface (`/build/logs` is).
  */
 
@@ -79,4 +80,29 @@ export function applyCanonicalLogsNavRewrite<T extends { href: string }>(
   }
 
   return result;
+}
+
+/**
+ * All Departments follows the facility capability. A selected department follows its engine.
+ * The previous engine keeps one Logs item, the legacy surface.
+ */
+export function applyRunLogsNav<T extends { href: string }>(
+  items: readonly T[],
+  input: {
+    capabilityEnabled: boolean;
+    activeDepartmentId: string | null;
+    departmentUsesCanonical: boolean;
+    canViewLogBook?: boolean;
+  },
+): T[] {
+  const canonical =
+    input.capabilityEnabled &&
+    (!input.activeDepartmentId || input.departmentUsesCanonical);
+  const rewritten = applyCanonicalLogsNavRewrite(items, canonical, {
+    canViewLogBook: input.canViewLogBook,
+  });
+  if (input.capabilityEnabled && !canonical) {
+    return rewritten.filter((item) => item.href !== DUE_LOGS_HREF);
+  }
+  return rewritten;
 }

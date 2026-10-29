@@ -24,7 +24,9 @@ import {
   enterGrantedContext,
   PostAuthRoutingError,
 } from "@/lib/post-auth-routing";
+import { FacilityProvisioningError } from "@/lib/facility-provisioning/errors";
 import { prisma } from "@/lib/prisma";
+import { resolveSignupPerson } from "@/lib/signup-person";
 import { isPublicSignupEnabled } from "@/lib/signup-policy";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -89,45 +91,71 @@ export async function POST(request: Request) {
     return rateLimitedResponse(limit.retryAfterSec);
   }
 
-  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (existing) {
-    await bcrypt.compare(data.password, ABSENT_ACCOUNT_HASH);
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, passwordHash: true, isActive: true, emailVerifiedAt: true },
+  });
+  const mailConfigured = isEmailConfigured();
+  const person = await resolveSignupPerson({
+    password: data.password,
+    mailConfigured,
+    now: new Date(),
+    existing,
+    absentAccountHash: ABSENT_ACCOUNT_HASH,
+    comparePassword: (password, hash) => bcrypt.compare(password, hash),
+    hashPassword: (password) => bcrypt.hash(password, 12),
+  });
+  if (person.outcome === "reject") {
     await registerAuthFailure(buckets);
     return NextResponse.json({ error: GENERIC_SIGNUP_FAILURE }, { status: 400 });
   }
 
-  const passwordHash = await bcrypt.hash(data.password, 12);
-  const mailConfigured = isEmailConfigured();
+  const administrator =
+    person.outcome === "reuse"
+      ? { mode: "reuse" as const, userId: person.userId }
+      : {
+          mode: "create" as const,
+          email,
+          displayName: data.adminName,
+          passwordHash: person.passwordHash,
+          emailVerifiedAt: person.emailVerifiedAt,
+        };
 
-  const created = await prisma.$transaction(async (tx) => {
-    const provisioned = await bootstrapFacilityCustomer(tx, {
-      organization: {
-        mode: "create",
-        facilityName: data.facilityName,
-        managementCompanyName,
-      },
-      facility: {
-        displayName: data.facilityName,
-        billingEmail: email,
-      },
-      administrator: {
-        mode: "create",
-        email,
-        displayName: data.adminName,
-        passwordHash,
-        emailVerifiedAt: mailConfigured ? null : new Date(),
-      },
+  let created: {
+    facility: { id: string };
+    user: { id: string; email: string; displayName: string; emailVerifiedAt: Date | null };
+  };
+  try {
+    created = await prisma.$transaction(async (tx) => {
+      const provisioned = await bootstrapFacilityCustomer(tx, {
+        organization: {
+          mode: "create",
+          facilityName: data.facilityName,
+          managementCompanyName,
+        },
+        facility: {
+          displayName: data.facilityName,
+          billingEmail: email,
+        },
+        administrator,
+      });
+      return {
+        facility: { id: provisioned.facility.id },
+        user: {
+          id: provisioned.user.id,
+          email: provisioned.user.email,
+          displayName: provisioned.user.displayName,
+          emailVerifiedAt: person.emailVerifiedAt,
+        },
+      };
     });
-    return {
-      facility: { id: provisioned.facility.id },
-      user: {
-        id: provisioned.user.id,
-        email: provisioned.user.email,
-        displayName: provisioned.user.displayName,
-        emailVerifiedAt: mailConfigured ? null : new Date(),
-      },
-    };
-  });
+  } catch (error) {
+    if (error instanceof FacilityProvisioningError && error.code === "USER_INACTIVE") {
+      await registerAuthFailure(buckets);
+      return NextResponse.json({ error: GENERIC_SIGNUP_FAILURE }, { status: 400 });
+    }
+    throw error;
+  }
 
   await resetAuthRateLimitBucket(accountBucketKey);
 

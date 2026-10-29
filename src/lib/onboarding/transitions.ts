@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { Prisma, type BillingSetupPath, type PrismaClient } from "@prisma/client";
 import type { OnboardingStep } from "@/lib/onboarding";
 
 /** Journey metadata only. Neither payment nor a license/install/Run authorization. */
@@ -14,6 +14,8 @@ export type FacilityOnboardingTransition = {
   billingEmail?: string;
   timezone?: string;
   confirmEntry?: boolean;
+  /** Recorded before checkout. Does not change an existing paid subscription. */
+  setupPath?: BillingSetupPath;
 };
 
 /** Caller owns the transaction; the Facility lock serializes all journey writers.
@@ -31,6 +33,22 @@ export async function transitionFacilityOnboarding(
   });
   const now = new Date();
   const finish = input.finish === true || input.step === "complete";
+  if (input.setupPath) {
+    const billing = await tx.facilityBilling.findUnique({
+      where: { facilityId: input.facilityId },
+      select: { status: true },
+    });
+    if (!billing) {
+      await tx.facilityBilling.create({
+        data: { facilityId: input.facilityId, status: "UNMANAGED", setupPath: input.setupPath },
+      });
+    } else if (billing.status === "UNMANAGED") {
+      await tx.facilityBilling.update({
+        where: { facilityId: input.facilityId },
+        data: { setupPath: input.setupPath },
+      });
+    }
+  }
   return tx.facility.update({
     where: { id: input.facilityId },
     data: {

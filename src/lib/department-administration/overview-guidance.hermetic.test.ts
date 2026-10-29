@@ -57,11 +57,11 @@ function row(partial: Partial<CycleLifecycleRow> & { stableKey: string; status: 
 describe("Overview guidance derivation", () => {
   it("identifies Vssyl Department Products without exposing keys as the title", () => {
     assert.deepEqual(resolveOverviewProductIdentity("DIETARY"), {
-      name: "Healthcare Food & Nutrition",
+      name: "Food and Nutrition",
       isVssylProduct: true,
     });
     assert.deepEqual(resolveOverviewProductIdentity("HEALTHCARE_FOOD_NUTRITION"), {
-      name: "Healthcare Food & Nutrition",
+      name: "Food and Nutrition",
       isVssylProduct: true,
     });
     assert.deepEqual(resolveOverviewProductIdentity("PLANT"), {

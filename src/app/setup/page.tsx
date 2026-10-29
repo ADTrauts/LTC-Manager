@@ -1,13 +1,16 @@
 import { redirect } from "next/navigation";
 import { requireAtLeastRole } from "@/lib/access";
 import { SetupWizard } from "@/components/setup-wizard";
+import { ASSET_CSV_TEMPLATE } from "@/lib/bulk-import/asset-import";
+import { FACILITY_STRUCTURE_CSV_TEMPLATE } from "@/lib/bulk-import/facility-structure";
+import { HEADERS } from "@/lib/setup-imports/public-contract";
 import { getSession } from "@/lib/auth";
 import { applyCheckoutSessionId } from "@/lib/billing/sync-from-stripe";
 import { loadSetupWorkspace } from "@/lib/onboarding/workspace";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
 
-export default async function SetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string }> }) {
+export default async function SetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string; returned?: string; review?: string }> }) {
   const session = await getSession();
   if (!session?.facilityId) redirect("/login");
   requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
@@ -28,5 +31,5 @@ export default async function SetupPage({ searchParams }: { searchParams: Promis
       measurement: "earliest stored Facility location; observation may repeat; not operational readiness",
     });
   }
-  return <main className="min-h-screen bg-zinc-50 px-4 py-8"><SetupWizard key={session.facilityId} initial={JSON.parse(JSON.stringify(workspace))} checkoutOutcome={checkoutOutcome} checkout={params.checkout ?? null} /></main>;
+  return <main className="min-h-screen bg-zinc-50 px-4 py-8"><SetupWizard key={session.facilityId} initial={JSON.parse(JSON.stringify(workspace))} checkoutOutcome={checkoutOutcome} checkout={params.checkout ?? null} returned={params.returned ?? null} forceChoice={params.review === "choice"} files={{ facility: FACILITY_STRUCTURE_CSV_TEMPLATE, employees: `${HEADERS.workforce.join(",")}\n`, assets: ASSET_CSV_TEMPLATE }} /></main>;
 }

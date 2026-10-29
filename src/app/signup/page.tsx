@@ -33,7 +33,7 @@ export default async function SignupPage() {
   return (
     <HarborAuthFrame
       title="Facility operations, without the noise."
-      description="Create your facility workspace and start the guided setup flow."
+      description="Create your facility. The first step is choosing self setup or Vssyl setup."
       points={HARBOR_PRODUCT_POINTS}
       actions={<HarborAsideSecondaryLink href="/login">Sign in</HarborAsideSecondaryLink>}
     >

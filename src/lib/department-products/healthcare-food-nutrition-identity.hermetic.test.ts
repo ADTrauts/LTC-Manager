@@ -85,8 +85,8 @@ function mockDb(options: {
   };
 }
 
-describe("Healthcare Food & Nutrition product identity", () => {
-  it("publishes Dietary and Plant as AVAILABLE customer Products and keeps EVS in development", () => {
+describe("Food and Nutrition product identity", () => {
+  it("publishes Food and Nutrition and Plant as AVAILABLE customer Products and keeps EVS in development", () => {
     const catalog = deriveFacilityDepartmentCatalog({
       departments: [],
       entitlements: [],
@@ -101,7 +101,7 @@ describe("Healthcare Food & Nutrition product identity", () => {
       [
         {
           productKey: "HEALTHCARE_FOOD_NUTRITION",
-          name: "Healthcare Food & Nutrition",
+          name: "Food and Nutrition",
           status: "AVAILABLE",
           description: "Food and nutrition operations for hospitals and long-term care.",
         },
@@ -135,12 +135,12 @@ describe("Healthcare Food & Nutrition product identity", () => {
     assert.equal(listDepartmentProducts().filter((product) => product.status === "AVAILABLE").length, 2);
   });
 
-  it("resolves legacy DIETARY to Healthcare Food & Nutrition without a second sellable Product", () => {
+  it("resolves legacy DIETARY to Food and Nutrition without a second sellable Product", () => {
     const alias = getDepartmentProduct("DIETARY");
     const canonical = getDepartmentProduct("HEALTHCARE_FOOD_NUTRITION");
     assert.ok(alias);
     assert.equal(alias.productKey, "HEALTHCARE_FOOD_NUTRITION");
-    assert.equal(alias.name, "Healthcare Food & Nutrition");
+    assert.equal(alias.name, "Food and Nutrition");
     assert.equal(alias, canonical);
     assert.equal(isDepartmentProductOfferedForSale(alias), true);
     assert.deepEqual(resolvePublishedDepartmentProductKeys(["DIETARY"]), ["DIETARY"]);
@@ -236,7 +236,7 @@ describe("Healthcare Food & Nutrition product identity", () => {
     );
     assert.notEqual(
       customerCurrentDepartmentLabel({ name: "Dietary", key: "DIETARY" }),
-      "Healthcare Food & Nutrition",
+      "Food and Nutrition",
     );
   });
 

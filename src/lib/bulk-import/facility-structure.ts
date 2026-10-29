@@ -103,7 +103,7 @@ export const FACILITY_STRUCTURE_CSV_TEMPLATE = rowsToCsv(
   [
     ["", "Floor 1", "1A - Naval Park", "Room 101", "Resident Room", "101", "", "", "", ""],
     ["", "Floor 1", "1A - Naval Park", "Room 102", "Resident Room", "102", "", "", "", ""],
-    ["", "Floor 1", "1A - Naval Park", "Servery", "Servery", "", "", "", "Dietary", ""],
+    ["", "Floor 1", "1A - Naval Park", "Servery", "Servery", "", "", "", "Food and Nutrition", ""],
     ["", "Floor 1", "1A - Naval Park", "Dining Room", "Dining Room", "", "", "", "", ""],
     ["", "Floor 1", "1A - Naval Park", "Clean Utility", "Utility Room", "", "", "", "", ""],
   ],

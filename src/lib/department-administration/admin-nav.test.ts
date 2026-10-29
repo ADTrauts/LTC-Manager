@@ -120,6 +120,14 @@ describe("Department Builder local navigation", () => {
       departmentAdminHref("dept1", "maintenance"),
       "/build/departments/dept1/preventive-maintenance",
     );
+    assert.equal(
+      departmentAdminHref("dept1", "locations", "prof1", true),
+      "/build/departments/dept1?tab=locations&profile=prof1&onboarding=workspace",
+    );
+    assert.equal(
+      departmentAdminHref("dept1", "maintenance", null, true),
+      "/build/departments/dept1/preventive-maintenance?onboarding=workspace",
+    );
     assert.ok(!departmentAdminHref("dept1", "overview").includes("/sidebar"));
     assert.ok(!departmentAdminHref("dept1", "locations").includes("/units"));
   });

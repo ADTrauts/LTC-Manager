@@ -193,20 +193,30 @@ export function departmentAdminHref(
   departmentId: string,
   tab: DepartmentAdminPrimaryTabId | DepartmentAdminRetiredTabId,
   profileId?: string | null,
+  setupWorkspace?: boolean,
 ): string {
   const resolved = isDepartmentAdminRetiredTabId(tab)
     ? DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[tab]
     : tab;
   if (resolved === "maintenance") {
-    return preventiveMaintenanceBuilderHref(departmentId);
+    return withSetupWorkspace(preventiveMaintenanceBuilderHref(departmentId), setupWorkspace);
   }
   const params = new URLSearchParams();
   if (resolved !== "overview") params.set("tab", resolved);
   if (profileId) params.set("profile", profileId);
+  if (setupWorkspace) params.set("onboarding", "workspace");
   const query = params.toString();
   return query
     ? `/build/departments/${departmentId}?${query}`
     : `/build/departments/${departmentId}`;
+}
+
+function withSetupWorkspace(href: string, setupWorkspace?: boolean) {
+  if (!setupWorkspace) return href;
+  const [path, query = ""] = href.split("?");
+  const params = new URLSearchParams(query);
+  params.set("onboarding", "workspace");
+  return `${path}?${params.toString()}`;
 }
 
 export function profileStatusBadgeVariant(

@@ -107,7 +107,7 @@ test("authorized detail load presents billing and entitlement mirror", async () 
   const plant = detail.licensing.find((row) => row.productKey === "PLANT");
   const evs = detail.licensing.find((row) => row.productKey === "EVS");
   assert.equal(food?.licensed, true);
-  assert.equal(food?.name, "Healthcare Food & Nutrition");
+  assert.equal(food?.name, "Food and Nutrition");
   assert.equal(plant?.licensed, false);
   assert.equal(evs?.licensed, false);
 });

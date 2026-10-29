@@ -1,10 +1,11 @@
-import { Prisma, EmploymentType, type PrismaClient } from "@prisma/client";
+import { Prisma, EmployeeStatus, EmploymentType, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import type { FacilitySession } from "@/lib/auth";
 import { normalizeAccountIdentifier } from "@/lib/auth-rate-limit";
 import { ACCOUNT_INVITE_TTL_MS, hashAccountInviteToken, mintAccountInviteToken } from "@/lib/account-invite/tokens";
 import { resolveCurrentInternalFacilityRole } from "@/lib/facility-access/internal-facility-role";
 import { onboardFacilityEmployee } from "@/lib/employee-identity/onboard";
+import { employeeBelongsToDepartment, syncEmployeeDepartmentMembership } from "@/lib/employee-membership";
 import { validateSessionAuthority } from "@/lib/session-revocation";
 import { isEmailConfigured, sendAccountInviteEmail } from "@/lib/email";
 import { trackEvent } from "@/lib/telemetry";
@@ -39,11 +40,45 @@ export function assertSetupInvitationActor(session: FacilitySession, expectedFac
   }
 }
 
-/** Issue intent only. No User, Employee, membership or role is created until acceptance. */
-export async function issueSetupManagerInvitation(db: PrismaClient, session: FacilitySession, input: { expectedFacilityId: string; email: string; retry?: boolean }) {
+/** Names a person already on this Facility's roster as Department head. Returns null when no matching Employee exists. */
+export async function nameExistingDepartmentHead(db: PrismaClient, session: FacilitySession, input: { expectedFacilityId: string; departmentId: string; email: string }) {
   assertSetupInvitationActor(session, input.expectedFacilityId);
   const email = normalizeAccountIdentifier(input.email);
+  const department = await db.department.findFirst({
+    where: { id: input.departmentId, facilityId: session.facilityId, isActive: true },
+    select: { id: true },
+  });
+  if (!department) throw new SetupInvitationError("This Department is not available.");
+  const employee = await db.employee.findFirst({
+    where: { facilityId: session.facilityId, email: { equals: email, mode: "insensitive" }, status: { not: EmployeeStatus.TERMINATED } },
+    select: { id: true, firstName: true, lastName: true, primaryDepartmentId: true, employeeDepartments: { select: { departmentId: true } } },
+  });
+  if (!employee) return null;
+  const addMembership = employeeBelongsToDepartment(employee, department.id) ? null : {
+    primaryDepartmentId: employee.primaryDepartmentId,
+    additionalDepartmentIds: [...employee.employeeDepartments.map((row) => row.departmentId), department.id],
+  };
+  await db.$transaction(async (tx) => {
+    await lockInviter(tx, session.uid, session.facilityId);
+    if (!(await validateSessionAuthority(session, tx)).valid) throw new SetupInvitationError("Your session changed. Sign in again.");
+    if (addMembership) {
+      await syncEmployeeDepartmentMembership(tx, { employeeId: employee.id, facilityId: session.facilityId, ...addMembership });
+    }
+    await tx.department.update({ where: { id: department.id }, data: { headEmployeeId: employee.id } });
+  }, { isolationLevel: "Serializable" });
+  return { employeeId: employee.id, name: `${employee.firstName} ${employee.lastName}`.trim() };
+}
+
+/** Issue intent only. No User, Employee, membership or role is created until acceptance. A Department head invitation stores the name and Department for that acceptance. */
+export async function issueSetupManagerInvitation(db: PrismaClient, session: FacilitySession, input: { expectedFacilityId: string; email: string; retry?: boolean; departmentId?: string; firstName?: string; lastName?: string }) {
+  assertSetupInvitationActor(session, input.expectedFacilityId);
+  const email = normalizeAccountIdentifier(input.email);
+  const firstName = input.firstName?.trim() ?? "";
+  const lastName = input.lastName?.trim() ?? "";
   if (!z.email().safeParse(email).success || email === normalizeAccountIdentifier(session.email)) throw new SetupInvitationError("Enter another person's valid email address.");
+  if (input.departmentId && (!z.string().min(1).max(100).safeParse(firstName).success || !z.string().min(1).max(100).safeParse(lastName).success)) {
+    throw new SetupInvitationError("Enter the Department head's first and last name.");
+  }
   const minted = mintAccountInviteToken();
   const invitation = await db.$transaction(async (tx) => {
     await lockInviter(tx, session.uid, session.facilityId);
@@ -58,10 +93,15 @@ export async function issueSetupManagerInvitation(db: PrismaClient, session: Fac
     if (person && (!person.isActive || await tx.userFacilityAccess.findUnique({ where: { userId_facilityId: { userId: person.id, facilityId: session.facilityId } }, select: { id: true } }))) {
       throw new SetupInvitationError("This person has existing or historical access. Use People to review their role or lifecycle; an invitation cannot change it.");
     }
+    if (input.departmentId) {
+      const department = await tx.department.findFirst({ where: { id: input.departmentId, facilityId: session.facilityId, isActive: true }, select: { id: true } });
+      if (!department) throw new SetupInvitationError("This Department is not available.");
+    }
+    const head = input.departmentId ? { departmentId: input.departmentId, firstName, lastName } : {};
     return tx.onboardingManagerInvite.upsert({
       where: { facilityId_email: { facilityId: session.facilityId, email } },
-      create: { facilityId: session.facilityId, email, tokenHash: tokenHash(minted.rawToken), expiresAt: minted.expiresAt, invitedByUserId: session.uid, deliveryStatus: null },
-      update: { tokenHash: tokenHash(minted.rawToken), expiresAt: minted.expiresAt, invitedByUserId: session.uid, deliveryStatus: null, lastDeliveryAt: null },
+      create: { facilityId: session.facilityId, email, tokenHash: tokenHash(minted.rawToken), expiresAt: minted.expiresAt, invitedByUserId: session.uid, deliveryStatus: null, ...head },
+      update: { tokenHash: tokenHash(minted.rawToken), expiresAt: minted.expiresAt, invitedByUserId: session.uid, deliveryStatus: null, lastDeliveryAt: null, ...head },
       select: { id: true },
     });
   }, { isolationLevel: "Serializable" });
@@ -79,7 +119,7 @@ export async function deliverSetupManagerInvitation(db: PrismaClient, input: { i
   if ((deps.configured ?? isEmailConfigured)()) {
     const url = new URL("/accept-invite", input.origin); url.searchParams.set("kind", "manager"); url.searchParams.set("token", input.rawToken);
     try {
-      const sent = await (deps.send ?? sendAccountInviteEmail)({ to: row.email, displayName: "", facilityDisplayName: row.facility.displayName, inviteUrl: url.toString(), expiresInDays: ACCOUNT_INVITE_TTL_MS / 86_400_000 });
+      const sent = await (deps.send ?? sendAccountInviteEmail)({ to: row.email, displayName: [row.firstName, row.lastName].filter(Boolean).join(" "), facilityDisplayName: row.facility.displayName, inviteUrl: url.toString(), expiresInDays: ACCOUNT_INVITE_TTL_MS / 86_400_000 });
       deliveryStatus = sent.sent ? "SENT" : sent.reason === "not_configured" ? "NOT_CONFIGURED" : "FAILED";
     } catch { deliveryStatus = "FAILED"; }
   }
@@ -114,10 +154,16 @@ export async function acceptSetupManagerInvitation(db: PrismaClient, input: { ra
     if (await tx.employee.findFirst({ where: { facilityId: row.facilityId, OR: [{ email: { equals: row.email, mode: "insensitive" } }, ...(user ? [{ userId: user.id }] : [])] }, select: { id: true } })) throw new SetupInvitationError("An Employee already exists. Use the existing identity or lifecycle actions in People.");
     if (!z.string().trim().min(1).max(100).safeParse(input.firstName).success || !z.string().trim().min(1).max(100).safeParse(input.lastName).success) throw new SetupInvitationError("First and last names are required.");
     if (!Object.values(EmploymentType).includes(input.employmentType)) throw new SetupInvitationError("Choose your work arrangement.");
+    const department = row.departmentId
+      ? await tx.department.findFirst({ where: { id: row.departmentId, facilityId: row.facilityId, isActive: true }, select: { id: true } })
+      : null;
+    if (row.departmentId && !department) throw new SetupInvitationError("This Department is no longer available. Ask the Facility Administrator for a new invitation.");
     const result = await onboardFacilityEmployee(tx, {
       facilityId: row.facilityId, actorUserId: row.invitedByUserId, firstName: input.firstName.trim(), lastName: input.lastName.trim(), email: row.email,
       roleType: "MANAGER", employmentType: input.employmentType, status: "ACTIVE", confirmExistingUser: Boolean(user),
+      extras: department ? { primaryDepartmentId: department.id } : undefined,
     });
+    if (department) await tx.department.update({ where: { id: department.id }, data: { headEmployeeId: result.employeeId } });
     const now = new Date();
     if (!user?.passwordHash) await tx.user.update({ where: { id: result.userId }, data: { passwordHash: input.passwordHash!, emailVerifiedAt: now } });
     await tx.onboardingManagerInvite.update({ where: { id: row.id }, data: { grantAcceptedAt: now, acceptedAt: row.acceptedAt ?? now, acceptedByUserId: result.userId } });

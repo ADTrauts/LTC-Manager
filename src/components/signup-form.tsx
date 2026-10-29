@@ -42,7 +42,10 @@ export function SignupForm() {
     <form action={onSubmit} className="w-full max-w-xl space-y-4 rounded-xl border border-[var(--border)] bg-white p-6 shadow-sm">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900">Create your Vssyl account</h1>
-        <p className="mt-1 text-sm text-zinc-600">Set up your facility and start onboarding in a few minutes.</p>
+        <p className="mt-1 text-sm text-zinc-600">
+          Set up a facility, then choose self setup or Vssyl setup. The same Vssyl account can open another facility.
+          Use that email and its current password.
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

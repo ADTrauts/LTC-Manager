@@ -242,7 +242,14 @@ async function continueFacilityRequest(
     }
   }
 
-  return NextResponse.next();
+  return nextFacilityResponse(request);
+}
+
+function nextFacilityResponse(request: NextRequest) {
+  if (request.nextUrl.searchParams.get("onboarding") !== "workspace") return NextResponse.next();
+  const headers = new Headers(request.headers);
+  headers.set("x-vssyl-setup-halo", "1");
+  return NextResponse.next({ request: { headers } });
 }
 
 export async function proxy(request: NextRequest) {

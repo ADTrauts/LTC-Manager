@@ -14,7 +14,7 @@ import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export type GuardedModalSize = "sm" | "md" | "lg";
+export type GuardedModalSize = "sm" | "md" | "lg" | "xl";
 
 type GuardedModalProps = {
   open: boolean;
@@ -24,6 +24,7 @@ type GuardedModalProps = {
   children: ReactNode;
   closeLabel?: string;
   size?: GuardedModalSize;
+  closeTestId?: string;
   "data-testid"?: string;
 };
 
@@ -31,6 +32,7 @@ const SIZE_CLASS: Record<GuardedModalSize, string> = {
   sm: "max-w-md",
   md: "max-w-xl",
   lg: "max-w-3xl",
+  xl: "max-w-5xl",
 };
 
 /**
@@ -45,6 +47,7 @@ export function GuardedModal({
   children,
   closeLabel = "Cancel",
   size = "lg",
+  closeTestId,
   "data-testid": dataTestId,
 }: GuardedModalProps) {
   const titleId = useId();
@@ -151,7 +154,7 @@ export function GuardedModal({
             type="button"
             onClick={requestClose}
             className={`min-h-10 shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 ${FOCUS_RING_CLASS}`}
-            data-testid="guarded-modal-cancel"
+            data-testid={closeTestId ?? "guarded-modal-cancel"}
           >
             {closeLabel}
           </button>

@@ -1,3 +1,4 @@
+import { SetupBuilderFrame } from "@/components/setup-builder-frame";
 import { SetupWorkspaceLink } from "@/components/setup-workspace-link";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
@@ -40,13 +41,19 @@ import { AssetBuilderClient } from "./asset-builder-client";
  * Owns identity, location, responsible Department, Responsible Organization,
  * Preferred Repair Provider, criticality, and Active/Retired lifecycle.
  */
-export default async function AssetBuilderPage() {
+export default async function AssetBuilderPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ onboarding?: string }>;
+}) {
   noStore();
 
   const session = await getSession();
   if (!session?.facilityId) {
     redirect("/login");
   }
+  const query = searchParams ? await searchParams : {};
+  const setupWorkspace = query.onboarding === "workspace";
   const facilityId = session.facilityId;
   const assetOpsEnabled = await isSharedAssetOperationsEnabled(facilityId, session);
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
@@ -106,10 +113,16 @@ export default async function AssetBuilderPage() {
   const PhotoPlaceholder = AppIcons.assets;
 
   return (
+    <SetupBuilderFrame active={setupWorkspace}>
     <section className="space-y-4" data-testid="asset-builder-page">
-      <SetupWorkspaceLink role={session.role} />
+      <SetupWorkspaceLink role={session.role} returned={setupWorkspace ? "equipment" : undefined} />
       <AssetBuilderClient
         isEmpty={assets.length === 0}
+        importWorkspace={{
+          facilityId,
+          actorKey: `${session.authKind ?? "user"}:${session.uid}`,
+          departments: departments.map((department) => ({ id: department.id, key: department.key, name: department.name })),
+        }}
         addForm={
           <AssetAddForm
             units={units}
@@ -311,5 +324,6 @@ export default async function AssetBuilderPage() {
         </section>
       </AssetBuilderClient>
     </section>
+    </SetupBuilderFrame>
   );
 }

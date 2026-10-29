@@ -18,7 +18,7 @@
 | **Facility** | Operational site with timezone, users, units, departments. Primary tenancy boundary for day-to-day data. |
 | **UserFacilityAccess** | Explicit grant for a user to enter a facility (internal / same-parent-Organization path). |
 | **User authorization (partner)** | Not implemented in Phase 2A. Partner relationship + Department scope do **not** grant any user Facility access. |
-| **Department Product** | Vssyl-owned operational product (Healthcare Food & Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
+| **Department Product** | Vssyl-owned operational product (Food and Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
 | **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Work preset, Operating Rhythm starter or Menu template. Included or Paid. Runs on Platform engines. Today only Records forms exist as items (`CatalogLogDefinition`). |
 | **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. Operational records stay facility/department-scoped even when the operator differs from the parent Organization. |

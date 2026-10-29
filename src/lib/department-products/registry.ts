@@ -14,8 +14,8 @@
  * Customer visibility requires release status AVAILABLE.
  *
  * Product identity and facility Department identity are not the same thing.
- * Healthcare Food & Nutrition is the Vssyl Product. A facility may locally
- * name its installed Department Dietary, Food & Nutrition, or something else.
+ * Food and Nutrition is the Vssyl Product. Healthcare is its industry.
+ * A new install is named Food and Nutrition. A facility may rename it.
  *
  * Compatibility:
  *   Canonical product key: HEALTHCARE_FOOD_NUTRITION
@@ -119,9 +119,9 @@ export type DepartmentProduct = {
 const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
   {
     productKey: "HEALTHCARE_FOOD_NUTRITION",
-    name: "Healthcare Food & Nutrition",
+    name: "Food and Nutrition",
     installationKey: "DIETARY",
-    defaultDepartmentName: "Dietary",
+    defaultDepartmentName: "Food and Nutrition",
     industry: "HEALTHCARE",
     facilityTypes: ["HOSPITAL", "LONG_TERM_CARE"],
     status: "AVAILABLE",
@@ -395,7 +395,7 @@ export function isDepartmentProductCommerciallyRecognized(product: {
 
 /**
  * Whether this Department's installed Product offers Menus.
- * Resolves DIETARY → Healthcare Food & Nutrition. Not a Menu-table hard-code.
+ * Resolves DIETARY → Food and Nutrition. Not a Menu-table hard-code.
  */
 export function departmentProductOffersMenus(departmentKey: string | null | undefined): boolean {
   return getDepartmentProduct(departmentKey)?.starters.menus === true;

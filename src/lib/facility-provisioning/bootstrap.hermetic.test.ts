@@ -469,7 +469,9 @@ test("signup and Harbor share bootstrap and do not install products or claims", 
   assert.match(signup, /bootstrapFacilityCustomer/);
   assert.match(signup, /isPublicSignupEnabled/);
   assert.match(signup, /passwordHash/);
-  assert.doesNotMatch(signup, /mode: \"reuse\"/);
+  assert.match(signup, /resolveSignupPerson/);
+  assert.match(signup, /mode: \"reuse\"/);
+  assert.ok(signup.indexOf("resolveSignupPerson") < signup.indexOf('mode: "reuse"'));
   assert.doesNotMatch(bootstrap, /installDepartmentProduct|installDepartmentsForActiveEntitlements/);
   assert.doesNotMatch(bootstrap, /PUBLIC_SIGNUP_ENABLED|BILLING_ENTITLEMENTS_ENABLED/);
   assert.doesNotMatch(harbor, /OrganizationClaimInvitation|claimOrganization|createOrganizationMembership/);

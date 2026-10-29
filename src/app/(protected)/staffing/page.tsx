@@ -235,7 +235,7 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
             Select a Department to manage its schedule
           </h2>
           <p className="mt-1 text-sm text-amber-900">
-            Showing all departments. Choose a department in Menu to create or edit shifts.
+            Showing all departments. Choose a department to create or edit shifts.
           </p>
           {mode === "week" ? (
             facilityWeekSchedules.length === 0 ? (

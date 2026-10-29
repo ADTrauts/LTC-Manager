@@ -32,6 +32,7 @@ const OFFERING_LABELS = {
 type DepartmentOption = {
   key: string;
   name: string;
+  category?: string;
 };
 
 type BillingPlanFormProps = {
@@ -147,7 +148,9 @@ export function BillingPlanForm({
                 includedDepartments.map((department) => (
                   <li key={department.key} className="px-3 py-3 text-sm">
                     <span className="font-medium text-zinc-900">{department.name}</span>
-                    <span className="mt-0.5 block text-xs text-zinc-500">{department.key}</span>
+                    {department.category ? (
+                      <span className="mt-0.5 block text-xs text-zinc-500">{department.category}</span>
+                    ) : null}
                   </li>
                 ))
               ) : (
@@ -235,7 +238,9 @@ export function BillingPlanForm({
                       />
                       <span>
                         <span className="font-medium text-zinc-900">{department.name}</span>
-                        <span className="mt-0.5 block text-xs text-zinc-500">{department.key}</span>
+                        {department.category ? (
+                          <span className="mt-0.5 block text-xs text-zinc-500">{department.category}</span>
+                        ) : null}
                       </span>
                     </label>
                   </li>
@@ -295,7 +300,9 @@ export function BillingPlanForm({
                     />
                     <span>
                       <span className="font-medium text-zinc-900">{department.name}</span>
-                      <span className="mt-0.5 block text-xs text-zinc-500">{department.key}</span>
+                      {department.category ? (
+                        <span className="mt-0.5 block text-xs text-zinc-500">{department.category}</span>
+                      ) : null}
                     </span>
                   </label>
                 </li>

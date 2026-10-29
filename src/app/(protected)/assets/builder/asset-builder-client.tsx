@@ -12,10 +12,15 @@ import { AssetBulkImportPanel } from "./asset-bulk-import-panel";
 type Props = {
   isEmpty: boolean;
   addForm: ReactNode;
+  importWorkspace: {
+    facilityId: string;
+    actorKey: string;
+    departments: Array<{ id: string; key: string; name: string }>;
+  };
   children: ReactNode;
 };
 
-export function AssetBuilderClient({ isEmpty, addForm, children }: Props) {
+export function AssetBuilderClient({ isEmpty, addForm, importWorkspace, children }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [addDirty, setAddDirty] = useState(false);
@@ -65,11 +70,7 @@ export function AssetBuilderClient({ isEmpty, addForm, children }: Props) {
         }
       />
 
-      {showBulkImport ? (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4" data-testid="asset-bulk-import-panel">
-          <AssetBulkImportPanel onClose={() => setShowBulkImport(false)} />
-        </div>
-      ) : null}
+      {showBulkImport ? <AssetBulkImportPanel onClose={() => setShowBulkImport(false)} importWorkspace={importWorkspace} /> : null}
 
       {isEmpty ? (
         <EmptyState

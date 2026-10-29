@@ -157,9 +157,9 @@ describe("Department Product registry", () => {
     const dietary = getDepartmentProduct("DIETARY");
     assert.ok(dietary);
     assert.equal(dietary.productKey, "HEALTHCARE_FOOD_NUTRITION");
-    assert.equal(dietary.name, "Healthcare Food & Nutrition");
+    assert.equal(dietary.name, "Food and Nutrition");
     assert.equal(dietary.installationKey, "DIETARY");
-    assert.equal(dietary.defaultDepartmentName, "Dietary");
+    assert.equal(dietary.defaultDepartmentName, "Food and Nutrition");
     assert.equal(dietary.industry, "HEALTHCARE");
     assert.deepEqual(dietary.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(dietary.status, "AVAILABLE");
@@ -258,7 +258,7 @@ describe("Department Product installation", () => {
     assert.equal(dietary.created, true);
     assert.equal(dietary.key, "DIETARY");
     assert.equal(dietary.productKey, "HEALTHCARE_FOOD_NUTRITION");
-    assert.equal(dietary.name, "Dietary");
+    assert.equal(dietary.name, "Food and Nutrition");
     assert.equal(dietary.facilityId, "fac_terrace");
     assert.equal(evs.key, "EVS");
     assert.equal(evs.name, "Environmental Services");
@@ -452,7 +452,7 @@ describe("Department Product installation", () => {
 });
 
 describe("Department Product Menus capability", () => {
-  it("offers Menus for Healthcare Food & Nutrition without encoding Menu ownership as DIETARY", () => {
+  it("offers Menus for Food and Nutrition without encoding Menu ownership as DIETARY", () => {
     assert.equal(departmentProductOffersMenus("DIETARY"), true);
     assert.equal(departmentProductOffersMenus("HEALTHCARE_FOOD_NUTRITION"), true);
     assert.equal(departmentProductOffersMenus("PLANT"), false);

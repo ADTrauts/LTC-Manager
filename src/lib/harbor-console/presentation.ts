@@ -35,7 +35,7 @@ export function departmentKeyLabel(key: string): string {
   switch (key) {
     case "DIETARY":
     case "HEALTHCARE_FOOD_NUTRITION":
-      return "Healthcare Food & Nutrition";
+      return "Food and Nutrition";
     case "EVS":
       return "Environmental Services";
     case "PLANT":

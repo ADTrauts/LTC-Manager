@@ -60,7 +60,7 @@ for(const width of [1280,768])test(`CSV workforce, two Department memberships/sh
   expect(await db.unitSpace.count({where:{id:f.room.id}})).toBe(1);expect(await db.unitSpaceResponsibility.count({where:{spaceId:f.room.id}})).toBe(2);expect(await db.employee.count({where:{facilityId:f.facility.id,userId:employee.userId}})).toBe(1);
   const e=await db.employee.findUniqueOrThrow({where:{id:employee.id},include:{employeeDepartments:true}});expect(new Set([e.primaryDepartmentId,...e.employeeDepartments.map(x=>x.departmentId)]).size).toBe(2);
   await page.screenshot({path:`tmp/onb04-browser/results-${width}.png`,fullPage:true});
-  await page.goto("/assets/builder");await page.getByTestId("asset-bulk-import-open").click();await page.getByRole("link",{name:"Open reviewed Asset CSV import"}).click();await expect(page.getByLabel("CSV dataset")).toHaveValue("assets");
+  await page.goto("/assets/builder");await page.getByTestId("asset-bulk-import-open").click();await expect(page.getByRole("dialog",{name:"Import equipment"})).toBeVisible();await expect(page.getByLabel("CSV dataset")).toHaveValue("assets");
   await upload(page,"assets",`name,equipmentType,floor,neighborhood,space,assetCode\nShared cooler,Fridge,Floor 1,Shared Wing,Shared Room,${code}\n`);await confirm(page);await expect(results(page).getByLabel("Outcome counts")).toContainText("reused: 1");
   expect(await db.asset.count({where:{assetCode:code}})).toBe(1);expect(errors).toEqual([]);
 });

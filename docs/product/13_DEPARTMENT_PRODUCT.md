@@ -23,22 +23,22 @@ Current catalog:
 
 | Product | Release status |
 |---------|----------------|
-| Healthcare Food & Nutrition | AVAILABLE |
+| Food and Nutrition | AVAILABLE |
 | Environmental Services | DEVELOPMENT |
 | Facility Plant Operations (`PLANT`) | AVAILABLE |
 
-Healthcare Food & Nutrition is one Product. It is designed for Healthcare facilities of type Hospital and Long-Term Care. It is not `HOSPITAL_FOOD_NUTRITION` plus `LONG_TERM_CARE_FOOD_NUTRITION`, and it is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Location Functions, Operating Rhythm, Work, Records, domain capabilities, and starter content.
+Food and Nutrition is one Product. It is designed for Healthcare facilities of type Hospital and Long-Term Care. It is not `HOSPITAL_FOOD_NUTRITION` plus `LONG_TERM_CARE_FOOD_NUTRITION`, and it is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Location Functions, Operating Rhythm, Work, Records, domain capabilities, and starter content.
 
 A Department Product and a facility Department are not the same concept.
 
 | Concept | Meaning | Example |
 |---------|---------|---------|
-| **Department Product** | Vssyl-authored operating model | Healthcare Food & Nutrition |
-| **Facility Department** | Local installed instance / local name | Dietary |
+| **Department Product** | Vssyl-authored operating model | Food and Nutrition |
+| **Facility Department** | Local installed instance / local name | Food and Nutrition |
 
-A facility may locally call the Department Dietary, Food & Nutrition, Nutrition Services, Food Services, or Resident Dining without changing the Product identity. Do not force the Product name into every facility Department label.
+Healthcare is the industry, not part of the Product name. A new install is named Food and Nutrition. A facility may rename that Department. The Product identity does not change when the local name does.
 
-Compatibility: the canonical Product key is `HEALTHCARE_FOOD_NUTRITION`. Existing Department rows and entitlements keep the legacy installation key `DIETARY`. `DIETARY` resolves to Healthcare Food & Nutrition and is not a second sellable Product.
+Compatibility: the canonical Product key is `HEALTHCARE_FOOD_NUTRITION`. Existing Department rows and entitlements keep the installation key `DIETARY`. `DIETARY` resolves to Food and Nutrition and is not a second sellable Product.
 
 Vssyl Console owns the Records / Logs catalog, not Department Product release metadata. Department Product release state lives on the code registry until Console-backed product metadata exists. When other Marketplace item kinds move into the Catalog, the Console publishes them too, and marks each item Included or Paid.
 
@@ -102,7 +102,7 @@ Department Builder is the post-install configuration home:
 
 Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
 
-Healthcare Food & Nutrition also has Menus. Menus are Department-owned identity records (`Menu`) with optional rotating-cycle content (`MenuCycleSettings` + `MenuItem`). Applicability is explicit: `MenuLocationApplicability` consumes canonical Department locations, and `MenuOperationalCycleApplicability` stores a root Operational Cycle `stableKey` plus a `menuPeriodKey` mapping to existing Menu content. They are not Cycles, Records, or Work, and they are not a facility-wide singleton. Runtime Menu resolution is implemented as `resolveApplicableMenus` in `menu-runtime.ts` / `menu-runtime-db.ts`. It answers which ACTIVE Menus apply at an exact location during a canonical root Operational Cycle on a facility service date, then loads that slot's content. It does not choose a winner, inherit neighborhood rooms, match MealType, bind `DepartmentOperationalCycle.id`, or snapshot historical Menu configuration. The first Run consumer is Today's Menu on the Space workspace Overview. Temperature/log integration is not implemented. Vssyl provides product-owned operating-rhythm starters where a product has one. The customer applies those starters explicitly, edits local facts, and publishes them. Nothing is auto-published.
+Food and Nutrition also has Menus. Menus are Department-owned identity records (`Menu`) with optional rotating-cycle content (`MenuCycleSettings` + `MenuItem`). Applicability is explicit: `MenuLocationApplicability` consumes canonical Department locations, and `MenuOperationalCycleApplicability` stores a root Operational Cycle `stableKey` plus a `menuPeriodKey` mapping to existing Menu content. They are not Cycles, Records, or Work, and they are not a facility-wide singleton. Runtime Menu resolution is implemented as `resolveApplicableMenus` in `menu-runtime.ts` / `menu-runtime-db.ts`. It answers which ACTIVE Menus apply at an exact location during a canonical root Operational Cycle on a facility service date, then loads that slot's content. It does not choose a winner, inherit neighborhood rooms, match MealType, bind `DepartmentOperationalCycle.id`, or snapshot historical Menu configuration. The first Run consumer is Today's Menu on the Space workspace Overview. Temperature/log integration is not implemented. Vssyl provides product-owned operating-rhythm starters where a product has one. The customer applies those starters explicitly, edits local facts, and publishes them. Nothing is auto-published.
 
 Configuration readiness is derived from those operational facts. Do not persist `CONFIGURED` / `UNCONFIGURED` / `SETUP_COMPLETE` on Department.
 
@@ -126,7 +126,7 @@ New Department installs initialize an explicit facility-operated operator relati
 
 External Facility partnerships are managed under Admin → Organization → Partners. Saving a partnership does not create the company, and it does not by itself open the facility to that company's people. After the company is attached and the head is accepted, vendor accounts open the Departments that company runs. They do not open Facility Builder, Administration, or another Department.
 
-`Department.key` is the facility installation key. For Healthcare Food & Nutrition it remains `DIETARY`. For EVS and Plant it matches the Product key. Existing facility rows with those keys remain installations. No backfill, no retroactive charges, no automatic entitlements for legacy rows. DEVELOPMENT rows stay in the database; they are filtered out of customer pickers and Marketplace.
+`Department.key` is the facility installation key. For Food and Nutrition it remains `DIETARY`. For EVS and Plant it matches the Product key. Existing facility rows with those keys remain installations. No backfill, no retroactive charges, no automatic entitlements for legacy rows. DEVELOPMENT rows stay in the database; they are filtered out of customer pickers and Marketplace.
 
 Industry and facility-type applicability live on the Product registry (`HEALTHCARE`, `HOSPITAL`, `LONG_TERM_CARE`). They are catalog metadata for future Marketplace organization and recommendations. They do not grant visibility, entitlement, or installation.
 
@@ -162,7 +162,7 @@ Facility Plant Operations V1 became AVAILABLE on October 7, 2026 after whole-Pro
 
 Checkout and add-departments accept **AVAILABLE Department Product registry keys**, not pre-existing Department rows. DEVELOPMENT keys are rejected.
 
-After Stripe sync writes an ACTIVE (or PAST_DUE) entitlement, `installDepartmentsForActiveEntitlements` calls `installDepartmentProduct`. Installation is idempotent and reuses an existing row. It never mints `DIETARY_2` or a second Healthcare Food & Nutrition Department.
+After Stripe sync writes an ACTIVE (or PAST_DUE) entitlement, `installDepartmentsForActiveEntitlements` calls `installDepartmentProduct`. Installation is idempotent and reuses an existing row. It never mints `DIETARY_2` or a second Food and Nutrition Department.
 
 Incomplete / abandoned payment does not install. If payment succeeds and installation fails, a later webhook or billing sync retries the same reconcile.
 
@@ -172,7 +172,7 @@ Incomplete / abandoned payment does not install. If payment succeeds and install
 
 ## Customer routes vs dev bootstrap
 
-Normal customer routes no longer call `ensureDefaultDepartments`. Visiting Employees, All Departments, Department Settings, or saving onboarding locations does not install Healthcare Food & Nutrition + EVS + Plant.
+Normal customer routes no longer call `ensureDefaultDepartments`. Visiting Employees, All Departments, Department Settings, or saving onboarding locations does not install Food and Nutrition + EVS + Plant.
 
 Location responsibility backfill uses only Departments that are already installed.
 
@@ -198,9 +198,9 @@ Department capability switches are removed (LEG-D20). A Department key admits th
 
 An **Operational Cycle** is the Department’s recurring operating rhythm. Persistence may still use DRAFT / PUBLISHED / RETIRED with effective dating. The facility publishes a draft to make it the ACTIVE profile.
 
-Published **Operational Cycles** are the current Run rhythm. **Phases** are one-level intervals. **Key Points** (persisted as `KEY_TIME`) are instants, not Work and not Records. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Department responsibility does not imply cycle participation. Run may show an active Cycle with no active Phase when phases leave gaps. Legacy Dietary meal-milestone presentation must not override a current Cycle.
+Published **Operational Cycles** are the current Run rhythm. **Phases** are one-level intervals. **Key Points** (persisted as `KEY_TIME`) are instants, not Work and not Records. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Department responsibility does not imply cycle participation. Run may show an active Cycle with no active Phase when phases leave gaps. Legacy meal-milestone presentation must not override a current Cycle.
 
-**Location Functions.** The Product owns `functionKey` and the label. The facility binds that key to existing rooms. Healthcare Food & Nutrition’s function is `food_service_area`. EVS functions are `resident_care` and `service_support`. Facility Plant Operations defines none (empty is allowed). Runtime matches the key on the ACTIVE profile. Build uses the working profile. Audit uses the profile effective on the service date. The same physical room may carry different functions for different Departments.
+**Location Functions.** The Product owns `functionKey` and the label. The facility binds that key to existing rooms. Food and Nutrition’s function is `food_service_area`. EVS functions are `resident_care` and `service_support`. Facility Plant Operations defines none (empty is allowed). Runtime matches the key on the ACTIVE profile. Build uses the working profile. Audit uses the profile effective on the service date. The same physical room may carry different functions for different Departments.
 
 **Work.** Product Work presets copy into facility drafts when a manager applies them. They are never auto-published. A published Work Plan determines expected Work. Work may bind to a Cycle or Phase stable key. It does not bind to Key Points. An empty Cycle binding means not configured. Expected Work is derived from department-responsible locations, then applicability (including a Location Function key when used), then cycle participation when the item is cycle-bound. Assignment does not create Work. Occurrences stay sparse.
 
@@ -212,7 +212,7 @@ Department Products that exist today:
 
 | Product | Implemented | Not designed |
 |---------|-------------|--------------|
-| **Healthcare Food & Nutrition** | `food_service_area`. Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Work presets bind Opening to Prep, Meal Service Support to Service, Leftover Handling to Cleanup. Station Reset is cycle-free. Menus. Healthcare-scoped. | — |
+| **Food and Nutrition** | `food_service_area`. Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Work presets bind Opening to Prep, Meal Service Support to Service, Leftover Handling to Cleanup. Station Reset is cycle-free. Menus. Healthcare-scoped. | — |
 | **Environmental Services** | `resident_care`, `service_support`. Morning / Afternoon / Evening Operations. | A second location tree |
 | **Facility Plant Operations** | AVAILABLE V1: Request / Issue / Work Order corrective loop, Preventive Maintenance, and optional unpublished starters. Platform Assets and repairs remain shared. See [14](./14_FACILITY_PLANT_OPERATIONS.md) and the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07). | Inventory, meter PM, IoT, predictive maintenance, and dedicated Product billing SKU. |
 
@@ -263,6 +263,6 @@ Every new Department Product must define these before implementation.
 
 A Department Product does not receive a new location tree, Cycle engine, Work engine, Record engine, or history store unless that platform-gap test shows a missing reusable mechanism.
 
-A Department Product cannot become AVAILABLE, or ship a new operational capability, until its Dashboard contribution declaration and the [Dashboard release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate) are complete, and every new Department write is classified in the write manifest (`src/lib/department-authority/write-manifest.ts`). An unclassified write fails that test. Healthcare Food & Nutrition and Facility Plant Operations were declared on October 20, 2026. The Environmental Services declaration is a draft.
+A Department Product cannot become AVAILABLE, or ship a new operational capability, until its Dashboard contribution declaration and the [Dashboard release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate) are complete, and every new Department write is classified in the write manifest (`src/lib/department-authority/write-manifest.ts`). An unclassified write fails that test. Food and Nutrition and Facility Plant Operations were declared on October 20, 2026. The Environmental Services declaration is a draft.
 
 Facility Plant Operations is implemented against this contract. Its architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md). V1 is AVAILABLE as of October 7, 2026.

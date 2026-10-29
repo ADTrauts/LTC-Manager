@@ -65,11 +65,10 @@ for (const width of [1280, 768]) test(`operator provision → two Products → X
   const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
   await page.goto("/setup");
   await page.getByRole("checkbox", { name: /I confirm this is the timezone/ }).check();
-  await page.getByRole("button", { name: "Confirm site and enter setup" }).click();
-  await expect(page.getByText("No Departments chosen.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Which Products should this facility run?" })).toBeVisible();
   expect(await db.department.count({ where: { facilityId: session.facilityId } })).toBe(0);
-  await page.getByRole("button", { name: "Choose Products", exact: true }).click();
-  for (const name of [/Healthcare Food & Nutrition/, /Facility Plant Operations/]) await page.getByRole("checkbox", { name }).check();
+  for (const name of [/Food and Nutrition/, /Facility Plant Operations/]) await page.getByRole("checkbox", { name }).check();
   expect(await db.department.count({ where: { facilityId: session.facilityId } })).toBe(0);
   // Controlled provider boundary: no live subscription or money. Canonical billing/install owner.
   await applyFacilitySubscription({ facilityId: session.facilityId, status: "ACTIVE", departmentKeys: ["DIETARY", "PLANT"] }, db);

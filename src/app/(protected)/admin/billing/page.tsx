@@ -88,10 +88,22 @@ export default async function AdminBillingPage({
 
   const billingStatus: FacilityBillingStatus = facility?.billing?.status ?? "UNMANAGED";
   const licensedKeys = facility?.billing?.entitlements.map((row) => row.departmentKey) ?? [];
+  const licensedProducts = catalog.filter((item) =>
+    licensedKeys.some((key) => key === item.productKey || key === item.installationKey),
+  );
+  const licensedProductKeys = licensedProducts.map((item) => item.productKey);
+  const unmatchedLicensedKeys = licensedKeys.filter(
+    (key) => !catalog.some((item) => item.productKey === key || item.installationKey === key),
+  );
+  const billedDepartmentCount = licensedProductKeys.length + unmatchedLicensedKeys.length;
+  const includedDepartmentNames = [
+    ...licensedProducts.map((item) => item.name),
+    ...unmatchedLicensedKeys,
+  ];
   const currentQuote =
-    licensedKeys.length > 0
+    billedDepartmentCount > 0
       ? quoteBilling({
-          departmentCount: licensedKeys.length,
+          departmentCount: billedDepartmentCount,
           interval: facility?.billing?.interval ?? "ANNUAL",
           setupPath: facility?.billing?.setupPath ?? "SELF_SERVE",
         })
@@ -150,11 +162,8 @@ export default async function AdminBillingPage({
           <div>
             <dt className="text-zinc-500">Included departments</dt>
             <dd className="font-medium text-zinc-900">
-              {licensedKeys.length > 0
-                ? catalog
-                    .filter((item) => licensedKeys.includes(item.productKey))
-                    .map((item) => item.name)
-                    .join(", ") || licensedKeys.join(", ")
+              {includedDepartmentNames.length > 0
+                ? includedDepartmentNames.join(", ")
                 : "None selected yet"}
             </dd>
           </div>
@@ -172,8 +181,12 @@ export default async function AdminBillingPage({
       </section>
 
       <BillingPlanForm
-        departments={catalog.map((item) => ({ key: item.productKey, name: item.name }))}
-        initialDepartmentKeys={licensedKeys}
+        departments={catalog.map((item) => ({
+          key: item.productKey,
+          name: item.name,
+          category: item.industryLabel,
+        }))}
+        initialDepartmentKeys={licensedProductKeys}
         initialInterval={facility?.billing?.interval ?? "ANNUAL"}
         initialSetupPath={facility?.billing?.setupPath ?? "SELF_SERVE"}
         billingStatus={billingStatus}

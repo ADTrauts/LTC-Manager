@@ -1,7 +1,7 @@
 # First Customer — Production Configuration Checklist
 
 **Status:** Operator checklist for the first paying Vssyl Facility  
-**Launch posture:** operator-assisted, Healthcare Food & Nutrition only  
+**Launch posture:** operator-assisted, Food and Nutrition only  
 **Companion:** [First Paying Customer Runbook](./FIRST_PAYING_CUSTOMER_RUNBOOK.md)
 
 Do not put secrets, password values, or live Stripe IDs in tickets copied from this checklist.
@@ -22,7 +22,7 @@ This checklist does not change product behavior. It is the control for productio
 | Stripe payment | Normal `/setup` Checkout |
 | Implementation | Operator-assisted |
 | Support | Email + Harbor ticketing |
-| Department sold initially | Healthcare Food & Nutrition only |
+| Department sold initially | Food and Nutrition only |
 
 Do not enable public signup. Do not enable billing entitlements enforcement. Do not sell Facility Plant Operations on this launch. The runbook is the HFN-only control; do not change the product catalog to hide Plant.
 

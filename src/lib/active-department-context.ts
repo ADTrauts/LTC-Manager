@@ -121,6 +121,19 @@ async function resolveNavWithRawCookie(
   const trimmed = rawCookie?.trim();
 
   if (isFacilityAdmin && (trimmed === undefined || trimmed === "")) {
+    const selectable = await resolveSelectableDepartmentsForSession(session);
+    if (selectable.length === 1) {
+      const only = selectable[0]!;
+      const row = await prisma.department.findFirst({
+        where: { id: only.id, facilityId, isActive: true },
+        select: { key: true },
+      });
+      return {
+        showAllDepartmentNav: false,
+        activeDepartmentId: only.id,
+        activeOperationalDepartmentKey: parseOperationalDepartmentKey(row?.key),
+      };
+    }
     return {
       showAllDepartmentNav: true,
       activeDepartmentId: null,

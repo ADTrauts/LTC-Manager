@@ -1,7 +1,7 @@
 # First Paying Customer — Assisted Onboarding Runbook
 
 **Status:** Operator runbook for the first paying Vssyl Facility  
-**Product:** Healthcare Food & Nutrition only  
+**Product:** Food and Nutrition only  
 **Companion:** [Production Configuration Checklist](./FIRST_CUSTOMER_PRODUCTION_CHECKLIST.md)
 
 Do this after the production checklist is complete. Do not start another product phase from this document.
@@ -29,7 +29,7 @@ Customer setup        → Facility Administrator
 Stripe payment        → normal /setup checkout
 Implementation        → operator-assisted
 Support               → email + Harbor ticketing
-Department sold       → Healthcare Food & Nutrition only
+Department sold       → Food and Nutrition only
 ```
 
 Do not enable `PUBLIC_SIGNUP_ENABLED`. Do not enable `BILLING_ENTITLEMENTS_ENABLED`. Do not select Facility Plant Operations during `/setup`, even if it is visible/AVAILABLE. EVS is DEVELOPMENT and is not sold.
@@ -41,7 +41,7 @@ Do not enable `PUBLIC_SIGNUP_ENABLED`. Do not enable `BILLING_ENTITLEMENTS_ENABL
 Do not provision until all of the following are true:
 
 - [ ] Signed agreement
-- [ ] Healthcare Food & Nutrition only (no Plant sale)
+- [ ] Food and Nutrition only (no Plant sale)
 - [ ] Pricing confirmed (first department; monthly or annual)
 - [ ] Billing contact confirmed
 - [ ] Initial Facility Administrator identified (name + email)
@@ -96,7 +96,7 @@ On `/console/customers/{facilityId}`:
 - [ ] Setup is incomplete (`Setup not started` or `Setup: …`; **Live** is not set)
 - [ ] Billing status = **No billing record**
 - [ ] No Stripe customer / subscription on file
-- [ ] Licensing: Healthcare Food & Nutrition = **Not licensed**
+- [ ] Licensing: Food and Nutrition = **Not licensed**
 - [ ] Initial FA appears under People
 - [ ] Banner says invite sent, **or** existing account received FA access, **or** invite failed with **Resend administrator invite**
 
@@ -139,14 +139,14 @@ Managers are optional. If the customer knows managers, invite them. If not, cont
 
 ### Products
 
-Select **only** Healthcare Food & Nutrition.
+Select **only** Food and Nutrition.
 
 Do **not** select Facility Plant Operations, even if it is listed.
 
 Product selection is stored in browser `sessionStorage` (`vssyl.setup.departmentProductKeys`). If selected products disappear:
 
 1. Return to the Products step.
-2. Reselect Healthcare Food & Nutrition.
+2. Reselect Food and Nutrition.
 3. Continue.
 
 Do not treat this as a data-loss mystery in Stripe. Nothing has been purchased yet.
@@ -163,7 +163,7 @@ Expected Stripe facts after a successful first-department purchase:
 - one Facility
 - one subscription
 - metadata `facilityId` = this Facility
-- metadata `departmentKeys` = `DIETARY` (install key for Healthcare Food & Nutrition)
+- metadata `departmentKeys` = `DIETARY` (install key for Food and Nutrition)
 - metadata `interval` = `MONTHLY` or `ANNUAL`
 - metadata `setupPath` = `SELF_SERVE`
 
@@ -190,7 +190,7 @@ In Stripe (Harbor **Open in Stripe**, or Dashboard):
 - [ ] Subscription exists
 - [ ] Status is active
 - [ ] `facilityId` metadata matches the Harbor Facility ID
-- [ ] `departmentKeys` contains `DIETARY` (Healthcare Food & Nutrition)
+- [ ] `departmentKeys` contains `DIETARY` (Food and Nutrition)
 - [ ] `interval` matches what the customer paid
 - [ ] `setupPath` is `SELF_SERVE`
 
@@ -203,7 +203,7 @@ Harbor customer detail should show:
 - [ ] Billing status **Active**
 - [ ] Stripe Customer ID present
 - [ ] Stripe Subscription ID present
-- [ ] Healthcare Food & Nutrition **Licensed**
+- [ ] Food and Nutrition **Licensed**
 - [ ] Setup path **Self-serve**
 
 If Stripe is correct but Harbor still shows **No billing record**:
@@ -216,12 +216,12 @@ Then re-check FacilityBilling, entitlement, and Department.
 
 ## 9. Verify Department install
 
-- [ ] Healthcare Food & Nutrition entitlement is ACTIVE (Harbor: **Licensed**)
-- [ ] Dietary Department is installed (`Department.key = DIETARY`; customer name defaults to **Dietary**)
+- [ ] Food and Nutrition entitlement is ACTIVE (Harbor: **Licensed**)
+- [ ] Food and Nutrition Department is installed (`Department.key = DIETARY`; customer name defaults to **Food and Nutrition**)
 
 Confirm inside the Facility (Harbor **Open facility**, then Department Builder / department list). Harbor licensing is the entitlement mirror; it is not the Department row.
 
-If licensed is missing or Dietary is missing:
+If licensed is missing or Food and Nutrition is missing:
 
 1. Harbor → **Sync from Stripe**
 2. Re-check
@@ -263,7 +263,7 @@ Do not rediscover HFN architecture here. Follow [Facility Builder](../product/LT
 
 ## 12. Department Builder (minimum HFN)
 
-Operator assists in Department Builder (`/admin/departments`) for the Dietary / Healthcare Food & Nutrition Department:
+Operator assists in Department Builder (`/admin/departments`) for the Food and Nutrition Department:
 
 - Locations (location functions / responsibility against the Facility tree)
 - Operational Cycles / operating rhythm (apply starter, edit, **publish**)
@@ -306,7 +306,7 @@ Before live use, operator verifies:
 - [ ] FA account working
 - [ ] Manager access working (if managers were invited)
 - [ ] At least one employee / PIN working
-- [ ] Healthcare Food & Nutrition entitlement ACTIVE and Dietary Department installed
+- [ ] Food and Nutrition entitlement ACTIVE and Department installed
 - [ ] Facility structure sufficient for the first operating day
 - [ ] Operational Cycles published
 - [ ] Required logs / work configured
@@ -340,8 +340,8 @@ See [RUN Guide](../product/LTC_MANAGER_RUN_GUIDE.md).
 | FA invite fails | Harbor customer detail → **Resend administrator invite** (`?invite=failed` while invite still pending). If Postmark is down, fix environment first. Do not continue. |
 | Checkout canceled | Remain on `/setup` billing. Retry Checkout. No entitlement or Department install is expected. |
 | Payment succeeds but Vssyl still says no billing | Harbor customer detail → verify Stripe subscription → **Sync from Stripe**. Recheck FacilityBilling, entitlement, Department. |
-| Subscription ACTIVE but Department missing | **Sync from Stripe**, then recheck Dietary install in the Facility. No SQL. |
-| Product selection disappeared | Return to Products → reselect Healthcare Food & Nutrition → continue. Selection is `sessionStorage`. |
+| Subscription ACTIVE but Department missing | **Sync from Stripe**, then recheck the Food and Nutrition install in the Facility. No SQL. |
+| Product selection disappeared | Return to Products → reselect Food and Nutrition → continue. Selection is `sessionStorage`. |
 | Customer skipped locations | Finish Facility Builder before live use. Harbor **Live** is not operational readiness. |
 | Employee activation missing | Employees → **Resend activation**. PIN still works during 30-day grace. |
 | `PAST_DUE` later | Facility remains operationally usable. This is intentional healthcare-operational grace. Collect through Stripe / the commercial process. |
@@ -377,7 +377,7 @@ No chat.
 - [ ] Agreement signed
 - [ ] Payment complete
 - [ ] Billing **Active**
-- [ ] Healthcare Food & Nutrition licensed
+- [ ] Food and Nutrition licensed
 
 ### Technical
 
@@ -386,7 +386,7 @@ No chat.
 - [ ] FA activated
 - [ ] Stripe webhook working
 - [ ] Billing mirror correct
-- [ ] Dietary / Healthcare Food & Nutrition Department installed
+- [ ] Food and Nutrition Department installed
 
 ### Operational
 

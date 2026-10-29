@@ -1,6 +1,6 @@
+import { SetupBuilderFrame } from "@/components/setup-builder-frame";
 import { SetupWorkspaceLink } from "@/components/setup-workspace-link";
 import { unstable_noStore as noStore } from "next/cache";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { FacilityBuildContextBar } from "@/components/build/FacilityBuildContextBar";
@@ -29,10 +29,10 @@ function resolveTab(raw: string | string[] | undefined): FacilityBuilderTab {
   return value === "room-types" ? "room-types" : "structure";
 }
 
-function builderTabHref(tab: FacilityBuilderTab, onboarding?: boolean) {
+function builderTabHref(tab: FacilityBuilderTab, setupWorkspace: boolean) {
   const params = new URLSearchParams();
   if (tab === "room-types") params.set("tab", "room-types");
-  if (onboarding) params.set("onboarding", "complete");
+  if (setupWorkspace) params.set("onboarding", "workspace");
   const query = params.toString();
   return query ? `/admin/facility/builder?${query}` : "/admin/facility/builder";
 }
@@ -45,40 +45,23 @@ export default async function FacilityBuilderPage({ searchParams }: FacilityBuil
   requireAtLeastRole(session.role, "MANAGER");
 
   const query = searchParams ? await searchParams : {};
-  const fromOnboarding =
-    typeof query.onboarding === "string" && ["complete", "workspace"].includes(query.onboarding);
+  const setupWorkspace = query.onboarding === "workspace";
   const tab = resolveTab(query.tab);
 
   const hierarchy = await loadFacilityHierarchy(session.facilityId, session);
   const structureCounts = summarizeFacilityStructureCounts(hierarchy);
 
   return (
+    <SetupBuilderFrame active={setupWorkspace}>
     <div className="mx-auto max-w-7xl space-y-3" data-testid="facility-builder-page">
-      <SetupWorkspaceLink role={session.role} />
-      {fromOnboarding ? (
-        <section className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <h2 className="text-base font-semibold text-emerald-900">Continue site setup in Facility Builder</h2>
-          <p className="mt-1 text-sm text-emerald-800">
-            Start with Structure to map buildings, floors, and rooms. Define Room Types when you need shared
-            classifications.
-            {session.authKind === "harbor_staff" ? null : (
-              <>
-                {" "}
-                <Link href="/build" className="font-medium underline">
-                  Open Build Home
-                </Link>
-              </>
-            )}
-          </p>
-        </section>
-      ) : null}
+      <SetupWorkspaceLink role={session.role} returned={setupWorkspace ? "building" : undefined} />
 
       <FacilityBuildContextBar
         facilityName={hierarchy.facilityName}
         vocabulary={hierarchy.vocabulary}
         counts={structureCounts}
         activeTab={tab}
-        roomTypesTabHref={builderTabHref("room-types", fromOnboarding)}
+        roomTypesTabHref={builderTabHref("room-types", setupWorkspace)}
         terminologyFooter={
           <FacilityTerminologySettings vocabulary={hierarchy.vocabulary} variant="compact" />
         }
@@ -92,12 +75,12 @@ export default async function FacilityBuilderPage({ searchParams }: FacilityBuil
           {
             id: "structure",
             label: "Structure",
-            href: builderTabHref("structure", fromOnboarding),
+            href: builderTabHref("structure", setupWorkspace),
           },
           {
             id: "room-types",
             label: "Room Types",
-            href: builderTabHref("room-types", fromOnboarding),
+            href: builderTabHref("room-types", setupWorkspace),
           },
         ]}
       />
@@ -111,5 +94,6 @@ export default async function FacilityBuilderPage({ searchParams }: FacilityBuil
         />
       )}
     </div>
+    </SetupBuilderFrame>
   );
 }

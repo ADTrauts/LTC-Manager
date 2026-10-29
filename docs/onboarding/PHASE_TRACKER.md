@@ -1,6 +1,8 @@
 # Vssyl onboarding phase tracker
 
-Updated October 19, 2026. This is the single execution/completion tracker for the [accepted plan](./VSSYL_ONBOARDING_PHASED_PLAN_2026-10-17.md). Decisions and unresolved design questions live in [DECISIONS.md](./DECISIONS.md).
+Updated October 27, 2026. This is the single execution/completion tracker for the [accepted plan](./VSSYL_ONBOARDING_PHASED_PLAN_2026-10-17.md). Decisions and unresolved design questions live in [DECISIONS.md](./DECISIONS.md).
+
+The [setup guide](./DECISIONS.md#setup-guide--october-26-2026) was accepted complete on October 27, 2026. That acceptance does not complete ONB-07.
 
 | Phase | Status | Gate / dependency |
 |---|---|---|

@@ -1,6 +1,6 @@
 import { SpaceIdentityBoundary } from "@/components/offline/canonical-space-panel";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
 import { ProductModeBanner } from "@/components/product-mode-banner";
@@ -47,7 +47,7 @@ import {
   isCanonicalLogsEnabled,
 } from "@/lib/feature-flags";
 import { applyMaintenanceNavRewrite } from "@/lib/asset-operations/maintenance-nav";
-import { applyCanonicalLogsNavRewrite } from "@/lib/canonical-logs/run-nav";
+import { applyRunLogsNav } from "@/lib/canonical-logs/run-nav";
 import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { loadSidebarProjection } from "@/lib/locations";
 import { prisma } from "@/lib/prisma";
@@ -173,7 +173,10 @@ export async function AppShell({ children }: AppShellProps) {
       })
     : false;
   const navItems = applyMaintenanceNavRewrite(
-    applyCanonicalLogsNavRewrite(navItemsRaw, canonicalForDepartment, {
+    applyRunLogsNav(navItemsRaw, {
+      capabilityEnabled: isCanonicalLogsEnabled(),
+      activeDepartmentId: deptNav.activeDepartmentId,
+      departmentUsesCanonical: canonicalForDepartment,
       canViewLogBook: hasAtLeastRole(session.role, "SUPERVISOR"),
     }),
     { canViewAssets: hasAtLeastRole(session.role, "SUPERVISOR") },
@@ -194,6 +197,18 @@ export async function AppShell({ children }: AppShellProps) {
           facilityName: facility?.displayName,
         })
       : null;
+
+  const setupHalo = (await headers()).get("x-vssyl-setup-halo") === "1";
+  if (setupHalo) {
+    return (
+      <ShellModeFrame brandColor={facility?.brandColor ?? "#0f766e"}>
+        <main data-shell-main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+          <SpaceIdentityBoundary session={anySession} />
+          {children}
+        </main>
+      </ShellModeFrame>
+    );
+  }
 
   const workspaceSelectorNode = () =>
     workspaceSelector ? (

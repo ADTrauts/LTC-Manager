@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 
+import { GuardedModal } from "@/components/guarded-modal";
+
 import {
   BULK_IMPORT_MAX_BYTES,
   type BulkImportCounts,
@@ -101,7 +103,9 @@ export function BulkImportWizard({
   const [fatal, setFatal] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const close = onClose ?? (() => {});
   const templateHref = `data:text/csv;charset=utf-8,${encodeURIComponent(templateCsv)}`;
+  const dirty = file !== null && step !== "complete";
   const validationHref = preview?.validationCsv
     ? `data:text/csv;charset=utf-8,${encodeURIComponent(preview.validationCsv)}`
     : null;
@@ -157,26 +161,18 @@ export function BulkImportWizard({
   }
 
   return (
-    <div
-      className="space-y-4"
-      data-testid={`${testIdPrefix}-wizard`}
+    <GuardedModal
+      open
+      title={title}
+      dirty={dirty}
+      onClose={close}
+      size="xl"
+      closeLabel="Close"
+      closeTestId={`${testIdPrefix}-close`}
+      data-testid={`${testIdPrefix}-panel`}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
-          <p className="mt-1 text-sm text-zinc-600">{description}</p>
-        </div>
-        {onClose ? (
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
-            data-testid={`${testIdPrefix}-close`}
-          >
-            Close
-          </button>
-        ) : null}
-      </header>
+    <div className="space-y-4" data-testid={`${testIdPrefix}-wizard`}>
+      <p className="text-sm text-zinc-600">{description}</p>
 
       <ol className="flex flex-wrap gap-2 text-xs font-medium text-zinc-600">
         {STEPS.map((s) => (
@@ -482,5 +478,6 @@ export function BulkImportWizard({
         </section>
       ) : null}
     </div>
+    </GuardedModal>
   );
 }

@@ -131,5 +131,5 @@ export async function previewAssetImportAction(
  * review/receipt flow; an old unbound confirmation may never mutate Assets. */
 export async function confirmAssetImportAction(_formData: FormData): Promise<BulkImportCompletionSummary> {
   void _formData;
-  throw new Error("Use the current reviewed Asset CSV workspace at /employees/bulk-setup?dataset=assets. A signed preview and durable receipts are required.");
+  throw new Error("Use Import in Asset Builder. A signed preview and durable receipts are required.");
 }

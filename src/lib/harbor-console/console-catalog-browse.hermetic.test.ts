@@ -60,7 +60,7 @@ const plant = item({
 const food = item({
   sourceType: "DEPARTMENT_PRODUCT",
   stableKey: "HEALTHCARE_FOOD_NUTRITION",
-  name: "Healthcare Food & Nutrition",
+  name: "Food and Nutrition",
   catalogFamily: "DEPARTMENTS",
   categoryKey: "HEALTHCARE",
   categoryLabel: "Healthcare",

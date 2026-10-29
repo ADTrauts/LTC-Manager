@@ -10,7 +10,7 @@
 
 One product. Unlimited users at every role. Price follows **licensed operational departments** at a facility.
 
-For Healthcare Food & Nutrition, EVS, and Facility Plant Operations, `FacilityDepartmentEntitlement.departmentKey` is the persisted installation key for that Product lineage. Healthcare Food & Nutrition keeps `DIETARY`. Facility Plant Operations keeps `PLANT`. The canonical Product key for Dietary is `HEALTHCARE_FOOD_NUTRITION`; `DIETARY` is a compatibility alias, not a second SKU. Facility Plant Operations is AVAILABLE; it has no dedicated Product-specific billing SKU in this release. Current checkout accepts AVAILABLE Products, including Plant, through the generic department-count prices described below. The absence of a dedicated Plant SKU is not a prohibition on that existing path. This October 17, 2026 wording reconciliation changes no release state, price, or sellability; deployed Stripe configuration has not been verified by ONB-00.
+For Food and Nutrition, EVS, and Facility Plant Operations, `FacilityDepartmentEntitlement.departmentKey` is the persisted installation key for that Product lineage. Food and Nutrition keeps `DIETARY`. Facility Plant Operations keeps `PLANT`. The canonical Product key for Food and Nutrition is `HEALTHCARE_FOOD_NUTRITION`; `DIETARY` is the stored installation key, not a second SKU. Facility Plant Operations is AVAILABLE; it has no dedicated Product-specific billing SKU in this release. Current checkout accepts AVAILABLE Products, including Plant, through the generic department-count prices described below. The absence of a dedicated Plant SKU is not a prohibition on that existing path. This October 17, 2026 wording reconciliation changes no release state, price, or sellability; deployed Stripe configuration has not been verified by ONB-00.
 
 Canonical commercial order:
 
@@ -59,7 +59,7 @@ Decided by the product owner on October 20, 2026 ([Foundation amendment](./01_PR
 | Each additional department | +$149 | +$1,609.20 |
 | Whole-facility ceiling | $999 | $10,789.20 |
 
-Examples: Dietary only $299/mo; Dietary + EVS $448/mo; three departments $597/mo; six or more $999/mo.
+Examples: Food and Nutrition only $299/mo; Food and Nutrition + EVS $448/mo; three departments $597/mo; six or more $999/mo.
 
 **Monthly is the list price.** Annual prepaid is **10% off** 12 × monthly ($299 × 12 × 0.9 = $3,229.20).
 
@@ -116,7 +116,7 @@ Production onboarding is operator-assisted. Harbor OWNER **provisions a Facility
 
 ## Enforcement
 
-Entitlement tables may exist while `BILLING_ENTITLEMENTS_ENABLED` is off. Existing facilities stay `UNMANAGED` (grandfathered) for **AVAILABLE** installed products. DEVELOPMENT products stay hidden regardless of this flag. Do not hide Healthcare Food & Nutrition behind purchase until that flag is an explicit product launch.
+Entitlement tables may exist while `BILLING_ENTITLEMENTS_ENABLED` is off. Existing facilities stay `UNMANAGED` (grandfathered) for **AVAILABLE** installed products. DEVELOPMENT products stay hidden regardless of this flag. Do not hide Food and Nutrition behind purchase until that flag is an explicit product launch.
 
 ## Subscription transitions and setup acknowledgement (ONB-02, October 17, 2026)
 

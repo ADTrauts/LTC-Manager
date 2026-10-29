@@ -282,7 +282,7 @@ test(
       assert.equal(plant.usageCount, (beforePlant.usageCount ?? 0) + 3);
       assert.equal(food.facilityInstallCount, beforeFood.facilityInstallCount + 2);
       assert.equal(
-        (await listConsoleCatalogItems(prisma)).filter((row) => row.sourceType === "DEPARTMENT_PRODUCT" && row.name === "Healthcare Food & Nutrition").length,
+        (await listConsoleCatalogItems(prisma)).filter((row) => row.sourceType === "DEPARTMENT_PRODUCT" && row.name === "Food and Nutrition").length,
         1,
       );
       assert.equal(evsItem.usageCount, beforeEvs.usageCount);

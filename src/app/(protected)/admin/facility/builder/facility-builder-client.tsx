@@ -708,14 +708,12 @@ export function FacilityBuilderClient({
     <BuilderCopyContext.Provider value={copy}>
     <FacilityRoomTypesContext.Provider value={hierarchy.roomTypes}>
     {showBulkImport ? (
-      <div className="mb-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4" data-testid="facility-bulk-import-panel">
-        <FacilityBulkImportPanel
-          onClose={() => setShowBulkImport(false)}
-          onImported={() => {
-            router.refresh();
-          }}
-        />
-      </div>
+      <FacilityBulkImportPanel
+        onClose={() => setShowBulkImport(false)}
+        onImported={() => {
+          router.refresh();
+        }}
+      />
     ) : null}
     <DndContext
       id="facility-builder"

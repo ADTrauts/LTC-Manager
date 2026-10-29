@@ -48,7 +48,7 @@ GOVERNANCE
 
 | State | Meaning here |
 |-------|----------------|
-| **Implemented** | Healthcare Food & Nutrition and Facility Plant Operations V1 as customer-visible AVAILABLE Department Products, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, shared Assets and repairs |
+| **Implemented** | Food and Nutrition and Facility Plant Operations V1 as customer-visible AVAILABLE Department Products, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, shared Assets and repairs |
 | **Legacy compatibility** | Systems in the [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md). Readable. Not the forward architecture. |
 | **In development** | Environmental Services exists in the registry, tests, and internal tooling. It is not customer-visible until marked AVAILABLE. |
 
@@ -130,7 +130,7 @@ Deeper documents keep the detail: [what a Department is](./13_DEPARTMENT_PRODUCT
 
 **What the platform is.** Vssyl is one Business Operations Platform for a physical facility. Every facility gets the same engines: the building, Location Functions, Operational Cycles, Work, Records, Assets and repairs, shifts, and daily Assignments. A Department Product is a Vssyl-authored operating model installed into that facility. A Marketplace item is ready-made content added inside one Department. Run is what is true today. History answers a past service date from the configuration that was effective that day. Governance is the company, the facility account, and who may enter.
 
-**What a Department is.** A Department Product and a Department are not the same thing. Healthcare Food & Nutrition is the Product. Dietary is a facility's local name for the installed Department. The Product brings its Location Functions, rhythm starters, Work presets, Record forms, and coverage needs. The facility binds those to its own rooms, times, and people. Environmental Services stays DEVELOPMENT. Healthcare Food & Nutrition and Facility Plant Operations are AVAILABLE. A Department does not receive its own location tree, Cycle engine, Work engine, Record engine, or history store.
+**What a Department is.** A Department Product and a Department are not the same thing. Food and Nutrition is the Product. Healthcare is the industry it belongs to, not part of the name. A new install is named Food and Nutrition. A facility may rename that Department. The stored installation key remains `DIETARY`. The Product brings its Location Functions, rhythm starters, Work presets, Record forms, and coverage needs. The facility binds those to its own rooms, times, and people. Environmental Services stays DEVELOPMENT. Food and Nutrition and Facility Plant Operations are AVAILABLE. A Department does not receive its own location tree, Cycle engine, Work engine, Record engine, or history store.
 
 **Who runs a Department.** Each facility has one Facility Administrator. That person keeps the building, the account, and which company operates each Department, and can transfer the role. Every Department is run by its head and its members. The Facility Administrator only views a self-operated Department unless they are its head. A vendor-run Department is controlled by the operating partner, who owns that period's data. The Facility Administrator sees a summary plus compliance Records. Self-operated and vendor-run are derived from who the operator is. They are not a stored switch.
 
@@ -145,6 +145,8 @@ Deeper documents keep the detail: [what a Department is](./13_DEPARTMENT_PRODUCT
 | Partner head, Operator, Viewer | A vendor account inside a facility the company operates | Facility Builder, Administration, or another Department |
 | PIN | Workplace sign-in for one Employee at a unit | A separate person |
 | Harbor staff | A Vssyl Console operator | A customer user |
+
+A User remains when they leave a facility, hold only partner access, or have nowhere to enter. Their email identifies that person and is not given to anyone else. Signing up with that email and the right password adds a facility to the same User. The wrong password is refused without saying whether the email is already in use.
 
 A partner company is born in Vssyl Console. Console invites the first Organization Administrator and the first members. That invitation does not open a facility. The Facility Administrator attaches a company that already exists and records it as a Department's operator. Saving a partnership does not create the company.
 
@@ -163,7 +165,7 @@ A partner company is born in Vssyl Console. Console invites the first Organizati
 
 **What is happening, and what is mine.** "What's happening now" is only the published Cycle and Phase. The shift says who is scheduled. The daily Assignment says where they cover. A call-off marks the shift. A move changes the Assignment. Neither creates the other. Job Flow is the one "my work" view in every Department. It shows Work Plan items, Records due, and assigned work orders side by side, without merging their stores. An empty Assignment never hides Work.
 
-**Homes.** Supervisors and above begin at `/dashboard`. Floor staff begin at their unit, or at `/logs` when they have no unit. `/logs` is a short page for them. It does not send them back to the Dashboard. `/workspace` and `/today` open the Dashboard. The partner workspace begins at `/partner`. The accepted Partner head also sets up that Department at `/partner/people`, `/partner/coverage`, `/partner/rhythm`, `/partner/work`, `/partner/menus`, and `/partner/assets`. They do not receive Facility Builder or Administration.
+**Homes.** Supervisors and above begin at `/dashboard`. Floor staff begin at their unit, or at `/logs` when they have no unit. `/logs` is a short page for them. It does not send them back to the Dashboard. `/workspace` and `/today` open the Dashboard. The partner workspace begins at `/partner`. The accepted Partner head also sets up that Department at `/partner/people`, `/partner/coverage`, `/partner/rhythm`, `/partner/work`, `/partner/menus`, and `/partner/assets`. They do not receive Facility Builder or Administration. A new facility is set up at `/setup`, one question at a time: Set up your Vssyl. The answer opens the next question: Vssyl, Products, the building, equipment, who runs each ready Department, people, then acknowledgement. That Department question names the operating company and the Department head. It does not open Department Builder. The head sets that Department up after acknowledgement. Checkout returns to the building. Facility Builder and Asset Builder remain the tools for the building and equipment. Opened from setup, each of those builders hides the rest of the platform until Back to setup, which opens the next question. Acknowledging setup does not license a Product or publish a Department.
 
 **Marketplace.** It exists so a facility can add ready-made content inside a Department it already installed, without buying a new engine. The items are Records forms, Work presets, Operating Rhythm starters, and Menu templates. Each is Included or Paid. Included is the default. A Department Product's starter content is the items pre-selected for it. Forms a Department head or a vendor builds live in the same Catalog, are visible only to their owner, and are never sold. Today only Records forms are Catalog items. The other kinds still ship with the Product. Moving them into the Marketplace reuses the Catalog. It does not add a second one.
 
@@ -185,7 +187,7 @@ A partner company is born in Vssyl Console. Console invites the first Organizati
 
 **Physical world.** One Facility tree: Facility → structural Units → neighborhoods / operational Units → Rooms / Spaces. Departments do not clone the building. Facility Builder owns physical hierarchy, physical room type, and physical names.
 
-**Location Functions.** The Product defines `functionKey` and the product label. The facility binds those functions to existing rooms on a Department profile. Runtime matches `functionKey`. Build reads the working profile. Run reads the ACTIVE profile. Audit reads the profile effective on the service date. An empty binding set matches no rooms. Dietary `food_service_area` and EVS `service_support` on the same room are independent.
+**Location Functions.** The Product defines `functionKey` and the product label. The facility binds those functions to existing rooms on a Department profile. Runtime matches `functionKey`. Build reads the working profile. Run reads the ACTIVE profile. Audit reads the profile effective on the service date. An empty binding set matches no rooms. Food and Nutrition `food_service_area` and EVS `service_support` on the same room are independent.
 
 **Operational Rhythm.** An Operational Cycle is a root recurring window. A Phase is one interval inside that Cycle. A Key Point is an instant on the Cycle. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Current cycles are derived. Cycles may overlap and may cross midnight. Phases may overlap and may leave gaps. Key Points are not Work.
 
@@ -211,13 +213,13 @@ Exception behavior is declarative data on the Catalog definition (`rulesJson`) p
 
 Log Book is a projection over `OperationalEvidenceRecord`. Audit / Reports (Review) is a derived expected-versus-actual layer. Neither is a submitted-evidence store.
 
-**Dietary timing.** Meal Due is a Key Point with tracking NONE. Ready and Service Started are Dietary Key Points with tracking REQUIRED at LOCATION grain. The canonical actual is `OperationalCycleKeyPointActual`. A service date has one authoritative timing source.
+**Food and Nutrition timing.** Meal Due is a Key Point with tracking NONE. Ready and Service Started are Food and Nutrition Key Points with tracking REQUIRED at LOCATION grain. The canonical actual is `OperationalCycleKeyPointActual`. A service date has one authoritative timing source.
 
 **History.** No central ledger. Log Book is submitted Records. Asset History is source facts about an Asset. Location History is source facts about a Place. Audit / Reports compares expected and actual across a range. Selectors use the configuration effective on the requested service date.
 
 ### Product workspaces
 
-**Build / Department Builder:** Overview, Locations, Operating Rhythm, Work, People & Coverage, Records. Healthcare Food & Nutrition also has Menus. Menus are first-class Department-owned records listed at `/menus` and edited at `/menus/[menuId]`. A Menu is identity plus content. Applicability is separate configuration: explicit Department locations and canonical Operational Cycle identities, each mapped to an existing Menu period. Menu rotation is not Operational Cycle timing. They are not a facility singleton. Runtime Menu resolution is `resolveApplicableMenus`: exact location + date-effective root Operational Cycle occurrence + ACTIVE applicability + stored cycle→period mapping + Menu rotation. The first Run consumer is a read-only Today's Menu block on the Space workspace when an ACTIVE current Operational Cycle exists. Temperature/log integration and historical Menu snapshots are not implemented. Assets and Procedures appear only where a real configurable capability exists.
+**Build / Department Builder:** Overview, Locations, Operating Rhythm, Work, People & Coverage, Records. Food and Nutrition also has Menus. Menus are first-class Department-owned records listed at `/menus` and edited at `/menus/[menuId]`. A Menu is identity plus content. Applicability is separate configuration: explicit Department locations and canonical Operational Cycle identities, each mapped to an existing Menu period. Menu rotation is not Operational Cycle timing. They are not a facility singleton. Runtime Menu resolution is `resolveApplicableMenus`: exact location + date-effective root Operational Cycle occurrence + ACTIVE applicability + stored cycle→period mapping + Menu rotation. The first Run consumer is a read-only Today's Menu block on the Space workspace when an ACTIVE current Operational Cycle exists. Temperature/log integration and historical Menu snapshots are not implemented. Assets and Procedures appear only where a real configurable capability exists.
 
 **Facility Builder:** physical structure only.
 
@@ -272,7 +274,7 @@ We replace spreadsheet-and-radio coordination with **operational awareness at th
 
 ## Vision
 
-Vssyl is the **operations home for multi-node service environments**: many locations, many shifts, multiple departments (Healthcare Food & Nutrition, EVS, Plant, and future modes), across long-term care and adjacent dining/hospitality environments.
+Vssyl is the **operations home for multi-node service environments**: many locations, many shifts, multiple departments (Food and Nutrition, EVS, Plant, and future modes), across long-term care and adjacent dining/hospitality environments.
 
 Long-term:
 
@@ -334,7 +336,7 @@ The Platform engines are the substrate. The Dashboard, Unit Workspace, and the p
 - Location / unit execution (logs, meal rhythm, issues, inspections)  
 - Supervisor walk, coverage, call-downs, handoffs  
 - Manager daily home is the **Dashboard**  
-- Department operational modes via Vssyl-defined Department Products (Healthcare Food & Nutrition, EVS, Plant…) that a facility selects, licenses, then installs
+- Department operational modes via Vssyl-defined Department Products (Food and Nutrition, EVS, Plant…) that a facility selects, licenses, then installs
 - Assets / vendors as operational equipment context  
 - Employee roster and operational HR **adjacent to staffing** (not a full HRIS replacement)  
 - Knowledge bound to work  

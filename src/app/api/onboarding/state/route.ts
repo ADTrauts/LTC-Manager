@@ -20,6 +20,7 @@ const updateStateSchema = z.object({
   billingEmail: z.string().email().max(200).optional(),
   step: z.enum(ONBOARDING_STEPS).optional(),
   completeOnboarding: z.boolean().optional(),
+  setupPath: z.enum(["SELF_SERVE", "ASSISTED"]).optional(),
 });
 
 export async function GET() {
@@ -52,6 +53,7 @@ export async function PATCH(request: Request) {
     billingEmail: data.billingEmail,
     step: data.step,
     finish: data.completeOnboarding,
+    setupPath: data.setupPath,
   });
 
   await trackEvent("onboarding.state.updated", {
@@ -70,7 +72,12 @@ export async function PATCH(request: Request) {
   });
 }
 
-const eventSchema = z.object({ expectedFacilityId: z.string().cuid(), event: z.enum(["viewed", "step_viewed", "left"]), step: z.enum(["site", "products", "builders", "people"]), elapsedMs: z.number().min(0).max(86_400_000).optional() });
+const eventSchema = z.object({
+  expectedFacilityId: z.string().cuid(),
+  event: z.enum(["viewed", "step_viewed", "left"]),
+  step: z.string().regex(/^(site|products|building|equipment|people|finish|department:[A-Z0-9_]+)$/),
+  elapsedMs: z.number().min(0).max(86_400_000).optional(),
+});
 export async function POST(request: Request) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");

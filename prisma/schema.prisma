@@ -238,6 +238,7 @@ model Department {
   showInEmployeeApp              Boolean                         @default(true)
   headEmployeeId                 String?
   headEmployee                   Employee?                       @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
+  setupHeadInvites               OnboardingManagerInvite[]
   staffManagers                  DepartmentStaffManager[]
   usersAsPrimary                 User[]                          @relation("UserPrimaryDepartment")
   employeesAsPrimary             Employee[]                      @relation("EmployeePrimaryDepartment")
@@ -828,9 +829,15 @@ model OnboardingManagerInvite {
   grantAcceptedAt DateTime?
   lastDeliveryAt DateTime?
   deliveryStatus String?
+  /// Set when setup names this person as a Department head. Acceptance assigns that role.
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  firstName    String?
+  lastName     String?
 
   @@unique([facilityId, email])
   @@index([facilityId, createdAt])
+  @@index([departmentId])
 }
 
 

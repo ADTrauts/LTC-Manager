@@ -211,7 +211,7 @@ test.describe("@ci-gate V1 Bulk Onboarding Imports", () => {
       await mgr.page.goto(fx.assetBuilderPath, { waitUntil: "domcontentloaded" });
       await expect(mgr.page.getByTestId("asset-builder-page")).toBeVisible({ timeout: 30_000 });
       await mgr.page.getByTestId("asset-bulk-import-open").click();
-      await mgr.page.getByRole("link", { name: "Open reviewed Asset CSV import" }).click();
+      await expect(mgr.page.getByRole("dialog", { name: "Import equipment" })).toBeVisible();
       await expect(mgr.page.getByLabel("CSV dataset")).toHaveValue("assets");
       await expect(mgr.page.getByRole("button", { name: "Download CSV template" })).toBeVisible();
       const assetsPath = writeTempCsv(`assets-valid-${prefix}.csv`, assetCsv(prefix));
@@ -224,7 +224,7 @@ test.describe("@ci-gate V1 Bulk Onboarding Imports", () => {
       await expect(mgr.page.getByTestId("asset-registry")).toContainText(`BI-${prefix}-001`, { timeout: 30_000 });
       // A fresh review reuses the canonical identities; no new Assets or field patches.
       await mgr.page.getByTestId("asset-bulk-import-open").click();
-      await mgr.page.getByRole("link", { name: "Open reviewed Asset CSV import" }).click();
+      await expect(mgr.page.getByRole("dialog", { name: "Import equipment" })).toBeVisible();
       await mgr.page.getByLabel("CSV file", { exact: true }).setInputFiles(assetsPath);
       await mgr.page.getByRole("button", { name: "Preview CSV — no mutations" }).click();
       await expect(mgr.page.getByRole("heading", { name: "Review Asset registry" })).toBeVisible();

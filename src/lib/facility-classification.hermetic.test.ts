@@ -79,7 +79,7 @@ describe("Facility classification", () => {
 });
 
 describe("Department Product applicability", () => {
-  it("tags Healthcare Food & Nutrition for Healthcare hospitals and long-term care", () => {
+  it("tags Food and Nutrition for Healthcare hospitals and long-term care", () => {
     const product = getDepartmentProduct("HEALTHCARE_FOOD_NUTRITION");
     assert.ok(product);
     assert.equal(product.industry, "HEALTHCARE");

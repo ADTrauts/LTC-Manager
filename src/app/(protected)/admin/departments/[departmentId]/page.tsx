@@ -1,3 +1,4 @@
+import { SetupBuilderFrame } from "@/components/setup-builder-frame";
 import { SetupWorkspaceLink } from "@/components/setup-workspace-link";
 import { notFound, redirect } from "next/navigation";
 
@@ -66,6 +67,7 @@ type PageProps = {
     team?: string;
     expectation?: string;
     starter?: string;
+    onboarding?: string;
   }>;
 };
 
@@ -92,11 +94,12 @@ export default async function DepartmentBuilderPage({
   }
 
   const query = await searchParams;
+  const setupWorkspace = query.onboarding === "workspace";
 
   const requestedTab = query.tab;
   if (requestedTab && isDepartmentAdminRetiredTabId(requestedTab)) {
     const dest = DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[requestedTab];
-    const href = departmentAdminHref(departmentId, dest);
+    const href = departmentAdminHref(departmentId, dest, null, setupWorkspace);
     const team = query.team?.trim();
     redirect(
       team && dest === "people" ? `${href}&team=${encodeURIComponent(team)}` : href,
@@ -275,8 +278,9 @@ export default async function DepartmentBuilderPage({
       : null;
 
   return (
+    <SetupBuilderFrame active={setupWorkspace}>
     <div className="space-y-3" data-testid="department-builder">
-      <SetupWorkspaceLink role={session.role} />
+      <SetupWorkspaceLink role={session.role} returned={setupWorkspace && product?.productKey ? `department:${product.productKey}` : undefined} />
       <DepartmentBuildContextBar
         departmentId={view.department.id}
         departmentName={view.department.name}
@@ -284,6 +288,7 @@ export default async function DepartmentBuilderPage({
         profileId={profileId}
         activeTab={tab}
         context={contextSummary}
+        setupWorkspace={setupWorkspace}
       />
 
       <DepartmentAdminLocalNav
@@ -291,6 +296,7 @@ export default async function DepartmentBuilderPage({
         activeTab={tab}
         profileId={profileId}
         tabs={availableTabs}
+        setupWorkspace={setupWorkspace}
       />
 
       {viewNotice ? <DepartmentViewNotice notice={viewNotice} /> : null}
@@ -336,7 +342,7 @@ export default async function DepartmentBuilderPage({
             unmatchedLocationFunctions={settings.guidanceRows.some(
               (row) => row.id === "work" && row.description.includes("no bound room"),
             )}
-            locationsHref={departmentAdminHref(view.department.id, "locations", profileId)}
+            locationsHref={departmentAdminHref(view.department.id, "locations", profileId, setupWorkspace)}
             starterHref={canInstallStarter ? `/build/departments/${view.department.id}?starter=1` : null}
           />
         ) : null}
@@ -386,5 +392,6 @@ export default async function DepartmentBuilderPage({
         {tab === "menus" ? <DepartmentMenusPanel departmentId={view.department.id} /> : null}
       </div>
     </div>
+    </SetupBuilderFrame>
   );
 }

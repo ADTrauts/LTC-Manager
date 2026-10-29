@@ -147,6 +147,8 @@ export async function loadRoomRunIdentity(input: {
 /**
  * Department used for published Run presentation.
  * Follows the active shell department, then Unit responsibilities.
+ * A facility with one operational department uses that department when the
+ * room has no assignment, so the location still opens.
  * Does not require DIETARY_OPERATIONAL_CYCLES_ENABLED — provenance decides
  * current PERIOD vs leftover meal-service, matching Today's Work.
  */
@@ -183,6 +185,18 @@ export async function resolveRunPresentationDepartment(input: {
       if (match) return match.department;
     }
   }
+
+  const installed = await prisma.department.findMany({
+    where: {
+      facilityId: input.facilityId,
+      isActive: true,
+      key: { in: ["DIETARY", "EVS", "PLANT"] },
+    },
+    select: { id: true, name: true, key: true },
+    orderBy: { name: "asc" },
+    take: 2,
+  });
+  if (installed.length === 1) return installed[0] ?? null;
 
   return null;
 }

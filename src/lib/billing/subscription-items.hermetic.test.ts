@@ -47,7 +47,7 @@ test("merge keeps current departments and appends new ones once", () => {
   ]);
 });
 
-test("legacy Dietary and Healthcare Food & Nutrition collapse to one licensed key", () => {
+test("legacy DIETARY and Food and Nutrition collapse to one licensed key", () => {
   assert.deepEqual(
     mergeLicensedDepartmentKeys(["DIETARY"], ["HEALTHCARE_FOOD_NUTRITION"]),
     ["DIETARY"],

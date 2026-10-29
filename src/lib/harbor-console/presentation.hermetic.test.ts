@@ -42,7 +42,7 @@ test("onboarding label describes journey acknowledgement without asserting opera
 });
 
 test("department and billing labels stay readable", () => {
-  assert.equal(departmentKeyLabel("DIETARY"), "Healthcare Food & Nutrition");
+  assert.equal(departmentKeyLabel("DIETARY"), "Food and Nutrition");
   assert.equal(departmentKeyLabel("PLANT"), "Facility Plant Operations");
   assert.equal(billingStatusLabel("PAST_DUE"), "Past due");
   assert.equal(billingStatusLabel(null), "No billing record");

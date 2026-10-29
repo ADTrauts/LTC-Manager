@@ -67,7 +67,7 @@ test("facility RUN nav is the registry projection, not a second hardcoded list",
   assert.equal(labels.includes("Today's Work"), false);
   assert.equal(labels.includes("Locations"), true);
   assert.equal(labels.includes("Schedule"), true);
-  assert.equal(labels.includes("Logs"), true);
+  assert.equal(labels.filter((label) => label === "Logs").length, 1);
   assert.equal(labels.includes("Log Book"), true);
   assert.equal(labels.includes("Maintenance"), true);
   assert.equal(labels.includes("Audit / Reports"), true);

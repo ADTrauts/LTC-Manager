@@ -11,6 +11,7 @@ type Props = {
   profileId: string | null;
   /** When set, only these tabs render (feature-flag filtered). */
   tabs?: readonly (typeof DEPARTMENT_ADMIN_TABS)[number][];
+  setupWorkspace?: boolean;
 };
 
 /**
@@ -22,6 +23,7 @@ export function DepartmentAdminLocalNav({
   activeTab,
   profileId,
   tabs = DEPARTMENT_ADMIN_TABS,
+  setupWorkspace = false,
 }: Props) {
   return (
     <SubNav
@@ -31,7 +33,7 @@ export function DepartmentAdminLocalNav({
       items={tabs.map((tab) => ({
         id: tab.id,
         label: tab.label,
-        href: departmentAdminHref(departmentId, tab.id, profileId),
+        href: departmentAdminHref(departmentId, tab.id, profileId, setupWorkspace),
       }))}
     />
   );

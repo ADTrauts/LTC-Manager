@@ -6,9 +6,9 @@ New platform building rules for how every Department appears on the Dashboard. T
 
 **Yes, without restructuring any Department.** Every Department-level data source the Dashboard needs is already scoped by Department and already enforces its own authority. Coverage is uneven, though:
 
-- **Healthcare Food & Nutrition (installed as Dietary)** fits fully today.
+- **Food and Nutrition** fits fully today.
 - **Facility Plant Operations** fits through its own services (requests, work orders, PM). It has no Operational Cycle or Location Function, so it needs a shared attention contract to show up in "Needs attention".
-- **Environmental Services** is DEVELOPMENT and contributes nothing until it is released. When released it fits like Food & Nutrition.
+- **Environmental Services** is DEVELOPMENT and contributes nothing until it is released. When released it fits like Food and Nutrition.
 - **Custom Departments** get the shared cards their configuration supports, and no product cards.
 
 What is missing is a **rule** for how a Department appears. Without one, the Dashboard either hardcodes each Department (as `workspace-composition.ts` does today) or shows empty, misleading tiles. Plant would show "3 not programmed" locations, for example. This contract is that rule: **cards are platform-owned, and Departments contribute capabilities, not screens.**
@@ -109,7 +109,7 @@ Status today with current flag defaults. ✓ means the card works from existing 
 
 ## Assessment by Department
 
-### Healthcare Food & Nutrition (AVAILABLE, installed as Dietary)
+### Food and Nutrition (AVAILABLE)
 
 **Fit: strongest.** It ships everything the Dashboard's location and timeline cards need:
 - a Location Function (`food_service_area`)
@@ -200,7 +200,7 @@ They follow the same rules (R3–R6).
 
 Each Department Product keeps one declaration here. Declarations list what the Product makes possible, not UI. The card catalog decides presentation.
 
-### Healthcare Food & Nutrition — declared October 20, 2026
+### Food and Nutrition — declared October 20, 2026
 
 | Item | Declaration |
 |---|---|

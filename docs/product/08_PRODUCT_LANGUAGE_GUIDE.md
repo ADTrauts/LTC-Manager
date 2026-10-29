@@ -14,7 +14,7 @@
 | **Vssyl Console** | Harbor Console, Staff desk *(as product name)*, LTC Corp console |
 | **Business Operations Platform** (descriptor) | Long-term care nutrition software *(as the product identity)* |
 
-A Department Product is a Vssyl-authored operating model. A Department is the facility’s local installed instance and local name. Healthcare Food & Nutrition is the Product; a facility may still call its Department Dietary. These are not synonyms for Vssyl.
+A Department Product is a Vssyl-authored operating model. A Department is the facility’s local installed instance and local name. Food and Nutrition is the Product. Healthcare is the industry it belongs to, not part of the name. A new install is named Food and Nutrition. A facility may rename that Department. These are not synonyms for Vssyl.
 
 ---
 
@@ -73,7 +73,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Sign out** | Clears this browser's `ltc_session`. | Sign out everywhere |
 | **Sign out everywhere** | Increments `User.sessionVersion` and clears this cookie. All User JWTs die. PIN and Harbor stay. | Sign out other sessions; a device/session inventory |
 | **PIN / PIN access** | Workplace authentication for one Employee context (`Employee.sessionVersion`). Not a separate human identity. | Treating PIN-only as a person without a Vssyl account; signing PIN out by changing User password or Sign out everywhere |
-| **Vssyl account** | Persistent global person identity (`User`) used to sign in and hold contexts | Global User in customer copy; “full account” vs “PIN-only user” |
+| **Vssyl account** | Persistent global person identity (`User`) used to sign in and hold contexts. The account stays with no facility, after leaving a facility, or with only partner access. `User.email` identifies that person and is not issued again. | Global User in customer copy; “full account” vs “PIN-only user”; a second User for an email already in use |
 | **Account activation** | Setting a password and verifying email so the Vssyl account can sign in globally | Per-Facility activation; treating invite resend as a new 30-day clock |
 | **Account active** | Vssyl account is activated (`isActive` + password + verified email) | Linked, identity link, UserFacilityAccess |
 | **Activation pending** | Vssyl account exists but is not yet activated; PIN access still works during the 30-day grace | Invitation pending as the customer status for a linked User |
@@ -93,7 +93,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Facility Administrator** | The one person who governs the facility account. Views a self-operated Department unless they are its head. Sees a vendor-run Department as a summary plus compliance Records. | Several Facility Administrators; operating every Department |
 | **Department head / GM** | The person who runs one Department | The Facility Administrator by default |
 | **Operator period** | The dates one company runs a Department | A permanent operator flag |
-| **Department Product** | Vssyl-published operational product (Healthcare Food & Nutrition, Environmental Services, Facility Plant Operations) | Industry pack, Experience, blank “create any department”, using a local Department name as the Product name; generic **Maintenance** as a Product name |
+| **Department Product** | Vssyl-published operational product (Food and Nutrition, Environmental Services, Facility Plant Operations) | Industry pack, Experience, blank “create any department”, using a local Department name as the Product name; generic **Maintenance** as a Product name |
 | **Department** | Facility-installed instance / operational ownership | Line of business |
 | **Enabled** | `Department.isActive` — admitted to shared operations | Operationally active, configured, ready, healthy |
 | **Operating rhythm** | Recurring Operational Cycles the department runs | Shift, schedule ceremony, setup steps |
