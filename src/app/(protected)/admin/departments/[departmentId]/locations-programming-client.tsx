@@ -4,13 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
-import {
-  addFacilityTypeLogDefaultAction,
-  removeFacilityTypeLogDefaultAction,
-  removeRoomLogAction,
-  restoreFacilityTypeLogDefaultAction,
-  suppressFacilityTypeLogDefaultAction,
-} from "@/app/(protected)/admin/departments/[departmentId]/location-room-actions";
+import { removeRoomLogAction } from "@/app/(protected)/admin/departments/[departmentId]/location-room-actions";
 import { DepartmentLocationTree } from "@/components/location-tree";
 import { GuardedModal } from "@/components/guarded-modal";
 import { Button } from "@/components/design-system/Button";
@@ -75,7 +69,6 @@ function LocationRoomInspector({
   inspect: LocationRoomInspectView;
   canManage: boolean;
 }) {
-  const [addingTypeDefault, setAddingTypeDefault] = useState(false);
   const place = [inspect.place, inspect.facilityTypeLabel ? `Facility type: ${inspect.facilityTypeLabel}` : null]
     .filter(Boolean)
     .join(" · ");
@@ -173,96 +166,10 @@ function LocationRoomInspector({
                     </Button>
                   </DepartmentAdminActionForm>
                 ) : null}
-                {canManage && log.canSuppress && log.defaultId ? (
-                  <DepartmentAdminActionForm
-                    action={suppressFacilityTypeLogDefaultAction}
-                    className="mt-1"
-                  >
-                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
-                    <input type="hidden" name="spaceId" value={inspect.spaceId} />
-                    <input type="hidden" name="defaultId" value={log.defaultId} />
-                    <Button type="submit" variant="secondary" size="compact">
-                      Don’t use on this room
-                    </Button>
-                  </DepartmentAdminActionForm>
-                ) : null}
-                {canManage && log.canRestore && log.defaultId ? (
-                  <DepartmentAdminActionForm
-                    action={restoreFacilityTypeLogDefaultAction}
-                    className="mt-1"
-                  >
-                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
-                    <input type="hidden" name="spaceId" value={inspect.spaceId} />
-                    <input type="hidden" name="defaultId" value={log.defaultId} />
-                    <Button type="submit" variant="secondary" size="compact">
-                      Inherit again
-                    </Button>
-                  </DepartmentAdminActionForm>
-                ) : null}
-                {canManage && log.kind === "TYPE_DEFAULT" && log.defaultId && !log.canRestore ? (
-                  <DepartmentAdminActionForm
-                    action={removeFacilityTypeLogDefaultAction}
-                    className="mt-1"
-                  >
-                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
-                    <input type="hidden" name="defaultId" value={log.defaultId} />
-                    <Button type="submit" variant="secondary" size="compact">
-                      Remove from all {inspect.facilityTypeLabel ?? "type"} rooms
-                    </Button>
-                  </DepartmentAdminActionForm>
-                ) : null}
               </li>
             ))}
           </ul>
         )}
-
-        {canManage && inspect.facilityRoomTypeId && inspect.catalogOptions.length > 0 ? (
-          <div className="pt-1">
-            <Button
-              type="button"
-              variant="secondary"
-              size="compact"
-              onClick={() => setAddingTypeDefault((current) => !current)}
-              data-testid="location-add-type-default"
-            >
-              {addingTypeDefault
-                ? "Cancel"
-                : `+ Add log to all ${inspect.facilityTypeLabel ?? "type"} rooms`}
-            </Button>
-            {addingTypeDefault ? (
-              <DepartmentAdminActionForm
-                action={addFacilityTypeLogDefaultAction}
-                className="mt-2 space-y-2"
-                onSuccess={() => setAddingTypeDefault(false)}
-              >
-                <input type="hidden" name="departmentId" value={inspect.departmentId} />
-                <input type="hidden" name="facilityRoomTypeId" value={inspect.facilityRoomTypeId} />
-                <label className="block text-xs font-medium text-zinc-700">
-                  Catalog log
-                  <select
-                    name="catalogStableKey"
-                    required
-                    className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-                  >
-                    <option value="">Select a log…</option>
-                    {inspect.catalogOptions.map((option) => (
-                      <option key={option.stableKey} value={option.stableKey}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <p className="text-[11px] text-zinc-500">
-                  Inherited from Facility type. One room can turn it off without deleting the
-                  default.
-                </p>
-                <Button type="submit" size="compact">
-                  Add type default
-                </Button>
-              </DepartmentAdminActionForm>
-            ) : null}
-          </div>
-        ) : null}
       </section>
 
       <section className="space-y-2" data-testid="location-program-assets">

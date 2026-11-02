@@ -87,7 +87,7 @@ describe("Location Program", () => {
     assert.equal(formatNeedSummary(1, "PER_ROOM"), "1 per room");
     assert.deepEqual(
       program.logs.map((row) => row.label),
-      ["Dish machine", "Sanitizer check", "Temp log"],
+      ["Dish machine", "Temp log"],
     );
     assert.equal(program.logs.find((row) => row.kind === "ROOM")?.provenance.source, "ROOM_LOG");
     assert.equal(program.assets[0]?.name, "Hobart 1");
@@ -123,13 +123,12 @@ describe("Location Program", () => {
     assert.equal(locationProgramIsAttached(composeLocationProgram(baseInput())), true);
   });
 
-  it("marks a type default suppressed on that room only", () => {
+  it("does not inherit a Facility Room Type default onto the room", () => {
     const input = baseInput();
     input.suppressions = [{ defaultId: "def-1", spaceId: "servery-3a" }];
     const program = composeLocationProgram(input);
-    const typeLog = program.logs.find((row) => row.kind === "TYPE_DEFAULT");
-    assert.equal(typeLog?.suppressed, true);
-    assert.match(typeLog?.provenance.detail ?? "", /Suppressed on this room/);
+    assert.equal(program.logs.some((row) => row.kind === "TYPE_DEFAULT"), false);
+    assert.equal(program.logs.some((row) => row.label === "Sanitizer check"), false);
   });
 });
 

@@ -52,7 +52,7 @@ async function loadProgramsForDepartmentRooms(input: {
   const spaceIds = input.rooms.map((room) => room.spaceId);
   const logsEnabled = isCanonicalLogsEnabled();
 
-  const [teams, spaces, attachments, assets, typeDefaults, suppressions] = await Promise.all([
+  const [teams, spaces, attachments, assets] = await Promise.all([
     loadTeamsForDepartment(prisma, {
       facilityId: input.facilityId,
       departmentId: input.department.id,
@@ -97,29 +97,6 @@ async function loadProgramsForDepartmentRooms(input: {
             unit: { facilityId: input.facilityId },
           },
           select: { id: true, name: true, assetCode: true, spaceId: true },
-        })
-      : Promise.resolve([]),
-    logsEnabled
-      ? prisma.departmentFacilityTypeLogDefault.findMany({
-          where: {
-            facilityId: input.facilityId,
-            departmentId: input.department.id,
-          },
-          select: {
-            id: true,
-            facilityRoomTypeId: true,
-            catalogDefinition: { select: { name: true } },
-            facilityRoomType: { select: { displayName: true } },
-          },
-        })
-      : Promise.resolve([]),
-    logsEnabled && spaceIds.length
-      ? prisma.departmentLocationLogSuppression.findMany({
-          where: {
-            departmentId: input.department.id,
-            spaceId: { in: spaceIds },
-          },
-          select: { defaultId: true, spaceId: true },
         })
       : Promise.resolve([]),
   ]);
@@ -177,13 +154,6 @@ async function loadProgramsForDepartmentRooms(input: {
       endLocal: row.cycle.endLocal,
       spaceIds: [row.spaceId!],
     }));
-  const typeDefaultInput = typeDefaults.map((row) => ({
-    id: row.id,
-    label: row.catalogDefinition.name,
-    facilityRoomTypeId: row.facilityRoomTypeId,
-    typeLabel: row.facilityRoomType.displayName,
-  }));
-
   const programs: Record<string, LocationProgram> = {};
   for (const room of input.rooms) {
     const type = typeBySpace.get(room.spaceId);
@@ -217,8 +187,8 @@ async function loadProgramsForDepartmentRooms(input: {
       cyclePlacements,
       spaceLogs,
       assetLogs,
-      typeDefaults: typeDefaultInput,
-      suppressions,
+      typeDefaults: [],
+      suppressions: [],
       assets: assets
         .filter((asset) => asset.spaceId === room.spaceId)
         .map((asset) => ({

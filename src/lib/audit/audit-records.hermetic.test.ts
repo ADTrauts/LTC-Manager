@@ -43,12 +43,12 @@ function segment(
     calendarDueTimeLocal: null,
     localDisplayLabel: "Cooler Temperature",
     localInstructions: "Record the cooler temperature.",
-    targetKind: "OPERATIONAL_TYPE",
+    targetKind: "SPACE",
     assetId: null,
-    spaceId: null,
+    spaceId: "room-a",
     unitId: null,
     targetDepartmentId: null,
-    operationalTypeKey: "food_service_area",
+    operationalTypeKey: null,
     dailyWindows: windows("TWICE_DAILY"),
     cycleSelections: [],
     catalogDefinition: {
@@ -172,21 +172,21 @@ function audit(overrides?: Partial<Parameters<typeof auditOperationalRecords>[0]
   });
 }
 
-test("September cooler audit uses each day's cadence and location binding", () => {
-  const result = audit();
+test("September cooler audit uses each day's Record attachment, not a Department profile", () => {
+  const result = audit({ profiles: [], bindings: [] });
   const sept5 = result.slots.filter((slot) => slot.serviceDate === "2026-09-05");
   const sept12 = result.slots.filter((slot) => slot.serviceDate === "2026-09-12");
   const sept20 = result.slots.filter((slot) => slot.serviceDate === "2026-09-20");
-  assert.equal(new Set(sept5.map((slot) => slot.spaceId)).size, 2);
-  assert.equal(sept5.filter((slot) => slot.spaceId === "room-a").length, 2);
-  assert.equal(sept12.every((slot) => slot.spaceId === "room-b"), true);
+  assert.equal(sept5.every((slot) => slot.spaceId === "room-a"), true);
+  assert.equal(sept5.length, 2);
+  assert.equal(sept12.every((slot) => slot.spaceId === "room-a"), true);
   assert.equal(sept12.length, 2);
   assert.equal(sept20.length, 3);
-  assert.equal(sept20.some((slot) => slot.spaceId === "room-a"), false);
+  assert.equal(sept20.every((slot) => slot.spaceId === "room-a"), true);
   assert.equal(sept5[0]?.catalogVersion, 2);
   assert.equal(sept20[0]?.catalogVersion, 3);
   assert.equal(sept20.every((slot) => slot.slotState === "NOT_COMPLETE"), true);
-  assert.equal(result.slots.length, 10 * 4 + 4 * 2 + 16 * 3);
+  assert.equal(result.slots.length, 14 * 2 + 16 * 3);
 
   const oneDay = audit({ fromDateKey: "2026-09-12", toDateKey: "2026-09-12" });
   assert.deepEqual(
@@ -199,7 +199,7 @@ test("September cooler audit uses each day's cadence and location binding", () =
 
 test("a closed slot with no Record and no waiver is not complete, and nothing is persisted", () => {
   const result = audit({ fromDateKey: "2026-09-01", toDateKey: "2026-09-01" });
-  assert.equal(result.slots.length, 4);
+  assert.equal(result.slots.length, 2);
   assert.equal(result.slots.every((slot) => slot.slotState === "NOT_COMPLETE" && slot.record == null), true);
 });
 

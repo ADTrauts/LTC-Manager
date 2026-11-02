@@ -364,7 +364,7 @@ test("food_service_area slots use the location function binding", () => {
     ["labeled-servery", { key: "servery" }],
     ["unassigned", { key: "" }],
   ]);
-  assert.deepEqual(expandOperationalTypeSpaces(assignments, "food_service_area"), ["naval-park"]);
+  assert.deepEqual(expandOperationalTypeSpaces(assignments, "food_service_area"), []);
   const attachment = {
     id: "att",
     departmentId: "dietary",
@@ -387,7 +387,7 @@ test("food_service_area slots use the location function binding", () => {
     operationalTypeKey: "food_service_area",
     operationalTypeName: "Kitchen",
   });
-  assert.equal(match?.source, "OPERATIONAL_TYPE_DEFAULT");
+  assert.equal(match, null);
   assert.equal(
     matchLogAttachmentToLocation(attachment, {
       facilityId: "facility-1",

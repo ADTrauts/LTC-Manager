@@ -1916,8 +1916,7 @@ model DepartmentTeamCycle {
   @@index([facilityId, departmentId])
 }
 
-/// Department-scoped log default on a Facility Room Type (Dietary Servery, not Role).
-/// Rooms of that type inherit the log; one room can suppress it.
+/// Unused. Facility Room Type does not assign Records. Final schema pass drops this table.
 model DepartmentFacilityTypeLogDefault {
   id                  String              @id @default(cuid())
   facilityId          String
@@ -1939,7 +1938,7 @@ model DepartmentFacilityTypeLogDefault {
   @@index([facilityRoomTypeId])
 }
 
-/// One room opts out of a Facility type log default. Does not delete the type default.
+/// Unused. Room suppression is not Records applicability. Final schema pass drops this table.
 model DepartmentLocationLogSuppression {
   id           String                           @id @default(cuid())
   departmentId String
@@ -4872,7 +4871,7 @@ enum LogAttachmentTargetKind {
   UNIT
   DEPARTMENT
   FACILITY
-  /// Department-scoped Operational Type (DepartmentRoomArchetype.key).
+  /// Unused. Records do not target Location Function. Final schema pass drops this value.
   OPERATIONAL_TYPE
 }
 
@@ -5051,7 +5050,7 @@ model LogAttachment {
   unit                Unit?                         @relation(fields: [unitId], references: [id], onDelete: Restrict)
   targetDepartmentId  String?
   targetDepartment    Department?                   @relation("LogAttachmentTargetDepartment", fields: [targetDepartmentId], references: [id], onDelete: Restrict)
-  /// Stable Operational Type identity (DepartmentRoomArchetype.key). Not a display name.
+  /// Unused. Records matching does not read this. Final schema pass drops the column.
   operationalTypeKey  String?
   timingMode          LogAttachmentTimingMode
   calendarCadence     LogAttachmentCalendarCadence?

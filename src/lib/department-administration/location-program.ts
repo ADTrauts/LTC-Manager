@@ -251,11 +251,6 @@ export function composeLocationProgram(
     cycle.teams.sort((a, b) => a.teamName.localeCompare(b.teamName));
   }
 
-  const suppressed = new Set(
-    input.suppressions
-      .filter((row) => row.spaceId === spaceId)
-      .map((row) => row.defaultId),
-  );
   const logs: LocationProgramLog[] = [];
 
   for (const row of input.spaceLogs) {
@@ -285,28 +280,6 @@ export function composeLocationProgram(
         detail: `On ${row.assetName}`,
       },
     });
-  }
-
-  if (input.location.facilityRoomTypeId) {
-    for (const row of input.typeDefaults) {
-      if (row.facilityRoomTypeId !== input.location.facilityRoomTypeId) continue;
-      const isSuppressed = suppressed.has(row.id);
-      logs.push({
-        id: `type:${row.id}`,
-        label: row.label,
-        kind: "TYPE_DEFAULT",
-        assetName: null,
-        defaultId: row.id,
-        attachmentId: null,
-        suppressed: isSuppressed,
-        provenance: {
-          source: "FACILITY_TYPE_DEFAULT",
-          detail: isSuppressed
-            ? `Suppressed on this room · default for ${row.typeLabel}`
-            : `Inherited from Facility type: ${row.typeLabel}`,
-        },
-      });
-    }
   }
 
   return {

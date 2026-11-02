@@ -8,7 +8,6 @@ import {
   projectLogExpectationHistory,
   type LogExpectationHistorySlot,
 } from "@/lib/canonical-logs/expectation-history";
-import { expandOperationalTypeSpaces } from "@/lib/canonical-logs/log-operational-type-applicability";
 import type { LogAttachmentForResolve } from "@/lib/canonical-logs/resolve-log-requirements";
 import {
   evaluateCoverageSlots,
@@ -80,18 +79,9 @@ function overrideKind(reason: string, oldUnitId: string | null, newUnitId: strin
   return "presence_exception";
 }
 
-function spaceIdsForAttachment(
-  segment: LogAttachmentForResolve,
-  otBySpace: Map<string, { key: string; name: string }>,
-  spaces: OperationalReviewDayFacts["spaces"],
-): string[] {
+function spaceIdsForAttachment(segment: LogAttachmentForResolve): string[] {
+  if (segment.targetKind === "OPERATIONAL_TYPE") return [];
   if (segment.targetKind === "SPACE" && segment.spaceId) return [segment.spaceId];
-  if (segment.targetKind === "OPERATIONAL_TYPE") {
-    return expandOperationalTypeSpaces(otBySpace, segment.operationalTypeKey);
-  }
-  if (segment.targetKind === "UNIT" && segment.unitId) {
-    return spaces.filter((space) => space.parentUnitId === segment.unitId).map((space) => space.spaceId);
-  }
   return [];
 }
 
@@ -178,8 +168,7 @@ export function composeOperationalReviewDay(
 
     anyReliableEvidence = true;
     const historical = catalogDefinitionForHistory(reliability.covering);
-    const otBySpace = otByDepartment.get(historical.departmentId) ?? new Map();
-    const targetSpaceIds = spaceIdsForAttachment(historical, otBySpace, facts.spaces);
+    const targetSpaceIds = spaceIdsForAttachment(historical);
     const spacesToProject = targetSpaceIds.length > 0 ? targetSpaceIds : [null];
 
     for (const spaceId of spacesToProject) {
@@ -242,8 +231,6 @@ export function composeOperationalReviewDay(
     evidenceAvailability = unavailable("legacy_only_date");
   } else if (!anyReliableEvidence && anyUnreliableEvidence) {
     evidenceAvailability = unavailable("attachment_history_not_reliable");
-  } else if (otUnavailable && facts.attachmentSegments.some((row) => row.targetKind === "OPERATIONAL_TYPE")) {
-    evidenceAvailability = unavailable("no_historical_ot_version");
   }
 
   const cycleVersions = facts.cycles.map((cycle) => ({

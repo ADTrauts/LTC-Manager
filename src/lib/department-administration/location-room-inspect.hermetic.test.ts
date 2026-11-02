@@ -98,13 +98,11 @@ describe("Location room inspect", () => {
     assert.equal(view.cycles[0]?.provenance.detail, "Cycle placed on this room");
   });
 
-  it("keeps room, asset, and Facility type logs with provenance", () => {
+  it("keeps explicit room and asset logs with provenance", () => {
     const view = composeLocationRoomInspect(baseInput());
     const labels = view.logs.map((row) => row.label);
-    assert.deepEqual(labels, ["Dish machine", "Sanitizer check", "Temp log"]);
-    const typeLog = view.logs.find((row) => row.kind === "TYPE_DEFAULT");
-    assert.equal(typeLog?.provenance.detail, "Inherited from Facility type: Servery");
-    assert.equal(typeLog?.canSuppress, true);
+    assert.deepEqual(labels, ["Dish machine", "Temp log"]);
+    assert.equal(view.logs.some((row) => row.kind === "TYPE_DEFAULT"), false);
     const assetLog = view.logs.find((row) => row.kind === "ASSET");
     assert.equal(assetLog?.canRemove, false);
     assert.match(assetLog?.provenance.detail ?? "", /Hobart 1/);
@@ -115,14 +113,11 @@ describe("Location room inspect", () => {
     assert.match(decodeURIComponent(view.addLogHref ?? ""), /tab=locations/);
   });
 
-  it("marks a suppressed type default as restoreable on that room only", () => {
+  it("does not offer Facility Room Type inheritance on the room", () => {
     const input = baseInput();
     input.suppressions = [{ defaultId: "def-1", spaceId: "servery-3a" }];
     const view = composeLocationRoomInspect(input);
-    const typeLog = view.logs.find((row) => row.kind === "TYPE_DEFAULT");
-    assert.equal(typeLog?.canRestore, true);
-    assert.equal(typeLog?.canSuppress, false);
-    assert.match(typeLog?.provenance.detail ?? "", /Suppressed on this room/);
+    assert.equal(view.logs.some((row) => row.kind === "TYPE_DEFAULT"), false);
   });
 });
 
@@ -139,7 +134,8 @@ describe("Locations modal contracts", () => {
     assert.match(client, /Cycles that landed here/);
     assert.match(client, /Staffing need/);
     assert.match(client, /Add log/);
-    assert.match(client, /Inherited from Facility type/);
+    assert.doesNotMatch(client, /Inherited from Facility type/);
+    assert.doesNotMatch(client, /Add log to all/);
     assert.doesNotMatch(client, /Coverage Expectations/);
     assert.doesNotMatch(client, /How we use this room/);
     assert.doesNotMatch(client, /location-program-experiences/);

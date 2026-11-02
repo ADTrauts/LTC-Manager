@@ -79,10 +79,10 @@ Department Builder
 │
 ├── Records                                            CANON engine, several aimers
 │     CatalogLogDefinition → FacilityCatalogInstall → LogAttachment
-│     LogAttachment may target asset, space, unit, department,
-│     facility, or an operational-type key
-│     PLUS DepartmentFacilityTypeLogDefault on physical FacilityRoomType
-│     PLUS DepartmentLocationLogSuppression per room
+│     LogAttachment targets FACILITY, DEPARTMENT, UNIT, SPACE, or ASSET
+│     Location filters assist selection and are not saved
+│     OPERATIONAL_TYPE, Facility Room Type defaults, and suppressions
+│     are not live Records applicability
 │
 └── Menus                                              Food and Nutrition extension
       Menu identity in Menu Builder
@@ -199,7 +199,7 @@ flowchart TB
 | What kind of room it is physically | Facility Room Type, and also legacy `SpaceType` | `FacilityRoomType`, plus `UnitSpace.spaceType` |
 | Which people work here | Team room membership, and also daily Assignment | `DepartmentTeamRoomMembership` and `OperationalAssignment` |
 | How many people are needed | Team cycle need, and also coverage expectation | `DepartmentTeamCycle.requiredCount` and `OperationalAssignmentTemplateItem.requiredCount` |
-| Which Records apply | Attachment, or type default minus suppression | `LogAttachment` and `DepartmentFacilityTypeLogDefault` |
+| Which Records apply | The attachment's canonical target | `LogAttachment` on facility, department, unit, space, or asset |
 | A group of rooms | Neighborhood, Zone, team rooms, Key Point room group, explicit cycle locations | five different groupings |
 
 ## Profile perspectives already in code

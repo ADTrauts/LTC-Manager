@@ -323,7 +323,11 @@ Catalog definition
 
 The Facility section may show which Records apply to a place. It does not become the Record definition or evidence store.
 
-There is no `DepartmentRecordApplicability` model. `LogAttachment` already targets a space, unit, department, facility, or asset. The `OPERATIONAL_TYPE` target is deletion debt. Do not add a function-key applicability path.
+There is no `DepartmentRecordApplicability` model. `LogAttachment` stores the canonical target: `FACILITY`, `DEPARTMENT`, `UNIT`, `SPACE`, or `ASSET`.
+
+`FACILITY` is one facility requirement. `DEPARTMENT` is one department requirement. `UNIT` is that Unit. `SPACE` is that `UnitSpace`. `ASSET` is that Asset, and it is not copied onto the Asset's room. A manager may filter rooms by department responsibility, floor, neighborhood, Facility Room Type, or search while assigning. The saved rows are the selected targets. A later room of the same Facility Room Type does not inherit the requirement.
+
+`OPERATIONAL_TYPE`, Location Function, Facility Room Type inheritance, and location suppression are not Records applicability. The enum value and the unused default/suppression tables remain until the final schema pass. Do not add a function-key applicability path.
 
 ---
 
