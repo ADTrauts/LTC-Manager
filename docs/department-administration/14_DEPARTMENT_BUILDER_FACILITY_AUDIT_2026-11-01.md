@@ -4,6 +4,8 @@
 **Scope:** Current Department Builder Facility/location architecture, ownership, legacy concepts, downstream dependencies, and migration direction.  
 **Decision source:** [16 — Department Builder Architecture](../product/16_DEPARTMENT_BUILDER_ARCHITECTURE.md)
 
+**Superseded in part on November 2, 2026.** This file is the November 1 record. Its conclusion that Location Function should be kept and consolidated is withdrawn. The binding rule is now: retire Location Function, Operational Type, archetype, and the Department operational profile. Read [08 — Location Function elimination audit](./visual-audit/08_LOCATION_FUNCTION_ELIMINATION_AUDIT.md) before any paragraph below that says to keep or rename that concept.
+
 ---
 
 ## Executive verdict
@@ -434,10 +436,10 @@ This keeps the page powerful without turning it into a mega-form that rewrites e
 |---|---|---|
 | Facility physical hierarchy | **KEEP** | Facility Builder |
 | Department responsibility on places | **KEEP** | Facility Builder |
-| Location Function | **KEEP / CONSOLIDATE** | Department configuration over Facility place |
-| `DepartmentOperationalProfile` publication semantics | **KEEP IF REQUIRED / SIMPLIFY** | Location Function effective configuration |
-| Operational Type product language | **RETIRE** | Location Function |
-| Archetype product language | **RETIRE** | Location Function |
+| Location Function | **RETIRED November 2** | Not a business primitive. See the elimination audit. |
+| `DepartmentOperationalProfile` publication semantics | **RETIRED November 2** | History stays on each engine |
+| Operational Type product language | **RETIRE** | No replacement classification |
+| Archetype product language | **RETIRE** | No replacement classification |
 | Experience tree/catalog | **RETIRE** | No replacement tree |
 | Operational Areas | **RETIRE** | No replacement location layer |
 | newer place-centric Location Program read model | **KEEP PATTERN / REFACTOR** | composition only |
@@ -455,8 +457,8 @@ This keeps the page powerful without turning it into a mega-form that rewrites e
 
 ## Certification statement
 
-The Facility audit does **not** recommend another location engine. It recommends removing the concepts that accumulated around the one physical Facility tree and making the remaining Department-specific layer explicit:
+The November 1 text below this banner recommended keeping Location Function. That recommendation is withdrawn.
 
-> **Facility Builder defines the place and Department responsibility. Department Builder → Facility defines how this Department uses that place, beginning with Location Function, while composing facts from their real owners.**
+> **Facility Builder defines the place and Department responsibility. Department Builder → Facility shows those places. Each engine stores the canonical location ids it needs. There is no Location Function.**
 
-Implementation should now proceed by dependency removal and consolidation, not by inventing a replacement architecture.
+Implementation removes the indirection. It does not rename it.

@@ -38,11 +38,9 @@ There is one physical Facility tree. Facility Builder owns physical identity, hi
 
 Department Builder → Facility consumes that canonical tree through the selected Department lens. It does not create another physical location identity or responsibility store.
 
-The Department-specific semantic applied to an existing responsible place is **Location Function**.
+**November 2, 2026 supersession.** There is no Department-specific location semantic. Location Function, Operational Type, `DepartmentRoomArchetype`, and `DepartmentOperationalProfile` are retired before release. The same physical room is shared by responsibility rows and by each engine storing that room’s id. See [16](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md) and the [elimination audit](../department-administration/visual-audit/08_LOCATION_FUNCTION_ELIMINATION_AUDIT.md).
 
-Current implementation names such as `DepartmentRoomArchetype`, Operational Type, archetype binding, and profile are not separate product concepts. They are compatibility/implementation details to consolidate around Location Function while retaining required draft/publish/effective-dating semantics.
-
-The same physical room may carry different Location Functions for different Departments.
+Constitution, language-guide, domain-model, and registry sentences that still list Location Function as a shared mechanism are superseded by this paragraph. Do not implement them.
 
 ---
 
@@ -107,8 +105,7 @@ These views persist no merged copies merely to simplify a screen.
 
 The following are not forward Department Builder concepts:
 
-- Operational Type as manager/product language
-- archetype as manager/product language
+- Location Function, Operational Type, and archetype
 - Experience tree / Experience catalog
 - Operational Areas as a second location structure
 - generic Work
@@ -122,9 +119,8 @@ Department operational Zones are a retirement candidate, not a required Facility
 
 When older architecture text says every Department receives a generic Work engine or Work presets, read the forward shared mechanisms as:
 
-- one physical Facility tree
-- Location Function mechanism
-- Operating Rhythm / Operational Cycles
+- one physical Facility tree and Department responsibility
+- Operating Rhythm / Operational Cycles, aimed at canonical places
 - one Records engine
 - shared Assets
 - shared People / Shift / Assignment / Coverage mechanisms

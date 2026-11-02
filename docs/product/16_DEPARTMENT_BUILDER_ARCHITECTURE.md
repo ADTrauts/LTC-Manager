@@ -1,11 +1,13 @@
 # 16 — Department Builder Architecture
 
 **Status:** Binding Department Builder architecture decision  
-**Decision date:** November 1, 2026  
-**Scope:** Department Builder ownership, Facility composition, Location Functions, People & Coverage ownership, generic Work retirement, and Department-specific extensions.  
-**Product-owner decision:** Accepted. There are no customer installations whose compatibility requires preserving the retired generic Work or duplicate Department Builder concepts.
+**Decision date:** November 1, 2026, amended November 2, 2026  
+**Scope:** Department Builder ownership, Facility composition, People & Coverage ownership, generic Work retirement, and Department-specific extensions.  
+**Product-owner decision:** Accepted. There are no customer installations. Test data, existing code, and bookmarks are not reasons to keep a retired concept.
 
-This document is the binding contract for Department Builder. Where older Department Builder, location-programming, generic Work, Team, Zone, Operational Area, Operational Type, or archetype guidance conflicts with this decision, this document wins. The affected older material must be reconciled rather than extended.
+This document is the binding contract for Department Builder. Where older Department Builder, location-programming, generic Work, Team, Zone, Operational Area, Operational Type, archetype, or Location Function guidance conflicts with this decision, this document wins.
+
+**November 2, 2026.** Location Function is retired before release. It is indirect grouping, not a business primitive. Department Builder → Facility shows the places Facility Builder already marked responsible for the selected Department. Operating Rhythm, Records, Coverage, and Menus store canonical location ids on their own configuration. The trace is [08 — Location Function elimination audit](../department-administration/visual-audit/08_LOCATION_FUNCTION_ELIMINATION_AUDIT.md). Do not add a Location Function, Operational Type, archetype, or Department room classification.
 
 ---
 
@@ -81,7 +83,7 @@ It may show:
 
 - configuration completeness
 - responsible Facility locations
-- Location Function summary
+- responsible Facility locations
 - current or published Operating Rhythm summary
 - Employee / Team / Role counts
 - coverage summary
@@ -128,55 +130,45 @@ The Facility section consumes the canonical physical tree and the Department res
 It answers:
 
 - Which Facility places is this Department responsible for?
-- What Department-specific function does each responsible place serve?
-- Which Operating Rhythm applies or participates here?
+- Which Operating Rhythm participates here?
 - Which Records requirements apply here?
-- Which organizational / coverage information is relevant here?
+- Which coverage information is relevant here?
 - Which Department-specific capabilities apply here?
 
-The Facility section may summarize information owned by other engines. Editing should remain with the canonical owner unless the edit is specifically the Department-to-location semantic binding described below.
+The Facility section summarizes information owned by other engines. It does not add a Department-specific classification of the room. The room’s name and Facility Room Type stay in Facility Builder. Two Departments use the same room by each holding a responsibility row and by each naming that room id in their own cycles, requirements, coverage, or menus.
 
-### 4.3 Location Function is the one Department-specific location semantic
+### 4.3 No Department room classification
 
-**Location Function** is the canonical manager-language concept for the role an existing physical place serves for a particular Department.
+Location Function, Operational Type, and `DepartmentRoomArchetype` are not forward concepts.
 
-Examples:
+A Servery that Food and Nutrition is responsible for does not also need `food_service_area`. A resident room that Environmental Services is responsible for does not also need `resident_care`. Plant already operates with no such key.
 
-- Food and Nutrition: Resident Servery, Production Kitchen, Retail Service Area
-- Environmental Services: Resident Care, Service Support
+The current key exists so a cycle, a record attachment, a coverage item, a team, or a Work plan can store the key and expand it later to whatever rooms are bound. That is a live query. The released product stores the location ids on the owner that uses them. Authoring may filter by floor, neighborhood, or Facility Room Type, and then save ids. A new room does not join an existing configuration because its physical type matches. The author is offered an explicit “apply the same configuration” action.
 
-The Product may define available/default Location Function keys and labels. The facility binds those functions to existing responsible locations.
+`DepartmentOperationalProfile`, Operational Areas, Experience rows, room exceptions, and the historical profile selector exist to version that key. They are retired with it. Cycles, record attachments, coverage templates, and menus keep their own effective dating. There is no released question that asks which function key a room had on a past date.
 
-The same physical room may have different Location Functions for different Departments because the physical identity is shared while the Department meaning is scoped.
+### 4.4 Current code is deletion debt
 
-### 4.4 Legacy implementation vocabulary
+Until the approved removal sequence runs, code still contains:
 
-Current code still uses names such as:
-
-- `DepartmentRoomArchetype`
-- Operational Type
-- archetype binding
+- `DepartmentRoomArchetype` and `DepartmentRoomArchetypeBinding`
 - `DepartmentOperationalProfile`
+- `operationalTypeKey` / `applicableOperationalTypeKeys`
+- `src/lib/department-products/location-functions.ts`
+- the Experience catalog and `resolve-room-profile.ts`
 
-These names must **not** cause creation of another concept.
+Do not add readers, writers, starters, columns, or UI for them. Do not rename them to Location Function. Do not add a new table to make the deletion easier. Test rows are reseeded. They are not migrated.
 
-Until code is migrated, they are implementation/compatibility names for the Location Function mechanism and its publication/effective-dating behavior. New UI, documentation, APIs, services, or schemas must use **Location Function** as the product concept.
+### 4.5 Publication stays on the real owner
 
-Do not introduce a new `LocationFunction` persistence model beside the existing archetype/profile mechanism without an explicit migration plan. The goal is consolidation/rename, not a third implementation.
+Draft, publish, and service-date history remain where an engine has its own configuration:
 
-### 4.5 Publication / effective dating
+- Operating Rhythm versions name the places that participated.
+- Record attachment intervals name the place, unit, department, facility, or asset that was required.
+- Coverage template intervals name the staffing need that was effective.
+- Menus follow Menu applicability rules.
 
-The existing working/ACTIVE profile mechanism may remain where it is needed to preserve draft-versus-published configuration and historical effective truth.
-
-The architecture decision is about **ownership**, not about removing useful publication semantics.
-
-The desired rule is:
-
-- Build edits working Department-scoped Location Function bindings.
-- Run reads the effective published bindings.
-- Audit reads the bindings effective on the requested service date.
-
-A later code pass should simplify profile/archetype implementation only after all consumers have been traced.
+A Department operational profile is not kept as a generic history bus for those owners.
 
 ---
 
@@ -217,7 +209,7 @@ Operational Cycle
   → Key Point(s)
 ```
 
-The Facility section may associate an existing location / Location Function with participation in an Operating Rhythm, but it must not create a second timing model.
+The Facility section may show which places participate in an Operating Rhythm. Participation is stored as canonical location ids, or as department-wide, on the cycle. Facility must not create a second timing model.
 
 Other engines reference canonical rhythm facts:
 
@@ -315,7 +307,7 @@ Catalog definition
   → facility install
   → Department requirement / attachment
   → applicability
-      where: canonical Facility place / Location Function
+      where: canonical Facility place, unit, Department, facility, or Asset
       when: canonical Operating Rhythm where applicable
   → derived due requirement
   → submitted Record
@@ -324,7 +316,7 @@ Catalog definition
 
 The Facility section may show which Records apply to a place. It does not become the Record definition or evidence store.
 
-`DepartmentRecordApplicability` using canonical Record attachments plus Cycle/Phase and the existing archetype/Location Function binding is conceptually aligned with this direction, though terminology must be reconciled.
+There is no `DepartmentRecordApplicability` model. `LogAttachment` already targets a space, unit, department, facility, or asset. The `OPERATIONAL_TYPE` target is deletion debt. Do not add a function-key applicability path.
 
 ---
 
@@ -353,7 +345,7 @@ PM is not generic Work and is not an Operational Cycle.
 - canonical Facility → Unit → UnitSpace tree
 - Facility Builder ownership of physical hierarchy
 - explicit Department responsibility relationships
-- Location Function as the Department-specific meaning of an existing place
+- canonical Facility places and Department responsibility, with no Department room classification
 - draft/published/effective-dated semantics where consumers require them
 - Operating Rhythm
 - one Records engine
@@ -365,7 +357,7 @@ PM is not generic Work and is not an Operational Cycle.
 - **Teams** → Employee Builder ownership
 - **Roles** → Employee Builder ownership under Teams
 - **Coverage need** → explicit workforce/coverage configuration, separate from Team identity where necessary
-- current archetype/Operational Type implementation → one Location Function mechanism and vocabulary
+- archetype, Operational Type, and Location Function → delete after consumers store canonical location ids
 
 ### RETIRE / DO NOT EXTEND
 
@@ -374,8 +366,9 @@ PM is not generic Work and is not an Operational Cycle.
 - old Experience-based Department location composition
 - Operational Areas as a second Department grouping of physical places
 - Experience catalog as product/location structure
-- Operational Type as user-facing/product terminology
-- archetype as user-facing/product terminology
+- Location Function, Operational Type, and archetype, as product concepts and as implementation
+- `DepartmentOperationalProfile` once consumers no longer expand its bindings
+- Experience catalog, Operational Areas, and room experience exceptions
 - Department-owned role system that does not drive the canonical Employee workforce model
 
 ### RETIREMENT CANDIDATE — ZONES
@@ -397,7 +390,7 @@ Example:
 ```text
 1A Naval Park — Servery
 Food & Nutrition responsibility: Primary
-Location Function: Resident Servery
+Facility Room Type: Servery
 Operating Rhythm: Breakfast · Lunch · Dinner
 People: Resident Services
 Records: 6 requirements
@@ -413,7 +406,7 @@ A useful conceptual resolver may return a Department location view model such as
 DepartmentFacilityLocationView
   identity        ← Facility Builder
   responsibility  ← Facility Builder responsibility
-  function        ← Department Location Function binding
+  place           ← Facility Builder identity and responsibility
   rhythm          ← Operating Rhythm
   workforce       ← Employee Builder / coverage resolver
   records         ← Records resolver
@@ -432,7 +425,7 @@ Do not introduce:
 - `DepartmentLocation`, `DietaryLocation`, `PlantLocation`, or another physical place identity
 - a second tree of Department rooms
 - a second Department responsibility store
-- a second “Location Function” model beside the current mechanism without a migration/consolidation plan
+- a Location Function, Operational Type, archetype, Department room classification, or profile whose job is to group rooms for other engines
 - Operational Area as a substitute location hierarchy
 - Zone as a required location layer
 - Team as a physical location owner
@@ -460,14 +453,14 @@ Architecture is decided before code removal. Cleanup should proceed in this orde
 
 2. **Facility read model**
    - use canonical Facility hierarchy and responsibility
-   - define one Department Facility composition
-   - migrate manager language to Location Function
+   - define one Department Facility composition with no room classification
    - remove Experience/Operational Area concepts from the active path
 
-3. **Location Function implementation reconciliation**
-   - trace `DepartmentOperationalProfile`, `DepartmentRoomArchetype`, bindings, exceptions, and all Run/Audit consumers
-   - keep publication/effective dating that is still required
-   - consolidate naming/models rather than adding another layer
+3. **Remove Location Function indirection**
+   - follow the ordered plan in the November 2 elimination audit
+   - cycles, records, coverage, runtime, and audit store or read canonical places
+   - then drop profile, archetype, binding, and Experience persistence in a forward migration
+   - reseed test data; do not migrate it
 
 4. **Work hard retirement**
    - trace all readers/writers of Work Plan, Expected Work, Work occurrences, presets, starter Work, and Work applicability

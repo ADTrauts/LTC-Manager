@@ -17,7 +17,7 @@ Retirement scope includes, after dependency tracing:
 - Expected Work resolvers/projections that exist only for generic Work
 - `DepartmentWorkOccurrence` generic Work actuals
 - Product Work presets / starter Work
-- generic Work applicability, including Location Function/Cycle/Phase bindings used only by Work
+- generic Work applicability, including function-key, Cycle, and Phase bindings used only by Work. Location Function is retired separately and is not a replacement target for Work.
 - Dashboard / Job Flow / location composition readers that depend only on generic Work
 - seeds, tests, docs, Marketplace language, and starter content that teach generic Work
 

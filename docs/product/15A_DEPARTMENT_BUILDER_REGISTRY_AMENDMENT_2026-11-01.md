@@ -18,7 +18,7 @@ The canonical ownership remains:
 |---|---|---|
 | Physical Facility tree | Facility Builder | One Facility → Unit → UnitSpace tree. Never copy places per Department. |
 | Department responsibility | Facility Builder | Explicit responsibility on canonical Units / UnitSpaces. Department Builder consumes it. |
-| Location Function | Department configuration on an existing responsible place | One Department-specific semantic. Current archetype/Operational Type persistence is compatibility naming to consolidate. |
+| Department room classification | none | Retired November 2, 2026. Do not add Location Function, Operational Type, or archetype. Engines store canonical place ids. |
 | Department Builder → Facility | Composition | Shows the Department lens over canonical places and other owners. Persists no shadow tree. |
 | Operational scope | Read-only resolver | May filter canonical places. Does not own them. |
 
@@ -94,7 +94,7 @@ CatalogLogDefinition
   → OperationalEvidenceRecord
 ```
 
-Location Function and Operating Rhythm may be applicability inputs. A Record never becomes generic Work.
+A Record targets a canonical place, unit, Department, facility, or Asset. Operating Rhythm may supply timing. A Record never becomes generic Work, and it does not target a Location Function.
 
 ### Assets & Maintenance
 
@@ -109,14 +109,13 @@ Facility Plant Operations Requests, Issues, Work Orders, and Preventive Maintena
 Before adding a reusable mechanism, ask in this order:
 
 1. Is this a physical-place fact? → Facility Builder / physical tree.
-2. Is this the Department meaning of an existing place? → Location Function.
-3. Is this recurring timing? → Operating Rhythm.
-4. Is this something that must be documented? → Records.
-5. Is this workforce identity/organization? → Employee Builder / Team / Role.
-6. Is this day-of placement or need? → Shift / Assignment / Coverage.
-7. Is this equipment/built-environment maintenance? → Request / Issue / Work Order / PM.
-8. Is this a Product-specific capability already defined? → that capability.
-9. If none fit, document the platform gap and stop for product-owner approval.
+2. Is this recurring timing? → Operating Rhythm.
+3. Is this something that must be documented? → Records.
+4. Is this workforce identity/organization? → Employee Builder / Team / Role.
+5. Is this day-of placement or need? → Shift / Assignment / Coverage.
+6. Is this equipment/built-environment maintenance? → Request / Issue / Work Order / PM.
+7. Is this a Product-specific capability already defined? → that capability.
+8. If none fit, document the platform gap and stop for product-owner approval.
 
 **“Use generic Work” is no longer a valid answer.**
 
@@ -131,7 +130,7 @@ In addition to the existing registry guardrails, do not add:
 - generic Work Marketplace content
 - a Task/Activity/Duty/Routine model that recreates generic Work
 - a Department-specific physical tree or `DepartmentLocation`
-- a new Operational Type / archetype product concept beside Location Function
+- a Location Function, Operational Type, archetype, or Department room-classification model
 - a Team-owned room hierarchy
 - a Department-only Role system beside Employee Builder workforce roles
 - a required Zone layer between Department and Facility places
