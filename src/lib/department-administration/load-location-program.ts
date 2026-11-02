@@ -9,7 +9,13 @@ import {
 } from "@/lib/canonical-logs";
 import { isCanonicalLogsEnabled, isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import { loadTeamsForDepartment } from "@/lib/department-teams";
+import {
+  getFacilityServiceDate,
+  loadFacilityTimezone,
+  toServiceDateKey,
+} from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
+import { selectRuntimeCoverageTemplates } from "@/lib/scheduling/coverage-expectations";
 
 import type { DepartmentActionableLocation } from "./department-locations";
 import {
@@ -52,7 +58,10 @@ async function loadProgramsForDepartmentRooms(input: {
   const spaceIds = input.rooms.map((room) => room.spaceId);
   const logsEnabled = isCanonicalLogsEnabled();
 
-  const [teams, spaces, attachments, assets] = await Promise.all([
+  const serviceDateKey = toServiceDateKey(
+    getFacilityServiceDate(await loadFacilityTimezone(prisma, input.facilityId)),
+  );
+  const [teams, spaces, attachments, assets, coverageTemplates, periodCycles] = await Promise.all([
     loadTeamsForDepartment(prisma, {
       facilityId: input.facilityId,
       departmentId: input.department.id,
@@ -99,6 +108,43 @@ async function loadProgramsForDepartmentRooms(input: {
           select: { id: true, name: true, assetCode: true, spaceId: true },
         })
       : Promise.resolve([]),
+    prisma.operationalAssignmentTemplate.findMany({
+      where: {
+        facilityId: input.facilityId,
+        departmentId: input.department.id,
+      },
+      select: {
+        id: true,
+        stableKey: true,
+        version: true,
+        status: true,
+        isActive: true,
+        effectiveFrom: true,
+        effectiveTo: true,
+        items: {
+          where: spaceIds.length ? { spaceId: { in: spaceIds } } : { id: "__none__" },
+          select: {
+            id: true,
+            roleKey: true,
+            roleLabel: true,
+            requiredCount: true,
+            unitId: true,
+            spaceId: true,
+            applicableOperationalTypeKeys: true,
+            applicableOperationalCycleStableKeys: true,
+          },
+        },
+      },
+    }),
+    prisma.departmentOperationalCycle.findMany({
+      where: {
+        facilityId: input.facilityId,
+        departmentId: input.department.id,
+        nodeKind: "PERIOD",
+        status: "PUBLISHED",
+      },
+      select: { stableKey: true, label: true },
+    }),
   ]);
 
   const cycleIds = [
@@ -128,6 +174,31 @@ async function loadProgramsForDepartmentRooms(input: {
       },
     ]),
   );
+
+  const cycleLabelByKey = new Map(periodCycles.map((cycle) => [cycle.stableKey, cycle.label]));
+  const runtimeCoverage = selectRuntimeCoverageTemplates(coverageTemplates, serviceDateKey);
+  const coverageBySpace = new Map<
+    string,
+    Array<{ id: string; roleLabel: string; requiredCount: number; cycleLabel: string | null }>
+  >();
+  for (const template of runtimeCoverage) {
+    for (const item of template.items) {
+      if (!item.spaceId) continue;
+      const labels = item.applicableOperationalCycleStableKeys.length
+        ? item.applicableOperationalCycleStableKeys.map((key) => cycleLabelByKey.get(key) ?? key)
+        : [null];
+      const list = coverageBySpace.get(item.spaceId) ?? [];
+      for (const cycleLabel of labels) {
+        list.push({
+          id: `${item.id}:${cycleLabel ?? "any"}`,
+          roleLabel: item.roleLabel,
+          requiredCount: item.requiredCount,
+          cycleLabel,
+        });
+      }
+      coverageBySpace.set(item.spaceId, list);
+    }
+  }
 
   const teamInput = teams.map((team) => ({
     id: team.id,
@@ -185,6 +256,7 @@ async function loadProgramsForDepartmentRooms(input: {
       teams: teamInput,
       teamCycles,
       cyclePlacements,
+      coverageNeeds: coverageBySpace.get(room.spaceId) ?? [],
       spaceLogs,
       assetLogs,
       typeDefaults: [],

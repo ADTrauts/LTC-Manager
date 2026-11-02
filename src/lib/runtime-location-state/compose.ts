@@ -9,7 +9,6 @@ import { selectDietaryMealTimingModel } from "@/lib/dietary/meal-timing";
 import {
   emptyLocationProgram,
   type LocationProgram,
-  type LocationProgramCycle,
 } from "@/lib/department-administration/location-program";
 import type { LogRequirement } from "@/lib/logs-architecture/types";
 import {
@@ -29,9 +28,6 @@ import {
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
 import {
-  assignmentCoversLocation,
-  assignmentOverlapsCycle,
-  evaluateCoverageSlotState,
   evaluateCoverageSlots,
   flattenCoverageTemplateItems,
   planLifecycleFromStatus,
@@ -277,140 +273,6 @@ function composeOperation(
   };
 }
 
-function programCycleWindows(
-  program: LocationProgram,
-  cycles: readonly OperationalCycleDefinition[],
-  operationalDateKey: string,
-  timezone: string,
-): Map<string, { startsAt: Date | null; endsAt: Date | null }> {
-  const windows = cycleWindows(cycles, operationalDateKey, timezone);
-  for (const cycle of program.cycles) {
-    if (windows.has(cycle.cycleStableKey) || !cycle.startLocal || !cycle.endLocal) continue;
-    const window = resolveCycleWindowInstants({
-      operationalDateKey,
-      startLocal: cycle.startLocal,
-      endLocal: cycle.endLocal,
-      overnight: false,
-      facilityTimezone: timezone,
-    });
-    windows.set(cycle.cycleStableKey, window ?? { startsAt: null, endsAt: null });
-  }
-  return windows;
-}
-
-function matchingAssignmentsForTeamNeed(input: {
-  assignments: readonly CoverageAssignmentActual[];
-  spaceId: string;
-  unitId: string | null;
-  cycleStartsAt: Date | null;
-  cycleEndsAt: Date | null;
-}): CoverageAssignmentActual[] {
-  const seen = new Set<string>();
-  const matches: CoverageAssignmentActual[] = [];
-  for (const assignment of input.assignments) {
-    if (seen.has(assignment.id)) continue;
-    if (assignment.status !== "PLANNED" && assignment.status !== "ACTIVE") continue;
-    if (!assignmentCoversLocation(assignment, input.spaceId, input.unitId)) continue;
-    if (
-      !assignmentOverlapsCycle({
-        assignment,
-        cycleStartsAt: input.cycleStartsAt,
-        cycleEndsAt: input.cycleEndsAt,
-      })
-    ) {
-      continue;
-    }
-    seen.add(assignment.id);
-    matches.push(assignment);
-  }
-  return matches;
-}
-
-function composeProgramNeedCoverage(input: {
-  program: LocationProgram;
-  space: RuntimeSpaceIdentityRow;
-  operation: RuntimeCurrentOperation;
-  assignments: readonly CoverageAssignmentActual[];
-  cycles: readonly OperationalCycleDefinition[];
-  planStatus: string | null;
-  operationalDateKey: string;
-  timezone: string;
-  now: Date;
-}): RuntimeCoverageState | null {
-  const needs: Array<{ cycle: LocationProgramCycle; teamId: string; teamName: string; requiredCount: number }> =
-    [];
-  for (const cycle of input.program.cycles) {
-    for (const team of cycle.teams) {
-      if (team.requiredCount == null) continue;
-      needs.push({
-        cycle,
-        teamId: team.teamId,
-        teamName: team.teamName,
-        requiredCount: team.requiredCount,
-      });
-    }
-  }
-  if (needs.length === 0) return null;
-
-  const plan = planLifecycleFromStatus(input.planStatus);
-  const windows = programCycleWindows(
-    input.program,
-    input.cycles,
-    input.operationalDateKey,
-    input.timezone,
-  );
-  const activeKey = input.operation.current?.cycleStableKey ?? null;
-  const relevant = activeKey
-    ? needs.filter((need) => need.cycle.cycleStableKey === activeKey)
-    : needs.filter((need) => {
-        const window = windows.get(need.cycle.cycleStableKey);
-        if (!window?.startsAt || !window.endsAt) return false;
-        return input.now >= window.startsAt && input.now < window.endsAt;
-      });
-
-  const assignmentById = new Map(input.assignments.map((row) => [row.id, row]));
-  return {
-    availability: "evaluated",
-    planLifecycle: plan,
-    slots: relevant.map((need) => {
-      const window = windows.get(need.cycle.cycleStableKey);
-      const matches = matchingAssignmentsForTeamNeed({
-        assignments: input.assignments,
-        spaceId: input.space.spaceId,
-        unitId: input.space.unitId,
-        cycleStartsAt: window?.startsAt ?? null,
-        cycleEndsAt: window?.endsAt ?? null,
-      });
-      const filledCount = matches.length;
-      return {
-        expectationId: `team-need:${need.teamId}:${need.cycle.cycleStableKey}`,
-        templateStableKey: `location-program:${need.teamId}`,
-        templateVersion: 1,
-        roleKey: `TEAM:${need.teamId}`,
-        roleLabel: need.teamName,
-        requiredCount: need.requiredCount,
-        filledCount,
-        state: evaluateCoverageSlotState({
-          plan,
-          requiredCount: need.requiredCount,
-          filledCount,
-          hasCallDownRisk: matches.some((row) => row.hasCallDown === true),
-        }),
-        cycleStableKey: need.cycle.cycleStableKey,
-        assignmentIds: matches.map((row) => row.id),
-        assignmentRefs: matches.map((assignment) => ({
-          assignmentId: assignment.id,
-          employeeId: assignmentById.get(assignment.id)?.employeeId ?? assignment.employeeId ?? null,
-          employeeDisplayName:
-            assignmentById.get(assignment.id)?.employeeDisplayName ??
-            assignment.employeeDisplayName ??
-            null,
-        })),
-      };
-    }),
-  };
-}
-
 function composeTemplateCoverage(input: {
   space: RuntimeSpaceIdentityRow;
   operationalType: RuntimeOperationalTypeRow | null;
@@ -513,20 +375,6 @@ function composeCoverage(input: {
   now: Date;
 }): RuntimeCoverageState {
   if (!input.enabled) return emptyCoverage("feature_disabled");
-
-  const fromProgram = composeProgramNeedCoverage({
-    program: input.program,
-    space: input.space,
-    operation: input.operation,
-    assignments: input.assignments,
-    cycles: input.cycles,
-    planStatus: input.planStatus,
-    operationalDateKey: input.operationalDateKey,
-    timezone: input.timezone,
-    now: input.now,
-  });
-  if (fromProgram) return fromProgram;
-
   return composeTemplateCoverage(input);
 }
 

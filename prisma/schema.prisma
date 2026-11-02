@@ -1830,6 +1830,7 @@ model UnitSpace {
   experienceExceptions               DepartmentRoomExperienceException[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
   logAttachments                     LogAttachment[]
+  coverageExpectationItems           OperationalAssignmentTemplateItem[]
   assets                             Asset[]
   assetIssues                        AssetIssue[]
   operationalRequests                OperationalRequest[]
@@ -3790,7 +3791,10 @@ model OperationalAssignmentTemplateItem {
   roleLabel                            String
   unitId                               String?
   unit                                 Unit?                         @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  /// DepartmentRoomArchetype.key targets. Empty = no OT inheritance (legacy unit/direct only).
+  /// Canonical room. A need on this space does not apply to another room of the same Facility Room Type.
+  spaceId                              String?
+  space                                UnitSpace?                    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  /// Unused. Coverage matching does not read Location Function. Final schema pass drops the column.
   applicableOperationalTypeKeys        String[]                      @default([])
   /// DepartmentOperationalCycle.stableKey targets. Empty = no cycle constraint (legacy).
   applicableOperationalCycleStableKeys String[]                      @default([])
@@ -3804,6 +3808,7 @@ model OperationalAssignmentTemplateItem {
   updatedAt                            DateTime                      @updatedAt
 
   @@index([templateId, sortOrder])
+  @@index([spaceId])
 }
 
 /// Which credential surface a rate-limit bucket protects.

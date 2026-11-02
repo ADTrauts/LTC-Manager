@@ -256,10 +256,6 @@ export function composeOperationalReviewDay(
   const coverageSlots: ReviewCoverageSlot[] = [];
   if (coverageSelection.status === "unavailable") {
     coverageAvailability = unavailable("coverage_interval_ambiguous");
-  } else if (otUnavailable && coverageSelection.templates.some((row) =>
-    row.items.some((item) => item.applicableOperationalTypeKeys.length > 0),
-  )) {
-    coverageAvailability = unavailable("no_historical_ot_version");
   } else {
     const items = flattenCoverageTemplateItems(coverageSelection.templates);
     const cycleRefs: CoverageCycleRef[] = facts.cycles

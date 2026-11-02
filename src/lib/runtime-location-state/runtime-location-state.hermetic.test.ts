@@ -147,7 +147,7 @@ function requirement(
 
 function template(input: {
   stableKey?: string;
-  ot: string;
+  spaceId: string;
   cycle: string;
   items: Array<{ roleKey: string; roleLabel: string; requiredCount: number }>;
 }): CoverageTemplateVersionRow {
@@ -165,7 +165,8 @@ function template(input: {
       roleLabel: item.roleLabel,
       requiredCount: item.requiredCount,
       unitId: null,
-      applicableOperationalTypeKeys: [input.ot],
+      spaceId: input.spaceId,
+      applicableOperationalTypeKeys: [],
       applicableOperationalCycleStableKeys: [input.cycle],
     })),
   };
@@ -281,7 +282,7 @@ test("healthy Servery: Breakfast active, covered, no exceptions, no readiness ex
           "dept-1",
           [
             template({
-              ot: "SERVERY",
+              spaceId: "servery-a",
               cycle: "breakfast",
               items: [{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 1 }],
             }),
@@ -347,7 +348,7 @@ test("Servery needing attention: UNCOVERED + overdue evidence exceptions", () =>
           "dept-1",
           [
             template({
-              ot: "SERVERY",
+              spaceId: "servery-a",
               cycle: "breakfast",
               items: [{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 1 }],
             }),
@@ -404,13 +405,13 @@ test("Retail uses its own OT / cycle / logs — no Servery leakage", () => {
           "dept-1",
           [
             template({
-              ot: "RETAIL",
+              spaceId: "retail-1",
               cycle: "retail_day",
               items: [{ roleKey: "CASHIER", roleLabel: "Cashier", requiredCount: 1 }],
             }),
             template({
               stableKey: "servery-only",
-              ot: "SERVERY",
+              spaceId: "servery-a",
               cycle: "breakfast",
               items: [{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 1 }],
             }),
@@ -491,7 +492,7 @@ test("Main Kitchen: multiple coverage slots and assets, not treated as Servery",
           "dept-1",
           [
             template({
-              ot: "MAIN_KITCHEN",
+              spaceId: "kitchen-1",
               cycle: "production",
               items: [
                 { roleKey: "COOK", roleLabel: "Cook", requiredCount: 2 },
@@ -617,7 +618,7 @@ test("OA disabled: coverage feature_disabled, no schedule-derived slots or excep
           "dept-1",
           [
             template({
-              ot: "SERVERY",
+              spaceId: "servery-a",
               cycle: "breakfast",
               items: [{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 1 }],
             }),
@@ -641,7 +642,7 @@ test("OA disabled: coverage feature_disabled, no schedule-derived slots or excep
 test("coverage states: AT_RISK, NOT_YET_ASSIGNED, NOT_CONFIRMED", () => {
   const templates = [
     template({
-      ot: "SERVERY",
+      spaceId: "servery-a",
       cycle: "breakfast",
       items: [{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 2 }],
     }),
@@ -702,7 +703,7 @@ test("coverage assignment refs carry employee identity already present on OA act
           "dept-1",
           [
             template({
-              ot: "SERVERY",
+              spaceId: "servery-a",
               cycle: "breakfast",
               items: [{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 1 }],
             }),
@@ -1123,7 +1124,7 @@ test("evidence does not expand an Operational Type attachment; a SPACE attachmen
   assert.equal(retail.some((row) => row.attachmentId === "att-ot"), false);
 });
 
-test("Location Program feeds program, cycle applicability, and team-need coverage without Operational Type", () => {
+test("Location Program shows the team and cycle, and team counts do not create coverage", () => {
   const program = composeLocationProgram({
     departmentId: "dept-1",
     departmentName: "Dietary",
@@ -1201,24 +1202,17 @@ test("Location Program feeds program, cycle applicability, and team-need coverag
   const state = states[0]!;
   assert.equal(state.program.operationalType.state, "unassigned");
   assert.equal(state.program.locationProgram.teams[0]?.name, "Culinary");
-  assert.equal(state.program.locationProgram.cycles[0]?.teams[0]?.requiredCount, 5);
+  assert.equal(state.program.locationProgram.cycles[0]?.teams[0]?.requiredCount, null);
   assert.equal(state.operation.state, "ACTIVE");
   assert.equal(state.operation.current?.cycleStableKey, "breakfast");
-  assert.equal(state.coverage.availability, "evaluated");
-  assert.equal(state.coverage.slots.length, 1);
-  assert.equal(state.coverage.slots[0]?.roleLabel, "Culinary");
-  assert.equal(state.coverage.slots[0]?.requiredCount, 5);
-  assert.equal(state.coverage.slots[0]?.filledCount, 3);
-  assert.equal(state.coverage.slots[0]?.state, "AT_RISK");
+  assert.equal(state.coverage.slots.length, 0);
   assert.equal(state.answers.happening.state, "active");
   assert.equal(state.answers.cycle.open?.cycleStableKey, "breakfast");
-  assert.equal(state.answers.pace, "at_risk");
   assert.equal(state.answers.responsible.teams[0]?.name, "Culinary");
-  assert.equal(state.answers.responsible.need[0]?.requiredCount, 5);
-  assert.equal(state.answers.responsible.assigned.length, 3);
+  assert.equal(state.answers.responsible.need.length, 0);
 });
 
-test("coverage falls back to templates when Location Program has no team need", () => {
+test("coverage uses the published room template", () => {
   const states = composeRuntimeLocationStates(
     composeInput({
       spaces: [space({ spaceId: "servery-a", departmentId: "dept-1" })],
@@ -1233,7 +1227,7 @@ test("coverage falls back to templates when Location Program has no team need", 
           "dept-1",
           [
             template({
-              ot: "SERVERY",
+              spaceId: "servery-a",
               cycle: "breakfast",
               items: [{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 1 }],
             }),

@@ -83,7 +83,8 @@ describe("Location Program", () => {
     );
     assert.equal(program.teams[0]?.provenance.source, "TEAM_ROOM_MEMBERSHIP");
     assert.equal(program.cycles[0]?.label, "Breakfast");
-    assert.equal(program.cycles[0]?.teams[0]?.requiredCount, 1);
+    assert.equal(program.cycles[0]?.teams[0]?.requiredCount, null);
+    assert.deepEqual(program.coverage, []);
     assert.equal(formatNeedSummary(1, "PER_ROOM"), "1 per room");
     assert.deepEqual(
       program.logs.map((row) => row.label),

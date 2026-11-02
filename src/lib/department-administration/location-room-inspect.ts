@@ -43,6 +43,7 @@ export type LocationRoomInspectView = {
   responsible: boolean;
   teams: LocationRoomTeamInspect[];
   cycles: LocationRoomCycleInspect[];
+  coverage: LocationProgram["coverage"];
   logs: LocationRoomLogInspect[];
   assets: LocationRoomAssetInspect[];
   addLogHref: string | null;
@@ -84,6 +85,7 @@ export function toLocationRoomInspect(
     responsible: program.location.responsible,
     teams: program.teams,
     cycles: program.cycles,
+    coverage: program.coverage,
     logs: program.logs.map(inspectLog),
     assets: program.assets.map((asset) => ({
       ...asset,

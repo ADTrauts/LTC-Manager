@@ -1,26 +1,21 @@
 /**
- * Canonical Dietary coverage expectations.
+ * Canonical coverage need.
  *
- * WHAT: OperationalAssignment roleKey
+ * WHAT: operational assignment roleKey
  * HOW MANY: requiredCount
- * WHERE: DepartmentRoomArchetype.key (Operational Type)
- * WHEN: DepartmentOperationalCycle.stableKey
- * ACTUAL: OperationalAssignment (never ScheduleEntry, Team, or Job Role)
+ * WHERE: canonical UnitSpace (spaceId). A Unit id is that Unit, not its rooms.
+ * WHEN: DepartmentOperationalCycle.stableKey for a period
+ * ACTUAL: OperationalAssignment (never ScheduleEntry, Team membership, or Job Role)
  *
  * Coverage state is derived. Do not persist isCovered.
- *
- * Later runtime snapshots (Phase 6+) should preserve:
- * requirement/version identity, roleKey, requiredCount, Operational Type key,
- * cycle identity, service date, matching OA ids, and resulting state.
+ * Location Function does not select the room.
  */
 
 export type CoverageExpectationStatus = "DRAFT" | "PUBLISHED" | "RETIRED";
 
 export type CoveragePerspective = "working" | "runtime";
 
-export type CoverageProvenanceSource =
-  | "OPERATIONAL_TYPE_DEFAULT"
-  | "EXPLICIT_LOCATION";
+export type CoverageProvenanceSource = "EXPLICIT_LOCATION";
 
 export type CoverageExpectationItemInput = {
   id: string;
@@ -34,7 +29,9 @@ export type CoverageExpectationItemInput = {
   roleLabel: string;
   requiredCount: number;
   unitId: string | null;
-  applicableOperationalTypeKeys: readonly string[];
+  spaceId: string | null;
+  /** Ignored. Coverage matching does not read Location Function. */
+  applicableOperationalTypeKeys?: readonly string[];
   applicableOperationalCycleStableKeys: readonly string[];
 };
 

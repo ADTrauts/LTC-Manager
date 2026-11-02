@@ -9,10 +9,7 @@ import { DepartmentLocationTree } from "@/components/location-tree";
 import { GuardedModal } from "@/components/guarded-modal";
 import { Button } from "@/components/design-system/Button";
 import type { DepartmentAdminView } from "@/lib/department-administration";
-import {
-  formatNeedSummary,
-  type LocationRoomInspectView,
-} from "@/lib/department-administration/location-room-inspect";
+import type { LocationRoomInspectView } from "@/lib/department-administration/location-room-inspect";
 import { formatCycleWindow } from "@/lib/operational-cycles/cycle-display";
 
 type Props = {
@@ -124,12 +121,27 @@ function LocationRoomInspector({
                   <ul className="mt-1 space-y-0.5">
                     {cycle.teams.map((team) => (
                       <li key={team.teamId} className="text-xs text-zinc-600">
-                        Staffing need · {team.teamName}:{" "}
-                        {formatNeedSummary(team.requiredCount, team.grain)}
+                        {team.teamName} works this cycle
                       </li>
                     ))}
                   </ul>
                 ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2" data-testid="location-program-coverage">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Coverage</h3>
+        {inspect.coverage.length === 0 ? (
+          <p className="text-xs text-zinc-400">No coverage need is stored for this room.</p>
+        ) : (
+          <ul className="space-y-1">
+            {inspect.coverage.map((need) => (
+              <li key={need.id} className="text-xs text-zinc-700">
+                {need.cycleLabel ?? "Operating period"} · {need.roleLabel} · {need.requiredCount}{" "}
+                required
               </li>
             ))}
           </ul>

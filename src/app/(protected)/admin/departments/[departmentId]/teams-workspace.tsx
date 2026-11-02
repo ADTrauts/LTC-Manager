@@ -206,10 +206,10 @@ export function TeamsWorkspace({
         data-testid="department-teams-header"
       >
         <div className="min-w-0 space-y-2">
-          <h2 className="text-base font-semibold text-zinc-900">People & Coverage</h2>
+          <h2 className="text-base font-semibold text-zinc-900">People</h2>
           <p className="text-sm text-zinc-600">
-            Teams and coverage for {departmentName}. Employee records and permissions stay in People.
-            Work plans and Operating Rhythm are configured in their own sections.
+            Teams, roles, and employees for {departmentName}. Coverage requirements are listed
+            with each location below. Employee records and permissions stay on the employee record.
           </p>
         </div>
         {canManage && showSplit ? (

@@ -165,7 +165,7 @@ Draft, publish, and service-date history remain where an engine has its own conf
 
 - Operating Rhythm versions name the places that participated.
 - Record attachment intervals name the place, unit, department, facility, or asset that was required.
-- Coverage template intervals name the staffing need that was effective.
+- Coverage template intervals name the staffing need that was effective: Department, assignment role, canonical location, period, and required count. A team does not own that count. Location Function and Facility Room Type do not select it.
 - Menus follow Menu applicability rules.
 
 A Department operational profile is not kept as a generic history bus for those owners.

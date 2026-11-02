@@ -71,7 +71,7 @@ Starters for Department Job Roles are the generic tiers Team Member, Lead, Super
 
 A further manager fact exists beside team manager and the MANAGER job-role tier: `DepartmentStaffManager`, plus the Department head. `EmployeeDepartment.roleType` is another `RoleKey` column, and the schema marks it dormant. The drawings do not merge those.
 
-## Current: two configured needs, then a derived answer
+## Current: one configured need, then a derived answer
 
 ```text
 NEED A — on the Team
@@ -80,30 +80,31 @@ NEED A — on the Team
     Location Program shows this
     explicitly "not a Coverage document"
 
-NEED B — coverage expectation
-    OperationalAssignmentTemplate + items
-    roleKey from the assignment catalog
-    applicableOperationalTypeKeys
-    applicableOperationalCycleStableKeys
+COVERAGE NEED — the one configuration
+    OperationalAssignmentTemplate + OperationalAssignmentTemplateItem
+    Department on the template
+    roleKey from the operational assignment catalog
+    spaceId for a room; unitId only for a non-room Unit question
+    period cycle stable keys
     requiredCount
     draft / published / effective dates
-    Build coverage panel exists and is not mounted
-    People tab test asserts CoveragePanel is absent
-    writes still exist from assignment template actions
+    Location Function keys are ignored
+    Team requiredCount is not written and is not evaluated
 
 ACTUAL
     OperationalAssignment for the service date
-    ScheduleEntry is the shift, not the coverage actual
-    call-offs change the actual
+    same roleKey, location cover, and cycle-window overlap
+    ScheduleEntry and Team membership do not fill a slot
+    a call-down on the assignment keeps the fill and marks the slot at risk
 
 ANSWER
     derived Coverage state
-    grain: facility + service date + department + space + role + cycle
-    CoverageEpisode stores a deficiency incident
-    it does not store the live answer
+    grain: department + service date + canonical location + role + period
+    there is no CoverageEpisode table
+    the derived state is not stored as the requirement
 ```
 
-**Repo vs November 1.** The decision says coverage need should leave Team identity. It does not say whether Need A, Need B, or a new configuration is the survivor. Both are live concepts. Only Need B feeds the coverage evaluator.
+**Phase 4.** Need B is the surviving configuration. Need A is an organizational cycle link with no staffing count.
 
 ## Proposed: organization in Employee Builder
 

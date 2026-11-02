@@ -74,7 +74,7 @@ Department Builder
 │     DepartmentTeam
 │       employees, manager, rooms, operational-type keys,
 │       cycle link, required count, TOTAL or PER_ROOM grain
-│     Coverage expectations are a different store and are not this panel
+│     Coverage expectations are location, period, role, and required count
 │     Department Job Roles are a different screen
 │
 ├── Records                                            CANON engine, several aimers
@@ -198,7 +198,7 @@ flowchart TB
 | Which Department owns the room | Responsibility | `UnitSpaceResponsibility`, separate from neighborhood `UnitDepartmentResponsibility` |
 | What kind of room it is physically | Facility Room Type, and also legacy `SpaceType` | `FacilityRoomType`, plus `UnitSpace.spaceType` |
 | Which people work here | Team room membership, and also daily Assignment | `DepartmentTeamRoomMembership` and `OperationalAssignment` |
-| How many people are needed | Team cycle need, and also coverage expectation | `DepartmentTeamCycle.requiredCount` and `OperationalAssignmentTemplateItem.requiredCount` |
+| How many people are needed | Coverage expectation | `OperationalAssignmentTemplateItem` on a canonical space, role, and period. Team cycle counts are not a coverage answer |
 | Which Records apply | The attachment's canonical target | `LogAttachment` on facility, department, unit, space, or asset |
 | A group of rooms | Neighborhood, Zone, team rooms, Key Point room group, explicit cycle locations | five different groupings |
 

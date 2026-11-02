@@ -233,8 +233,8 @@ export async function linkTeamToCycle(
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       cycleStableKey: input.cycleStableKey,
-      requiredCount: input.requiredCount ?? null,
-      grain: input.grain ?? "TOTAL",
+      requiredCount: null,
+      grain: "TOTAL",
     },
   });
 }
@@ -266,14 +266,11 @@ export async function updateTeamCycleNeed(
     select: { id: true },
   });
   if (!existing) throw new Error("Cycle link not found.");
-  if (input.requiredCount != null && (!Number.isInteger(input.requiredCount) || input.requiredCount < 1)) {
-    throw new Error("Need must be empty or a whole number of at least 1.");
-  }
   await client.departmentTeamCycle.update({
     where: { id: existing.id },
     data: {
-      requiredCount: input.requiredCount,
-      grain: input.grain,
+      requiredCount: null,
+      grain: "TOTAL",
     },
   });
 }

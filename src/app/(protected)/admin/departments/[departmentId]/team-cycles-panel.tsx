@@ -12,7 +12,6 @@ import {
   createTeamCycleAction,
   linkTeamCycleAction,
   unlinkTeamCycleAction,
-  updateTeamCycleNeedAction,
 } from "@/app/(protected)/admin/departments/[departmentId]/team-cycle-actions";
 import { Button } from "@/components/design-system/Button";
 import { formatCycleWindow, formatDaysSummary } from "@/lib/operational-cycles/cycle-display";
@@ -20,7 +19,6 @@ import type {
   DepartmentCycleOption,
   DepartmentTeamView,
   TeamCatalog,
-  TeamCycleView,
 } from "@/lib/department-teams";
 
 type Props = {
@@ -123,45 +121,7 @@ export function TeamCyclesPanel({
                 ) : null}
               </div>
 
-              {canManage ? (
-                <DepartmentAdminActionForm
-                  action={updateTeamCycleNeedAction}
-                  className="mt-3 grid gap-2 sm:grid-cols-[6rem_1fr_auto] sm:items-end"
-                >
-                  <input type="hidden" name="departmentId" value={departmentId} />
-                  <input type="hidden" name="teamId" value={team.id} />
-                  <input type="hidden" name="linkId" value={row.id} />
-                  <label className="block text-xs font-medium text-zinc-700">
-                    Need
-                    <input
-                      name="requiredCount"
-                      type="number"
-                      min={1}
-                      defaultValue={row.requiredCount ?? ""}
-                      placeholder="None"
-                      className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-                      data-testid="team-cycle-need-count"
-                    />
-                  </label>
-                  <label className="block text-xs font-medium text-zinc-700">
-                    Grain
-                    <select
-                      name="grain"
-                      defaultValue={row.grain}
-                      className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-                      data-testid="team-cycle-need-grain"
-                    >
-                      <option value="TOTAL">total</option>
-                      <option value="PER_ROOM">per room</option>
-                    </select>
-                  </label>
-                  <Button type="submit" size="compact">
-                    Save need
-                  </Button>
-                </DepartmentAdminActionForm>
-              ) : (
-                <p className="mt-2 text-xs text-zinc-500">{needSummary(row)}</p>
-              )}
+              <p className="mt-2 text-xs text-zinc-500">This team runs this cycle.</p>
 
               {row.children.length > 0 ? (
                 <ul className="mt-2 space-y-0.5 border-t border-zinc-100 pt-2">
@@ -371,9 +331,3 @@ export function TeamCyclesPanel({
   );
 }
 
-function needSummary(row: TeamCycleView): string {
-  if (row.requiredCount == null) return "No staffing need.";
-  return row.grain === "PER_ROOM"
-    ? `Need ${row.requiredCount} per room`
-    : `Need ${row.requiredCount} total`;
-}

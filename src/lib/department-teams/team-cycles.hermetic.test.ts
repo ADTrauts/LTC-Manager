@@ -30,8 +30,9 @@ describe("Team cycle authoring contracts", () => {
     assert.match(panel, /Cycles this team runs/);
     assert.match(panel, /Create cycle/);
     assert.match(panel, /Link existing/);
-    assert.match(panel, /per room/);
-    assert.match(panel, /requiredCount/);
+    assert.match(panel, /This team runs this cycle/);
+    assert.doesNotMatch(panel, /requiredCount/);
+    assert.doesNotMatch(panel, /per room/);
     assert.match(panel, /Add phase/);
     assert.match(panel, /Add Key Point/);
     assert.doesNotMatch(panel, /Add expectation/);
@@ -44,8 +45,8 @@ describe("Team cycle authoring contracts", () => {
     );
     assert.match(page, /isDepartmentAdminRetiredTabId/);
     assert.match(page, /DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT/);
-    assert.match(page, /departmentAdminHref\(departmentId, dest\)/);
-    assert.doesNotMatch(page, /CoveragePanel/);
+    assert.match(page, /departmentAdminHref\(departmentId, dest, null, setupWorkspace\)/);
+    assert.match(page, /CoveragePanel/);
     assert.doesNotMatch(page, /CyclesPanel/);
   });
 

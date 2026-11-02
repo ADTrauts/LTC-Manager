@@ -1,7 +1,6 @@
 /**
- * Resolve which coverage expectation items apply to a location / cycle.
- * Operational Type matching is dynamic: one item covers all rooms whose
- * runtime-effective ACTIVE (or working, in Build) OT key matches.
+ * Resolve which coverage expectation items apply to a canonical location and cycle.
+ * A space id matches that room only. Location Function keys are ignored.
  */
 
 import type {
@@ -16,27 +15,25 @@ export function describeCoverageApplicability(input: {
   source: CoverageProvenanceSource;
   operationalTypeName?: string | null;
 }): string {
-  if (input.source === "OPERATIONAL_TYPE_DEFAULT") {
-    return input.operationalTypeName?.trim()
-      ? `Inherited from Operational Type: ${input.operationalTypeName.trim()}`
-      : "Inherited from Operational Type";
-  }
-  return "Applied directly to this location";
+  void input.operationalTypeName;
+  return "Applied to this location";
 }
 
 export function matchCoverageItemToLocation(
   item: CoverageExpectationItemInput,
   context: CoverageLocationContext,
 ): CoverageProvenanceSource | null {
-  const locationKey = context.operationalTypeKey?.trim() || "";
-  const otKeys = item.applicableOperationalTypeKeys.map((key) => key.trim()).filter(Boolean);
-  if (locationKey && otKeys.includes(locationKey)) {
-    return "OPERATIONAL_TYPE_DEFAULT";
+  const spaceId = item.spaceId?.trim() || "";
+  if (spaceId) {
+    return spaceId === context.spaceId ? "EXPLICIT_LOCATION" : null;
   }
-  if (otKeys.length === 0 && item.unitId && context.unitId && item.unitId === context.unitId) {
-    return "EXPLICIT_LOCATION";
+  const unitId = item.unitId?.trim() || "";
+  if (unitId) {
+    if (context.spaceId) return null;
+    return unitId === (context.unitId ?? "") ? "EXPLICIT_LOCATION" : null;
   }
-  return null;
+  if (context.spaceId || context.unitId) return null;
+  return "EXPLICIT_LOCATION";
 }
 
 export function itemTargetsCycle(
@@ -108,10 +105,8 @@ function toResolved(
     requiredCount: item.requiredCount,
     cycleStableKey: cycle?.stableKey ?? null,
     cycleLabel: cycle?.label ?? null,
-    operationalTypeKey:
-      source === "OPERATIONAL_TYPE_DEFAULT" ? context.operationalTypeKey : null,
-    operationalTypeName:
-      source === "OPERATIONAL_TYPE_DEFAULT" ? context.operationalTypeName : null,
+    operationalTypeKey: null,
+    operationalTypeName: null,
     unitId: item.unitId,
     provenance: source,
     detail: describeCoverageApplicability({
@@ -143,12 +138,12 @@ export function validateCoverageOperationalTypeKeys(input: {
   submittedKeys: readonly string[];
   allowedKeys: ReadonlySet<string>;
 }): string[] {
+  void input.allowedKeys;
   const unique = [...new Set(input.submittedKeys.map((key) => key.trim()).filter(Boolean))];
-  const invalid = unique.filter((key) => !input.allowedKeys.has(key));
-  if (invalid.length > 0) {
-    throw new Error("Coverage Operational Types must belong to this Department.");
+  if (unique.length > 0) {
+    throw new Error("Choose the rooms this coverage need applies to.");
   }
-  return unique;
+  return [];
 }
 
 export function validateCoverageCycleStableKeys(input: {

@@ -13,6 +13,7 @@ import {
   OverviewPanel,
   type OverviewDepartmentSettings,
 } from "@/app/(protected)/admin/departments/[departmentId]/overview-panel";
+import { CoveragePanel } from "@/app/(protected)/admin/departments/[departmentId]/coverage-panel";
 import { TeamsPanel } from "@/app/(protected)/admin/departments/[departmentId]/teams-panel";
 import { DepartmentBuildContextBar } from "@/components/build/DepartmentBuildContextBar";
 import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
@@ -101,9 +102,12 @@ export default async function DepartmentBuilderPage({
     const dest = DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[requestedTab];
     const href = departmentAdminHref(departmentId, dest, null, setupWorkspace);
     const team = query.team?.trim();
-    redirect(
-      team && dest === "people" ? `${href}&team=${encodeURIComponent(team)}` : href,
-    );
+    const expectation = query.expectation?.trim();
+    const extras = [
+      team && dest === "people" ? `team=${encodeURIComponent(team)}` : null,
+      expectation && dest === "people" ? `expectation=${encodeURIComponent(expectation)}` : null,
+    ].filter(Boolean);
+    redirect(extras.length > 0 ? `${href}&${extras.join("&")}` : href);
   }
 
   const view = await loadDepartmentAdminView({
@@ -347,14 +351,24 @@ export default async function DepartmentBuilderPage({
           />
         ) : null}
         {tab === "people" ? (
-          <TeamsPanel
-            session={session}
-            facilityId={session.facilityId}
-            departmentId={view.department.id}
-            departmentName={view.department.name}
-            departmentKey={view.department.key}
-            selectedTeamId={query.team?.trim() || null}
-          />
+          <div className="space-y-8">
+            <TeamsPanel
+              session={session}
+              facilityId={session.facilityId}
+              departmentId={view.department.id}
+              departmentName={view.department.name}
+              departmentKey={view.department.key}
+              selectedTeamId={query.team?.trim() || null}
+            />
+            <CoveragePanel
+              session={session}
+              facilityId={session.facilityId}
+              departmentId={view.department.id}
+              departmentName={view.department.name}
+              departmentKey={view.department.key}
+              selectedExpectationId={query.expectation?.trim() || null}
+            />
+          </div>
         ) : null}
         {tab === "records" && departmentLogsCtx ? (
           <section className="space-y-2" data-testid="department-records-panel">

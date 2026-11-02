@@ -37,7 +37,7 @@ describe("Department Locations programming contracts", () => {
     assert.match(client, /GuardedModal/);
     assert.match(client, /Teams that work here/);
     assert.match(client, /Cycles that landed here/);
-    assert.match(client, /Staffing need/);
+    assert.match(client, /location-program-coverage/);
     assert.match(client, /Add log/);
     assert.doesNotMatch(client, /Coverage Expectations/);
     assert.doesNotMatch(client, /groupRoomsByFacilityRoomType/);

@@ -3,10 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  composeLocationRoomInspect,
-  formatNeedSummary,
-} from "./location-room-inspect";
+import { composeLocationRoomInspect } from "./location-room-inspect";
 
 function baseInput() {
   return {
@@ -72,7 +69,7 @@ function baseInput() {
 }
 
 describe("Location room inspect", () => {
-  it("derives teams, cycles, and need from membership — not Coverage roles", () => {
+  it("derives teams and cycles from membership and does not keep a team count", () => {
     const view = composeLocationRoomInspect(baseInput());
     assert.deepEqual(
       view.teams.map((row) => row.name),
@@ -82,9 +79,8 @@ describe("Location room inspect", () => {
     assert.equal(view.cycles.length, 1);
     assert.equal(view.cycles[0]?.label, "Breakfast");
     assert.equal(view.cycles[0]?.teams.length, 1);
-    assert.equal(formatNeedSummary(1, "PER_ROOM"), "1 per room");
-    assert.equal(view.cycles[0]?.teams[0]?.requiredCount, 1);
-    assert.equal(view.cycles[0]?.teams[0]?.grain, "PER_ROOM");
+    assert.equal(view.cycles[0]?.teams[0]?.requiredCount, null);
+    assert.deepEqual(view.coverage, []);
     assert.doesNotMatch(JSON.stringify(view), /Mary|employee/i);
   });
 
@@ -132,7 +128,7 @@ describe("Locations modal contracts", () => {
     );
     assert.match(client, /Teams that work here/);
     assert.match(client, /Cycles that landed here/);
-    assert.match(client, /Staffing need/);
+    assert.match(client, /location-program-coverage/);
     assert.match(client, /Add log/);
     assert.doesNotMatch(client, /Inherited from Facility type/);
     assert.doesNotMatch(client, /Add log to all/);

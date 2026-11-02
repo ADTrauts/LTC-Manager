@@ -113,18 +113,15 @@ export async function updateTeamCycleNeedAction(formData: FormData): Promise<Tea
     const departmentId = z.string().cuid().parse(formData.get("departmentId"));
     const teamId = z.string().cuid().parse(formData.get("teamId"));
     const linkId = z.string().cuid().parse(formData.get("linkId"));
-    const rawCount = String(formData.get("requiredCount") ?? "").trim();
-    const requiredCount = rawCount === "" ? null : z.coerce.number().int().min(1).parse(rawCount);
-    const grain = z.enum(["TOTAL", "PER_ROOM"]).parse(String(formData.get("grain") ?? "TOTAL"));
     await updateTeamCycleNeed(prisma, {
       facilityId: session.facilityId,
       teamId,
       linkId,
-      requiredCount,
-      grain,
+      requiredCount: null,
+      grain: "TOTAL",
     });
     revalidateTeamCycles(departmentId);
-    return { ok: true, message: "Staffing need saved.", teamId };
+    return { ok: true, message: "This team runs that cycle. Coverage is configured by location.", teamId };
   } catch (error) {
     return fail(error);
   }

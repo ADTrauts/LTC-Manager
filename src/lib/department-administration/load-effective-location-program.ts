@@ -442,6 +442,7 @@ const COVERAGE_TEMPLATE_SELECT = {
       roleLabel: true,
       requiredCount: true,
       unitId: true,
+      spaceId: true,
       applicableOperationalTypeKeys: true,
       applicableOperationalCycleStableKeys: true,
     },

@@ -72,6 +72,12 @@ export type LocationProgram = {
   };
   teams: LocationProgramTeam[];
   cycles: LocationProgramCycle[];
+  coverage: readonly {
+    id: string;
+    roleLabel: string;
+    requiredCount: number;
+    cycleLabel: string | null;
+  }[];
   logs: LocationProgramLog[];
   assets: LocationProgramAsset[];
 };
@@ -108,6 +114,12 @@ export type ComposeLocationProgramInput = {
     startLocal: string | null;
     endLocal: string | null;
     spaceIds: readonly string[];
+  }[];
+  coverageNeeds?: readonly {
+    id: string;
+    roleLabel: string;
+    requiredCount: number;
+    cycleLabel: string | null;
   }[];
   spaceLogs: readonly { id: string; label: string }[];
   assetLogs: readonly { id: string; label: string; assetName: string }[];
@@ -156,6 +168,7 @@ export function emptyLocationProgram(input: {
     },
     teams: [],
     cycles: [],
+    coverage: [],
     logs: [],
     assets: [],
   };
@@ -169,6 +182,7 @@ export function locationProgramIsAttached(
   return (
     program.teams.length > 0 ||
     program.cycles.length > 0 ||
+    program.coverage.length > 0 ||
     program.logs.some((log) => !log.suppressed) ||
     program.assets.length > 0
   );
@@ -205,8 +219,8 @@ export function composeLocationProgram(
     const teamRow: LocationProgramCycleTeam = {
       teamId: row.teamId,
       teamName,
-      requiredCount: row.requiredCount,
-      grain: row.grain,
+      requiredCount: null,
+      grain: "TOTAL",
       provenance: {
         source: "TEAM_CYCLE",
         detail: `From ${teamName}`,
@@ -296,6 +310,7 @@ export function composeLocationProgram(
     },
     teams,
     cycles,
+    coverage: [...(input.coverageNeeds ?? [])],
     logs: logs.sort((a, b) => a.label.localeCompare(b.label)),
     assets: [...input.assets].sort((a, b) => a.name.localeCompare(b.name)),
   };
