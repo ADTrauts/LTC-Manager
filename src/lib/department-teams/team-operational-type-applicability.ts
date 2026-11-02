@@ -1,9 +1,6 @@
 /**
- * Department Team → Operational Type applicability.
- *
- * Answers: which configured Teams normally operate in this kind of location?
- * Does not create employee assignments, coverage, or OperationalAssignment rows.
- * Does not copy DepartmentTeamRoomMembership onto rooms.
+ * Retired. A Team does not match a room by membership or Location Function.
+ * These functions stay so older imports fail closed instead of expanding scope.
  */
 
 import type { OverlayProvenanceSource } from "@/lib/department-administration/effective-location-program";
@@ -53,37 +50,10 @@ export function overlaySourceFromTeamMatch(
 }
 
 export function matchTeamToLocation(
-  team: TeamApplicabilityRow,
-  context: TeamLocationMatchContext,
+  _team: TeamApplicabilityRow,
+  _context: TeamLocationMatchContext,
 ): TeamLocationMatch[] {
-  if (team.status !== "ACTIVE") return [];
-  if (team.departmentId !== context.departmentId) return [];
-
-  const matches: TeamLocationMatch[] = [];
-  if (team.explicitSpaceIds.includes(context.spaceId)) {
-    matches.push({
-      team,
-      source: "EXPLICIT_LOCATION",
-      detail: describeTeamApplicability({ source: "EXPLICIT_LOCATION" }),
-    });
-  }
-
-  const locationKey = context.operationalTypeKey?.trim() || "";
-  if (
-    locationKey &&
-    team.applicableOperationalTypeKeys.some((key) => key.trim() === locationKey)
-  ) {
-    matches.push({
-      team,
-      source: "OPERATIONAL_TYPE_DEFAULT",
-      detail: describeTeamApplicability({
-        source: "OPERATIONAL_TYPE_DEFAULT",
-        operationalTypeName: context.operationalTypeName,
-      }),
-    });
-  }
-
-  return matches;
+  return [];
 }
 
 export function dedupeTeamLocationMatches(
@@ -126,30 +96,13 @@ function lcFirst(value: string): string {
   return value.charAt(0).toLowerCase() + value.slice(1);
 }
 
-/** Configured rooms for a team: explicit membership ∪ runtime-effective OT rooms. */
-export function configuredTeamSpaceIds(input: {
+/** A Team does not own rooms, including rooms classified by Location Function. */
+export function configuredTeamSpaceIds(_input: {
   explicitSpaceIds: readonly string[];
   applicableOperationalTypeKeys: readonly string[];
   runtimeAssignments: ReadonlyMap<string, { key: string }>;
 }): string[] {
-  const wanted = new Set(
-    input.applicableOperationalTypeKeys.map((key) => key.trim()).filter(Boolean),
-  );
-  const seen = new Set<string>();
-  const ids: string[] = [];
-  for (const spaceId of input.explicitSpaceIds) {
-    if (!spaceId || seen.has(spaceId)) continue;
-    seen.add(spaceId);
-    ids.push(spaceId);
-  }
-  if (wanted.size === 0) return ids;
-  for (const [spaceId, assignment] of input.runtimeAssignments) {
-    if (!assignment.key.trim() || !wanted.has(assignment.key.trim())) continue;
-    if (seen.has(spaceId)) continue;
-    seen.add(spaceId);
-    ids.push(spaceId);
-  }
-  return ids;
+  return [];
 }
 
 export function validateTeamOperationalTypeKeys(input: {
@@ -157,9 +110,8 @@ export function validateTeamOperationalTypeKeys(input: {
   allowedKeys: ReadonlySet<string>;
 }): string[] {
   const unique = [...new Set(input.submittedKeys.map((key) => key.trim()).filter(Boolean))];
-  const invalid = unique.filter((key) => !input.allowedKeys.has(key));
-  if (invalid.length > 0) {
-    throw new Error("Team Operational Types must belong to this Department.");
+  if (unique.length > 0) {
+    throw new Error("A Team does not use Location Function.");
   }
-  return unique;
+  return [];
 }

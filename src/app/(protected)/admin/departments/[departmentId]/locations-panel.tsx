@@ -6,11 +6,9 @@ import {
   publishLocationFunctionsAction,
 } from "@/app/(protected)/admin/departments/[departmentId]/actions";
 import { LocationsProgrammingClient } from "@/app/(protected)/admin/departments/[departmentId]/locations-programming-client";
-import { addRemainingRoomsOfTypeToTeamAction } from "@/app/(protected)/admin/departments/[departmentId]/team-actions";
 import { EmptyState } from "@/components/design-system/EmptyState";
 import { Button } from "@/components/design-system/Button";
 import type { DepartmentAdminView } from "@/lib/department-administration";
-import { presentLocationProgramExpansion } from "@/lib/department-administration/location-program-expansion";
 import type { LocationRoomInspectView } from "@/lib/department-administration/location-room-inspect";
 import { getLocationFunction, listLocationFunctionsForProduct } from "@/lib/department-products/location-functions";
 import { isDepartmentProductKey } from "@/lib/department-products/registry";
@@ -26,8 +24,6 @@ type Props = {
  * department. Inspect place, Facility type, and current overlays.
  */
 export function LocationsPanel({ view, inspects, canManage }: Props) {
-  const expansion = presentLocationProgramExpansion(Object.values(inspects));
-
   return (
     <div className="max-w-5xl space-y-3" data-testid="department-locations-panel">
       <div
@@ -66,53 +62,7 @@ export function LocationsPanel({ view, inspects, canManage }: Props) {
           data-testid="department-locations-empty"
         />
       ) : (
-        <>
-          {expansion.remainingCount > 0 ? (
-            <section
-              className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3"
-              data-testid="location-program-expansion"
-            >
-              <p className="text-sm font-semibold text-zinc-900">
-                {expansion.remainingCount === 1
-                  ? "1 room is not on a team yet"
-                  : `${expansion.remainingCount} rooms are not on a team yet`}
-              </p>
-              <ul className="mt-2 space-y-2">
-                {expansion.groups.map((group) => (
-                  <li key={group.facilityRoomTypeId ?? group.facilityTypeLabel}>
-                    <p className="text-sm text-zinc-700">
-                      {group.facilityTypeLabel}: {group.remaining.map((room) => room.name).join(", ")}
-                    </p>
-                    {canManage && group.suggestedTeamId ? (
-                      <form
-                        action={async (formData) => {
-                          await addRemainingRoomsOfTypeToTeamAction(formData);
-                        }}
-                        className="mt-1"
-                      >
-                        <input type="hidden" name="departmentId" value={view.department.id} />
-                        <input type="hidden" name="teamId" value={group.suggestedTeamId} />
-                        <input
-                          type="hidden"
-                          name="spaceIds"
-                          value={group.remaining.map((room) => room.spaceId).join(",")}
-                        />
-                        <Button type="submit" size="compact">
-                          Add remaining to {group.suggestedTeamName}
-                        </Button>
-                      </form>
-                    ) : (
-                      <p className="mt-1 text-xs text-zinc-500">
-                        Open People & Coverage to put these rooms on a team.
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          <LocationsProgrammingClient view={view} inspects={inspects} canManage={canManage} />
-        </>
+        <LocationsProgrammingClient view={view} inspects={inspects} canManage={canManage} />
       )}
     </div>
   );

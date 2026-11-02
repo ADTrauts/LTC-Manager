@@ -83,24 +83,6 @@ function LocationRoomInspector({
         </p>
       </section>
 
-      <section className="space-y-2" data-testid="location-program-teams">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Teams that work here
-        </h3>
-        {inspect.teams.length === 0 ? (
-          <p className="text-xs text-zinc-400">No teams include this room.</p>
-        ) : (
-          <ul className="space-y-1">
-            {inspect.teams.map((team) => (
-              <li key={team.id} className="text-xs text-zinc-800">
-                <span className="font-medium">{team.name}</span>
-                <span className="block text-zinc-400">{team.provenance.detail}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
       <section className="space-y-2" data-testid="location-program-cycles">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
           Cycles that landed here
@@ -117,15 +99,6 @@ function LocationRoomInspector({
                   {" · "}
                   {cycle.provenance.detail}
                 </p>
-                {cycle.teams.length > 0 ? (
-                  <ul className="mt-1 space-y-0.5">
-                    {cycle.teams.map((team) => (
-                      <li key={team.teamId} className="text-xs text-zinc-600">
-                        {team.teamName} works this cycle
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
               </li>
             ))}
           </ul>

@@ -8,7 +8,6 @@ import {
   listPublishedCatalogBrowseCards,
 } from "@/lib/canonical-logs";
 import { isCanonicalLogsEnabled, isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
-import { loadTeamsForDepartment } from "@/lib/department-teams";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -61,11 +60,7 @@ async function loadProgramsForDepartmentRooms(input: {
   const serviceDateKey = toServiceDateKey(
     getFacilityServiceDate(await loadFacilityTimezone(prisma, input.facilityId)),
   );
-  const [teams, spaces, attachments, assets, coverageTemplates, periodCycles] = await Promise.all([
-    loadTeamsForDepartment(prisma, {
-      facilityId: input.facilityId,
-      departmentId: input.department.id,
-    }),
+  const [spaces, attachments, assets, coverageTemplates, periodCycles] = await Promise.all([
     spaceIds.length
       ? prisma.unitSpace.findMany({
           where: { id: { in: spaceIds }, facilityId: input.facilityId },
@@ -147,17 +142,18 @@ async function loadProgramsForDepartmentRooms(input: {
     }),
   ]);
 
-  const cycleIds = [
-    ...new Set(
-      teams.flatMap((team) =>
-        team.cycles.map((cycle) => cycle.cycleId).filter((id): id is string => Boolean(id)),
-      ),
-    ),
-  ];
   const placementRows =
-    cycleIds.length > 0
+    spaceIds.length > 0
       ? await prisma.departmentOperationalCycleLocation.findMany({
-          where: { cycleId: { in: cycleIds }, spaceId: { in: spaceIds } },
+          where: {
+            spaceId: { in: spaceIds },
+            cycle: {
+              facilityId: input.facilityId,
+              departmentId: input.department.id,
+              status: "PUBLISHED",
+              nodeKind: "PERIOD",
+            },
+          },
           select: {
             spaceId: true,
             cycle: { select: { stableKey: true, label: true, startLocal: true, endLocal: true } },
@@ -200,22 +196,16 @@ async function loadProgramsForDepartmentRooms(input: {
     }
   }
 
-  const teamInput = teams.map((team) => ({
-    id: team.id,
-    name: team.displayName,
-    spaceIds: team.rooms.map((room) => room.spaceId),
-  }));
-  const teamCycles = teams.flatMap((team) =>
-    team.cycles.map((cycle) => ({
-      teamId: team.id,
-      cycleStableKey: cycle.cycleStableKey,
-      label: cycle.label,
-      startLocal: cycle.startLocal,
-      endLocal: cycle.endLocal,
-      requiredCount: cycle.requiredCount,
-      grain: cycle.grain,
-    })),
-  );
+  const teamInput: Array<{ id: string; name: string; spaceIds: string[] }> = [];
+  const teamCycles: Array<{
+    teamId: string;
+    cycleStableKey: string;
+    label: string;
+    startLocal: string | null;
+    endLocal: string | null;
+    requiredCount: number | null;
+    grain: "TOTAL" | "PER_ROOM";
+  }> = [];
   const cyclePlacements = placementRows
     .filter((row) => row.spaceId)
     .map((row) => ({

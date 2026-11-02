@@ -247,31 +247,8 @@ export function deriveDashboardViewer(facts: DashboardViewerFacts): DashboardVie
     case "SUPERVISOR": {
       const department = departments[0];
       if (!department) break;
-      const team = facts.teamScope;
-      if (team?.mode === "TEAM_SCOPED") {
-        const teamScope: DashboardScope = {
-          kind: "TEAM",
-          departmentId: department.id,
-          teamIds: team.activeTeams.map((row) => row.id),
-          roomIds: [...team.roomIds],
-        };
-        available = [teamScope, departmentScope(department.id)];
-        defaultScope = teamScope;
-        break;
-      }
       available = [departmentScope(department.id)];
       defaultScope = available[0]!;
-      notices.push(
-        team?.mode === "TEAM_WITHOUT_LOCATIONS"
-          ? {
-              code: "TEAM_WITHOUT_ROOMS",
-              message: `Your team has no rooms yet. Your Dashboard shows all of ${department.name}.`,
-            }
-          : {
-              code: "NO_TEAM_ASSIGNED",
-              message: `No team assigned. Your Dashboard shows all of ${department.name}.`,
-            },
-      );
       break;
     }
   }

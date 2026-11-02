@@ -1,10 +1,8 @@
 /**
- * Department Teams — enduring organizational subgroups inside one Department.
+ * Department Teams — organizational grouping of people inside one Department.
  *
- * Build configuration only. Does not write Zones, Cycles, WorkStations,
- * Department responsibility, Employee membership, or OperationalAssignment.
- * Team → Operational Type keys persist immediately (same as room membership).
- * Run consumers must resolve those keys through ACTIVE Operational Types only.
+ * A Team has a name, a description, members, and an optional lead.
+ * It does not own rooms, cycles, coverage, or authorization.
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -21,16 +19,12 @@ import {
   requireTeamManage,
   type TeamAuthorityDecision,
 } from "./authority";
-import type { DepartmentTeamView, TeamCatalog, TeamEmployeeOption, TeamRoomView } from "./types";
-import { loadTeamCyclesForDepartment } from "./team-cycles";
-import { loadDepartmentOperationalTypeOptions } from "@/lib/operational-cycles/load-operational-type-targets";
-import { validateTeamOperationalTypeKeys } from "./team-operational-type-applicability";
+import type { DepartmentTeamView, TeamCatalog, TeamEmployeeOption } from "./types";
 import {
   evaluateTeamManagerCandidate,
   normalizeTeamDescription,
   normalizeTeamDisplayName,
   teamNamesConflict,
-  validateTeamRoomSubmission,
 } from "./validation";
 import { employeeBelongsToDepartment } from "@/lib/employee-membership";
 
@@ -140,52 +134,6 @@ async function resolveManagerEmployeeId(
   return employee.id;
 }
 
-async function resolveTeamRoomWrites(
-  client: DbClient,
-  input: { facilityId: string; departmentId: string; spaceIds: readonly string[] },
-): Promise<string[]> {
-  const unique = [...new Set(input.spaceIds.filter(Boolean))];
-  const allowed = await loadAllowedTeamSpaceIds(client, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-  });
-  return validateTeamRoomSubmission({
-    submittedSpaceIds: unique,
-    allowedSpaceIds: allowed,
-  });
-}
-
-async function resolveTeamOperationalTypeWrites(
-  client: DbClient,
-  input: {
-    facilityId: string;
-    departmentId: string;
-    operationalTypeKeys: readonly string[];
-  },
-): Promise<string[]> {
-  const options = await loadDepartmentOperationalTypeOptions({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    perspective: "working",
-  });
-  const existing = await client.departmentRoomArchetype.findMany({
-    where: {
-      key: { in: [...input.operationalTypeKeys] },
-      profile: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        status: { in: ["DRAFT", "CERTIFIED", "ACTIVE"] },
-      },
-    },
-    select: { key: true },
-  });
-  const allowed = new Set([...options.map((row) => row.key), ...existing.map((row) => row.key)]);
-  return validateTeamOperationalTypeKeys({
-    submittedKeys: input.operationalTypeKeys,
-    allowedKeys: allowed,
-  });
-}
-
 function mapTeamView(
   row: {
     id: string;
@@ -198,40 +146,9 @@ function mapTeamView(
     archivedAt: Date | null;
     managerEmployeeId: string | null;
     managerEmployee: { firstName: string; lastName: string } | null;
-    applicableOperationalTypeKeys?: string[];
-    roomMemberships: Array<{
-      spaceId: string;
-      space: {
-        name: string;
-        isActive: boolean;
-        unit: { name: string; hierarchyRole: string | null; parentUnit: { name: string } | null } | null;
-        facilityRoomType: { displayName: string } | null;
-      };
-    }>;
   },
-  allowedSpaceIds: ReadonlySet<string>,
   activeMemberCount = 0,
 ): DepartmentTeamView {
-  const rooms: TeamRoomView[] = [];
-  for (const membership of row.roomMemberships) {
-    if (!membership.space.isActive) continue;
-    if (!allowedSpaceIds.has(membership.spaceId)) continue;
-    const parent = membership.space.unit;
-    const floorName =
-      parent?.hierarchyRole === "FLOOR"
-        ? parent.name
-        : parent?.parentUnit?.name ?? null;
-    const neighborhoodName =
-      parent && parent.hierarchyRole !== "FLOOR" ? parent.name : null;
-    rooms.push({
-      spaceId: membership.spaceId,
-      name: membership.space.name,
-      displayName: membership.space.name,
-      floorName,
-      neighborhoodName,
-      roomTypeLabel: membership.space.facilityRoomType?.displayName ?? null,
-    });
-  }
   const manager = row.managerEmployee;
   return {
     id: row.id,
@@ -244,34 +161,15 @@ function mapTeamView(
     archivedAt: row.archivedAt?.toISOString() ?? null,
     managerEmployeeId: row.managerEmployeeId,
     managerLabel: manager ? `${manager.lastName}, ${manager.firstName}` : null,
-    roomCount: rooms.length,
+    roomCount: 0,
     activeMemberCount,
-    rooms,
-    applicableOperationalTypeKeys: [...(row.applicableOperationalTypeKeys ?? [])],
+    rooms: [],
     cycles: [],
   };
 }
 
 const TEAM_INCLUDE = {
   managerEmployee: { select: { firstName: true, lastName: true } },
-  roomMemberships: {
-    include: {
-      space: {
-        select: {
-          name: true,
-          isActive: true,
-          unit: {
-            select: {
-              name: true,
-              hierarchyRole: true,
-              parentUnit: { select: { name: true } },
-            },
-          },
-          facilityRoomType: { select: { displayName: true } },
-        },
-      },
-    },
-  },
 } as const;
 
 async function loadActiveMemberCounts(
@@ -298,30 +196,20 @@ export async function loadTeamsForDepartment(
   client: DbClient,
   input: { facilityId: string; departmentId: string; includeArchived?: boolean },
 ): Promise<DepartmentTeamView[]> {
-  const [rows, allowed] = await Promise.all([
-    client.departmentTeam.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        ...(input.includeArchived ? {} : { status: "ACTIVE" }),
-      },
-      include: TEAM_INCLUDE,
-      orderBy: [{ displayOrder: "asc" }, { displayName: "asc" }],
-    }),
-    loadAllowedTeamSpaceIds(client, input),
-  ]);
+  const rows = await client.departmentTeam.findMany({
+    where: {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      ...(input.includeArchived ? {} : { status: "ACTIVE" }),
+    },
+    include: TEAM_INCLUDE,
+    orderBy: [{ displayOrder: "asc" }, { displayName: "asc" }],
+  });
   const memberCounts = await loadActiveMemberCounts(
     client,
     rows.map((row) => row.id),
   );
-  const cyclesByTeam = await loadTeamCyclesForDepartment(client, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-  });
-  return rows.map((row) => {
-    const view = mapTeamView(row, allowed, memberCounts.get(row.id) ?? 0);
-    return { ...view, cycles: cyclesByTeam.get(row.id) ?? [] };
-  });
+  return rows.map((row) => mapTeamView(row, memberCounts.get(row.id) ?? 0));
 }
 
 export async function loadTeamById(
@@ -333,19 +221,8 @@ export async function loadTeamById(
     include: TEAM_INCLUDE,
   });
   if (!row) return null;
-  const [allowed, memberCounts] = await Promise.all([
-    loadAllowedTeamSpaceIds(client, {
-      facilityId: row.facilityId,
-      departmentId: row.departmentId,
-    }),
-    loadActiveMemberCounts(client, [row.id]),
-  ]);
-  const view = mapTeamView(row, allowed, memberCounts.get(row.id) ?? 0);
-  const cyclesByTeam = await loadTeamCyclesForDepartment(client, {
-    facilityId: row.facilityId,
-    departmentId: row.departmentId,
-  });
-  return { ...view, cycles: cyclesByTeam.get(row.id) ?? [] };
+  const memberCounts = await loadActiveMemberCounts(client, [row.id]);
+  return mapTeamView(row, memberCounts.get(row.id) ?? 0);
 }
 
 export async function loadTeamCatalog(input: {
@@ -396,14 +273,8 @@ export async function loadTeamCatalog(input: {
     ]),
   );
 
-  const operationalTypes = await loadDepartmentOperationalTypeOptions({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    perspective: "working",
-  });
-
   return {
-    operationalTypes,
+    operationalTypes: [],
     locations: locations.map((location) => {
       const type = typeBySpace.get(location.id);
       return {
@@ -483,8 +354,6 @@ export async function createDepartmentTeam(
     displayName: string;
     description?: string | null;
     managerEmployeeId?: string | null;
-    spaceIds: readonly string[];
-    operationalTypeKeys?: readonly string[];
   },
 ): Promise<DepartmentTeamView> {
   const authority = await resolveTeamAuthority(session, input.facilityId, input.departmentId);
@@ -503,16 +372,6 @@ export async function createDepartmentTeam(
       departmentId: input.departmentId,
       managerEmployeeId: input.managerEmployeeId ?? null,
     });
-    const spaceIds = await resolveTeamRoomWrites(tx, {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      spaceIds: input.spaceIds,
-    });
-    const operationalTypeKeys = await resolveTeamOperationalTypeWrites(tx, {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      operationalTypeKeys: input.operationalTypeKeys ?? [],
-    });
     const displayOrder = await nextDisplayOrder(tx, input.departmentId);
     const created = await tx.departmentTeam.create({
       data: {
@@ -522,10 +381,6 @@ export async function createDepartmentTeam(
         description,
         displayOrder,
         managerEmployeeId,
-        applicableOperationalTypeKeys: operationalTypeKeys,
-        roomMemberships: {
-          create: spaceIds.map((spaceId) => ({ spaceId })),
-        },
       },
       select: { id: true },
     });
@@ -543,8 +398,6 @@ export async function updateDepartmentTeam(
     displayName?: string;
     description?: string | null;
     managerEmployeeId?: string | null;
-    spaceIds?: readonly string[];
-    operationalTypeKeys?: readonly string[];
   },
 ): Promise<DepartmentTeamView> {
   const existing = await prisma.departmentTeam.findFirst({
@@ -581,28 +434,8 @@ export async function updateDepartmentTeam(
         ? { connect: { id: managerEmployeeId } }
         : { disconnect: true };
     }
-    if (input.operationalTypeKeys !== undefined) {
-      data.applicableOperationalTypeKeys = await resolveTeamOperationalTypeWrites(tx, {
-        facilityId: existing.facilityId,
-        departmentId: existing.departmentId,
-        operationalTypeKeys: input.operationalTypeKeys,
-      });
-    }
     if (Object.keys(data).length > 0) {
       await tx.departmentTeam.update({ where: { id: existing.id }, data });
-    }
-    if (input.spaceIds) {
-      const spaceIds = await resolveTeamRoomWrites(tx, {
-        facilityId: existing.facilityId,
-        departmentId: existing.departmentId,
-        spaceIds: input.spaceIds,
-      });
-      await tx.departmentTeamRoomMembership.deleteMany({ where: { teamId: existing.id } });
-      if (spaceIds.length > 0) {
-        await tx.departmentTeamRoomMembership.createMany({
-          data: spaceIds.map((spaceId) => ({ teamId: existing.id, spaceId })),
-        });
-      }
     }
     const view = await loadTeamById(tx, { facilityId: existing.facilityId, teamId: existing.id });
     if (!view) throw new Error("Team updated but could not be reloaded.");
@@ -629,20 +462,13 @@ export async function archiveDepartmentTeam(
 }
 
 /**
- * When a Room leaves a Department's Facility Builder footprint, drop that Room
- * from every Team in that Department. Does not touch other Departments' Teams.
+ * A Team does not own rooms. Responsibility changes do not rewrite Team rows.
  */
 export async function pruneTeamRoomsAfterResponsibilityRemoved(
-  client: DbClient,
-  input: { spaceId: string; departmentId: string },
+  _client: DbClient,
+  _input: { spaceId: string; departmentId: string },
 ): Promise<number> {
-  const result = await client.departmentTeamRoomMembership.deleteMany({
-    where: {
-      spaceId: input.spaceId,
-      team: { departmentId: input.departmentId },
-    },
-  });
-  return result.count;
+  return 0;
 }
 
 export function sessionMayViewDepartmentBuilderTeams(role: AppRole): boolean {

@@ -189,12 +189,11 @@ describe("Team product contracts", () => {
     );
     assert.match(workspace, /Teams are optional/);
     assert.match(workspace, /Employee Builder/);
-    assert.match(workspace, /Rooms this team works/);
-    assert.match(workspace, /Filter by Room Type/);
-    assert.match(workspace, /not today’s assignment/);
+    assert.match(workspace, /does not own rooms or coverage/);
+    assert.doesNotMatch(workspace, /Rooms this team works/);
+    assert.doesNotMatch(workspace, /TeamCyclesPanel/);
     assert.match(workspace, /department-teams-split/);
     assert.match(workspace, /team-detail-panel/);
-    assert.match(workspace, /TeamCyclesPanel/);
     assert.doesNotMatch(workspace, /OperatingRhythmPanel/);
     const rhythm = readFileSync(
       join(

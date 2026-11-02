@@ -27,12 +27,6 @@ import {
   type LocationLogAttachmentRow,
 } from "@/lib/canonical-logs/log-operational-type-applicability";
 import {
-  dedupeTeamLocationMatches,
-  matchTeamToLocation,
-  overlaySourceFromTeamMatch,
-  type TeamApplicabilityRow,
-} from "@/lib/department-teams/team-operational-type-applicability";
-import {
   flattenCoverageTemplateItems,
   resolveCoverageExpectationsForLocation,
   selectWorkingCoverageTemplates,
@@ -150,61 +144,6 @@ function cycleOverlay(
   );
 }
 
-function teamApplicabilityRows(
-  rows: readonly {
-    id: string;
-    departmentId: string;
-    displayName: string;
-    status: "ACTIVE" | "ARCHIVED";
-    applicableOperationalTypeKeys: readonly string[];
-    roomMemberships: readonly { spaceId: string }[];
-  }[],
-): TeamApplicabilityRow[] {
-  return rows.map((row) => ({
-    id: row.id,
-    departmentId: row.departmentId,
-    displayName: row.displayName,
-    status: row.status,
-    applicableOperationalTypeKeys: row.applicableOperationalTypeKeys,
-    explicitSpaceIds: row.roomMemberships.map((membership) => membership.spaceId),
-  }));
-}
-
-function teamOverlays(input: {
-  teams: readonly TeamApplicabilityRow[];
-  departmentId: string;
-  spaceId: string;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
-}): EffectiveLocationOverlays["teams"] {
-  const matches = input.teams.flatMap((team) =>
-    matchTeamToLocation(team, {
-      departmentId: input.departmentId,
-      spaceId: input.spaceId,
-      operationalTypeKey: input.operationalTypeKey,
-      operationalTypeName: input.operationalTypeName,
-    }),
-  );
-  return dedupeTeamLocationMatches(matches).map((match) =>
-    overlay(
-      match.team.id,
-      match.team.displayName,
-      "TEAM_ROOM_MEMBERSHIP",
-      match.detail,
-      overlaySourceFromTeamMatch(match.source),
-    ),
-  );
-}
-
-const TEAM_APPLICABILITY_SELECT = {
-  id: true,
-  departmentId: true,
-  displayName: true,
-  status: true,
-  applicableOperationalTypeKeys: true,
-  roomMemberships: { select: { spaceId: true } },
-} as const;
-
 export type LocationOverlayScope = {
   kind: EffectiveLocationKind;
   id: string;
@@ -225,16 +164,8 @@ export async function loadLocationProgramOverlays(input: {
   scope: LocationOverlayScope;
 }): Promise<EffectiveLocationOverlays> {
   const date = toServiceDateKey(getFacilityServiceDate(input.timezone, input.asOf));
-  const [cycles, teams, attachments, assets, workPlans, coverageTemplates] = await Promise.all([
+  const [cycles, attachments, assets, workPlans, coverageTemplates] = await Promise.all([
     loadPublishedCyclesForDate(input.facilityId, input.departmentId, date),
-    prisma.departmentTeam.findMany({
-      where: {
-        departmentId: input.departmentId,
-        facilityId: input.facilityId,
-        status: "ACTIVE",
-      },
-      select: TEAM_APPLICABILITY_SELECT,
-    }),
     prisma.logAttachment.findMany({
       where: {
         facilityId: input.facilityId,
@@ -311,15 +242,7 @@ export async function loadLocationProgramOverlays(input: {
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-  const teamItems = input.scope.spaceId
-    ? teamOverlays({
-        teams: teamApplicabilityRows(teams),
-        departmentId: input.departmentId,
-        spaceId: input.scope.spaceId,
-        operationalTypeKey: input.scope.operationalTypeKey ?? null,
-        operationalTypeName: input.scope.operationalTypeName ?? null,
-      })
-    : [];
+  const teamItems: EffectiveLocationOverlays["teams"] = [];
 
   const cycleLabelByKey = new Map(cycles.map((cycle) => [cycle.stableKey, cycle.label]));
   const timingByAttachmentId = new Map(
@@ -654,16 +577,8 @@ export async function loadDepartmentLocationPrograms(input: {
   ];
   const date = toServiceDateKey(getFacilityServiceDate(input.timezone, asOf));
 
-  const [cycles, teamRows, attachments, assets, workPlans, coverageTemplates] = await Promise.all([
+  const [cycles, attachments, assets, workPlans, coverageTemplates] = await Promise.all([
     loadPublishedCyclesForDate(input.facilityId, input.department.id, date),
-    prisma.departmentTeam.findMany({
-      where: {
-        departmentId: input.department.id,
-        facilityId: input.facilityId,
-        status: "ACTIVE",
-      },
-      select: TEAM_APPLICABILITY_SELECT,
-    }),
     prisma.logAttachment.findMany({
       where: {
         facilityId: input.facilityId,
@@ -755,13 +670,7 @@ export async function loadDepartmentLocationPrograms(input: {
           return match ? cycleOverlay(cycle, match) : null;
         })
         .filter((item): item is NonNullable<typeof item> => Boolean(item)),
-      teams: teamOverlays({
-        teams: teamApplicabilityRows(teamRows),
-        departmentId: input.department.id,
-        spaceId: location.id,
-        operationalTypeKey: archetype?.key ?? null,
-        operationalTypeName: archetype?.name ?? null,
-      }),
+      teams: [],
       logAttachments: locationLogOverlays({
         attachments: logRows,
         context: {

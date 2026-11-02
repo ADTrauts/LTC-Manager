@@ -69,17 +69,10 @@ function baseInput() {
 }
 
 describe("Location room inspect", () => {
-  it("derives teams and cycles from membership and does not keep a team count", () => {
+  it("does not attach a Team to a room", () => {
     const view = composeLocationRoomInspect(baseInput());
-    assert.deepEqual(
-      view.teams.map((row) => row.name),
-      ["Servery AM"],
-    );
-    assert.equal(view.teams[0]?.provenance.detail, "Works this room");
-    assert.equal(view.cycles.length, 1);
-    assert.equal(view.cycles[0]?.label, "Breakfast");
-    assert.equal(view.cycles[0]?.teams.length, 1);
-    assert.equal(view.cycles[0]?.teams[0]?.requiredCount, null);
+    assert.deepEqual(view.teams, []);
+    assert.deepEqual(view.cycles, []);
     assert.deepEqual(view.coverage, []);
     assert.doesNotMatch(JSON.stringify(view), /Mary|employee/i);
   });
@@ -126,7 +119,7 @@ describe("Locations modal contracts", () => {
       ),
       "utf8",
     );
-    assert.match(client, /Teams that work here/);
+    assert.doesNotMatch(client, /Teams that work here/);
     assert.match(client, /Cycles that landed here/);
     assert.match(client, /location-program-coverage/);
     assert.match(client, /Add log/);

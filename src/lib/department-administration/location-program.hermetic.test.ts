@@ -77,13 +77,8 @@ describe("Location Program", () => {
     assert.equal(program.location.name, "3A Servery");
     assert.equal(program.location.place, "3A · Third");
     assert.equal(program.location.facilityTypeLabel, "Servery");
-    assert.deepEqual(
-      program.teams.map((row) => row.name),
-      ["Servery AM"],
-    );
-    assert.equal(program.teams[0]?.provenance.source, "TEAM_ROOM_MEMBERSHIP");
-    assert.equal(program.cycles[0]?.label, "Breakfast");
-    assert.equal(program.cycles[0]?.teams[0]?.requiredCount, null);
+    assert.deepEqual(program.teams, []);
+    assert.deepEqual(program.cycles, []);
     assert.deepEqual(program.coverage, []);
     assert.equal(formatNeedSummary(1, "PER_ROOM"), "1 per room");
     assert.deepEqual(

@@ -19,23 +19,32 @@ describe("Team cycle identity", () => {
 });
 
 describe("Team cycle authoring contracts", () => {
-  it("Teams panel hosts create, link, and need — not a Coverage tab", () => {
-    const panel = readFileSync(
+  it("Team authoring does not link a cycle or store a count", () => {
+    const actions = readFileSync(
       join(
         process.cwd(),
-        "src/app/(protected)/admin/departments/[departmentId]/team-cycles-panel.tsx",
+        "src/app/(protected)/admin/departments/[departmentId]/team-cycle-actions.ts",
       ),
       "utf8",
     );
-    assert.match(panel, /Cycles this team runs/);
-    assert.match(panel, /Create cycle/);
-    assert.match(panel, /Link existing/);
-    assert.match(panel, /This team runs this cycle/);
-    assert.doesNotMatch(panel, /requiredCount/);
-    assert.doesNotMatch(panel, /per room/);
-    assert.match(panel, /Add phase/);
-    assert.match(panel, /Add Key Point/);
-    assert.doesNotMatch(panel, /Add expectation/);
+    const workspace = readFileSync(
+      join(
+        process.cwd(),
+        "src/app/(protected)/admin/departments/[departmentId]/teams-workspace.tsx",
+      ),
+      "utf8",
+    );
+    assert.match(actions, /A Team does not run a cycle/);
+    assert.doesNotMatch(workspace, /Cycles this team runs/);
+    assert.doesNotMatch(workspace, /TeamCyclesPanel/);
+    const rhythm = readFileSync(
+      join(
+        process.cwd(),
+        "src/app/(protected)/admin/departments/[departmentId]/operating-rhythm-panel.tsx",
+      ),
+      "utf8",
+    );
+    assert.match(rhythm, /OperatingRhythmPanel|function OperatingRhythm/);
   });
 
   it("Department Builder redirects Coverage and Cycles into Teams", () => {

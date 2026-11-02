@@ -13,27 +13,16 @@ import {
 import { Button } from "@/components/design-system/Button";
 import { EmptyState } from "@/components/design-system/EmptyState";
 import { Select, TextArea, TextInput } from "@/components/design-system/Field";
-import { TeamCyclesPanel } from "@/app/(protected)/admin/departments/[departmentId]/team-cycles-panel";
-import { RoomPicker } from "@/components/operational-cycles/room-picker";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
-import type {
-  DepartmentCycleOption,
-  DepartmentTeamView,
-  TeamCatalog,
-  TeamEmployeeOption,
-} from "@/lib/department-teams";
+import type { DepartmentTeamView, TeamEmployeeOption } from "@/lib/department-teams";
 
 type Props = {
   departmentId: string;
   departmentName: string;
   teams: DepartmentTeamView[];
-  catalog: TeamCatalog;
   employees: TeamEmployeeOption[];
   canManage: boolean;
   selectedTeamId: string | null;
-  cycleOptions: DepartmentCycleOption[];
-  showMeal: boolean;
-  nextDayKey: string;
 };
 
 function managerSelect(
@@ -63,70 +52,20 @@ function managerSelect(
   );
 }
 
-function TeamRoomFields({
-  catalog,
-  selectedIds,
-  onChange,
-}: {
-  catalog: TeamCatalog;
-  selectedIds: string[];
-  onChange: (next: string[]) => void;
-}) {
-  const [roomTypeId, setRoomTypeId] = useState("");
-  return (
-    <div className="space-y-2" data-testid="team-room-picker">
-      {catalog.roomTypes.length > 0 ? (
-        <label className="block text-xs font-medium text-zinc-700">
-          Filter by Room Type
-          <select
-            value={roomTypeId}
-            onChange={(event) => setRoomTypeId(event.target.value)}
-            className="mt-1 block min-h-10 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-            data-testid="team-room-type-filter"
-          >
-            <option value="">All rooms</option>
-            {catalog.roomTypes.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-      <RoomPicker
-        locations={catalog.locations}
-        selectedIds={selectedIds}
-        onChange={onChange}
-        name="spaceIds"
-        filter={roomTypeId ? { facilityRoomTypeId: roomTypeId } : undefined}
-        emptyMessage="No Rooms are assigned to this Department yet."
-      />
-    </div>
-  );
-}
-
 function TeamFormFields({
-  catalog,
   employees,
   defaults,
 }: {
-  catalog: TeamCatalog;
   employees: TeamEmployeeOption[];
   defaults?: {
     displayName: string;
     description: string | null;
     managerEmployeeId: string | null;
     managerLabel: string | null;
-    spaceIds: string[];
-    operationalTypeKeys: string[];
   };
 }) {
-  const [spaceIds, setSpaceIds] = useState<string[]>(defaults?.spaceIds ?? []);
   return (
     <div className="space-y-5">
-      {defaults?.operationalTypeKeys.map((key) => (
-        <input key={key} type="hidden" name="operationalTypeKeys" value={key} />
-      ))}
       <section className="space-y-3">
         <TextInput
           name="displayName"
@@ -151,19 +90,6 @@ function TeamFormFields({
           defaults?.managerLabel ?? null,
         )}
       </section>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-zinc-500">Rooms this team works</h3>
-        <p className="text-xs text-zinc-500">
-          Choose specific rooms, or filter by Facility Room Type to select all rooms of that
-          type. Membership is assigned in Employee Builder — this is not today’s assignment.
-        </p>
-        <p className="text-sm text-zinc-700">
-          {spaceIds.length} {spaceIds.length === 1 ? "Room" : "Rooms"} selected
-        </p>
-        <div className="mt-2 max-h-[min(50vh,24rem)] overflow-y-auto rounded-md border border-zinc-200 p-2">
-          <TeamRoomFields catalog={catalog} selectedIds={spaceIds} onChange={setSpaceIds} />
-        </div>
-      </section>
     </div>
   );
 }
@@ -172,13 +98,9 @@ export function TeamsWorkspace({
   departmentId,
   departmentName,
   teams,
-  catalog,
   employees,
   canManage,
   selectedTeamId,
-  cycleOptions,
-  showMeal,
-  nextDayKey,
 }: Props) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -228,7 +150,7 @@ export function TeamsWorkspace({
       {teams.length === 0 && !adding ? (
         <EmptyState
           title="Teams are optional"
-          description="Use Teams when different managers or supervisors are responsible for different parts of the Department."
+          description="A Team groups people in this Department. It does not own rooms or coverage."
           action={
             canManage ? (
               <Button type="button" onClick={startAdd} data-testid="add-team-empty">
@@ -267,8 +189,6 @@ export function TeamsWorkspace({
                           {team.displayName}
                         </span>
                         <span className="block text-xs text-zinc-600">
-                          {team.roomCount} {team.roomCount === 1 ? "room" : "rooms"}
-                          {" · "}
                           {team.activeMemberCount}{" "}
                           {team.activeMemberCount === 1 ? "person" : "people"}
                         </span>
@@ -300,7 +220,7 @@ export function TeamsWorkspace({
                   className="mt-4"
                 >
                   <input type="hidden" name="departmentId" value={departmentId} />
-                  <TeamFormFields key="new" catalog={catalog} employees={employees} />
+                  <TeamFormFields key="new" employees={employees} />
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button type="submit">Create Team</Button>
                     <Button type="button" variant="secondary" onClick={() => setAdding(false)}>
@@ -317,31 +237,18 @@ export function TeamsWorkspace({
                       <input type="hidden" name="teamId" value={selected.id} />
                       <TeamFormFields
                         key={selected.id}
-                        catalog={catalog}
                         employees={employees}
                         defaults={{
                           displayName: selected.displayName,
                           description: selected.description,
                           managerEmployeeId: selected.managerEmployeeId,
                           managerLabel: selected.managerLabel,
-                          spaceIds: selected.rooms.map((room) => room.spaceId),
-                          operationalTypeKeys: selected.applicableOperationalTypeKeys,
                         }}
                       />
                       <div className="mt-4">
                         <Button type="submit">Save Team</Button>
                       </div>
                     </DepartmentAdminActionForm>
-
-                    <TeamCyclesPanel
-                      departmentId={departmentId}
-                      team={selected}
-                      catalog={catalog}
-                      cycleOptions={cycleOptions}
-                      canManage={canManage}
-                      showMeal={showMeal}
-                      nextDayKey={nextDayKey}
-                    />
 
                     <section className="border-t border-zinc-100 pt-4">
                       <h3 className="text-xs font-medium text-zinc-500">People</h3>
@@ -378,20 +285,15 @@ export function TeamsWorkspace({
                 ) : (
                   <>
                     <p className="text-sm text-zinc-600">View only.</p>
-                    <TeamCyclesPanel
-                      departmentId={departmentId}
-                      team={selected}
-                      catalog={catalog}
-                      cycleOptions={cycleOptions}
-                      canManage={false}
-                      showMeal={showMeal}
-                      nextDayKey={nextDayKey}
-                    />
+                    <p className="text-sm font-medium text-zinc-900">{selected.displayName}</p>
+                    <p className="text-sm text-zinc-600">
+                      {selected.managerLabel ? `Lead: ${selected.managerLabel}` : "No lead assigned."}
+                    </p>
                   </>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-zinc-500">Select a team to configure name, manager, and rooms.</p>
+              <p className="text-sm text-zinc-500">Select a team to set its name, lead, and members.</p>
             )}
           </div>
         </div>

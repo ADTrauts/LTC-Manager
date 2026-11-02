@@ -1,39 +1,22 @@
 # Visual 5 — People / Team / Role / Coverage
 
-Current code treats Team as an organizational group and, at the same time, as location, cycle, and staffing configuration. Role exists several times, and those roles are not nested under Team.
+Phase 5A leaves Team as an organizational grouping. Role is still not nested under Team. That consolidation is the later Employee Builder pass.
 
-## Current: Team carries too many facts
-
-`DepartmentTeam` is what the People & Coverage tab renders (`TeamsPanel`). The model comment says a team is not a permission, Job Role, Zone, Cycle, or daily assignment. The columns and children contradict the clean reading.
-
-```mermaid
-flowchart TB
-  TEAM["DepartmentTeam<br/>DUP organizational identity<br/>mixed with location and staffing"]
-
-  TEAM --> EMP["EmployeeTeamMembership<br/>employees, one primary team per Department"]
-  TEAM --> MGR["managerEmployeeId<br/>accountable manager<br/>does not grant RoleKey"]
-  TEAM --> ROOM["DepartmentTeamRoomMembership<br/>DUP owns rooms by UnitSpace id"]
-  TEAM --> OT["applicableOperationalTypeKeys<br/>DUP DepartmentRoomArchetype.key list"]
-  TEAM --> CY["DepartmentTeamCycle<br/>cycle stableKey<br/>requiredCount<br/>grain TOTAL or PER_ROOM<br/>comment: not a Coverage document"]
-
-  classDef dup fill:#fdecec,stroke:#9b2c2c,color:#1a2114
-  classDef fact fill:#e8f1fb,stroke:#1d4e89,color:#1a2114
-  class TEAM,ROOM,OT,CY dup
-  class EMP,MGR fact
-```
+## Team after Phase 5A
 
 ```text
-Team
-├── employees          EmployeeTeamMembership
-├── manager            managerEmployeeId
-├── rooms              DepartmentTeamRoomMembership
-├── operational types  applicableOperationalTypeKeys
-├── cycles             DepartmentTeamCycle.cycleStableKey
-├── required count     DepartmentTeamCycle.requiredCount
-└── coverage grain     TOTAL or PER_ROOM
+Department
+  → Team
+      name
+      description
+      managerEmployeeId    this person leads the Team
+                           does not grant platform authority
+      EmployeeTeamMembership
 ```
 
-Location Program uses team room membership as “works this room,” and team-cycle need as the staffing line on that room. The Locations panel also offers to add remaining rooms of a Facility type onto a team. Team is acting as location programming.
+A Team does not own a room, a Location Function, a cycle, a coverage count, or a viewer's authorization. Department responsibility is the footprint. Coverage is the staffing need. `OperationalAssignment` is today's placement. Authorization stays on policy and role.
+
+The earlier room membership, operational-type keys, and team-cycle tables are dropped. Location Program does not label a room with a Team.
 
 ## Current: Role is not one thing, and it is not under Team
 
@@ -74,11 +57,10 @@ A further manager fact exists beside team manager and the MANAGER job-role tier:
 ## Current: one configured need, then a derived answer
 
 ```text
-NEED A — on the Team
-    DepartmentTeamCycle.requiredCount
-    per team, per cycle, TOTAL or PER_ROOM
-    Location Program shows this
-    explicitly "not a Coverage document"
+TEAM CYCLE — retired in Phase 5A
+    DepartmentTeamCycle is dropped
+    a Team does not run a cycle
+    a Team does not store requiredCount or coverage grain
 
 COVERAGE NEED — the one configuration
     OperationalAssignmentTemplate + OperationalAssignmentTemplateItem

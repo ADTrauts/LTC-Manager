@@ -270,13 +270,16 @@ export const WRITE_MANIFEST: WriteManifest = {
     createDepartmentTeamAction: department("department"),
     ...each(department("departmentTeam"), [
       "updateDepartmentTeamAction",
-      "addRemainingRoomsOfTypeToTeamAction",
       "archiveDepartmentTeamAction",
     ]),
   },
   [`${DEPARTMENT_ADMIN}/team-cycle-actions.ts`]: {
-    ...each(department("departmentTeam"), ["createTeamCycleAction", "linkTeamCycleAction"]),
-    ...each(department("departmentTeamCycle"), ["unlinkTeamCycleAction", "updateTeamCycleNeedAction"]),
+    ...each(department("departmentTeam"), [
+      "createTeamCycleAction",
+      "linkTeamCycleAction",
+      "unlinkTeamCycleAction",
+      "updateTeamCycleNeedAction",
+    ]),
   },
   [`${PROTECTED}/admin/knowledge/actions.ts`]: each(department("knowledgeArticle"), [
     "upsertKnowledgeArticleAction",

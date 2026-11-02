@@ -7,10 +7,8 @@ import { requireFacilitySession } from "@/lib/facility-context";
 import {
   archiveDepartmentTeam,
   createDepartmentTeam,
-  loadTeamById,
   updateDepartmentTeam,
 } from "@/lib/department-teams";
-import { prisma } from "@/lib/prisma";
 
 export type TeamActionResult =
   | { ok: true; message?: string; teamId?: string }
@@ -20,22 +18,6 @@ function revalidateTeams(departmentId: string) {
   revalidatePath(`/admin/departments/${departmentId}`);
   revalidatePath(`/admin/departments/${departmentId}`, "page");
   revalidatePath("/admin/departments");
-}
-
-function parseSpaceIds(raw: FormDataEntryValue | null): string[] {
-  if (typeof raw !== "string" || !raw.trim()) return [];
-  return raw
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
-function parseOperationalTypeKeys(formData: FormData): string[] {
-  return formData
-    .getAll("operationalTypeKeys")
-    .flatMap((value) => (typeof value === "string" ? value.split(",") : []))
-    .map((part) => part.trim())
-    .filter(Boolean);
 }
 
 function optionalId(raw: FormDataEntryValue | null): string | null {
@@ -54,8 +36,6 @@ const createSchema = z.object({
   displayName: z.string().min(1).max(80),
   description: z.string().max(500).optional(),
   managerEmployeeId: z.string().cuid().nullable(),
-  spaceIds: z.array(z.string().min(1)),
-  operationalTypeKeys: z.array(z.string().min(1)),
 });
 
 export async function createDepartmentTeamAction(formData: FormData): Promise<TeamActionResult> {
@@ -66,8 +46,6 @@ export async function createDepartmentTeamAction(formData: FormData): Promise<Te
       displayName: String(formData.get("displayName") ?? ""),
       description: optionalId(formData.get("description")) ?? undefined,
       managerEmployeeId: optionalId(formData.get("managerEmployeeId")),
-      spaceIds: parseSpaceIds(formData.get("spaceIds")),
-      operationalTypeKeys: parseOperationalTypeKeys(formData),
     });
     const team = await createDepartmentTeam(session, {
       facilityId: session.facilityId,
@@ -75,8 +53,6 @@ export async function createDepartmentTeamAction(formData: FormData): Promise<Te
       displayName: parsed.displayName,
       description: parsed.description ?? null,
       managerEmployeeId: parsed.managerEmployeeId,
-      spaceIds: parsed.spaceIds,
-      operationalTypeKeys: parsed.operationalTypeKeys,
     });
     revalidateTeams(parsed.departmentId);
     return { ok: true, message: "Team created.", teamId: team.id };
@@ -90,8 +66,6 @@ const updateSchema = z.object({
   displayName: z.string().min(1).max(80),
   description: z.string().max(500).optional(),
   managerEmployeeId: z.string().cuid().nullable(),
-  spaceIds: z.array(z.string().min(1)),
-  operationalTypeKeys: z.array(z.string().min(1)),
 });
 
 export async function updateDepartmentTeamAction(formData: FormData): Promise<TeamActionResult> {
@@ -102,8 +76,6 @@ export async function updateDepartmentTeamAction(formData: FormData): Promise<Te
       displayName: String(formData.get("displayName") ?? ""),
       description: optionalId(formData.get("description")) ?? undefined,
       managerEmployeeId: optionalId(formData.get("managerEmployeeId")),
-      spaceIds: parseSpaceIds(formData.get("spaceIds")),
-      operationalTypeKeys: parseOperationalTypeKeys(formData),
     });
     const team = await updateDepartmentTeam(session, {
       facilityId: session.facilityId,
@@ -111,49 +83,9 @@ export async function updateDepartmentTeamAction(formData: FormData): Promise<Te
       displayName: parsed.displayName,
       description: parsed.description ?? null,
       managerEmployeeId: parsed.managerEmployeeId,
-      spaceIds: parsed.spaceIds,
-      operationalTypeKeys: parsed.operationalTypeKeys,
     });
     revalidateTeams(team.departmentId);
     return { ok: true, message: "Team saved.", teamId: team.id };
-  } catch (error) {
-    return fail(error);
-  }
-}
-
-export async function addRemainingRoomsOfTypeToTeamAction(
-  formData: FormData,
-): Promise<TeamActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const teamId = z.string().cuid().parse(formData.get("teamId"));
-    const spaceIds = parseSpaceIds(formData.get("spaceIds"));
-    if (spaceIds.length === 0) {
-      return { ok: false, message: "No remaining rooms to add." };
-    }
-    const existing = await loadTeamById(prisma, {
-      facilityId: session.facilityId,
-      teamId,
-    });
-    if (!existing || existing.departmentId !== departmentId) {
-      return { ok: false, message: "Team not found." };
-    }
-    const nextSpaceIds = [...new Set([...existing.rooms.map((room) => room.spaceId), ...spaceIds])];
-    await updateDepartmentTeam(session, {
-      facilityId: session.facilityId,
-      teamId,
-      spaceIds: nextSpaceIds,
-    });
-    revalidateTeams(departmentId);
-    return {
-      ok: true,
-      message:
-        spaceIds.length === 1
-          ? "Added 1 remaining room to the team."
-          : `Added ${spaceIds.length} remaining rooms to the team.`,
-      teamId,
-    };
   } catch (error) {
     return fail(error);
   }

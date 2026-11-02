@@ -283,19 +283,19 @@ People & Coverage may show:
 
 Coverage remains derived from configured need plus canonical workforce/run facts. It must not create a second staffing record.
 
-### 7.3 Current Team model is overloaded legacy
+### 7.3 Team is organizational
 
-The current `DepartmentTeam` family mixes organizational grouping with manager, membership, room applicability, cycle links, required count, and coverage grain.
+Phase 5A leaves `DepartmentTeam` as a named group of people in one Department, with an optional lead. Membership is `EmployeeTeamMembership`.
 
-That shape is not the target architecture.
+A Team does not own locations, define Coverage, define authorization, or define daily placement.
 
-During implementation cleanup:
+- Department responsibility is the Department footprint.
+- Coverage is the staffing need.
+- `OperationalAssignment` is today's placement.
+- Employee Builder remains the later home for Team, Role, and member organization.
+- Authorization stays with policy and authority.
 
-- retain the **Team** business concept, but move its canonical authoring/ownership to Employee Builder
-- retain **Role** as a workforce concept under Team
-- remove Team as a shadow location-programming mechanism
-- separate coverage need from Team identity where necessary
-- do not let Team membership define physical location identity
+Role is not yet nested under Team. That consolidation is still ahead. Do not put rooms, Location Function keys, or cycle staffing counts back on the Team.
 
 The existing Department Job Role implementation also requires consolidation into the Employee Builder workforce model. A second Department-only role/capability system must not remain beside canonical Employee roles.
 

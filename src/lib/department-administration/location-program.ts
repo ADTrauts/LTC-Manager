@@ -196,53 +196,8 @@ export function composeLocationProgram(
     .filter(Boolean)
     .join(" · ");
 
-  const teamsHere = input.teams.filter((team) => team.spaceIds.includes(spaceId));
-  const teamIds = new Set(teamsHere.map((team) => team.id));
-  const teamNameById = new Map(input.teams.map((team) => [team.id, team.name]));
-
-  const teams: LocationProgramTeam[] = teamsHere
-    .map((team) => ({
-      id: team.id,
-      name: team.name,
-      provenance: {
-        source: "TEAM_ROOM_MEMBERSHIP" as const,
-        detail: "Works this room",
-      },
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
+  const teams: LocationProgramTeam[] = [];
   const cyclesByKey = new Map<string, LocationProgramCycle>();
-
-  for (const row of input.teamCycles) {
-    if (!teamIds.has(row.teamId)) continue;
-    const teamName = teamNameById.get(row.teamId) ?? "Team";
-    const teamRow: LocationProgramCycleTeam = {
-      teamId: row.teamId,
-      teamName,
-      requiredCount: null,
-      grain: "TOTAL",
-      provenance: {
-        source: "TEAM_CYCLE",
-        detail: `From ${teamName}`,
-      },
-    };
-    const existing = cyclesByKey.get(row.cycleStableKey);
-    if (existing) {
-      existing.teams.push(teamRow);
-      continue;
-    }
-    cyclesByKey.set(row.cycleStableKey, {
-      cycleStableKey: row.cycleStableKey,
-      label: row.label,
-      startLocal: row.startLocal,
-      endLocal: row.endLocal,
-      teams: [teamRow],
-      provenance: {
-        source: "TEAM_CYCLE",
-        detail: `From ${teamName}`,
-      },
-    });
-  }
 
   for (const row of input.cyclePlacements) {
     if (!row.spaceIds.includes(spaceId)) continue;

@@ -63,7 +63,6 @@ export type DepartmentTeamView = {
   roomCount: number;
   activeMemberCount: number;
   rooms: TeamRoomView[];
-  applicableOperationalTypeKeys: string[];
   cycles: TeamCycleView[];
 };
 

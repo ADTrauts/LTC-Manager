@@ -119,11 +119,11 @@ function allowedRoomsFromTeamScope(scope: ViewerTeamScope | null): {
   if (!scope || scope.mode === "DEPARTMENT_WIDE") {
     return { allowedRoomIds: null, locationScopeNote: null };
   }
-  if (scope.mode === "TEAM_WITHOUT_LOCATIONS") {
+  if (scope.mode === "ASSIGNMENT_WITHOUT_PLACEMENT") {
     return {
       allowedRoomIds: new Set(),
       locationScopeNote:
-        "Your Team does not have configured Rooms yet, so location coverage is hidden. Staff presence still shows below.",
+        "No assignment places you in a room today, so location coverage is hidden. Staff presence still shows below.",
     };
   }
   return {

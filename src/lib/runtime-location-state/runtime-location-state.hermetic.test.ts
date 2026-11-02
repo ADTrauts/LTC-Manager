@@ -1124,7 +1124,7 @@ test("evidence does not expand an Operational Type attachment; a SPACE attachmen
   assert.equal(retail.some((row) => row.attachmentId === "att-ot"), false);
 });
 
-test("Location Program shows the team and cycle, and team counts do not create coverage", () => {
+test("Location Program does not show a Team, and team counts do not create coverage", () => {
   const program = composeLocationProgram({
     departmentId: "dept-1",
     departmentName: "Dietary",
@@ -1201,14 +1201,10 @@ test("Location Program shows the team and cycle, and team counts do not create c
 
   const state = states[0]!;
   assert.equal(state.program.operationalType.state, "unassigned");
-  assert.equal(state.program.locationProgram.teams[0]?.name, "Culinary");
-  assert.equal(state.program.locationProgram.cycles[0]?.teams[0]?.requiredCount, null);
-  assert.equal(state.operation.state, "ACTIVE");
-  assert.equal(state.operation.current?.cycleStableKey, "breakfast");
+  assert.deepEqual(state.program.locationProgram.teams, []);
+  assert.deepEqual(state.program.locationProgram.cycles, []);
   assert.equal(state.coverage.slots.length, 0);
-  assert.equal(state.answers.happening.state, "active");
-  assert.equal(state.answers.cycle.open?.cycleStableKey, "breakfast");
-  assert.equal(state.answers.responsible.teams[0]?.name, "Culinary");
+  assert.deepEqual(state.answers.responsible.teams, []);
   assert.equal(state.answers.responsible.need.length, 0);
 });
 

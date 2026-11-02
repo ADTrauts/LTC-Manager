@@ -27,7 +27,7 @@ export function applyViewerTeamScopeToLocations(
       continue;
     }
 
-    if (scope.mode === "TEAM_WITHOUT_LOCATIONS") {
+    if (scope.mode === "ASSIGNMENT_WITHOUT_PLACEMENT") {
       continue;
     }
 

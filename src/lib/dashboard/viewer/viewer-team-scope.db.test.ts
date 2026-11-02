@@ -122,25 +122,21 @@ test(
         facilityId: facility.id,
         departmentId: dietary.id,
         displayName: `Resident Services ${suffix}`,
-        spaceIds: [servery.id],
       });
       const retail = await createDepartmentTeam(admin, {
         facilityId: facility.id,
         departmentId: dietary.id,
         displayName: `Retail ${suffix}`,
-        spaceIds: [retailSpace.id],
       });
       const publicAreas = await createDepartmentTeam(admin, {
         facilityId: facility.id,
         departmentId: evs.id,
         displayName: `Public Areas ${suffix}`,
-        spaceIds: [evsSpace.id],
       });
       const emptyTeam = await createDepartmentTeam(admin, {
         facilityId: facility.id,
         departmentId: dietary.id,
         displayName: `Mechanical ${suffix}`,
-        spaceIds: [],
       });
 
       const sharon = await prisma.employee.create({
@@ -168,8 +164,9 @@ test(
         db: prisma,
       });
       const sharonDietary = scoped.get(dietary.id);
-      assert.equal(sharonDietary?.mode, "TEAM_SCOPED");
-      assert.deepEqual(sharonDietary?.roomIds, [servery.id]);
+      assert.equal(sharonDietary?.mode, "DEPARTMENT_WIDE");
+      assert.equal(sharonDietary?.reason, "DEPARTMENT_AUTHORITY");
+      assert.deepEqual(sharonDietary?.roomIds, []);
 
       await prisma.employeeTeamMembership.create({
         data: { employeeId: sharon.id, teamId: retail.id, isPrimary: false },
@@ -180,8 +177,8 @@ test(
         departments: [{ id: dietary.id, label: "Dietary" }],
         db: prisma,
       });
-      assert.equal(multi.get(dietary.id)?.mode, "TEAM_SCOPED");
-      assert.deepEqual(new Set(multi.get(dietary.id)?.roomIds), new Set([servery.id, retailSpace.id]));
+      assert.equal(multi.get(dietary.id)?.mode, "DEPARTMENT_WIDE");
+      assert.deepEqual(multi.get(dietary.id)?.roomIds, []);
 
       await prisma.employeeDepartment.create({
         data: { employeeId: sharon.id, departmentId: evs.id, roleType: "STAFF" },
@@ -240,8 +237,9 @@ test(
         departments: [{ id: dietary.id, label: "Dietary" }],
         db: prisma,
       });
-      assert.equal(managerRole.get(dietary.id)?.mode, "TEAM_SCOPED");
-      assert.deepEqual(managerRole.get(dietary.id)?.roomIds, [retailSpace.id]);
+      assert.equal(managerRole.get(dietary.id)?.mode, "DEPARTMENT_WIDE");
+      assert.equal(managerRole.get(dietary.id)?.reason, "DEPARTMENT_AUTHORITY");
+      assert.deepEqual(managerRole.get(dietary.id)?.roomIds, []);
 
       const emptyMember = await prisma.employee.create({
         data: {
@@ -261,7 +259,8 @@ test(
         departments: [{ id: dietary.id, label: "Dietary" }],
         db: prisma,
       });
-      assert.equal(emptyScope.get(dietary.id)?.mode, "TEAM_WITHOUT_LOCATIONS");
+      assert.equal(emptyScope.get(dietary.id)?.mode, "DEPARTMENT_WIDE");
+      assert.equal(emptyScope.get(dietary.id)?.reason, "DEPARTMENT_AUTHORITY");
 
       await archiveDepartmentTeam(admin, {
         facilityId: facility.id,
@@ -286,7 +285,7 @@ test(
         db: prisma,
       });
       assert.equal(archivedScope.get(dietary.id)?.mode, "DEPARTMENT_WIDE");
-      assert.equal(archivedScope.get(dietary.id)?.reason, "NO_ACTIVE_TEAM_MEMBERSHIP");
+      assert.equal(archivedScope.get(dietary.id)?.reason, "DEPARTMENT_AUTHORITY");
 
       const fa = await resolveViewerTeamScopes({
         session: admin,
@@ -300,9 +299,6 @@ test(
     } finally {
       await prisma.employeeTeamMembership.deleteMany({
         where: { employee: { facility: { organization: { name: { contains: suffix } } } } },
-      });
-      await prisma.departmentTeamRoomMembership.deleteMany({
-        where: { team: { facility: { organization: { name: { contains: suffix } } } } },
       });
       await prisma.departmentTeam.deleteMany({
         where: { facility: { organization: { name: { contains: suffix } } } },
