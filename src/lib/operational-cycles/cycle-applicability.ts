@@ -1,40 +1,57 @@
 /**
- * Cycle location applicability — including Operational Type targeting.
+ * Cycle location applicability.
  *
- * OPERATIONAL_TYPES is the canonical reusable path:
- *   cycle → DepartmentRoomArchetype.key → rooms currently bound to that type.
+ * A Cycle applies in one of two ways:
  *
- * ROOM_TYPE / UNIT_TYPES no longer match a location. Cycles apply by
- * Department-wide scope, explicit locations, and Location Functions.
+ * 1. ALL_DEPARTMENT_UNITS — department-wide.
+ *    A place participates when Facility Builder says this Department is
+ *    responsible for it. That set is dynamic on purpose: a newly responsible
+ *    room joins because the manager chose every responsible place.
+ *
+ * 2. EXPLICIT_UNITS — canonical Unit and UnitSpace ids on
+ *    DepartmentOperationalCycleLocation, plus Key Point room-group space ids.
+ *    A Unit id is that Unit. It does not mean every current or future room
+ *    under it. Rooms participate only when their UnitSpace ids are stored.
+ *    Floor, neighborhood, and Facility Room Type may filter the picker.
+ *    They are not saved as rules.
+ *
+ * OPERATIONAL_TYPES, UNIT_TYPES, and ROOM_TYPE do not match. Persisted enum
+ * values may remain until a later schema pass. They are not forward behavior.
+ *
+ * A child that inherits location uses the parent's mode and ids.
+ *
+ * Callers that already limited the question to this Department's responsible
+ * places may omit `responsible`. Pass responsible: false when the place is
+ * outside that responsibility so a department-wide Cycle does not include it.
  */
 
-import type { OperationalCycleLocationMode, UnitType } from "@prisma/client";
+import type { OperationalCycleLocationMode } from "@prisma/client";
 
-import { buildCyclesByStableKey, effectiveCycleSpaceIds } from "./effective-cycle-spaces";
+import { effectiveCycleSpaceIds } from "./effective-cycle-spaces";
 import type { OperationalCycleDefinition } from "./types";
 
-export type CycleApplicabilitySource =
-  | "DEPARTMENT_WIDE"
-  | "OPERATIONAL_TYPE_DEFAULT"
-  | "EXPLICIT_LOCATION"
-  | "LEGACY_PHYSICAL_ROOM_TYPE"
-  | "LEGACY_UNIT_TYPE";
+export type CycleApplicabilitySource = "DEPARTMENT_WIDE" | "EXPLICIT_LOCATION";
 
 export type CycleApplicabilityContext = {
   spaceId?: string | null;
   unitId?: string | null;
-  /** Current DepartmentRoomArchetype.key for this room, if assigned. */
+  /**
+   * False when this place is not a responsibility of the Cycle's Department.
+   * Omitted means the caller already limited the question to responsible places.
+   */
+  responsible?: boolean;
+  /**
+   * Ignored. Location Function, Operational Type, Facility Room Type, and
+   * unit type do not choose Cycle membership.
+   */
   operationalTypeKey?: string | null;
   operationalTypeName?: string | null;
-  /** Physical Facility Room Type key — never treated as Operational Type. */
   physicalRoomTypeKey?: string | null;
-  unitType?: UnitType | null;
+  unitType?: string | null;
 };
 
 export type CycleApplicabilityMatch = {
   sources: readonly CycleApplicabilitySource[];
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
 };
 
 function inheritedCycle(
@@ -45,25 +62,13 @@ function inheritedCycle(
   return allCyclesByStableKey.get(cycle.parentStableKey) ?? null;
 }
 
-export function effectiveOperationalTypeKeys(
-  cycle: Pick<
-    OperationalCycleDefinition,
-    "locationMode" | "locationInheritFromParent" | "parentStableKey" | "applicableOperationalTypeKeys"
-  >,
-  allCyclesByStableKey: ReadonlyMap<string, OperationalCycleDefinition>,
-): readonly string[] {
-  const parent = inheritedCycle(cycle, allCyclesByStableKey);
-  if (parent) return effectiveOperationalTypeKeys(parent, allCyclesByStableKey);
-  if (cycle.locationMode !== "OPERATIONAL_TYPES") return [];
-  return (cycle.applicableOperationalTypeKeys ?? []).filter(Boolean);
-}
-
-function resolvedMode(
+/** Location mode after walking parent inheritance. Retired modes stay visible so callers can reject them. */
+export function resolvedCycleLocationMode(
   cycle: Pick<OperationalCycleDefinition, "locationMode" | "locationInheritFromParent" | "parentStableKey">,
   allCyclesByStableKey: ReadonlyMap<string, OperationalCycleDefinition>,
 ): OperationalCycleLocationMode {
   const parent = inheritedCycle(cycle, allCyclesByStableKey);
-  if (parent) return resolvedMode(parent, allCyclesByStableKey);
+  if (parent) return resolvedCycleLocationMode(parent, allCyclesByStableKey);
   return cycle.locationMode;
 }
 
@@ -80,9 +85,9 @@ function explicitHitsLocation(
 }
 
 /**
- * All applicability sources that currently match this location.
- * Duplicate sources are unique. Order is display-stable, not override precedence.
- * Explicit location is additive — never labeled LOCATION_OVERRIDE.
+ * Sources that match this location.
+ * Department-wide does not also require an explicit id.
+ * Explicit membership does not expand a room type or function key.
  */
 export function matchCycleApplicability(input: {
   cycle: OperationalCycleDefinition;
@@ -91,36 +96,18 @@ export function matchCycleApplicability(input: {
 }): CycleApplicabilityMatch | null {
   const { cycle, allCyclesByStableKey, context } = input;
   const sources: CycleApplicabilitySource[] = [];
-  const mode = resolvedMode(cycle, allCyclesByStableKey);
-  const otKeys = effectiveOperationalTypeKeys(cycle, allCyclesByStableKey);
-  const otKey = context.operationalTypeKey?.trim() || null;
+  const mode = resolvedCycleLocationMode(cycle, allCyclesByStableKey);
 
-  if (mode === "ALL_DEPARTMENT_UNITS") {
+  if (mode === "ALL_DEPARTMENT_UNITS" && context.responsible !== false) {
     sources.push("DEPARTMENT_WIDE");
-  }
-
-  if (otKeys.length > 0 && otKey && otKeys.includes(otKey)) {
-    sources.push("OPERATIONAL_TYPE_DEFAULT");
   }
 
   if (explicitHitsLocation(cycle, allCyclesByStableKey, context)) {
     sources.push("EXPLICIT_LOCATION");
-  } else if (
-    mode === "EXPLICIT_UNITS" &&
-    !cycle.locationInheritFromParent &&
-    (cycle.spaceIds.length > 0 || cycle.unitIds.length > 0)
-  ) {
-    // explicit mode with a non-matching selection — do not add
   }
 
   if (sources.length === 0) return null;
-  return {
-    sources,
-    operationalTypeKey: sources.includes("OPERATIONAL_TYPE_DEFAULT") ? otKey : null,
-    operationalTypeName: sources.includes("OPERATIONAL_TYPE_DEFAULT")
-      ? context.operationalTypeName ?? null
-      : null,
-  };
+  return { sources };
 }
 
 export function cycleMatchesLocation(input: {
@@ -133,17 +120,8 @@ export function cycleMatchesLocation(input: {
 
 export function describeCycleApplicability(match: CycleApplicabilityMatch): string {
   const parts = match.sources.map((source) => {
-    if (source === "OPERATIONAL_TYPE_DEFAULT") {
-      return match.operationalTypeName
-        ? `Inherited from Operational Type: ${match.operationalTypeName}`
-        : "Inherited from Operational Type";
-    }
     if (source === "EXPLICIT_LOCATION") return "Applied directly to this location";
-    if (source === "DEPARTMENT_WIDE") return "Applies to the entire department";
-    if (source === "LEGACY_PHYSICAL_ROOM_TYPE") {
-      return "Legacy applicability: Physical Room Type";
-    }
-    return "Legacy applicability: Unit type";
+    return "Applies to every location this department is responsible for";
   });
   return parts.join(" · ");
 }
@@ -151,65 +129,36 @@ export function describeCycleApplicability(match: CycleApplicabilityMatch): stri
 export function primaryCycleApplicabilitySource(
   sources: readonly CycleApplicabilitySource[],
 ): CycleApplicabilitySource {
-  if (sources.includes("OPERATIONAL_TYPE_DEFAULT")) return "OPERATIONAL_TYPE_DEFAULT";
   if (sources.includes("EXPLICIT_LOCATION")) return "EXPLICIT_LOCATION";
   if (sources.includes("DEPARTMENT_WIDE")) return "DEPARTMENT_WIDE";
-  if (sources.includes("LEGACY_PHYSICAL_ROOM_TYPE")) return "LEGACY_PHYSICAL_ROOM_TYPE";
   return sources[0] ?? "EXPLICIT_LOCATION";
 }
 
-export function cycleUsesOperationalTypeParticipation(
-  cycle: Pick<
-    OperationalCycleDefinition,
-    "locationMode" | "locationInheritFromParent" | "parentStableKey"
-  >,
-  allCyclesByStableKey: ReadonlyMap<string, OperationalCycleDefinition>,
-): boolean {
-  return resolvedMode(cycle, allCyclesByStableKey) === "OPERATIONAL_TYPES";
-}
-
 /**
- * Rooms bound to a cycle's operational-type keys.
- * Identity is the archetype key only. Room name, label, and physical type are ignored.
- * An empty key list or an empty binding set returns no rooms.
- */
-export function boundSpaceIdsForOperationalTypeKeys(
-  keys: readonly string[],
-  spaces: readonly { id: string; operationalTypeKey?: string | null }[],
-): string[] {
-  const wanted = new Set(keys.map((key) => key.trim()).filter(Boolean));
-  if (wanted.size === 0) return [];
-  const ids: string[] = [];
-  for (const space of spaces) {
-    const key = space.operationalTypeKey?.trim() ?? "";
-    if (key && wanted.has(key)) ids.push(space.id);
-  }
-  return ids;
-}
-
-/**
- * Room set used when deriving cycle-bound Work.
- * OPERATIONAL_TYPES is closed: the result is exactly the bound rooms, and empty means none.
- * Explicit rooms and whole-department mode stay on their existing paths.
+ * Rooms a Cycle contributes when another engine asks which places it covers.
+ * Department-wide uses the places the caller already decided are this
+ * Department's. Explicit uses stored ids. A function key on the space is ignored.
+ * Retired modes contribute no rooms.
  */
 export function resolveWorkCycleRoomParticipation(
   cycle: OperationalCycleDefinition,
   allCyclesByStableKey: ReadonlyMap<string, OperationalCycleDefinition>,
   spaces: readonly { id: string; operationalTypeKey?: string | null }[],
 ): { spaceIds: string[]; roomSetClosed: boolean } {
-  if (!cycleUsesOperationalTypeParticipation(cycle, allCyclesByStableKey)) {
+  const mode = resolvedCycleLocationMode(cycle, allCyclesByStableKey);
+  if (mode === "ALL_DEPARTMENT_UNITS") {
     return {
-      spaceIds: effectiveCycleSpaceIds(cycle, allCyclesByStableKey),
+      spaceIds: spaces.map((space) => space.id),
       roomSetClosed: false,
     };
   }
+  const explicit = effectiveCycleSpaceIds(cycle, allCyclesByStableKey);
+  if (spaces.length === 0) {
+    return { spaceIds: [...explicit], roomSetClosed: true };
+  }
+  const allowed = new Set(explicit);
   return {
-    spaceIds: boundSpaceIdsForOperationalTypeKeys(
-      effectiveOperationalTypeKeys(cycle, allCyclesByStableKey),
-      spaces,
-    ),
+    spaceIds: spaces.filter((space) => allowed.has(space.id)).map((space) => space.id),
     roomSetClosed: true,
   };
 }
-
-export { buildCyclesByStableKey };

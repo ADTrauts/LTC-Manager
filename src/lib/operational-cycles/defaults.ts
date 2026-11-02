@@ -26,15 +26,9 @@ export type DietaryDefaultCyclePlan = {
   applicableDaysOfWeek: number[];
   mealType: MealType | null;
   expectedMilestones: ServeryMilestone[];
-  locationMode:
-    | "ALL_DEPARTMENT_UNITS"
-    | "UNIT_TYPES"
-    | "EXPLICIT_UNITS"
-    | "ROOM_TYPE"
-    | "OPERATIONAL_TYPES";
+  locationMode: "ALL_DEPARTMENT_UNITS" | "EXPLICIT_UNITS";
   locationInheritFromParent?: boolean;
   applicableUnitTypes: UnitType[];
-  applicableOperationalTypeKeys?: string[];
   roomTypeKey: string | null;
   occurrenceTracking?: "NONE" | "OPTIONAL" | "REQUIRED";
   keyPointGrain?: "DEPARTMENT" | "LOCATION";
@@ -145,7 +139,7 @@ function mealChildren(
       parentStableKey: mealKey,
       nodeKind: "KEY_TIME" as const,
       label: `${mealLabel} Ready`,
-      description: `${mealLabel} readiness at each Food Service Area.`,
+      description: `${mealLabel} readiness at each selected location.`,
       cycleType: "CUSTOM" as const,
       displaySequence: 13,
       startLocal: null,
@@ -156,7 +150,6 @@ function mealChildren(
       expectedMilestones: [] as ServeryMilestone[],
       locationMode: "EXPLICIT_UNITS" as const,
       applicableUnitTypes: [] as UnitType[],
-      applicableOperationalTypeKeys: ["food_service_area"],
       roomTypeKey: null,
       occurrenceTracking: "REQUIRED" as const,
       keyPointGrain: "LOCATION" as const,
@@ -167,7 +160,7 @@ function mealChildren(
       parentStableKey: mealKey,
       nodeKind: "KEY_TIME" as const,
       label: `${mealLabel} Service Started`,
-      description: `${mealLabel} service start at each Food Service Area.`,
+      description: `${mealLabel} service start at each selected location.`,
       cycleType: "CUSTOM" as const,
       displaySequence: 13,
       startLocal: null,
@@ -178,7 +171,6 @@ function mealChildren(
       expectedMilestones: [] as ServeryMilestone[],
       locationMode: "EXPLICIT_UNITS" as const,
       applicableUnitTypes: [] as UnitType[],
-      applicableOperationalTypeKeys: ["food_service_area"],
       roomTypeKey: null,
       occurrenceTracking: "REQUIRED" as const,
       keyPointGrain: "LOCATION" as const,
@@ -209,7 +201,8 @@ function mealChildren(
 /**
  * Example Dietary operating day: Breakfast / Lunch / Dinner Operational Cycles
  * with Prep, Service, Cleanup Phases (inherit) and Due Key Points.
- * Top-level locations use EXPLICIT_UNITS with empty spaces — assign rooms in Build.
+ * Meal Cycles are created without locations. The facility selects rooms in Build.
+ * Key Points do not carry a Location Function. Room groups are explicit space ids.
  * Future starter application only — never rewrites published facility rhythms.
  */
 export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
@@ -283,6 +276,8 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
 
 /**
  * Example EVS operating day — shallow top-level periods.
+ * Each period is department-wide: every place Facility Builder assigns to EVS,
+ * including places assigned later. It is not “all rooms of a type.”
  */
 export function buildEvsDefaultCyclePlans(): EvsDefaultCyclePlan[] {
   return [

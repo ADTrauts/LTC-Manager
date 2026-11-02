@@ -36,13 +36,11 @@ test("standard Room Type keys include servery and exclude custom", () => {
 
 test("user-facing scope maps to persistence modes without Unit.unitType", () => {
   assert.equal(userFacingScopeFromMode("ALL_DEPARTMENT_UNITS"), "department");
-  assert.equal(userFacingScopeFromMode("OPERATIONAL_TYPES"), "operational_types");
-  assert.equal(userFacingScopeFromMode("ROOM_TYPE"), "room_type");
+  assert.equal(userFacingScopeFromMode("OPERATIONAL_TYPES"), "specific");
+  assert.equal(userFacingScopeFromMode("ROOM_TYPE"), "specific");
   assert.equal(userFacingScopeFromMode("EXPLICIT_UNITS"), "specific");
-  assert.equal(userFacingScopeFromMode("UNIT_TYPES"), "department");
+  assert.equal(userFacingScopeFromMode("UNIT_TYPES"), "specific");
   assert.equal(locationModeFromUserScope("department"), "ALL_DEPARTMENT_UNITS");
-  assert.equal(locationModeFromUserScope("operational_types"), "OPERATIONAL_TYPES");
-  assert.equal(locationModeFromUserScope("room_type"), "ROOM_TYPE");
   assert.equal(locationModeFromUserScope("specific"), "EXPLICIT_UNITS");
 });
 
@@ -131,18 +129,18 @@ test("service start times only when SERVICE + mealType + SERVICE_STARTED", () =>
 test("scope labels and review diffs stay human", () => {
   assert.equal(
     scopeGroupLabel({ locationMode: "ROOM_TYPE", roomTypeKey: "servery" }),
-    "Serveries",
+    "Choose locations again",
   );
   assert.equal(
     describeUserFacingScope({ locationMode: "ROOM_TYPE", roomTypeKey: "servery" }),
-    "Room Type: Servery",
+    "Choose locations again",
   );
   assert.equal(
     summarizeScopeChange({
       from: { locationMode: "ALL_DEPARTMENT_UNITS" },
       to: { locationMode: "ROOM_TYPE", roomTypeKey: "servery" },
     }),
-    "Entire department → Room Type: Servery",
+    "All locations this department is responsible for → Choose locations again",
   );
   const diff = diffMilestoneTimes({
     prior: [
@@ -274,7 +272,7 @@ test("catalog validation rejects floors, foreign locations, and custom Room Type
     expectedMilestones: ["SERVICE_STARTED"],
     locations,
   });
-  assert.ok(custom.some((e) => /standard Facility Room Type/.test(e)));
+  assert.ok(custom.some((e) => /selected locations/.test(e)));
 });
 
 test("group headings are projections from scope", () => {
@@ -294,7 +292,7 @@ test("group headings are projections from scope", () => {
   );
   assert.deepEqual(
     groups.map((g) => g.heading),
-    ["Serveries", "Main Kitchen", "Entire department"],
+    ["Main Kitchen", "All department locations", "Choose locations again"],
   );
 });
 

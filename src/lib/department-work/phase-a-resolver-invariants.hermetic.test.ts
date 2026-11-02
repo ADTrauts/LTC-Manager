@@ -11,10 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  boundSpaceIdsForOperationalTypeKeys,
-  resolveWorkCycleRoomParticipation,
-} from "@/lib/operational-cycles/cycle-applicability";
+import { resolveWorkCycleRoomParticipation } from "@/lib/operational-cycles/cycle-applicability";
 import { buildCyclesByStableKey } from "@/lib/operational-cycles/effective-cycle-spaces";
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
 
@@ -279,12 +276,12 @@ function definition(
   };
 }
 
-test("operational-type participation resolves bound keys and ignores room labels", () => {
+test("a Cycle does not expand a Location Function key into rooms", () => {
   const parent = definition({
     stableKey: "breakfast",
     label: "Breakfast",
-    locationMode: "OPERATIONAL_TYPES",
-    applicableOperationalTypeKeys: ["food_service_area"],
+    locationMode: "EXPLICIT_UNITS",
+    spaceIds: ["room-a"],
   });
   const phase = definition({
     stableKey: "breakfast_service",
@@ -295,20 +292,11 @@ test("operational-type participation resolves bound keys and ignores room labels
   });
   const spaces = [
     { id: "room-a", operationalTypeKey: "food_service_area" },
-    { id: "room-b", operationalTypeKey: "resident_room" },
+    { id: "room-b", operationalTypeKey: "food_service_area" },
     { id: "room-named-servery", operationalTypeKey: null },
   ];
   const byKey = buildCyclesByStableKey([parent, phase]);
   const participation = resolveWorkCycleRoomParticipation(phase, byKey, spaces);
   assert.equal(participation.roomSetClosed, true);
   assert.deepEqual(participation.spaceIds, ["room-a"]);
-
-  assert.deepEqual(
-    boundSpaceIdsForOperationalTypeKeys(["food_service_area"], [
-      { id: "named", operationalTypeKey: null },
-      { id: "bound", operationalTypeKey: "food_service_area" },
-    ]),
-    ["bound"],
-  );
-  assert.deepEqual(boundSpaceIdsForOperationalTypeKeys([], spaces), []);
 });

@@ -88,8 +88,8 @@ function cycle(partial: Partial<OperationalCycleDefinition> & Pick<OperationalCy
     roomTypeKey: null,
     expectedMilestones: [],
     status: "PUBLISHED",
-    unitIds: [],
-    spaceIds: [],
+    unitIds: partial.unitIds ?? [],
+    spaceIds: partial.spaceIds ?? [],
     milestoneTimes: [],
     keyTimeGroups: [],
   };
@@ -105,8 +105,8 @@ test("function-targeted Cycle, Work, and presentation share the bound room", () 
   const service = cycle({
     stableKey: "breakfast_service",
     label: "Service",
-    locationMode: "OPERATIONAL_TYPES",
-    applicableOperationalTypeKeys: ["food_service_area"],
+    locationMode: "EXPLICIT_UNITS",
+    spaceIds: ["room-a"],
   });
   const byKey = buildCyclesByStableKey([service]);
   const participation = resolveWorkCycleRoomParticipation(service, byKey, rooms);
@@ -139,7 +139,7 @@ test("function-targeted Cycle, Work, and presentation share the bound room", () 
     operationalDateKey: "2026-08-17",
     nowLocalHhMm: "12:00",
   });
-  assert.equal(withoutBindings.currentOperations[0]?.phases[0]?.roomCount, 0);
+  assert.equal(withoutBindings.currentOperations[0]?.phases[0]?.roomCount, 1);
 
   const plan: PublishedWorkPlanForResolve = {
     id: "plan-1",
@@ -222,22 +222,23 @@ test("function-targeted Cycle, Work, and presentation share the bound room", () 
   assert.deepEqual(requirements.map((row) => row.spaceId), ["room-a"]);
 });
 
-test("physical PATIENT_ROOM does not become resident_care without a binding", () => {
+test("a physical room type does not join a Cycle that did not store that room", () => {
   const cleaning = cycle({
     stableKey: "morning_routine",
-    locationMode: "OPERATIONAL_TYPES",
-    applicableOperationalTypeKeys: ["resident_care"],
+    locationMode: "EXPLICIT_UNITS",
+    spaceIds: ["room-selected"],
   });
   const spaces = [
     { id: "room-physical", operationalTypeKey: null },
-    { id: "room-bound", operationalTypeKey: "resident_care" },
+    { id: "room-selected", operationalTypeKey: "resident_care" },
+    { id: "room-new-servery", operationalTypeKey: "resident_care" },
   ];
   const ids = resolveWorkCycleRoomParticipation(
     cleaning,
     buildCyclesByStableKey([cleaning]),
     spaces,
   ).spaceIds;
-  assert.deepEqual(ids, ["room-bound"]);
+  assert.deepEqual(ids, ["room-selected"]);
 });
 
 test("a published servery Work plan still resolves servery and is not remapped", () => {
@@ -310,35 +311,34 @@ test("a published servery Work plan still resolves servery and is not remapped",
   assert.equal(plan.applicabilities[0]?.operationalTypeKey, "servery");
 });
 
-test("one room keeps separate Dietary and EVS function identities", () => {
+test("Food and EVS Cycles include a shared room only when each Cycle stores it", () => {
   const shared = "room-1";
   const dietaryCycle = cycle({
     stableKey: "breakfast_service",
-    locationMode: "OPERATIONAL_TYPES",
-    applicableOperationalTypeKeys: ["food_service_area"],
+    locationMode: "EXPLICIT_UNITS",
+    spaceIds: [shared],
   });
-  const evsCare = cycle({
+  const evsOther = cycle({
     stableKey: "morning_routine",
-    locationMode: "OPERATIONAL_TYPES",
-    applicableOperationalTypeKeys: ["resident_care"],
+    locationMode: "EXPLICIT_UNITS",
+    spaceIds: ["other-room"],
   });
-  const evsSupport = cycle({
+  const evsCleaning = cycle({
     stableKey: "day_cleaning",
-    locationMode: "OPERATIONAL_TYPES",
-    applicableOperationalTypeKeys: ["service_support"],
+    locationMode: "EXPLICIT_UNITS",
+    spaceIds: [shared],
   });
-  const dietaryRooms = [{ id: shared, operationalTypeKey: "food_service_area" }];
-  const evsRooms = [{ id: shared, operationalTypeKey: "service_support" }];
+  const rooms = [{ id: shared, operationalTypeKey: "food_service_area" }];
   assert.deepEqual(
-    resolveWorkCycleRoomParticipation(dietaryCycle, buildCyclesByStableKey([dietaryCycle]), dietaryRooms).spaceIds,
+    resolveWorkCycleRoomParticipation(dietaryCycle, buildCyclesByStableKey([dietaryCycle]), rooms).spaceIds,
     [shared],
   );
   assert.deepEqual(
-    resolveWorkCycleRoomParticipation(evsCare, buildCyclesByStableKey([evsCare]), evsRooms).spaceIds,
+    resolveWorkCycleRoomParticipation(evsOther, buildCyclesByStableKey([evsOther]), rooms).spaceIds,
     [],
   );
   assert.deepEqual(
-    resolveWorkCycleRoomParticipation(evsSupport, buildCyclesByStableKey([evsSupport]), evsRooms).spaceIds,
+    resolveWorkCycleRoomParticipation(evsCleaning, buildCyclesByStableKey([evsCleaning]), rooms).spaceIds,
     [shared],
   );
 });

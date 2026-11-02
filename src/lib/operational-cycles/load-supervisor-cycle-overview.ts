@@ -26,10 +26,6 @@ import {
   type KeyTimeDayTiming,
   type KeyTimeGroupSummary,
 } from "./key-time-day-expectation";
-import {
-  loadSpaceOperationalTypeAssignments,
-  operationalTypeKeysForSpaces,
-} from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import {
   materializeMealServiceDayExpectations,
@@ -266,11 +262,6 @@ export async function loadSupervisorCycleOverview(input: {
   };
 
   const rows: SupervisorUnitCycleRow[] = [];
-  const runtimeFunctions = await loadSpaceOperationalTypeAssignments({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    perspective: "runtime",
-  });
 
   if (!isCurrentPeriodModel(runProvenance)) {
   for (const unit of units) {
@@ -300,10 +291,6 @@ export async function loadSupervisorCycleOverview(input: {
         unitType: unit.unitType,
         childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
-        childOperationalTypeKeys: operationalTypeKeysForSpaces(
-          runtimeFunctions,
-          unit.childSpaces.map((space) => space.id),
-        ),
       },
       mealTargets,
     });

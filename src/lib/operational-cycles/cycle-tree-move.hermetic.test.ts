@@ -249,7 +249,7 @@ test("allow moving KEY_TIME between PERIOD parents", () => {
 test("legacy UNIT_TYPES label is not user-facing database jargon", () => {
   assert.equal(
     scopeGroupLabel({ locationMode: "UNIT_TYPES" }),
-    "Legacy scope — edit to update",
+    "Choose locations again",
   );
   assert.doesNotMatch(scopeGroupLabel({ locationMode: "UNIT_TYPES" }), /Legacy unit types/);
 });

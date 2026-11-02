@@ -316,7 +316,13 @@ test("review shows scope and changed meal times only", () => {
     current,
     unitNames: { np: "Naval Park", lh: "Lighthouse" },
   });
-  assert.ok(changes.some((c) => c.kind === "location" && c.summary.includes("Room Type: Servery")));
+  assert.ok(
+    changes.some(
+      (c) =>
+        c.kind === "location" &&
+        c.summary.includes("Choose locations again"),
+    ),
+  );
   const times = changes.find((c) => c.kind === "service_times");
   assert.ok(times);
   assert.match(times!.summary, /Naval Park 07:15 → 07:20/);

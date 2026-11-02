@@ -9,7 +9,6 @@ type WorkReadClient = PrismaClient | Prisma.TransactionClient;
 import { isDepartmentEngineEnabledForFacility } from "@/lib/department-operations";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import {
-  cycleUsesOperationalTypeParticipation,
   resolveWorkCycleRoomParticipation,
 } from "@/lib/operational-cycles/cycle-applicability";
 import {
@@ -408,9 +407,6 @@ export async function resolveUnitWorkRequirements(
 
   const candidateUnitIds = responsibleUnits.map((unit) => unit.id);
   const cyclesByKey = buildCyclesByStableKey(cycles);
-  const cyclesUseOperationalTypes = cycles.some((cycle) =>
-    cycleUsesOperationalTypeParticipation(cycle, cyclesByKey),
-  );
   const explicitSpaceIds = new Set<string>();
   for (const cycle of cycles) {
     for (const spaceId of effectiveCycleSpaceIds(cycle, cyclesByKey)) {
@@ -427,8 +423,7 @@ export async function resolveUnitWorkRequirements(
           app.kind === "OPERATIONAL_TYPE",
       ),
     ) ||
-    explicitSpaceIds.size > 0 ||
-    cyclesUseOperationalTypes;
+    explicitSpaceIds.size > 0;
 
   const spaceWhere = input.unitId
     ? { facilityId: input.facilityId, isActive: true, unitId: input.unitId }
@@ -476,8 +471,7 @@ export async function resolveUnitWorkRequirements(
   const needsOperationalTypes = publishedPlans.some((plan) =>
     plan.applicabilities.some((app) => app.kind === "OPERATIONAL_TYPE"),
   );
-  const spacesForResolve =
-    needsOperationalTypes || cyclesUseOperationalTypes
+  const spacesForResolve = needsOperationalTypes
       ? await attachRuntimeOperationalTypeKeys({
           client,
         facilityId: input.facilityId,

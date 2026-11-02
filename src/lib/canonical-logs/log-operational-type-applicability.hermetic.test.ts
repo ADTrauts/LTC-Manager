@@ -558,7 +558,8 @@ test("runtime loaders request runtime OT; Build uses working types", () => {
   const actions = readFileSync(join(process.cwd(), "src/app/(protected)/build/logs/actions.ts"), "utf8");
   assert.match(run, /perspective:\s*"runtime"/);
   assert.match(book, /perspective:\s*"runtime"/);
-  assert.match(build, /perspective:\s*"working"/);
+  assert.doesNotMatch(build, /loadDepartmentOperationalTypeOptions/);
+  assert.doesNotMatch(build, /perspective:\s*"working"/);
   assert.doesNotMatch(run, /perspective:\s*"working"/);
   assert.doesNotMatch(book, /perspective:\s*"working"/);
   assert.match(assign, /OPERATIONAL_TYPE/);

@@ -1601,7 +1601,7 @@ export async function generateDietaryDefaultsDrafts(
         expectedMilestones: plan.expectedMilestones,
         occurrenceTracking: plan.occurrenceTracking,
         keyPointGrain: plan.keyPointGrain,
-        applicableOperationalTypeKeys: plan.applicableOperationalTypeKeys,
+        applicableOperationalTypeKeys: [],
         keyTimeGroups: (plan.dueLocals ?? []).map((dueLocal) => ({
           dueLocal,
           spaceIds: [],
@@ -1700,7 +1700,7 @@ export async function prepareDietaryMealTimingUpgrade(
         expectedMilestones: [],
         occurrenceTracking: keyPoint.occurrenceTracking,
         keyPointGrain: keyPoint.keyPointGrain,
-        applicableOperationalTypeKeys: keyPoint.applicableOperationalTypeKeys,
+        applicableOperationalTypeKeys: [],
         keyTimeGroups: (keyPoint.dueLocals ?? []).map((dueLocal) => ({
           dueLocal,
           spaceIds: [],

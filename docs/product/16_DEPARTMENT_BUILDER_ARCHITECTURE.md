@@ -209,7 +209,14 @@ Operational Cycle
   → Key Point(s)
 ```
 
-The Facility section may show which places participate in an Operating Rhythm. Participation is stored as canonical location ids, or as department-wide, on the cycle. Facility must not create a second timing model.
+The Facility section may show which places participate in an Operating Rhythm. Participation is stored on the cycle in one of two ways:
+
+- Department-wide. Every place Facility Builder says this Department is responsible for, including a place assigned later. That is the rule the manager chose.
+- Explicit canonical Unit and UnitSpace ids. A Unit id is that Unit. It does not add every room under it. Rooms participate only when their ids are stored.
+
+Floor, neighborhood, and Facility Room Type may filter the picker. They are not saved, and a new room does not join an explicit cycle because it matches a filter. Location Function, Operational Type, unit type, and room type are not cycle targeting.
+
+Facility must not create a second timing model.
 
 Other engines reference canonical rhythm facts:
 

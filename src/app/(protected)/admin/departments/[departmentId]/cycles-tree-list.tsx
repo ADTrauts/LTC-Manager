@@ -84,11 +84,7 @@ function rowScopeLabel(
     | "applicableOperationalTypeKeys"
   >,
   catalog?: CycleEditorCatalog,
-  opts?: { includeLegacy?: boolean },
 ): string | null {
-  if (row.locationMode === "UNIT_TYPES" && !opts?.includeLegacy) {
-    return null;
-  }
   const names: Record<string, string> = {};
   for (const location of catalog?.locations ?? []) names[location.id] = location.name;
   const operationalTypeNames: Record<string, string> = {};
@@ -131,7 +127,6 @@ function rowSecondary(
   row: CycleRowData,
   showMeal: boolean,
   catalog?: CycleEditorCatalog,
-  opts?: { includeLegacy?: boolean },
 ): string {
   if (row.nodeKind === "KEY_TIME") {
     const summary = keyTimeSummary(row);
@@ -147,7 +142,7 @@ function rowSecondary(
       daysSummary: formatDaysSummary(row.applicableDaysOfWeek),
       scopeLabel: row.locationInheritFromParent
         ? "Uses parent locations"
-        : rowScopeLabel(row, catalog, opts),
+        : rowScopeLabel(row, catalog),
       serviceTimeCount: shouldShowServiceStartTimes({
         cycleType: row.cycleType,
         mealType: row.mealType,

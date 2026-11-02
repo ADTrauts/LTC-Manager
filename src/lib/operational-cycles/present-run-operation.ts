@@ -3,7 +3,10 @@
  * Does not invent meal-service copy. Legacy meal banners stay on the legacy path.
  */
 
-import { resolveWorkCycleRoomParticipation } from "./cycle-applicability";
+import {
+  resolveWorkCycleRoomParticipation,
+  resolvedCycleLocationMode,
+} from "./cycle-applicability";
 import { formatCycleWindow } from "./cycle-display";
 import {
   buildCyclesByStableKey,
@@ -367,15 +370,7 @@ function cycleHasParticipatingLocations(
   cycle: OperationalCycleDefinition,
   allByKey: ReadonlyMap<string, OperationalCycleDefinition>,
 ): boolean {
-  if (cycle.locationMode === "ALL_DEPARTMENT_UNITS") return true;
-  if (cycle.locationMode === "UNIT_TYPES" && cycle.applicableUnitTypes.length > 0) return true;
-  if (
-    cycle.locationMode === "OPERATIONAL_TYPES" &&
-    (cycle.applicableOperationalTypeKeys?.length ?? 0) > 0
-  ) {
-    return true;
-  }
-  if (cycle.locationMode === "ROOM_TYPE" && Boolean(cycle.roomTypeKey?.trim())) return true;
+  if (resolvedCycleLocationMode(cycle, allByKey) === "ALL_DEPARTMENT_UNITS") return true;
   if (cycle.unitIds.length > 0) return true;
   return effectiveCycleSpaceIds(cycle, allByKey).length > 0;
 }
@@ -505,7 +500,7 @@ export function presentLocationRunOperation(input: {
   nowLocalHhMm: string;
   canAdjust?: boolean;
   canComplete?: boolean;
-  /** Current Operational Type key — required for OPERATIONAL_TYPES targeting. */
+  /** Ignored. Cycle matching does not use Location Function or Operational Type. */
   operationalTypeKey?: string | null;
 }): RunLocationOperationPresentation {
   const scopedTimings = timingsForPublishedKeyTimeCycles(input.timings, input.cycles).filter(
@@ -595,7 +590,10 @@ export function presentDepartmentRunOperation(input: {
   operationalDateKey: string;
   nowLocalHhMm: string;
   spaceIdFilter?: ReadonlySet<string>;
-  /** Rooms and their adopted Location Function keys. Same binding set Work uses. */
+  /**
+   * Responsible rooms for department-wide room counts.
+   * operationalTypeKey is ignored. Explicit Cycles use stored space ids.
+   */
   functionSpaces?: readonly { id: string; operationalTypeKey?: string | null }[];
 }): RunDepartmentOperationPresentation {
   const provenance = detectRunModelProvenance(input.cycles, input.timings);

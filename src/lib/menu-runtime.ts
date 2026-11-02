@@ -245,6 +245,7 @@ export function cycleOccursAtMenuLocation(input: {
   published: readonly OperationalCycleDefinition[];
   location: MenuLocationTarget;
   serviceDateKey: string;
+  /** Ignored. Cycle matching uses the menu's canonical Unit or UnitSpace. */
   operationalTypeKey?: string | null;
   unitCycleScope?: CycleUnitScope | null;
 }): boolean {
@@ -252,9 +253,7 @@ export function cycleOccursAtMenuLocation(input: {
   if (!isApplicableWeekday(input.root.applicableDaysOfWeek, input.serviceDateKey)) return false;
   const byKey = new Map(input.published.map((cycle) => [cycle.stableKey, cycle]));
   if (input.location.spaceId) {
-    return cycleAppliesToSpace(input.root, input.location.spaceId, byKey, {
-      operationalTypeKey: input.operationalTypeKey,
-    });
+    return cycleAppliesToSpace(input.root, input.location.spaceId, byKey);
   }
   if (!input.location.unitId || !input.unitCycleScope) return false;
   return cycleAppliesToUnit(input.root, input.unitCycleScope, byKey);

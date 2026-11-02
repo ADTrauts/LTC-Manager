@@ -3,7 +3,7 @@
 **Date:** November 2, 2026  
 **Question:** Does the released product need Location Function, Operational Type, or `DepartmentRoomArchetype`?  
 **Verdict:** Retire the concept. It is a live grouping query, not a business fact.  
-**Code impact of this document:** none. Schema and runtime behavior stay until the deletion sequence below is approved.
+**Phase 2 status (November 2, 2026):** Operating Rhythm no longer targets cycles by Location Function, Operational Type, unit type, or Facility Room Type. A cycle is department-wide through Facility responsibility (`ALL_DEPARTMENT_UNITS`) or an explicit list of canonical Unit and UnitSpace ids (`EXPLICIT_UNITS` / `DepartmentOperationalCycleLocation`). Filters assist selection and are not saved. Key Point room groups stay explicit space ids. Menu cycle checks use the menu's canonical location. Profile, archetype, Records, Coverage, Teams, and generic Work applicability are unchanged and still consume Location Function where they did before. The persisted enum values `OPERATIONAL_TYPES`, `UNIT_TYPES`, and `ROOM_TYPE` remain until a later schema pass and do not match.
 
 There are no customer installations. Test rows, bookmarks, and the size of the current code are not reasons to keep the concept.
 

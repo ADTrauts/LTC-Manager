@@ -178,10 +178,15 @@ export type UnitMealTarget = {
 export type CycleUnitScope = {
   id: string;
   unitType: UnitType;
-  /** Child Room Type preset keys — used for ROOM_TYPE applicability. */
+  /** Physical type keys. Not a Cycle targeting rule. */
   childRoomTypeKeys?: string[];
-  /** Space ids under this location — used for EXPLICIT_UNITS space matching. */
+  /** Space ids under this location — a listed space makes an explicit Cycle apply here. */
   spaceIds?: string[];
-  /** Child Operational Type keys — used for OPERATIONAL_TYPES at unit grain. */
+  /** Ignored by Cycle matching. Kept so older fixtures still type-check. */
   childOperationalTypeKeys?: string[];
+  /**
+   * False when this Unit is outside the Department's Facility responsibility.
+   * Omitted means the caller already limited the question to responsible places.
+   */
+  responsible?: boolean;
 };

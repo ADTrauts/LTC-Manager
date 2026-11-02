@@ -102,7 +102,7 @@ await prisma.$transaction(async (tx) => {
         locationMode: create.plan.locationMode,
         locationInheritFromParent: false,
         applicableUnitTypes: [],
-        applicableOperationalTypeKeys: create.plan.applicableOperationalTypeKeys ?? [],
+        applicableOperationalTypeKeys: [],
         roomTypeKey: null,
         expectedMilestones: [],
         occurrenceTracking: create.plan.occurrenceTracking ?? "REQUIRED",

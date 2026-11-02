@@ -254,7 +254,7 @@ export async function CyclesPanel({
                   defaults={{
                     effectiveFrom: nextDay,
                     cycleType: isDietary ? "CUSTOM" : "CUSTOM",
-                    locationMode: "OPERATIONAL_TYPES",
+                    locationMode: "EXPLICIT_UNITS",
                     roomTypeKey: null,
                     applicableUnitTypes: [],
                     applicableOperationalTypeKeys: [],

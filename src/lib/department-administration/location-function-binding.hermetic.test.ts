@@ -96,7 +96,7 @@ test("clearing a room removes function-targeted applicability", () => {
   const byKey = buildCyclesByStableKey([cycle]);
   assert.equal(
     cycleAppliesToSpace(cycle, "naval", byKey, { operationalTypeKey: "food_service_area" }),
-    true,
+    false,
   );
   assert.equal(cycleAppliesToSpace(cycle, "naval", byKey, { operationalTypeKey: null }), false);
 });

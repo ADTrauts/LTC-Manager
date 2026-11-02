@@ -11,16 +11,22 @@ function source(rel: string) {
   return readFileSync(join(process.cwd(), rel), "utf8");
 }
 
-test("Run loaders read Location Functions from the shared runtime resolver", () => {
-  const files = [
+test("Records Run loaders still read Location Functions; Operating Rhythm does not", () => {
+  const cycleFiles = [
     "src/lib/operational-cycles/load-supervisor-cycle-overview.ts",
     "src/lib/operational-cycles/load-employee-cycle-context.ts",
     "src/lib/operational-cycles/load-run-operation-presentation.ts",
     "src/lib/offline/build-runtime-bundle.ts",
+  ];
+  for (const file of cycleFiles) {
+    const text = source(file);
+    assert.equal(text.includes("loadSpaceOperationalTypeAssignments"), false, file);
+  }
+  const recordFiles = [
     "src/lib/canonical-logs/load-run-requirements.ts",
     "src/lib/canonical-logs/load-target-run-logs.ts",
   ];
-  for (const file of files) {
+  for (const file of recordFiles) {
     const text = source(file);
     assert.equal(text.includes("loadSpaceOperationalTypeAssignments"), true, file);
     assert.match(text, /perspective:\s*"runtime"/, file);

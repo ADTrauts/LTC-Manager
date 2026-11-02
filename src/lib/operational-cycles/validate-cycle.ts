@@ -7,7 +7,6 @@ import type {
   UnitType,
 } from "@prisma/client";
 
-import { isStandardRoomTypeKey } from "./cycle-scope";
 import { effectiveDateRangesOverlap } from "./cycle-lifecycle";
 import {
   isStructurallyOvernight,
@@ -421,47 +420,18 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
     );
   }
 
-  if (input.locationMode === "UNIT_TYPES" || input.locationMode === "ROOM_TYPE") {
+  if (
+    input.locationMode === "UNIT_TYPES" ||
+    input.locationMode === "ROOM_TYPE" ||
+    input.locationMode === "OPERATIONAL_TYPES"
+  ) {
     errors.push(
       issue(
-        "physical_location_retired",
-        "Cycles apply by explicit locations and Location Functions. Unit type and room type no longer choose where a Cycle runs.",
+        "location_targeting_retired",
+        "Choose all locations this department is responsible for, or select specific locations. Unit type, room type, and Location Function no longer choose where a Cycle runs.",
         "error",
       ),
     );
-  }
-
-  if (hasLegacyRoomTypeScope(input)) {
-    const key = input.roomTypeKey?.trim() ?? "";
-    if (!isStandardRoomTypeKey(key)) {
-      errors.push(
-        issue(
-          "room_type_required",
-          "Room Type scope requires a standard Facility Room Type.",
-          "error",
-        ),
-      );
-    }
-  }
-
-  if (input.locationMode === "UNIT_TYPES") {
-    if (!input.applicableUnitTypes || input.applicableUnitTypes.length === 0) {
-      errors.push(
-        issue("unit_types_required", "Unit-type location mode requires at least one unit type.", "error"),
-      );
-    }
-  }
-
-  if (input.locationMode === "OPERATIONAL_TYPES") {
-    const keys = (input.applicableOperationalTypeKeys ?? []).map((key) => key.trim()).filter(Boolean);
-    if (keys.length === 0) {
-      const msg = "Choose at least one Operational Type for this cycle.";
-      if (forPublish) {
-        errors.push(issue("operational_types_required", msg, "error"));
-      } else {
-        warnings.push(issue("operational_types_empty", msg, "warning"));
-      }
-    }
   }
 
   return {

@@ -3,10 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import {
-  describeCycleApplicability,
-  matchCycleApplicability,
-} from "./cycle-applicability";
+import { matchCycleApplicability } from "./cycle-applicability";
 import { buildCyclesByStableKey } from "./effective-cycle-spaces";
 import {
   assignmentsFromBindings,
@@ -122,8 +119,8 @@ test("draft OT change is visible to Build preview and isolated from Run", () => 
 
   assert.equal(buildKey, "retail");
   assert.equal(runKey, "servery");
-  assert.deepEqual(labelsFor(buildKey), ["Retail Opening"]);
-  assert.deepEqual(labelsFor(runKey), ["Breakfast"]);
+  assert.deepEqual(labelsFor(buildKey), []);
+  assert.deepEqual(labelsFor(runKey), []);
   assert.equal(breakfast.spaceIds.length, 0);
   assert.equal(retailOpening.spaceIds.length, 0);
 });
@@ -135,8 +132,7 @@ test("after activation Run follows the newly active assignment", () => {
       archetype: { key: "retail", name: "Retail", isActive: true },
     },
   ]);
-  assert.deepEqual(labelsFor(afterActivation.get("3a-servery")?.key ?? null), ["Retail Opening"]);
-  assert.equal(labelsFor(afterActivation.get("3a-servery")?.key ?? null).includes("Breakfast"), false);
+  assert.deepEqual(labelsFor(afterActivation.get("3a-servery")?.key ?? null), []);
 });
 
 test("display-name rename does not break published cycle keys", () => {
@@ -158,10 +154,7 @@ test("display-name rename does not break published cycle keys", () => {
       operationalTypeName: assignment.name,
     },
   });
-  assert.equal(
-    describeCycleApplicability(match!),
-    "Inherited from Operational Type: Resident Servery",
-  );
+  assert.equal(match, null);
 });
 
 test("draft fork keeps runtime on the ACTIVE assignment", () => {
@@ -179,7 +172,7 @@ test("draft fork keeps runtime on the ACTIVE assignment", () => {
   ]);
   assert.equal(forkedDraft.get("3a-servery")?.key, "servery");
   assert.equal(active.get("3a-servery")?.key, "servery");
-  assert.deepEqual(labelsFor(active.get("3a-servery")?.key ?? null), ["Breakfast"]);
+  assert.deepEqual(labelsFor(active.get("3a-servery")?.key ?? null), []);
 });
 
 test("unpublished draft-only type does not become runtime-effective", () => {
@@ -197,7 +190,7 @@ test("unpublished draft-only type does not become runtime-effective", () => {
   ]);
   assert.equal(draft.get("3a-servery")?.key, "temporary_service");
   assert.equal(active.get("3a-servery")?.key, "servery");
-  assert.deepEqual(labelsFor(active.get("3a-servery")?.key ?? null), ["Breakfast"]);
+  assert.deepEqual(labelsFor(active.get("3a-servery")?.key ?? null), []);
   assert.deepEqual(labelsFor(draft.get("3a-servery")?.key ?? null), []);
 });
 
@@ -223,23 +216,19 @@ test("retired Operational Type fails safely with no physical or UnitType fallbac
   assert.equal(match, null);
 });
 
-test("runtime loaders must request runtime perspective; Build uses working", () => {
-  const runtimeFiles = [
+test("Operating Rhythm loaders do not read Location Function assignments", () => {
+  const files = [
     "src/lib/operational-cycles/load-run-operation-presentation.ts",
     "src/lib/operational-cycles/load-employee-cycle-context.ts",
     "src/lib/operational-cycles/load-supervisor-cycle-overview.ts",
     "src/lib/offline/build-runtime-bundle.ts",
+    "src/lib/operational-cycles/load-cycle-builder.ts",
   ];
-  for (const file of runtimeFiles) {
+  for (const file of files) {
     const source = readFileSync(join(process.cwd(), file), "utf8");
-    assert.match(source, /perspective:\s*"runtime"/, file);
-    assert.doesNotMatch(source, /perspective:\s*"working"/, file);
+    assert.doesNotMatch(source, /loadSpaceOperationalTypeAssignments/, file);
+    assert.doesNotMatch(source, /loadDepartmentOperationalTypeOptions/, file);
   }
-  const builder = readFileSync(
-    join(process.cwd(), "src/lib/operational-cycles/load-cycle-builder.ts"),
-    "utf8",
-  );
-  assert.match(builder, /perspective:\s*"working"/);
 });
 
 test("archetype key is copied on draft fork and is not writable on rename", () => {

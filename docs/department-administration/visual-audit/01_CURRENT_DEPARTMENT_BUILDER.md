@@ -54,7 +54,8 @@ Department Builder
 │       PERIOD  = Cycle or Phase
 │       KEY_TIME = Key Point, with room groups
 │     location modes still stored:
-│       ALL_DEPARTMENT_UNITS | EXPLICIT_UNITS | OPERATIONAL_TYPES
+│       ALL_DEPARTMENT_UNITS | EXPLICIT_UNITS
+│       (OPERATIONAL_TYPES / UNIT_TYPES / ROOM_TYPE no longer match)
 │       UNIT_TYPES and ROOM_TYPE remain as legacy modes
 │
 ├── Work                                               DUP — scheduled for retirement

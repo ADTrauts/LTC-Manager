@@ -50,7 +50,7 @@ describe("Phase G manager terminology", () => {
       "src/app/(protected)/admin/departments/[departmentId]/cycles-builder-controls.tsx",
     );
     assert.match(controls, /Key Point/);
-    assert.match(controls, /Location Functions/);
-    assert.doesNotMatch(controls, /Key Time|Operational Type/);
+    assert.match(controls, /All locations this department is responsible for/);
+    assert.doesNotMatch(controls, /Key Time|Operational Type|Location Functions/);
   });
 });
