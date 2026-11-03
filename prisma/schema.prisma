@@ -193,7 +193,6 @@ model Facility {
   workspacePreferences           WorkspacePreference[]
   dashboardLayouts               DashboardLayout[]
   dashboardFacilityDefaults      DashboardFacilityDefault[]
-  departmentOperationalProfiles  DepartmentOperationalProfile[]
   operationalCycles              DepartmentOperationalCycle[]
   cycleDayExpectations           OperationalCycleDayExpectation[]
   keyTimeDayExpectations         OperationalCycleKeyTimeDayExpectation[]
@@ -201,11 +200,8 @@ model Facility {
   logAttachments                 LogAttachment[]
   catalogInstalls                FacilityCatalogInstall[]
   assetIssues                    AssetIssue[]
-  departmentWorkPlans            DepartmentWorkPlan[]
-  departmentWorkOccurrences      DepartmentWorkOccurrence[]
   departmentOperationalZones     DepartmentOperationalZone[]
   departmentTeams                DepartmentTeam[]
-  facilityTypeLogDefaults        DepartmentFacilityTypeLogDefault[]
   departmentJobRoles             DepartmentJobRole[]
   departmentRequestRoutes        DepartmentRequestRoute[]
   operationalRequests            OperationalRequest[]
@@ -252,7 +248,6 @@ model Department {
   operationalAssignments         OperationalAssignment[]
   assignmentPlans                OperationalAssignmentPlan[]
   assignmentTemplates            OperationalAssignmentTemplate[]
-  operationalProfiles            DepartmentOperationalProfile[]
   operationalCycles              DepartmentOperationalCycle[]
   cycleDayExpectations           OperationalCycleDayExpectation[]
   keyTimeDayExpectations         OperationalCycleKeyTimeDayExpectation[]
@@ -262,12 +257,9 @@ model Department {
   assetIssues                    AssetIssue[]
   assetPresenceNotes             AssetPresenceNote[]
   menus                          Menu[]
-  departmentWorkPlans            DepartmentWorkPlan[]
-  departmentWorkOccurrences      DepartmentWorkOccurrence[]
   departmentOperationalZones     DepartmentOperationalZone[]
   scheduleEntries                ScheduleEntry[]
   teams                          DepartmentTeam[]
-  facilityTypeLogDefaults        DepartmentFacilityTypeLogDefault[]
   jobRoles                       DepartmentJobRole[]
   employeeJobRoleAssignments     EmployeeDepartmentJobRole[]
   requestRoutesAsRequesting      DepartmentRequestRoute[]        @relation("RequestRouteRequesting")
@@ -314,7 +306,6 @@ model DepartmentOperatorRelationship {
   vendorHeadAssignments DepartmentVendorHeadAssignment[]
   evidenceRecords     OperationalEvidenceRecord[] @relation("EvidenceOperatorPeriod")
   menus               Menu[]                      @relation("MenuOperatorPeriod")
-  workPlans           DepartmentWorkPlan[]        @relation("WorkPlanOperatorPeriod")
   operationalCycles   DepartmentOperationalCycle[] @relation("CycleOperatorPeriod")
   employees           Employee[]                  @relation("EmployeeOperatorPeriod")
   scheduleEntries     ScheduleEntry[]             @relation("ScheduleOperatorPeriod")
@@ -1032,15 +1023,6 @@ model User {
   pmPlansRetired                 PreventiveMaintenancePlan[]     @relation("PmPlanRetiredBy")
   pmPlanVersionsPublished        PreventiveMaintenancePlanVersion[] @relation("PmPlanVersionPublishedBy")
   pmOccurrencesSkipped           PreventiveMaintenanceOccurrence[] @relation("PmOccurrenceSkippedBy")
-  workPlansCreated               DepartmentWorkPlan[]            @relation("WorkPlanCreatedBy")
-  workPlansPublished             DepartmentWorkPlan[]            @relation("WorkPlanPublishedBy")
-  workPlansRetired               DepartmentWorkPlan[]            @relation("WorkPlanRetiredBy")
-  workPlansLastChanged           DepartmentWorkPlan[]            @relation("WorkPlanLastChangedBy")
-  workOccurrencesCompleted       DepartmentWorkOccurrence[]      @relation("WorkOccurrenceCompletedByUser")
-  workOccurrencesNotRequired     DepartmentWorkOccurrence[]      @relation("WorkOccurrenceNotRequiredByUser")
-  workOccurrencesReassignedBy    DepartmentWorkOccurrence[]      @relation("WorkOccurrenceReassignedByUser")
-  workOccurrencesCreated         DepartmentWorkOccurrence[]      @relation("WorkOccurrenceCreatedByUser")
-  workEventsAsActor              DepartmentWorkEvent[]           @relation("WorkEventActorUser")
   departmentZonesCreated         DepartmentOperationalZone[]     @relation("DepartmentZoneCreatedBy")
   departmentZonesLastChanged     DepartmentOperationalZone[]     @relation("DepartmentZoneLastChangedBy")
   cycleDayExpectationAdjustments OperationalCycleDayExpectation[] @relation("CycleDayExpectationAdjustedByUser")
@@ -1739,7 +1721,6 @@ model Unit {
   logAttachments                  LogAttachment[]
   assetIssues                AssetIssue[]
   operationalRequests        OperationalRequest[]
-  departmentWorkOccurrences  DepartmentWorkOccurrence[]
   createdAt                  DateTime                             @default(now())
   updatedAt                  DateTime                             @updatedAt
 
@@ -1789,7 +1770,6 @@ model FacilityRoomType {
   isActive     Boolean     @default(true)
   archivedAt              DateTime?
   spaces                  UnitSpace[]
-  departmentLogDefaults   DepartmentFacilityTypeLogDefault[]
   createdAt               DateTime                           @default(now())
   updatedAt               DateTime                           @updatedAt
 
@@ -1824,8 +1804,6 @@ model UnitSpace {
   sortOrder                          Int                                 @default(100)
   description                        String?
   responsibilities                   UnitSpaceResponsibility[]
-  archetypeBindings                  DepartmentRoomArchetypeBinding[]
-  experienceExceptions               DepartmentRoomExperienceException[]
   operationalEvidenceRecords         OperationalEvidenceRecord[]
   logAttachments                     LogAttachment[]
   coverageExpectationItems           OperationalAssignmentTemplateItem[]
@@ -1833,9 +1811,7 @@ model UnitSpace {
   assetIssues                        AssetIssue[]
   operationalRequests                OperationalRequest[]
   repairs                            Repair[]
-  departmentWorkOccurrences          DepartmentWorkOccurrence[]
   zoneMemberships                    DepartmentOperationalZoneLocation[]
-  logSuppressions                    DepartmentLocationLogSuppression[]
   assignmentLocations                OperationalAssignmentLocation[]
   operationalCycleLocations          DepartmentOperationalCycleLocation[]
   menuLocationApplicability          MenuLocationApplicability[]
@@ -1881,43 +1857,6 @@ model DepartmentTeam {
   @@index([departmentId, status])
   @@index([managerEmployeeId])
 }
-
-/// Unused. Facility Room Type does not assign Records. Final schema pass drops this table.
-model DepartmentFacilityTypeLogDefault {
-  id                  String              @id @default(cuid())
-  facilityId          String
-  facility            Facility            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId        String
-  department          Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  facilityRoomTypeId  String
-  facilityRoomType    FacilityRoomType    @relation(fields: [facilityRoomTypeId], references: [id], onDelete: Cascade)
-  catalogDefinitionId String
-  catalogDefinition   CatalogLogDefinition @relation(fields: [catalogDefinitionId], references: [id], onDelete: Restrict)
-  catalogStableKey    String
-  catalogVersion      Int
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  suppressions        DepartmentLocationLogSuppression[]
-
-  @@unique([departmentId, facilityRoomTypeId, catalogStableKey])
-  @@index([facilityId, departmentId])
-  @@index([facilityRoomTypeId])
-}
-
-/// Unused. Room suppression is not Records applicability. Final schema pass drops this table.
-model DepartmentLocationLogSuppression {
-  id           String                           @id @default(cuid())
-  departmentId String
-  spaceId      String
-  space        UnitSpace                        @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  defaultId    String
-  default      DepartmentFacilityTypeLogDefault @relation(fields: [defaultId], references: [id], onDelete: Cascade)
-  createdAt    DateTime                         @default(now())
-
-  @@unique([spaceId, defaultId])
-  @@index([departmentId])
-}
-
 /// Employee organizational home on a Department Team.
 /// Not authority, Job Title, WorkStation, Unit access, or daily assignment.
 /// At most one Primary Team per Department is enforced in the write transaction.
@@ -2011,178 +1950,6 @@ model UnitSpaceResponsibility {
   @@index([spaceId])
   @@index([departmentId])
 }
-
-// ---------------------------------------------------------------------------
-// Department Operational Profiles (Wave 14B)
-// Department Administration owns the operational model. The database stores a
-// facility's selected/versioned profile — never the platform Experience catalog
-// (that lives in src/lib/experiences). Projection consumes ACTIVE profiles later.
-// ---------------------------------------------------------------------------
-
-/// Lifecycle for a Department Operational Profile version.
-/// DRAFT → CERTIFIED → ACTIVE → RETIRED. ACTIVE/CERTIFIED are immutable.
-enum OperationalProfileStatus {
-  DRAFT
-  CERTIFIED
-  ACTIVE
-  RETIRED
-}
-
-/// Sparse per-room Experience override mode.
-enum RoomExperienceExceptionMode {
-  ENABLE
-  DISABLE
-  OVERRIDE
-}
-
-/// One authored/versioned operational profile for one facility department.
-/// At most one ACTIVE per (facilityId, departmentId) — enforced by a partial
-/// unique index in the migration SQL.
-model DepartmentOperationalProfile {
-  id                String                              @id @default(cuid())
-  facilityId        String
-  facility          Facility                            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId      String
-  department        Department                          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  name              String
-  version           Int
-  status            OperationalProfileStatus            @default(DRAFT)
-  /// Baseline the draft was materialized from (e.g. DIETARY); null for from-scratch drafts.
-  baselineKey       String?
-  /// Actor IDs recorded as scalars (audit only; no FK so User remains untouched).
-  createdByUserId   String?
-  certifiedByUserId String?
-  certifiedAt       DateTime?
-  activatedAt       DateTime?
-  retiredAt         DateTime?
-  areas             DepartmentOperationalArea[]
-  archetypes        DepartmentRoomArchetype[]
-  roomBindings      DepartmentRoomArchetypeBinding[]
-  roomExceptions    DepartmentRoomExperienceException[]
-  createdAt         DateTime                            @default(now())
-  updatedAt         DateTime                            @updatedAt
-
-  @@unique([departmentId, version])
-  @@index([facilityId, departmentId, status])
-  @@index([departmentId, status])
-}
-
-/// Profile-specific ordered grouping of Experiences (the manager's mental model).
-model DepartmentOperationalArea {
-  id          String                       @id @default(cuid())
-  profileId   String
-  profile     DepartmentOperationalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  key         String
-  name        String
-  description String?
-  sortOrder   Int                          @default(100)
-  isActive    Boolean                      @default(true)
-  experiences DepartmentAreaExperience[]
-  createdAt   DateTime                     @default(now())
-  updatedAt   DateTime                     @updatedAt
-
-  @@unique([profileId, key])
-  @@index([profileId, sortOrder])
-}
-
-/// Places one catalog Experience (by registry key) into one Operational Area.
-/// experienceKey must exist in the Wave 14A Experience Registry.
-model DepartmentAreaExperience {
-  id                   String                              @id @default(cuid())
-  areaId               String
-  area                 DepartmentOperationalArea           @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  experienceKey        String
-  sortOrder            Int                                 @default(100)
-  isActive             Boolean                             @default(true)
-  /// Bounded Experience tuning only — never live operational data.
-  configurationJson    Json?
-  archetypeExperiences DepartmentArchetypeExperience[]
-  roomExceptions       DepartmentRoomExperienceException[]
-  createdAt            DateTime                            @default(now())
-  updatedAt            DateTime                            @updatedAt
-
-  @@unique([areaId, experienceKey])
-  @@index([areaId, sortOrder])
-}
-
-/// How the department operates in a category of room (operational template).
-model DepartmentRoomArchetype {
-  id          String                           @id @default(cuid())
-  profileId   String
-  profile     DepartmentOperationalProfile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  key         String
-  name        String
-  description String?
-  isActive    Boolean                          @default(true)
-  sortOrder   Int                              @default(100)
-  experiences DepartmentArchetypeExperience[]
-  bindings    DepartmentRoomArchetypeBinding[]
-  createdAt   DateTime                         @default(now())
-  updatedAt   DateTime                         @updatedAt
-
-  @@unique([profileId, key])
-  @@index([profileId, sortOrder])
-}
-
-/// Declares which profile Experiences are active for an archetype.
-model DepartmentArchetypeExperience {
-  id                String                   @id @default(cuid())
-  archetypeId       String
-  archetype         DepartmentRoomArchetype  @relation(fields: [archetypeId], references: [id], onDelete: Cascade)
-  areaExperienceId  String
-  areaExperience    DepartmentAreaExperience @relation(fields: [areaExperienceId], references: [id], onDelete: Cascade)
-  isActive          Boolean                  @default(true)
-  configurationJson Json?
-  sortOrder         Int                      @default(100)
-  createdAt         DateTime                 @default(now())
-  updatedAt         DateTime                 @updatedAt
-
-  @@unique([archetypeId, areaExperienceId])
-  @@index([archetypeId, sortOrder])
-}
-
-/// Maps one physical room to one archetype for this profile.
-/// The room must be facility-scoped and department-assigned in Facility Builder.
-model DepartmentRoomArchetypeBinding {
-  id          String                       @id @default(cuid())
-  profileId   String
-  profile     DepartmentOperationalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  archetypeId String
-  archetype   DepartmentRoomArchetype      @relation(fields: [archetypeId], references: [id], onDelete: Cascade)
-  unitSpaceId String
-  unitSpace   UnitSpace                    @relation(fields: [unitSpaceId], references: [id], onDelete: Cascade)
-  createdAt   DateTime                     @default(now())
-  updatedAt   DateTime                     @updatedAt
-
-  @@unique([profileId, unitSpaceId])
-  @@index([archetypeId])
-  @@index([unitSpaceId])
-}
-
-/// Sparse room-level Experience override. Use sparingly — repeated exceptions
-/// signal a missing archetype.
-model DepartmentRoomExperienceException {
-  id                String                       @id @default(cuid())
-  profileId         String
-  profile           DepartmentOperationalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  unitSpaceId       String
-  unitSpace         UnitSpace                    @relation(fields: [unitSpaceId], references: [id], onDelete: Cascade)
-  areaExperienceId  String
-  areaExperience    DepartmentAreaExperience     @relation(fields: [areaExperienceId], references: [id], onDelete: Cascade)
-  mode              RoomExperienceExceptionMode
-  configurationJson Json?
-  reason            String?
-  createdAt         DateTime                     @default(now())
-  updatedAt         DateTime                     @updatedAt
-
-  @@unique([profileId, unitSpaceId, areaExperienceId], map: "DepartmentRoomExperienceException_profile_room_experience_key")
-  @@index([profileId, unitSpaceId])
-  @@index([areaExperienceId])
-}
-
-
-
-
 model Employee {
   id                             String                          @id @default(cuid())
   facilityId                     String
@@ -2262,10 +2029,6 @@ model Employee {
   assetIssueUpdates              AssetIssueUpdate[]              @relation("AssetIssueUpdateByEmployee")
   operationalRequestsReported    OperationalRequest[]            @relation("OperationalRequestReportedByEmployee")
   operationalRequestUpdates      OperationalRequestUpdate[]     @relation("OperationalRequestUpdateByEmployee")
-  workOccurrencesCompleted       DepartmentWorkOccurrence[]      @relation("WorkOccurrenceCompletedByEmployee")
-  workOccurrencesAssigned        DepartmentWorkOccurrence[]      @relation("WorkOccurrenceAssignedEmployee")
-  workOccurrencesOriginalAssigned DepartmentWorkOccurrence[]     @relation("WorkOccurrenceOriginalAssignedEmployee")
-  workEventsAsActor              DepartmentWorkEvent[]           @relation("WorkEventActorEmployee")
   cycleDayExpectationAdjustments OperationalCycleDayExpectation[] @relation("CycleDayExpectationAdjustedByEmployee")
   keyTimeDayExpectationAdjustments OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationAdjustedByEmployee")
   keyTimeDayExpectationCompletions OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationCompletedByEmployee")
@@ -2609,7 +2372,6 @@ model Asset {
   statusHistory                      AssetStatusHistory[]
   assetIssues                        AssetIssue[]
   operationalRequests                OperationalRequest[]
-  departmentWorkOccurrences          DepartmentWorkOccurrence[]
   createdAt                          DateTime                           @default(now())
   updatedAt                          DateTime                           @updatedAt
 
@@ -3340,7 +3102,6 @@ model KnowledgeArticle {
   unitLinks                 KnowledgeArticleUnit[]
   assetLinks                KnowledgeArticleAsset[]
   catalogLinks              KnowledgeArticleCatalogDefinition[]
-  workItemLinks             DepartmentWorkItem[]
   versions                  KnowledgeArticleVersion[]
   createdAt                 DateTime                               @default(now())
   updatedAt                 DateTime                               @updatedAt
@@ -3743,8 +3504,6 @@ model OperationalAssignmentTemplateItem {
   /// Canonical room. A need on this space does not apply to another room of the same Facility Room Type.
   spaceId                              String?
   space                                UnitSpace?                    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
-  /// Unused. Coverage matching does not read Location Function. Final schema pass drops the column.
-  applicableOperationalTypeKeys        String[]                      @default([])
   /// DepartmentOperationalCycle.stableKey targets. Empty = no cycle constraint (legacy).
   applicableOperationalCycleStableKeys String[]                      @default([])
   startsAtLocal                        String?
@@ -3906,15 +3665,8 @@ enum OperationalCycleStatus {
 /// How a cycle selects applicable locations.
 enum OperationalCycleLocationMode {
   ALL_DEPARTMENT_UNITS
-  /// Legacy Unit.unitType targeting — not used by new Department Builder UI.
-  UNIT_TYPES
   /// Explicit Unit and/or UnitSpace targets (user-facing: Specific locations).
   EXPLICIT_UNITS
-  /// Physical Facility Room Type preset key (e.g. kitchen). Compatibility only.
-  /// Not the department Operational Type.
-  ROOM_TYPE
-  /// Canonical department Operational Type keys (DepartmentRoomArchetype.key).
-  OPERATIONAL_TYPES
 }
 
 /// Department-owned Operational Cycle definition.
@@ -3962,13 +3714,6 @@ model DepartmentOperationalCycle {
   locationMode         OperationalCycleLocationMode         @default(ALL_DEPARTMENT_UNITS)
   /// When true (nested PERIOD only), effective rooms come from the immediate parent.
   locationInheritFromParent Boolean                         @default(false)
-  applicableUnitTypes  UnitType[]
-  /// Facility Room Type preset key when locationMode = ROOM_TYPE (e.g. "servery").
-  /// Legacy Build/Run compatibility — physical type, not Operational Type.
-  roomTypeKey          String?
-  /// Department Operational Type keys when locationMode = OPERATIONAL_TYPES.
-  /// Keys match DepartmentRoomArchetype.key and stay stable across profile versions.
-  applicableOperationalTypeKeys String[] @default([])
   /// Expected confirmations for SERVICE cycles (READY / SERVICE_STARTED). Absence ≠ failure.
   /// Legacy Run compatibility — not the primary new Build UX.
   expectedMilestones   ServeryMilestone[]
@@ -3994,7 +3739,6 @@ model DepartmentOperationalCycle {
   @@index([facilityId, departmentId, effectiveFrom])
   @@index([departmentId, displaySequence])
   @@index([departmentId, status, displaySequence])
-  @@index([departmentId, roomTypeKey])
   @@index([departmentId, parentStableKey])
   @@index([departmentId, nodeKind])
   @@index([departmentId, operatorPeriodId])
@@ -4471,307 +4215,6 @@ model OperationalEvidenceCorrection {
 
   @@index([recordId, createdAt])
 }
-
-// ---------------------------------------------------------------------------
-// Phase 11A — Department Work Plans / Operational Work
-// Wave-era Task + Operations Engine remain isolated. These models are authoritative
-// for Dietary Work when DIETARY_WORK_PLANS_ENABLED is on.
-// ---------------------------------------------------------------------------
-
-enum DepartmentWorkPlanStatus {
-  DRAFT
-  PUBLISHED
-  RETIRED
-}
-
-enum DepartmentWorkItemPriority {
-  ROUTINE
-  TIME_SENSITIVE
-  URGENT
-}
-
-enum DepartmentWorkCompletionMode {
-  EXPLICIT_CONFIRMATION
-  LINKED_EVIDENCE
-}
-
-enum DepartmentWorkResponsibilityMode {
-  UNIT_SHARED
-  EACH_ASSIGNED_EMPLOYEE
-}
-
-enum DepartmentWorkScheduleKind {
-  OPERATIONAL_CYCLE
-  FIXED_DAILY_WINDOW
-  ONCE_PER_OPERATIONAL_DATE
-}
-
-enum DepartmentWorkDueOffsetKind {
-  CYCLE_START
-  CYCLE_END
-  MINUTES_BEFORE_CYCLE_END
-}
-
-enum DepartmentWorkApplicabilityKind {
-  DEPARTMENT_UNIT
-  SPECIFIC_UNIT
-  SPECIFIC_SPACE
-  SPACE_TYPE
-  SPECIFIC_ASSET
-  ASSET_TYPE
-  /// Department operational type — DepartmentRoomArchetype.key (not physical SpaceType).
-  OPERATIONAL_TYPE
-}
-
-enum DepartmentWorkOccurrenceSourceKind {
-  WORK_PLAN
-  ONE_OFF
-}
-
-enum DepartmentWorkOccurrenceStatus {
-  OPEN
-  COMPLETED
-  COMPLETED_WITH_EVIDENCE
-  NOT_REQUIRED
-  CANCELLED
-  REOPENED
-}
-
-enum DepartmentWorkEventType {
-  CREATED
-  COMPLETED
-  COMPLETED_WITH_EVIDENCE
-  NOT_REQUIRED
-  REOPENED
-  REASSIGNED
-  CANCELLED
-  CORRECTED
-  CONFLICT
-  OFFLINE_SYNCED
-}
-
-/// Versioned Department Work Plan — publish creates immutable historical versions.
-model DepartmentWorkPlan {
-  id                  String                   @id @default(cuid())
-  facilityId          String
-  facility            Facility                 @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId        String
-  department          Department               @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  operatorPeriodId    String?
-  operatorPeriod      DepartmentOperatorRelationship? @relation("WorkPlanOperatorPeriod", fields: [operatorPeriodId], references: [id], onDelete: Restrict)
-  /// Stable identity across versions within a department.
-  stableKey           String
-  version             Int                      @default(1)
-  name                String
-  description         String?
-  status              DepartmentWorkPlanStatus @default(DRAFT)
-  /// Optional preset key for synthetic Dietary draft presets (never auto-published).
-  presetKey           String?
-  /// Facility-local dates (dates only). Null start = immediate when published.
-  effectiveStartDate  DateTime?                @db.Date
-  effectiveEndDate    DateTime?                @db.Date
-  /// Weekday numbers: 0=Sunday … 6=Saturday (facility-local). Empty = all days.
-  weekdays            Int[]                    @default([])
-  createdByUserId     String?
-  createdByUser       User?                    @relation("WorkPlanCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  publishedByUserId   String?
-  publishedByUser     User?                    @relation("WorkPlanPublishedBy", fields: [publishedByUserId], references: [id], onDelete: SetNull)
-  retiredByUserId     String?
-  retiredByUser       User?                    @relation("WorkPlanRetiredBy", fields: [retiredByUserId], references: [id], onDelete: SetNull)
-  lastChangedByUserId String?
-  lastChangedByUser   User?                    @relation("WorkPlanLastChangedBy", fields: [lastChangedByUserId], references: [id], onDelete: SetNull)
-  publishedAt         DateTime?
-  retiredAt           DateTime?
-  items               DepartmentWorkItem[]
-  applicabilities     DepartmentWorkPlanApplicability[]
-  events              DepartmentWorkPlanEvent[]
-  occurrences         DepartmentWorkOccurrence[]
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
-
-  @@unique([departmentId, stableKey, version])
-  @@index([facilityId, departmentId, status])
-  @@index([departmentId, status, name])
-  @@index([departmentId, operatorPeriodId])
-}
-
-model DepartmentWorkPlanApplicability {
-  id         String                         @id @default(cuid())
-  workPlanId String
-  workPlan   DepartmentWorkPlan             @relation(fields: [workPlanId], references: [id], onDelete: Cascade)
-  kind       DepartmentWorkApplicabilityKind
-  unitId     String?
-  spaceId    String?
-  spaceType  SpaceType?
-  assetId    String?
-  assetType  String?
-  /// When kind=OPERATIONAL_TYPE — DepartmentRoomArchetype.key (stable, not display name).
-  operationalTypeKey String?
-  createdAt  DateTime                       @default(now())
-
-  @@index([workPlanId])
-  @@index([unitId])
-  @@index([assetId])
-  @@index([operationalTypeKey])
-}
-
-model DepartmentWorkItem {
-  id                      String                            @id @default(cuid())
-  workPlanId              String
-  workPlan                DepartmentWorkPlan                @relation(fields: [workPlanId], references: [id], onDelete: Cascade)
-  /// Stable within a Work Plan lineage for mapping across versions.
-  itemKey                 String
-  label                   String
-  instructions            String?
-  displaySequence         Int
-  priority                DepartmentWorkItemPriority        @default(ROUTINE)
-  completionMode          DepartmentWorkCompletionMode      @default(EXPLICIT_CONFIRMATION)
-  responsibilityMode      DepartmentWorkResponsibilityMode  @default(UNIT_SHARED)
-  scheduleKind            DepartmentWorkScheduleKind        @default(OPERATIONAL_CYCLE)
-  /// When scheduleKind=OPERATIONAL_CYCLE — cycle stableKey(s).
-  cycleStableKeys         String[]                          @default([])
-  windowStartLocal        String?
-  windowEndLocal          String?
-  dueOffsetKind           DepartmentWorkDueOffsetKind?
-  dueOffsetMinutes        Int?
-  /// Optional roleKey filter; empty = all roles eligible under responsibility mode.
-  roleKeys                String[]                          @default([])
-  /// Optional location/asset narrowing beyond plan applicability.
-  unitId                  String?
-  spaceId                 String?
-  assetId                 String?
-  knowledgeArticleId      String?
-  knowledgeArticle        KnowledgeArticle?                 @relation(fields: [knowledgeArticleId], references: [id], onDelete: SetNull)
-  /// Snapshot of Procedure title at link / publish time.
-  procedureTitleSnapshot  String?
-  /// Linked Operational Template stableKey when completionMode=LINKED_EVIDENCE.
-  linkedTemplateStableKey String?
-  linkedTemplateId        String?
-  supervisorVisible       Boolean                           @default(true)
-  occurrences             DepartmentWorkOccurrence[]
-  createdAt               DateTime                          @default(now())
-  updatedAt               DateTime                          @updatedAt
-
-  @@unique([workPlanId, itemKey])
-  @@index([workPlanId, displaySequence])
-  @@index([knowledgeArticleId])
-  @@index([linkedTemplateStableKey])
-}
-
-model DepartmentWorkPlanEvent {
-  id             String             @id @default(cuid())
-  workPlanId     String
-  workPlan       DepartmentWorkPlan @relation(fields: [workPlanId], references: [id], onDelete: Cascade)
-  facilityId     String
-  departmentId   String
-  eventType      String
-  actorUserId    String?
-  actorLabel     String?
-  detailJson     Json?
-  createdAt      DateTime           @default(now())
-
-  @@index([workPlanId, createdAt])
-  @@index([facilityId, departmentId, createdAt])
-}
-
-/// Sparse runtime state — created when Work is acted on (or one-off created). Not pre-generated.
-model DepartmentWorkOccurrence {
-  id                         String                             @id @default(cuid())
-  facilityId                 String
-  facility                   Facility                           @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId               String
-  department                 Department                         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  /// Deterministic identity for idempotency (plan version + item + date + location + window + employee when needed).
-  occurrenceKey              String
-  sourceKind                 DepartmentWorkOccurrenceSourceKind @default(WORK_PLAN)
-  operationalDate            DateTime                           @db.Date
-  workPlanId                 String?
-  workPlan                   DepartmentWorkPlan?                @relation(fields: [workPlanId], references: [id], onDelete: SetNull)
-  workPlanStableKey          String?
-  workPlanVersion            Int?
-  workItemId                 String?
-  workItem                   DepartmentWorkItem?                @relation(fields: [workItemId], references: [id], onDelete: SetNull)
-  workItemKey                String?
-  workItemLabelSnapshot      String
-  instructionsSnapshot       String?
-  priority                   DepartmentWorkItemPriority         @default(ROUTINE)
-  completionMode             DepartmentWorkCompletionMode       @default(EXPLICIT_CONFIRMATION)
-  responsibilityMode         DepartmentWorkResponsibilityMode  @default(UNIT_SHARED)
-  unitId                     String?
-  unit                       Unit?                              @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  spaceId                    String?
-  space                      UnitSpace?                         @relation(fields: [spaceId], references: [id], onDelete: SetNull)
-  assetId                    String?
-  asset                      Asset?                             @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  cycleStableKey             String?
-  windowStartLocal           String?
-  windowEndLocal             String?
-  dueAt                      DateTime?
-  status                     DepartmentWorkOccurrenceStatus     @default(OPEN)
-  assignedEmployeeId         String?
-  assignedEmployee           Employee?                          @relation("WorkOccurrenceAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
-  originalAssignedEmployeeId String?
-  originalAssignedEmployee   Employee?                          @relation("WorkOccurrenceOriginalAssignedEmployee", fields: [originalAssignedEmployeeId], references: [id], onDelete: SetNull)
-  completedAt                DateTime?
-  completedByUserId          String?
-  completedByUser            User?                              @relation("WorkOccurrenceCompletedByUser", fields: [completedByUserId], references: [id], onDelete: SetNull)
-  completedByEmployeeId      String?
-  completedByEmployee        Employee?                          @relation("WorkOccurrenceCompletedByEmployee", fields: [completedByEmployeeId], references: [id], onDelete: SetNull)
-  completedByLabel           String?
-  recordedAt                 DateTime?
-  synchronizedAt             DateTime?
-  recordedOnline             Boolean                            @default(true)
-  clientCommandId            String?
-  deviceBoundUnitId         String?
-  authenticationMethod       String?
-  completionNote             String?
-  evidenceRecordId           String?
-  knowledgeArticleId         String?
-  procedureTitleSnapshot     String?
-  notRequiredReason          String?
-  notRequiredAt              DateTime?
-  notRequiredByUserId        String?
-  notRequiredByUser          User?                              @relation("WorkOccurrenceNotRequiredByUser", fields: [notRequiredByUserId], references: [id], onDelete: SetNull)
-  reassignedAt               DateTime?
-  reassignedByUserId         String?
-  reassignedByUser           User?                              @relation("WorkOccurrenceReassignedByUser", fields: [reassignedByUserId], references: [id], onDelete: SetNull)
-  createdByUserId            String?
-  createdByUser              User?                              @relation("WorkOccurrenceCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  cancelReason               String?
-  events                     DepartmentWorkEvent[]
-  createdAt                  DateTime                           @default(now())
-  updatedAt                  DateTime                           @updatedAt
-
-  @@unique([facilityId, departmentId, occurrenceKey])
-  @@unique([facilityId, departmentId, clientCommandId])
-  @@index([facilityId, departmentId, operationalDate])
-  @@index([facilityId, unitId, operationalDate])
-  @@index([facilityId, departmentId, status, operationalDate])
-  @@index([assignedEmployeeId])
-  @@index([workPlanId])
-  @@index([workItemId])
-}
-
-model DepartmentWorkEvent {
-  id                    String                    @id @default(cuid())
-  occurrenceId          String
-  occurrence            DepartmentWorkOccurrence  @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
-  facilityId            String
-  departmentId          String
-  eventType             DepartmentWorkEventType
-  actorUserId           String?
-  actorUser             User?                     @relation("WorkEventActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
-  actorEmployeeId       String?
-  actorEmployee         Employee?                 @relation("WorkEventActorEmployee", fields: [actorEmployeeId], references: [id], onDelete: SetNull)
-  actorLabel            String?
-  detailJson            Json?
-  previousStatus        DepartmentWorkOccurrenceStatus?
-  createdAt             DateTime                  @default(now())
-
-  @@index([occurrenceId, createdAt])
-  @@index([facilityId, departmentId, createdAt])
-}
-
 // ---------------------------------------------------------------------------
 // Phase 3 — Canonical Logs: LTC Corp Catalog + Facility Log Attachment
 // Platform-owned Catalog (no facilityId). Facility-owned Attachments.
@@ -4825,8 +4268,6 @@ enum LogAttachmentTargetKind {
   UNIT
   DEPARTMENT
   FACILITY
-  /// Unused. Records do not target Location Function. Final schema pass drops this value.
-  OPERATIONAL_TYPE
 }
 
 enum LogAttachmentTimingMode {
@@ -4878,7 +4319,6 @@ model CatalogLogDefinition {
   retiredAt                   DateTime?
   fields                      CatalogLogField[]
   attachments                 LogAttachment[]
-  facilityTypeLogDefaults     DepartmentFacilityTypeLogDefault[]
   facilityInstalls            FacilityCatalogInstall[]
   evidenceRecords             OperationalEvidenceRecord[]
   repairCatalogRequirements   RepairRecordRequirement[]   @relation("RepairCatalogRequirement")
@@ -5004,8 +4444,6 @@ model LogAttachment {
   unit                Unit?                         @relation(fields: [unitId], references: [id], onDelete: Restrict)
   targetDepartmentId  String?
   targetDepartment    Department?                   @relation("LogAttachmentTargetDepartment", fields: [targetDepartmentId], references: [id], onDelete: Restrict)
-  /// Unused. Records matching does not read this. Final schema pass drops the column.
-  operationalTypeKey  String?
   timingMode          LogAttachmentTimingMode
   calendarCadence     LogAttachmentCalendarCadence?
   calendarDaysOfWeek  Int[]                         @default([])
@@ -5028,7 +4466,6 @@ model LogAttachment {
   @@index([spaceId])
   @@index([unitId])
   @@index([targetDepartmentId])
-  @@index([operationalTypeKey])
   @@index([effectiveFrom])
 }
 

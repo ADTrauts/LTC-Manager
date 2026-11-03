@@ -1,25 +1,7 @@
 /**
- * Phase 11A Department Work Plans — shared contracts.
- *
- * Work Requirements are derived for an operational date (not pre-generated).
- * Existence comes from published plans + applicability + timing/cycle participation.
- * Assignment is optional ownership/scope — not the reason Work exists.
- * Sparse DepartmentWorkOccurrence rows persist only when acted on.
- * Wave-era Task / Operations Engine remain isolated.
+ * Display shape for the frontline shell.
+ * Generic Work no longer loads or persists these rows.
  */
-
-import type {
-  DepartmentWorkApplicabilityKind,
-  DepartmentWorkCompletionMode,
-  DepartmentWorkDueOffsetKind,
-  DepartmentWorkItemPriority,
-  DepartmentWorkOccurrenceSourceKind,
-  DepartmentWorkOccurrenceStatus,
-  DepartmentWorkPlanStatus,
-  DepartmentWorkResponsibilityMode,
-  DepartmentWorkScheduleKind,
-  SpaceType,
-} from "@prisma/client";
 
 export type WorkRequirementState =
   | "UPCOMING"
@@ -37,13 +19,12 @@ export type WorkRequirementState =
   | "NOT_CONFIGURED";
 
 export type WorkPlanApplicabilityDraftInput = {
-  kind: DepartmentWorkApplicabilityKind;
+  kind: string;
   unitId?: string | null;
   spaceId?: string | null;
-  spaceType?: SpaceType | null;
+  spaceType?: string | null;
   assetId?: string | null;
   assetType?: string | null;
-  /** When kind=OPERATIONAL_TYPE — DepartmentRoomArchetype.key. */
   operationalTypeKey?: string | null;
 };
 
@@ -52,14 +33,14 @@ export type WorkItemDraftInput = {
   label: string;
   instructions?: string | null;
   displaySequence: number;
-  priority?: DepartmentWorkItemPriority;
-  completionMode?: DepartmentWorkCompletionMode;
-  responsibilityMode?: DepartmentWorkResponsibilityMode;
-  scheduleKind?: DepartmentWorkScheduleKind;
+  priority?: string;
+  completionMode?: string;
+  responsibilityMode?: string;
+  scheduleKind?: string;
   cycleStableKeys?: string[];
   windowStartLocal?: string | null;
   windowEndLocal?: string | null;
-  dueOffsetKind?: DepartmentWorkDueOffsetKind | null;
+  dueOffsetKind?: string | null;
   dueOffsetMinutes?: number | null;
   roleKeys?: string[];
   unitId?: string | null;
@@ -93,10 +74,10 @@ export type WorkRequirement = {
   workItemKey: string;
   label: string;
   instructions: string | null;
-  priority: DepartmentWorkItemPriority;
-  completionMode: DepartmentWorkCompletionMode;
-  responsibilityMode: DepartmentWorkResponsibilityMode;
-  scheduleKind: DepartmentWorkScheduleKind;
+  priority: string;
+  completionMode: string;
+  responsibilityMode: string;
+  scheduleKind: string;
   cycleStableKey: string | null;
   windowStartLocal: string | null;
   windowEndLocal: string | null;
@@ -114,12 +95,12 @@ export type WorkRequirement = {
   linkedTemplateId: string | null;
   state: WorkRequirementState;
   occurrenceId: string | null;
-  occurrenceStatus: DepartmentWorkOccurrenceStatus | null;
+  occurrenceStatus: string | null;
   assignedEmployeeId: string | null;
   completedByLabel: string | null;
   completedAt: Date | null;
   evidenceRecordId: string | null;
-  sourceKind: DepartmentWorkOccurrenceSourceKind;
+  sourceKind: string;
   sourceHref: string | null;
 };
 
@@ -129,7 +110,7 @@ export type WorkPlanListItem = {
   version: number;
   name: string;
   description: string | null;
-  status: DepartmentWorkPlanStatus;
+  status: string;
   itemCount: number;
   publishedAt: Date | null;
   retiredAt: Date | null;
@@ -146,7 +127,7 @@ export type OneOffWorkInput = {
   assetId?: string | null;
   title: string;
   instructions?: string | null;
-  priority?: DepartmentWorkItemPriority;
+  priority?: string;
   dueAt?: Date | null;
   windowStartLocal?: string | null;
   windowEndLocal?: string | null;
@@ -154,118 +135,46 @@ export type OneOffWorkInput = {
   knowledgeArticleId?: string | null;
 };
 
-/** Published plan shape for pure requirement derivation (caller filters drafts/retired). */
 export type PublishedWorkPlanForResolve = {
   id: string;
   stableKey: string;
   version: number;
   name: string;
-  status: DepartmentWorkPlanStatus;
+  status: string;
   effectiveStartDate: Date | null;
   effectiveEndDate: Date | null;
   weekdays: number[];
-  applicabilities: Array<{
-    kind: DepartmentWorkApplicabilityKind;
-    unitId: string | null;
-    spaceId: string | null;
-    spaceType: SpaceType | null;
-    assetId: string | null;
-    assetType: string | null;
-    operationalTypeKey?: string | null;
-  }>;
-  items: Array<{
-    id: string;
-    itemKey: string;
-    label: string;
-    instructions: string | null;
-    displaySequence: number;
-    priority: DepartmentWorkItemPriority;
-    completionMode: DepartmentWorkCompletionMode;
-    responsibilityMode: DepartmentWorkResponsibilityMode;
-    scheduleKind: DepartmentWorkScheduleKind;
-    cycleStableKeys: string[];
-    windowStartLocal: string | null;
-    windowEndLocal: string | null;
-    dueOffsetKind: DepartmentWorkDueOffsetKind | null;
-    dueOffsetMinutes: number | null;
-    roleKeys: string[];
-    unitId: string | null;
-    spaceId: string | null;
-    assetId: string | null;
-    knowledgeArticleId: string | null;
-    procedureTitleSnapshot: string | null;
-    linkedTemplateStableKey: string | null;
-    linkedTemplateId: string | null;
-    supervisorVisible: boolean;
-  }>;
-};
-
-export type PublishedCycleWindowForWorkResolve = {
-  stableKey: string;
-  label: string;
-  /** KEY_TIME is not a Work schedule identity. Omitted rows are treated as Cycle or Phase. */
-  nodeKind?: "PERIOD" | "KEY_TIME";
-  startLocal: string;
-  endLocal: string;
-  startsAt: Date;
-  endsAt: Date;
-  /**
-   * ALL_DEPARTMENT_UNITS (including inherited parent mode).
-   * Cycle-bound Work then uses department-responsible candidate units.
-   */
-  departmentWide?: boolean;
-  /** Explicit / inherited participating units. Empty + not departmentWide = no locations. */
-  participatingUnitIds?: readonly string[];
-  /**
-   * Explicit, inherited, or function-bound rooms.
-   * When roomSetClosed is true, this list is complete: empty means no rooms.
-   */
-  participatingSpaceIds?: readonly string[];
-  /**
-   * Function-targeted participation. Empty participatingSpaceIds then means no rooms,
-   * never every room in the unit.
-   */
-  roomSetClosed?: boolean;
-};
-
-export type ExistingWorkOccurrenceForResolve = {
-  id: string;
-  occurrenceKey: string;
-  status: DepartmentWorkOccurrenceStatus;
-  assignedEmployeeId: string | null;
-  completedByLabel: string | null;
-  completedAt: Date | null;
-  evidenceRecordId: string | null;
-  sourceKind: DepartmentWorkOccurrenceSourceKind;
-  workItemLabelSnapshot: string;
-  instructionsSnapshot: string | null;
-  priority: DepartmentWorkItemPriority;
-  unitId: string | null;
-  spaceId: string | null;
-  assetId: string | null;
-  dueAt: Date | null;
-  windowStartLocal: string | null;
-  windowEndLocal: string | null;
-  cycleStableKey: string | null;
-  knowledgeArticleId: string | null;
-  procedureTitleSnapshot: string | null;
-  workPlanId: string | null;
-  workPlanStableKey: string | null;
-  workPlanVersion: number | null;
-  workItemId: string | null;
-  workItemKey: string | null;
-};
-
-export type ConfirmedAssignmentForWorkResolve = {
-  employeeId: string;
-  unitId: string | null;
-  roleKey: string | null;
+  items: unknown[];
+  applicabilities: unknown[];
 };
 
 export type AcceptedEvidenceForWorkResolve = {
   id: string;
-  templateStableKey: string | null;
-  templateId: string | null;
-  unitId: string | null;
-  status: string;
 };
+
+export type ConfirmedAssignmentForWorkResolve = {
+  id: string;
+};
+
+export type ExistingWorkOccurrenceForResolve = {
+  occurrenceKey: string;
+};
+
+export type PublishedCycleWindowForWorkResolve = {
+  stableKey: string;
+};
+
+export type WorkAuthorityDecision = {
+  canViewRuntime: boolean;
+  canComplete: boolean;
+  canViewDepartment: boolean;
+  canCreateOneOff: boolean;
+  canReassign: boolean;
+  canMarkNotRequired: boolean;
+  canReopen: boolean;
+  canManage: boolean;
+  canPublish: boolean;
+  reason: string | null;
+};
+
+export type SpaceWorkSummaryState = "NONE";

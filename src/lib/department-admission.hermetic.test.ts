@@ -25,8 +25,8 @@ import {
 import { decideCycleAuthority } from "@/lib/operational-cycles/cycle-authority";
 import { resolveOperationalCycle } from "@/lib/operational-cycles/resolve-operational-cycle";
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
-import { resolveWorkRequirements } from "@/lib/department-work/resolve-requirements";
-import { listWorkPlanPresetSummaries } from "@/lib/department-work/work-presets";
+import { resolveWorkRequirements } from "@/lib/department-work";
+import { listWorkPlanPresetSummaries } from "@/lib/department-work";
 import type { PublishedWorkPlanForResolve } from "@/lib/department-work/types";
 import { decideJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
 import { decideOperationalRequestAuthority } from "@/lib/operational-requests";

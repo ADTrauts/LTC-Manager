@@ -48,7 +48,7 @@ export function resolveEvidenceRequirementsForSpaces(input: {
     spaceId: row.spaceId,
     unitId: row.unitId,
     targetDepartmentId: row.targetDepartmentId,
-    operationalTypeKey: row.operationalTypeKey,
+    operationalTypeKey: row.operationalTypeKey ?? null,
     assetId: row.assetId,
     status: row.status,
   }));

@@ -62,29 +62,16 @@ export async function loadPlantStarterInstalledKeys(
   input: { facilityId: string; departmentId: string; client?: DbClient },
 ): Promise<{ workPresetKeys: string[]; recordPresetKeys: string[] }> {
   const client = input.client ?? prisma;
-  const [work, records] = await Promise.all([
-    client.departmentWorkPlan.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        OR: [
-          { presetKey: { in: [...PLANT_WORK_PRESET_KEYS] } },
-          { stableKey: { in: [...PLANT_WORK_PRESET_KEYS] } },
-        ],
-      },
-      select: { presetKey: true, stableKey: true },
-    }),
-    client.facilityCatalogInstall.findMany({
+  const records = await client.facilityCatalogInstall.findMany({
       where: {
         facilityId: input.facilityId,
         catalogStableKey: { in: Object.values(PLANT_STARTER_CATALOG_KEYS) },
       },
       select: { catalogStableKey: true },
-    }),
-  ]);
+    });
 
   return {
-    workPresetKeys: uniqueKeys(work),
+    workPresetKeys: [],
     recordPresetKeys: records
       .map((row) => starterIdForCatalogKey(row.catalogStableKey))
       .filter((id): id is string => id != null),
@@ -140,15 +127,6 @@ export async function installPlantStarterConfiguration(
       continue;
     }
     if (item.kind === "work") {
-      await createWorkDraftFromPreset(session, {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        presetKey: id,
-        actor: input.actor,
-        client: input.client,
-      });
-      already.add(id);
-      workAdded += 1;
       continue;
     }
     const catalogStableKey = PLANT_STARTER_CATALOG_KEYS[id];
@@ -168,7 +146,7 @@ export async function installPlantStarterConfiguration(
     recordAdded,
     alreadyExisted,
     selectedCount: selected.length,
-    workHref: departmentAdminHref(input.departmentId, "work"),
+    workHref: departmentAdminHref(input.departmentId, "overview"),
     recordsHref: departmentAdminHref(input.departmentId, "records"),
   };
 }

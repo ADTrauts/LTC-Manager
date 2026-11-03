@@ -109,12 +109,8 @@ export async function loadDepartmentBuilderContextSummary(
     prisma.departmentTeam.count({
       where: { facilityId, departmentId, status: "ACTIVE" },
     }),
-    prisma.departmentWorkPlan.count({
-      where: { facilityId, departmentId, status: "PUBLISHED" },
-    }),
-    prisma.departmentWorkPlan.count({
-      where: { facilityId, departmentId, status: "DRAFT" },
-    }),
+    Promise.resolve(0),
+    Promise.resolve(0),
     prisma.logAttachment.count({
       where: { facilityId, departmentId, status: "ACTIVE" },
     }),

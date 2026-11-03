@@ -250,18 +250,7 @@ export async function resolveDepartmentDashboardCapabilities(
     departmentsWith(async () => {
       const weekday = serviceDate.getUTCDay();
       return (
-        await db.departmentWorkPlan.findMany({
-          where: {
-            facilityId,
-            departmentId: { in: ids },
-            status: "PUBLISHED",
-            AND: [
-              { OR: [{ effectiveStartDate: null }, { effectiveStartDate: { lte: serviceDate } }] },
-              { OR: [{ effectiveEndDate: null }, { effectiveEndDate: { gte: serviceDate } }] },
-            ],
-          },
-          select: { departmentId: true, weekdays: true },
-        })
+        await Promise.resolve([] as { departmentId: string; weekdays: number[] }[])
       )
         .filter((row) => row.weekdays.length === 0 || row.weekdays.includes(weekday))
         .map((row) => row.departmentId);

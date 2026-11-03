@@ -215,8 +215,6 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
       const segment = selectSegmentForDate(group, serviceDate);
       if (!segment) continue;
       if (input.catalogStableKey && segment.catalogStableKey !== input.catalogStableKey) continue;
-      if (segment.targetKind === "OPERATIONAL_TYPE") continue;
-
       const targets = targetsForSegment(segment, serviceDate, input);
       if (targets.length === 0) continue;
       canonicalDates.add(serviceDate);
@@ -279,7 +277,7 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
             recordForm: auditRecordFormLabel(segment),
             requirementSegmentId: segment.id,
             attachmentStableKey: segment.stableKey,
-            locationFunctionKey: segment.operationalTypeKey,
+            locationFunctionKey: null,
             spaceId: target.spaceId,
             assetId: segment.assetId,
             unitId: segment.unitId,
@@ -349,7 +347,6 @@ function targetsForSegment(
   _serviceDate: string,
   _input: AuditOperationalRecordsInput,
 ): Array<{ spaceId: string | null }> {
-  if (segment.targetKind === "OPERATIONAL_TYPE") return [];
   if (segment.targetKind === "SPACE") return [{ spaceId: segment.spaceId }];
   return [{ spaceId: null }];
 }

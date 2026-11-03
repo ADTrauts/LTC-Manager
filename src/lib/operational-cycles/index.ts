@@ -87,14 +87,6 @@ export {
 } from "./cycle-applicability";
 
 export {
-  assignmentsFromBindings,
-  loadDepartmentOperationalTypeOptions,
-  loadSpaceOperationalTypeAssignments,
-  selectProfileIdForOperationalTypes,
-  type OperationalTypePerspective,
-} from "./load-operational-type-targets";
-
-export {
   detectRunModelProvenance,
   describeDepartmentCycleConfiguration,
   isCurrentPeriodModel,

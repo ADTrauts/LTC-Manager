@@ -10,8 +10,8 @@ import {
   isDepartmentJobFlowEnabled,
   isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
-import { decideWorkAuthority } from "@/lib/department-work/authority";
-import { resolveWorkRequirements } from "@/lib/department-work/resolve-requirements";
+import { decideWorkAuthority } from "@/lib/department-work";
+import { resolveWorkRequirements } from "@/lib/department-work";
 import type { PublishedWorkPlanForResolve } from "@/lib/department-work/types";
 import { decideJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
 

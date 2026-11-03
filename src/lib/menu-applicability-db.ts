@@ -24,23 +24,12 @@ import { prisma } from "@/lib/prisma";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
-async function loadRoomPatternBySpaceId(input: {
+async function loadRoomPatternBySpaceId(_input: {
   client: DbClient;
   facilityId: string;
   departmentId: string;
 }) {
-  const active = await input.client.departmentOperationalProfile.findFirst({
-    where: { facilityId: input.facilityId, departmentId: input.departmentId, status: "ACTIVE" },
-    select: { id: true },
-  });
-  const profile =
-    active ??
-    (await input.client.departmentOperationalProfile.findFirst({
-      where: { facilityId: input.facilityId, departmentId: input.departmentId, status: "DRAFT" },
-      orderBy: { version: "desc" },
-      select: { id: true },
-    }));
-  const map = new Map<
+  return new Map<
     string,
     {
       archetypeKey: string;
@@ -51,27 +40,6 @@ async function loadRoomPatternBySpaceId(input: {
       displayName: string;
     }
   >();
-  if (!profile) return map;
-
-  const bindings = await input.client.departmentRoomArchetypeBinding.findMany({
-    where: { profileId: profile.id },
-    select: {
-      unitSpaceId: true,
-      unitSpace: { select: { name: true } },
-      archetype: { select: { key: true, name: true } },
-    },
-  });
-  for (const binding of bindings) {
-    map.set(binding.unitSpaceId, {
-      archetypeKey: binding.archetype.key,
-      archetypeName: binding.archetype.name,
-      exceptionCount: 0,
-      recommendedPatternKey: null,
-      spaceTypeLabel: "",
-      displayName: binding.unitSpace.name,
-    });
-  }
-  return map;
 }
 
 export async function loadDepartmentMenuLocations(input: {

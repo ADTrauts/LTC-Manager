@@ -13,12 +13,12 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { operationalTypeKeyFromName } from "@/lib/department-administration/operational-type";
-import { resolveWorkRequirements } from "@/lib/department-work/resolve-requirements";
+import { resolveWorkRequirements } from "@/lib/department-work";
 import {
   buildWorkPlanPresetDraft,
   EVS_WORK_PRESET_KEYS,
   unadoptedPresetLocationFunctions,
-} from "@/lib/department-work/work-presets";
+} from "@/lib/department-work";
 import type { PublishedWorkPlanForResolve } from "@/lib/department-work/types";
 import { resolveWorkCycleRoomParticipation } from "@/lib/operational-cycles/cycle-applicability";
 import { buildEvsDefaultCyclePlans } from "@/lib/operational-cycles/defaults";

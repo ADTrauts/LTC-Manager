@@ -60,7 +60,7 @@ export function mapReviewAttachmentSegments(
     spaceId: string | null;
     unitId: string | null;
     targetDepartmentId: string | null;
-    operationalTypeKey: string | null;
+    operationalTypeKey?: string | null;
     updatedAt: Date;
     createdAt: Date;
     dailyWindows: ReviewAttachmentSegmentFact["dailyWindows"];
@@ -98,7 +98,7 @@ export function mapReviewAttachmentSegments(
     spaceId: row.spaceId,
     unitId: row.unitId,
     targetDepartmentId: row.targetDepartmentId,
-    operationalTypeKey: row.operationalTypeKey,
+    operationalTypeKey: row.operationalTypeKey ?? null,
     dailyWindows: row.dailyWindows,
     cycleSelections: row.cycleSelections,
     catalogDefinition: {

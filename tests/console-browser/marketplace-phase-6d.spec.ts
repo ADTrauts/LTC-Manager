@@ -193,29 +193,6 @@ test.beforeAll(async () => {
       });
     }
 
-    const plans = await prisma.departmentWorkPlan.count({
-      where: { facilityId: work.id, presetKey: "MECHANICAL_ROOM_ROUND" },
-    });
-    if (plans === 0) {
-      for (const version of [
-        { version: 1, status: "DRAFT" as const, name: "Phase 6D Mechanical Draft" },
-        { version: 2, status: "PUBLISHED" as const, name: "Phase 6D Mechanical Published" },
-        { version: 3, status: "DRAFT" as const, name: "Phase 6D Mechanical Successor" },
-      ]) {
-        await prisma.departmentWorkPlan.create({
-          data: {
-            facilityId: work.id,
-            departmentId: workDepartment.id,
-            stableKey: "phase6d_mechanical_round",
-            presetKey: "MECHANICAL_ROOM_ROUND",
-            version: version.version,
-            name: version.name,
-            status: version.status,
-          },
-        });
-      }
-    }
-
     if (!(await prisma.catalogLogDefinition.findUnique({ where: { stableKey_version: { stableKey: "cooler_temperature_log", version: 1 } } }))) {
       await prisma.catalogLogDefinition.create({
         data: {

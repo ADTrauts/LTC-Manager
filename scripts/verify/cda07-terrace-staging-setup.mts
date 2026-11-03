@@ -221,16 +221,6 @@ async function main() {
         operatorPeriodId: sodexoPeriodId,
       },
     });
-    await db.departmentWorkPlan.create({
-      data: {
-        facilityId: facility.id,
-        departmentId: dietary.id,
-        stableKey: "sodexo-plan-terrace",
-        name: "Sodexo plan",
-        status: "PUBLISHED",
-        operatorPeriodId: sodexoPeriodId,
-      },
-    });
     await db.departmentOperationalCycle.create({
       data: {
         facilityId: facility.id,

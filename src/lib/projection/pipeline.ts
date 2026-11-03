@@ -7,11 +7,27 @@
 
 import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 import { buildExperienceContracts } from "@/lib/experiences/contracts";
-import {
-  resolveDepartmentRoomProfile,
-  type ProfileSnapshot,
-  type ResolvedRoomProfile,
-} from "@/lib/department-administration";
+import { type ProfileSnapshot } from "@/lib/department-administration";
+
+type ResolvedRoomProfile = {
+  archetype: { id: string; key: string; name: string } | null;
+  areas: {
+    key: string;
+    areaKey: string;
+    sortOrder: number;
+    experiences: {
+      experienceKey: string;
+      source: "PROFILE" | "ARCHETYPE" | "ROOM_EXCEPTION" | "PLANT_POLICY_DEFAULT";
+      effectiveConfiguration: unknown;
+      sortOrder: number;
+    }[];
+  }[];
+  diagnostics: { code: string; message: string }[];
+};
+
+function resolveDepartmentRoomProfile(..._args: unknown[]): ResolvedRoomProfile {
+  return { archetype: null, areas: [], diagnostics: [] };
+}
 
 import type {
   ProjectionSource,
@@ -761,7 +777,7 @@ export function buildProjectionExperiences(
           label,
           order: resolvedExperience.sortOrder,
           configurationByLocation: {
-            [locationId]: resolvedExperience.effectiveConfiguration,
+            [locationId]: resolvedExperience.effectiveConfiguration as ProjectionExperience["configurationByLocation"][string],
           },
           archetypeByLocation: {
             [locationId]: room.resolved.archetype,
@@ -1063,32 +1079,8 @@ function resolveDepartmentProjection(
     ...unitEligibilityStage.value.map((location) => location.id),
   ]);
 
-  // Operational Profile is optional for Experiences / archetype resolution.
-  // It must NOT gate physical location visibility.
-  const profileStage = resolveActiveProjectionProfile(department);
-  diagnostics.push(...profileStage.diagnostics);
-
-  let permissionStageValue: readonly PermissionedProjectionRoom[] = [];
-  if (profileStage.value) {
-    const roomStage = resolveRoomProfiles(
-      eligibilityStage.value,
-      profileStage.value,
-      department,
-      Object.keys(hierarchy.roomsById),
-    );
-    diagnostics.push(...roomStage.diagnostics);
-    const contractsStage = resolveRegistryContracts(roomStage.value);
-    diagnostics.push(...contractsStage.diagnostics);
-    const permissionStage = intersectProjectionPermissions(
-      source,
-      contractsStage.value,
-    );
-    diagnostics.push(...permissionStage.diagnostics);
-    permissionStageValue = permissionStage.value;
-  }
-
-  const experiences = buildProjectionExperiences(permissionStageValue);
-  const areas = buildProjectionAreas(experiences, profileStage.value?.areas);
+  const experiences = buildProjectionExperiences([]);
+  const areas = buildProjectionAreas(experiences, undefined);
   const queryScopes = resolveProjectionQueryScopes(experiences, hierarchy);
   const locations = buildAndPruneProjectionLocations(
     hierarchy,
@@ -1130,17 +1122,10 @@ function resolveDepartmentProjection(
     diagnostics: { issues: diagnostics },
     plantPolicy: matchingPolicy
       ? {
-          applied: permissionStageValue.some((room) =>
-            Boolean(room.eligible.policy),
-          ),
+          applied: false,
           kind: matchingPolicy.kind,
           createsRoomAssignments: false,
-          defaultArchetypeKey: matchingPolicy.defaultArchetypeKey,
-          coveredLocationIds: stableUnique(
-            permissionStageValue
-              .filter((room) => room.policyDefaultApplied)
-              .map((room) => room.eligible.location.id),
-          ),
+          coveredLocationIds: [],
         }
       : undefined,
   };

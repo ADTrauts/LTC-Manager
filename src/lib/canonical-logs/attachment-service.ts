@@ -181,8 +181,6 @@ export async function createLogAttachment(client: Db, input: CreateLogAttachment
       spaceId: target.spaceId,
       unitId: target.unitId,
       targetDepartmentId: target.targetDepartmentId,
-      operationalTypeKey: target.operationalTypeKey,
-      ...(target.targetKind === "OPERATIONAL_TYPE" ? { departmentId: input.departmentId } : {}),
     },
     select: { effectiveFrom: true, effectiveTo: true },
   });
@@ -229,7 +227,6 @@ export async function createLogAttachment(client: Db, input: CreateLogAttachment
       spaceId: target.spaceId,
       unitId: target.unitId,
       targetDepartmentId: target.targetDepartmentId,
-      operationalTypeKey: target.operationalTypeKey,
       timingMode,
       calendarCadence,
       calendarDaysOfWeek,
@@ -288,7 +285,7 @@ function snapshotFromRow(row: {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
-  operationalTypeKey: string | null;
+  operationalTypeKey?: string | null;
 }): AttachmentHistoricalSnapshot {
   return {
     timingMode: row.timingMode,
@@ -312,7 +309,7 @@ function snapshotFromRow(row: {
     spaceId: row.spaceId,
     unitId: row.unitId,
     targetDepartmentId: row.targetDepartmentId,
-    operationalTypeKey: row.operationalTypeKey,
+    operationalTypeKey: row.operationalTypeKey ?? null,
   };
 }
 
@@ -441,7 +438,7 @@ export async function updateLogAttachment(
   let spaceId = existing.spaceId;
   let unitId = existing.unitId;
   let targetDepartmentId = existing.targetDepartmentId;
-  let operationalTypeKey = existing.operationalTypeKey;
+  let operationalTypeKey: string | null = null;
   if (input.target) {
     const validated = await validateAttachmentTarget({
       client,
@@ -618,7 +615,6 @@ export async function updateLogAttachment(
           spaceId,
           unitId,
           targetDepartmentId,
-          operationalTypeKey,
           effectiveFrom: input.effectiveFromKey
             ? facilityLocalDateToServiceDate(input.effectiveFromKey)
             : existing.effectiveFrom,
@@ -642,7 +638,6 @@ export async function updateLogAttachment(
         spaceId,
         unitId,
         targetDepartmentId,
-        operationalTypeKey,
         timingMode,
         allowAdHoc,
         waiverAllowed,

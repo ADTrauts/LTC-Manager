@@ -30,7 +30,7 @@ import { searchEvidenceRecords } from "@/lib/operational-evidence/log-book";
 import { getFacilityServiceDate, toServiceDateKey } from "@/lib/operational-time";
 import { loadDepartmentDaySchedule } from "@/lib/scheduling/load-department-day-schedule";
 import { listMenus } from "@/lib/menu-db";
-import { loadPublishedWorkPlansForDate } from "@/lib/department-work/work-plan-service";
+import { loadPublishedWorkPlansForDate } from "@/lib/department-work";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 
 const databaseUrl = process.env.DEPARTMENT_WORK_TEST_DATABASE_URL || process.env.VERIFY_DATABASE_URL;

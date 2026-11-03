@@ -16,7 +16,7 @@ import {
   isDepartmentOperationalCyclesEnabled,
   isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
-import { listWorkPlanPresetSummaries } from "@/lib/department-work/work-presets";
+import { listWorkPlanPresetSummaries } from "@/lib/department-work";
 import { getRolesForDepartment } from "@/lib/scheduling/assignment-roles";
 
 import {

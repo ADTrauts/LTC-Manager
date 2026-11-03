@@ -1,23 +1,17 @@
 /**
- * Derived Today's Work view of canonical WorkRequirements.
- * Not persisted. Not a second Work engine.
+ * Today's Work shell. Generic Work Plans no longer fill this view.
  */
-
-import type { WorkRequirementState } from "@/lib/department-work/types";
 
 export type TodaysExpectedWorkItemView = {
   occurrenceKey: string;
-  workItemKey: string;
   label: string;
-  state: WorkRequirementState;
-  completed: boolean;
-  /** Calm status when the item is not a simple open checkbox. */
-  statusLabel: string | null;
-  evidenceRequired: boolean;
+  state: string;
+  statusLabel: string;
   canConfirm: boolean;
-  facilityId: string;
-  departmentId: string;
+  completed?: boolean;
   unitId: string | null;
+  facilityId?: string;
+  departmentId?: string;
 };
 
 export type TodaysExpectedWorkPlanView = {
@@ -33,25 +27,34 @@ export type TodaysExpectedWorkLocationView = {
   plans: TodaysExpectedWorkPlanView[];
 };
 
-export type TodaysExpectedWorkCurrentGroupView = {
-  operationLabel: string;
-  windowLabel: string | null;
-  cycleStableKeys: string[];
-  locations: TodaysExpectedWorkLocationView[];
-};
-
-export type TodaysExpectedWorkUpcomingView = {
-  operationLabel: string;
-  windowLabel: string | null;
-  locations: TodaysExpectedWorkLocationView[];
-};
-
 export type TodaysExpectedWorkView = {
   workCapabilityEnabled: boolean;
-  hasPublishedWorkPlans: boolean;
-  currentGroups: TodaysExpectedWorkCurrentGroupView[];
-  otherWork: TodaysExpectedWorkLocationView[];
-  upcoming: TodaysExpectedWorkUpcomingView | null;
   configureHref: string | null;
   configureLabel: string | null;
+  currentGroups: {
+    operationLabel: string;
+    windowLabel: string | null;
+    locations: TodaysExpectedWorkLocationView[];
+  }[];
+  otherWork: TodaysExpectedWorkLocationView[];
+  upcoming: {
+    operationLabel: string;
+    windowLabel: string | null;
+    locations: TodaysExpectedWorkLocationView[];
+  } | null;
 };
+
+export function emptyTodaysExpectedWork(): TodaysExpectedWorkView {
+  return {
+    workCapabilityEnabled: false,
+    configureHref: null,
+    configureLabel: null,
+    currentGroups: [],
+    otherWork: [],
+    upcoming: null,
+  };
+}
+
+export function todaysExpectedWorkHasVisibleWork(view: TodaysExpectedWorkView): boolean {
+  return view.currentGroups.some((group) => group.locations.length > 0) || view.otherWork.length > 0;
+}

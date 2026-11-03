@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
 import { buildLogRequirementKey } from "@/lib/logs-architecture/requirement-key";
-import { resolveWorkRequirements } from "@/lib/department-work/resolve-requirements";
+import { resolveWorkRequirements } from "@/lib/department-work";
 import type { PublishedWorkPlanForResolve } from "@/lib/department-work/types";
 import { validateEvidenceSubmission } from "@/lib/operational-evidence/validate-evidence-submission";
 import type { TemplateFieldSnapshot } from "@/lib/operational-evidence/types";

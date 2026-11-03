@@ -13,11 +13,9 @@ import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 
 export function plantMaintenanceTabs(input: {
   departmentKey: string;
-  workEnabled: boolean;
 }) {
   return departmentAdminTabsForFlags({
     locationsEnabled: true,
-    workEnabled: input.workEnabled,
     recordsEnabled: isCanonicalLogsEnabled(),
     menusEnabled: hasDietaryDomainCapabilities(input.departmentKey),
     maintenanceEnabled: input.departmentKey === "PLANT",
@@ -41,13 +39,7 @@ export function PmBuilderShell({
   children: ReactNode;
   contentClassName?: string;
 }) {
-  const product = getDepartmentProduct(departmentKey);
-  const workEnabled =
-    departmentKey === "PLANT" ||
-    Boolean(product?.starters.workPresets) ||
-    context.publishedWorkPlanCount > 0 ||
-    context.draftWorkPlanCount > 0;
-  const tabs = plantMaintenanceTabs({ departmentKey, workEnabled });
+  const tabs = plantMaintenanceTabs({ departmentKey });
   const activeTab: DepartmentAdminTabId = "maintenance";
 
   return (

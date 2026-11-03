@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { allocateDepartmentKey } from "@/lib/department-admission";
 import { customerCurrentDepartmentLabel } from "@/lib/department-products/eligibility";
-import { listWorkPlanPresetSummaries } from "@/lib/department-work/work-presets";
+import { listWorkPlanPresetSummaries } from "@/lib/department-work";
 
 import {
   DepartmentProductInstallError,

@@ -71,7 +71,6 @@ function toCoverageTemplates(
       requiredCount: number;
       unitId: string | null;
       spaceId: string | null;
-      applicableOperationalTypeKeys: string[];
       applicableOperationalCycleStableKeys: string[];
     }>;
   }>,
@@ -91,7 +90,7 @@ function toCoverageTemplates(
       requiredCount: item.requiredCount,
       unitId: item.unitId,
       spaceId: item.spaceId,
-      applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
+      applicableOperationalTypeKeys: [],
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
     })),
   }));
@@ -140,7 +139,7 @@ export async function prefetchRuntimeLocationInputs(
   }
 
   stats.spaceIdentityQueries += 1;
-  const [facility, spaces, activeProfiles, departments] = await Promise.all([
+  const [facility, spaces, departments] = await Promise.all([
     prisma.facility.findFirst({
       where: { id: input.facilityId },
       select: { id: true, displayName: true },
@@ -164,17 +163,6 @@ export async function prefetchRuntimeLocationInputs(
         },
       },
     }),
-    departmentIds.length === 0
-      ? Promise.resolve([])
-      : prisma.departmentOperationalProfile.findMany({
-          where: {
-            facilityId: input.facilityId,
-            departmentId: { in: departmentIds },
-            status: "ACTIVE",
-          },
-          select: { id: true, departmentId: true, version: true, status: true },
-          orderBy: { version: "desc" },
-        }),
     departmentIds.length === 0
       ? Promise.resolve([])
       : prisma.department.findMany({
@@ -220,13 +208,7 @@ export async function prefetchRuntimeLocationInputs(
     { id: string; version: number; status: "ACTIVE" } | null
   >();
   for (const departmentId of departmentIds) {
-    const profile = activeProfiles.find((row) => row.departmentId === departmentId);
-    profilesByDepartmentId.set(
-      departmentId,
-      profile
-        ? { id: profile.id, version: profile.version, status: "ACTIVE" }
-        : null,
-    );
+    profilesByDepartmentId.set(departmentId, null);
   }
 
   const operationalTypesBySpaceId = new Map<
@@ -278,7 +260,6 @@ export async function prefetchRuntimeLocationInputs(
                 requiredCount: true,
                 unitId: true,
                 spaceId: true,
-                applicableOperationalTypeKeys: true,
                 applicableOperationalCycleStableKeys: true,
               },
             },
@@ -520,7 +501,7 @@ export async function prefetchRuntimeLocationInputs(
       spaceId: row.spaceId,
       unitId: row.unitId,
       targetDepartmentId: row.targetDepartmentId,
-      operationalTypeKey: row.operationalTypeKey,
+      operationalTypeKey: null,
       dailyWindows: row.dailyWindows,
       cycleSelections: row.cycleSelections,
       catalogDefinition: {

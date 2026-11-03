@@ -173,7 +173,6 @@ export async function loadOperationalReviewRangeFacts(input: {
                   requiredCount: true,
                   unitId: true,
                   spaceId: true,
-                  applicableOperationalTypeKeys: true,
                   applicableOperationalCycleStableKeys: true,
                 },
               },

@@ -7,8 +7,6 @@ import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/loa
 import { isDepartmentJobFlowEnabled } from "@/lib/department-operations";
 import { resolveSpaceWorkspaceViewer } from "@/lib/unit-workspace/space";
 import { loadFrontlineEmployeeAssignments } from "@/lib/employee-runtime-flow/load-assignments";
-import { resolveUnitWorkRequirements } from "@/lib/department-work/load-runtime-work";
-import { completeExplicit } from "@/lib/department-work/occurrence-service";
 import { materializeKeyTimeDayExpectations } from "@/lib/operational-cycles/materialize-key-time-day-expectations";
 import { completeKeyTimeDayExpectation } from "@/lib/operational-cycles/key-time-day-actions";
 import { loadPublishedCyclesWithKeyTimesForDate } from "@/lib/operational-cycles/load-published-cycles";
@@ -75,14 +73,7 @@ export async function authorize(tx: Tx, s: FacilitySession, scope: SpaceScope, d
     const assigned = assignment.unitId === scope.unitId && ((assignment.scopeKind || "UNIT") === "UNIT" || loaded.locationsByAssignmentId.get(assignment.id)?.some(l => l.unitSpaceId === scope.spaceId));
     if (!assigned)
         fail("This Space is not in your confirmed assignment.");
-    await tx.$queryRaw `SELECT "id" FROM "DepartmentOperationalProfile" WHERE "departmentId"=${scope.departmentId} FOR SHARE`;
-    const binding = await tx.departmentRoomArchetypeBinding.findFirst({ where: { unitSpaceId: scope.spaceId, profile: { facilityId: s.facilityId, departmentId: scope.departmentId, status: "ACTIVE" }, archetype: { isActive: true } }, include: { profile: true, archetype: true } });
-    if (!binding)
-        fail("Publish an applicable Location Function before offline preparation.");
-    // Published configuration remains locked through domain write and receipt.
-    await tx.$queryRaw `SELECT "id" FROM "DepartmentWorkPlan" WHERE "departmentId"=${scope.departmentId} FOR SHARE`;
     await tx.$queryRaw `SELECT "id" FROM "DepartmentOperationalCycle" WHERE "departmentId"=${scope.departmentId} FOR SHARE`;
-    await tx.$queryRaw`SELECT "id" FROM "DepartmentWorkOccurrence" WHERE "facilityId"=${s.facilityId} AND "departmentId"=${scope.departmentId} AND "spaceId"=${scope.spaceId} AND "operationalDate"=${facilityLocalDateToServiceDate(operationalDate)} FOR UPDATE`;
     const periods = s.authKind === "user" ? await tx.userFacilityRolePeriod.findMany({ where: { userFacilityAccess: { userId: s.uid, facilityId: s.facilityId }, startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] } }) : [];
     const authorityEnd = periods.some(p => !p.endsAt) ? Infinity : Math.max(...periods.map(p => +p.endsAt!), 0) || Infinity;
     if (!(await validateSessionAuthority(s, tx)).valid)
@@ -92,11 +83,20 @@ export async function authorize(tx: Tx, s: FacilitySession, scope: SpaceScope, d
     const until = Math.min(+now + LIMITS.leaseMs, s.exp ? s.exp * 1000 : Infinity, assignment.endsAt ? +new Date(assignment.endsAt) : Infinity, authorityEnd);
     if (until <= +now)
         fail("Current authority expired.");
-    return { employee, assignment, assignmentDigest: digest({ assignment, timezone: facility.timezone, bindingId: binding.id, profileId: binding.profileId, archetypeId: binding.archetypeId }), operationalDate, facility, space, until };
+    return { employee, assignment, assignmentDigest: digest({ assignment, timezone: facility.timezone }), operationalDate, facility, space, until };
 }
 async function catalog(tx: Tx, s: FacilitySession, scope: SpaceScope, device: Device, now: Date, dateKey?: string) {
     const context = await authorize(tx, s, scope, device, now, dateKey);
-    const work = await resolveUnitWorkRequirements({ client: tx, facilityId: s.facilityId, departmentId: scope.departmentId, unitId: scope.unitId, operationalDate: facilityLocalDateToServiceDate(context.operationalDate), operationalDateKey: context.operationalDate, now, facilityTimezone: context.facility.timezone });
+    const work: {
+      spaceId: string | null;
+      occurrenceKey: string;
+      occurrenceStatus: string | null;
+      completionMode: string;
+      state: string;
+      assignedEmployeeId: string | null;
+      label: string;
+      instructions: string | null;
+    }[] = [];
     const cycles = await loadPublishedCyclesWithKeyTimesForDate(s.facilityId, scope.departmentId, context.operationalDate, tx);
     await materializeKeyTimeDayExpectations({ facilityId: s.facilityId, departmentId: scope.departmentId, operationalDateKey: context.operationalDate, now, createIfMissing: true }, tx);
     const keys = await tx.operationalCycleKeyTimeDayExpectation.findMany({ where: { facilityId: s.facilityId, departmentId: scope.departmentId, spaceId: scope.spaceId, serviceDate: facilityLocalDateToServiceDate(context.operationalDate) }, orderBy: { id: "asc" } });
@@ -204,11 +204,7 @@ export async function syncSpace(db: PrismaClient, s: FacilitySession, commands: 
                 else if (cmd.kind === "KEY_TIME_ACTUAL" && current.completed)
                     outcome = result(cmd.id, "conflict", "An actual already exists. Corrections are online-only.");
                 else if (cmd.kind === "WORK") {
-                    const requirement = live.requirements.get(cmd.target)!;
-                    if (requirement.completionMode !== "EXPLICIT_CONFIRMATION")
-                        fail("Canonical evidence is required; complete online.");
-                    const done = await completeExplicit(s, { facilityId: s.facilityId, departmentId: bundle.scope.departmentId, requirement, operationalDate: bundle.operationalDate, actor: { userId: sessionUserIdForFk(s), employeeId: context.employee.id, label: s.name, authenticationMethod: s.authMethod }, note: cmd.note, clientCommandId: cmd.id, deviceBoundUnitId: device.unitId, recordedOnline: false, client: tx });
-                    outcome = result(cmd.id, done.deduplicated ? "reused" : "committed", "Canonical Work confirmed.", done.occurrence.id);
+                    fail("Generic Work is retired. Complete a Record, Key Point, or Work Order instead.");
                 }
                 else {
                     await tx.$queryRaw `SELECT "id" FROM "OperationalCycleKeyTimeDayExpectation" WHERE "id"=${cmd.target} FOR UPDATE`;

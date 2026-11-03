@@ -201,7 +201,7 @@ export async function loadFacilityRunLogRequirements(
           spaceId: attachment.spaceId,
           unitId: attachment.unitId,
           targetDepartmentId: attachment.targetDepartmentId,
-          operationalTypeKey: attachment.operationalTypeKey,
+          operationalTypeKey: null,
           departmentId: attachment.departmentId,
         })
       )?.title ?? "Target";
@@ -218,8 +218,6 @@ export async function loadFacilityRunLogRequirements(
       });
       continue;
     }
-
-    if (attachment.targetKind === "OPERATIONAL_TYPE") continue;
 
     const resolved = resolveLogRequirementsForAttachment({
       attachment: {
@@ -293,7 +291,6 @@ export async function loadFacilityRunLogRequirements(
       spaceId: true,
       unitId: true,
       targetDepartmentId: true,
-      operationalTypeKey: true,
       catalogDefinition: { select: { name: true } },
     },
   });
@@ -311,7 +308,7 @@ export async function loadFacilityRunLogRequirements(
           spaceId: row.spaceId,
           unitId: row.unitId,
           targetDepartmentId: row.targetDepartmentId,
-          operationalTypeKey: row.operationalTypeKey,
+          operationalTypeKey: null,
           departmentId: undefined,
         })
       )?.title ?? null;

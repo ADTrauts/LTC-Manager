@@ -61,7 +61,7 @@ A new Product does not receive a different Department Builder shell.
 
 **Work is removed from Department Builder.** Generic Work is not a core Platform/Department Builder concept going forward.
 
-Existing generic Work machinery — including Work Plans, Expected Work, Work occurrences, Work presets, starter Work, and generic Work applicability — is legacy implementation scheduled for removal after dependency tracing. It must not receive new features, new consumers, new migrations, new UI, or new documentation.
+Generic Work Plans, Expected Work, Work occurrences, Work presets, and generic Work applicability were dropped in `20261103140000_retire_generic_work_and_profiles`. Do not add them back. A leftover type or redirect that still says Work is deletion debt, not a product surface.
 
 This does **not** retire:
 

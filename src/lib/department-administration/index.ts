@@ -63,16 +63,6 @@ export {
 } from "./certification";
 
 export {
-  resolveDepartmentRoomProfile,
-  type ResolvedExperienceSource,
-  type ResolvedRoomArea,
-  type ResolvedRoomExperience,
-  type ResolvedRoomProfile,
-  type ResolveRoomProfileInput,
-  type RoomProfileDiagnostic,
-} from "./resolve-room-profile";
-
-export {
   PLANT_FACILITY_WIDE_POLICY,
   policyEligibleExperienceKeys,
   type PlantFacilityWidePolicy,
@@ -87,9 +77,6 @@ export {
   type ProfileAccessDenial,
   type ProfileWriteContext,
 } from "./profile-access";
-
-// profile-service is server-only (Prisma). Import it from
-// `@/lib/department-administration/profile-service`, never this barrel.
 
 export {
   DEPARTMENT_ADMIN_TABS,

@@ -14,7 +14,7 @@ import { loadFacilityDepartmentCatalog, loadCustomerOperableDepartments } from "
 import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { resolveCycleAuthority } from "@/lib/operational-cycles/cycle-authority";
-import { resolveWorkAuthority } from "@/lib/department-work/authority";
+import { resolveWorkAuthority } from "@/lib/department-work";
 import { resolveEvidenceAuthority } from "@/lib/operational-evidence/evidence-authority";
 import { saveFacilityOnboarding } from "./transitions";
 

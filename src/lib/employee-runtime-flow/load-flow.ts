@@ -8,9 +8,7 @@ import type { FacilitySession } from "@/lib/auth";
 import {
   isDepartmentJobFlowEnabled,
   isDepartmentOperationalEvidenceEnabled,
-  isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
-import { resolveUnitWorkRequirements } from "@/lib/department-work";
 import type { WorkRequirement } from "@/lib/department-work/types";
 import { resolveJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
 import {
@@ -240,7 +238,6 @@ export async function loadEmployeeRuntimeFlow(
       : { states: [], stats: { perSpaceDomainLoads: 0 } };
 
   const evidenceEnabled = isDepartmentOperationalEvidenceEnabled(department.key);
-  const workEnabled = isDepartmentWorkPlansEnabled(department.key);
 
   let templateEvidence: EvidenceRequirement[] = [];
   if (oaEnabled && !canonicalLogsEnabled && evidenceEnabled && activeAssignment) {
@@ -283,18 +280,7 @@ export async function loadEmployeeRuntimeFlow(
     });
   }
 
-  const workRequirementsRaw =
-    oaEnabled && workEnabled && (activeAssignment?.unitId || input.unitId)
-      ? await resolveUnitWorkRequirements({
-          facilityId: input.facilityId,
-          departmentId: input.departmentId,
-          operationalDateKey,
-          operationalDate: serviceDate,
-          now,
-          facilityTimezone: timezone,
-          unitId: activeAssignment?.unitId ?? input.unitId ?? "",
-        })
-      : [];
+  const workRequirementsRaw: WorkRequirement[] = [];
 
   const plan = await prisma.operationalAssignmentPlan.findUnique({
     where: {

@@ -16,10 +16,6 @@ import {
   type DepartmentActionableLocation,
   type DepartmentLocationFloorGroup,
 } from "@/lib/department-administration/department-locations";
-import {
-  loadProfile,
-  toProfileSnapshot,
-} from "@/lib/department-administration/profile-service";
 import type {
   ProfileSnapshot,
   RoomArchetypeBindingSnapshot,
@@ -196,70 +192,15 @@ export async function loadDepartmentAdminView(input: {
   });
   if (!department) return null;
 
-  const [profileRows, hierarchy] = await Promise.all([
-    prisma.departmentOperationalProfile.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId: department.id,
-      },
-      orderBy: [{ version: "desc" }],
-      select: {
-        id: true,
-        name: true,
-        version: true,
-        status: true,
-        baselineKey: true,
-        certifiedAt: true,
-        activatedAt: true,
-        retiredAt: true,
-        createdAt: true,
-      },
-    }),
-    loadFacilityHierarchy(input.facilityId),
-  ]);
-
-  const profiles: ProfileListItem[] = profileRows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    version: row.version,
-    status: row.status,
-    baselineKey: row.baselineKey,
-    certifiedAt: row.certifiedAt,
-    activatedAt: row.activatedAt,
-    retiredAt: row.retiredAt,
-    createdAt: row.createdAt,
-  }));
+  const hierarchy = await loadFacilityHierarchy(input.facilityId);
+  const profiles: ProfileListItem[] = [];
 
   const workingId = selectWorkingProfileId(profiles, input.requestedProfileId);
   let workingProfile: ProfileSnapshot | null = null;
   let workingProfileMeta: ProfileListItem | null = null;
   let bindings: RoomArchetypeBindingSnapshot[] = [];
   let exceptions: RoomExceptionSnapshot[] = [];
-  let loaded: Awaited<ReturnType<typeof loadProfile>> | null = null;
-
-  if (workingId) {
-    loaded = await loadProfile(workingId);
-    workingProfile = toProfileSnapshot(loaded);
-    workingProfileMeta = profiles.find((p) => p.id === workingId) ?? null;
-    bindings = loaded.roomBindings.map((b) => ({
-      id: b.id,
-      unitSpaceId: b.unitSpaceId,
-      archetypeId: b.archetypeId,
-    }));
-    exceptions = loaded.roomExceptions.map((e) => ({
-      id: e.id,
-      unitSpaceId: e.unitSpaceId,
-      areaExperienceId: e.areaExperienceId,
-      mode: e.mode,
-      configuration:
-        e.configurationJson &&
-        typeof e.configurationJson === "object" &&
-        !Array.isArray(e.configurationJson)
-          ? (e.configurationJson as RoomExceptionSnapshot["configuration"])
-          : null,
-      reason: e.reason,
-    }));
-  }
+  void workingId;
 
   const assigned: Array<{
     space: UnitHierarchyNode["childSpaces"][number];
@@ -291,9 +232,7 @@ export async function loadDepartmentAdminView(input: {
   }
   collectMeta(hierarchy.units);
 
-  const archetypeById = new Map(
-    (workingProfile?.archetypes ?? []).map((a) => [a.id, a]),
-  );
+  const archetypeById = new Map<string, { id: string; key: string; name: string }>();
   const bindingByRoom = new Map(bindings.map((b) => [b.unitSpaceId, b]));
   const exceptionCountByRoom = new Map<string, number>();
   for (const exception of exceptions) {
@@ -349,61 +288,10 @@ export async function loadDepartmentAdminView(input: {
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-  let certification: CertificationResult | null = null;
-  if (workingProfile && loaded) {
-    const roomContexts = toRoomContexts(
-      rooms,
-      department.id,
-      input.facilityId,
-      hierarchySpaceMeta,
-    );
-    // Include bound rooms that might not be in the assigned list (should not happen).
-    for (const binding of bindings) {
-      if (!roomContexts.some((r) => r.id === binding.unitSpaceId)) {
-        const meta = hierarchySpaceMeta.get(binding.unitSpaceId);
-        roomContexts.push({
-          id: binding.unitSpaceId,
-          facilityId: input.facilityId,
-          isActive: meta?.isActive ?? true,
-          unitId: meta?.unitId ?? null,
-          parentHierarchyRole: meta?.parentHierarchyRole ?? null,
-          assignedDepartmentIds: [department.id],
-        });
-      }
-    }
+  const certification: CertificationResult | null = null;
 
-    certification = validateProfileForCertification({
-      profile: workingProfile,
-      bindings,
-      exceptions: loaded.roomExceptions.map((e) => ({
-        id: e.id,
-        unitSpaceId: e.unitSpaceId,
-        areaExperienceId: e.areaExperienceId,
-        mode: e.mode,
-        configuration:
-          e.configurationJson &&
-          typeof e.configurationJson === "object" &&
-          !Array.isArray(e.configurationJson)
-            ? (e.configurationJson as Record<string, string | number | boolean | readonly string[] | readonly number[]>)
-            : null,
-        reason: e.reason,
-      })),
-      rooms: roomContexts,
-      facility: { id: input.facilityId },
-      department: {
-        id: department.id,
-        facilityId: input.facilityId,
-        isActive: department.isActive,
-      },
-    });
-  }
-
-  const mappedRooms = rooms.filter((r) => r.binding).length;
-  const activeExperiences = workingProfile
-    ? workingProfile.areas
-        .filter((a) => a.isActive)
-        .flatMap((a) => a.experiences.filter((e) => e.isActive)).length
-    : 0;
+  const mappedRooms = 0;
+  const activeExperiences = 0;
 
   const roomPatternBySpaceId = new Map<
     string,
@@ -445,7 +333,7 @@ export async function loadDepartmentAdminView(input: {
     profiles,
     workingProfile,
     workingProfileMeta,
-    editable: workingProfileMeta?.status === "DRAFT",
+    editable: false,
     certification,
     rooms,
     locations,
@@ -458,9 +346,8 @@ export async function loadDepartmentAdminView(input: {
       mappedRooms,
       unmappedRooms: rooms.length - mappedRooms,
       activeExperiences,
-      activeAreas: workingProfile?.areas.filter((a) => a.isActive).length ?? 0,
-      activeArchetypes:
-        workingProfile?.archetypes.filter((a) => a.isActive).length ?? 0,
+      activeAreas: 0,
+      activeArchetypes: 0,
     },
   };
 }

@@ -79,8 +79,8 @@ function normalizedNodeKind(input: ValidateCycleInput): OperationalCycleNodeKind
   return input.nodeKind ?? "PERIOD";
 }
 
-function hasLegacyRoomTypeScope(input: ValidateCycleInput): boolean {
-  return input.locationMode === "ROOM_TYPE" && Boolean(input.roomTypeKey?.trim());
+function hasLegacyRoomTypeScope(_input: ValidateCycleInput): boolean {
+  return false;
 }
 
 /** Location scopes intersect when both could apply to the same unit. */
@@ -90,11 +90,6 @@ export function locationScopesIntersect(
 ): boolean {
   if (a.locationMode === "ALL_DEPARTMENT_UNITS" || b.locationMode === "ALL_DEPARTMENT_UNITS") {
     return true;
-  }
-
-  if (a.locationMode === "UNIT_TYPES" && b.locationMode === "UNIT_TYPES") {
-    const setB = new Set(b.applicableUnitTypes);
-    return a.applicableUnitTypes.some((t) => setB.has(t));
   }
 
   if (a.locationMode === "EXPLICIT_UNITS" && b.locationMode === "EXPLICIT_UNITS") {
@@ -415,20 +410,6 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
       issue(
         "milestones_retired",
         "Meal timing uses Key Points. Ready and Service Started are no longer milestones on the Cycle.",
-        "error",
-      ),
-    );
-  }
-
-  if (
-    input.locationMode === "UNIT_TYPES" ||
-    input.locationMode === "ROOM_TYPE" ||
-    input.locationMode === "OPERATIONAL_TYPES"
-  ) {
-    errors.push(
-      issue(
-        "location_targeting_retired",
-        "Choose all locations this department is responsible for, or select specific locations. Unit type, room type, and Location Function no longer choose where a Cycle runs.",
         "error",
       ),
     );

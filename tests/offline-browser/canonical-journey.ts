@@ -35,7 +35,6 @@ export async function prepareCanonicalResponsibility(page: Page, fx: CanonicalOf
       await form.getByRole("button", { name: "Confirm plan", exact: true }).click();
       await expect.poll(async () => (await db.operationalAssignmentPlan.findUniqueOrThrow({ where: { id: plan.id } })).status).toBe("CONFIRMED");
     }
-    expect((await db.departmentOperationalProfile.findUniqueOrThrow({ where: { id: fx.profileId } })).status).toBe("ACTIVE");
     expect((await db.departmentOperationalCycle.findUniqueOrThrow({ where: { id: fx.cycleId } })).status).toBe("PUBLISHED");
     expect((await db.departmentOperationalCycle.findUniqueOrThrow({ where: { id: fx.keyPointId } })).status).toBe("PUBLISHED");
   } finally { await db.$disconnect(); }

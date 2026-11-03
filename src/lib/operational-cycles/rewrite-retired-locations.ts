@@ -16,7 +16,7 @@ export function planRetiredCycleLocation(input: {
   units: readonly { id: string; unitType: string; active?: boolean }[];
   spaces: readonly { id: string; roomTypeKey: string | null; active?: boolean }[];
 }): RetiredCycleLocationPlan {
-  if (input.locationMode !== "UNIT_TYPES" && input.locationMode !== "ROOM_TYPE") {
+  if (String(input.locationMode) !== "UNIT_TYPES" && String(input.locationMode) !== "ROOM_TYPE") {
     return { action: "leave" };
   }
 

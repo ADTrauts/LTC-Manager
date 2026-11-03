@@ -104,19 +104,6 @@ export function normalizeAttachmentTarget(input: AttachmentTargetInput): {
         operationalTypeKey: null,
         target: { kind: "FACILITY" },
       };
-    case "OPERATIONAL_TYPE":
-      if (!operationalTypeKey || setCount !== 1) {
-        throw new Error("OPERATIONAL_TYPE target requires exactly operationalTypeKey.");
-      }
-      return {
-        targetKind: "OPERATIONAL_TYPE",
-        assetId: null,
-        spaceId: null,
-        unitId: null,
-        targetDepartmentId: null,
-        operationalTypeKey,
-        target: { kind: "OPERATIONAL_TYPE", operationalTypeKey },
-      };
   }
 }
 
@@ -127,9 +114,6 @@ export async function validateAttachmentTarget(input: {
   target: AttachmentTargetInput;
 }): Promise<ReturnType<typeof normalizeAttachmentTarget>> {
   const normalized = normalizeAttachmentTarget(input.target);
-  if (normalized.targetKind === "OPERATIONAL_TYPE") {
-    throw new Error("Place on a room, department, or Facility type.");
-  }
   const { client, facilityId } = input;
 
   if (normalized.targetKind === "ASSET" && normalized.assetId) {

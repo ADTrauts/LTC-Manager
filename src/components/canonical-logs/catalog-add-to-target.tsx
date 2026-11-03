@@ -21,7 +21,6 @@ const KIND_ORDER: CatalogAssignKind[] = [
   "ASSET",
   "UNIT",
   "DEPARTMENT",
-  "OPERATIONAL_TYPE",
 ];
 
 export function CatalogAddToTarget({ view }: Props) {
@@ -206,11 +205,7 @@ export function CatalogAddToTarget({ view }: Props) {
                 {view.recommendedCadenceLabel}
                 {view.timingSummary ? ` · ${view.timingSummary}` : ""}
               </p>
-              {kind === "OPERATIONAL_TYPE" ? (
-                <p className="mt-1 text-xs text-zinc-500">
-                  These leftover assignments no longer apply to rooms. Remove them, then choose rooms.
-                </p>
-              ) : kind === "SPACE" ? (
+              {kind === "SPACE" ? (
                 <p className="mt-1 text-xs text-zinc-500">
                   Filters only narrow this list. Saving stores the selected rooms.
                 </p>

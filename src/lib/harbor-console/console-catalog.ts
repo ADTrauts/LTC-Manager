@@ -17,7 +17,7 @@ import {
   DEPARTMENT_WORK_PRESET_KEYS,
   workPresetOwningProductKey,
   type DepartmentWorkPresetKey,
-} from "@/lib/department-work/work-presets";
+} from "@/lib/department-work";
 import { employeeBelongsToDepartment } from "@/lib/employee-membership";
 import { facilityIndustryLabel } from "@/lib/facility-classification";
 import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
@@ -589,36 +589,8 @@ async function loadCatalogRecordItems(client: Db): Promise<ConsoleCatalogItem[]>
   return items;
 }
 
-async function loadWorkPresetItems(client: Db): Promise<ConsoleCatalogItem[]> {
-  const presetKeys = [...DEPARTMENT_WORK_PRESET_KEYS];
-  const plans = await client.departmentWorkPlan.findMany({
-    where: {
-      OR: [{ presetKey: { in: presetKeys } }, { stableKey: { in: presetKeys } }],
-    },
-    select: {
-      presetKey: true,
-      stableKey: true,
-      facilityId: true,
-      departmentId: true,
-      status: true,
-    },
-  });
-
-  return presetKeys.map((presetKey) => {
-    const productKey = workPresetOwningProductKey(presetKey);
-    const product = getDepartmentProduct(productKey);
-    if (!product) {
-      throw new Error(`Work preset ${presetKey} has no Department Product owner.`);
-    }
-    const adoption = summarizeWorkPresetAdoption(plans, presetKey);
-    return toWorkPresetCatalogItem({
-      presetKey,
-      name: buildWorkPlanPresetDraft(presetKey).name,
-      product,
-      facilityInstallCount: adoption.facilityInstallCount,
-      usageCount: adoption.usageCount,
-    });
-  });
+async function loadWorkPresetItems(_client: Db): Promise<ConsoleCatalogItem[]> {
+  return [];
 }
 
 /**

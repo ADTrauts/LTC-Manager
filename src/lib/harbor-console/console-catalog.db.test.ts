@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 
-import { DEPARTMENT_WORK_PRESET_KEYS } from "@/lib/department-work/work-presets";
+import { DEPARTMENT_WORK_PRESET_KEYS } from "@/lib/department-work";
 
 import { listConsoleCatalogItems, type ConsoleCatalogItem } from "./console-catalog";
 

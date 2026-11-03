@@ -8,6 +8,8 @@
 
 This registry answers a narrower question: **what Vssyl already owns, and how new work must reuse or extend that owner.** If this registry conflicts with the Constitution, the Constitution wins.
 
+**November 3, 2026.** Location Function, Operational Type, Department profiles, archetypes, Experiences, Operational Areas, and generic Work are retired. A row below that still names them is history. Do not extend it. The [November 3 foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--november-3-2026) wins.
+
 | Document | What it owns |
 |----------|----------------|
 | [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md) | The platform map and the plug-in contract |

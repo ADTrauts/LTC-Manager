@@ -157,13 +157,6 @@ export function scopeGroupLabel(input: {
   spaceIds?: readonly string[];
   locationNames?: Readonly<Record<string, string>>;
 }): string {
-  if (
-    input.locationMode === "OPERATIONAL_TYPES" ||
-    input.locationMode === "ROOM_TYPE" ||
-    input.locationMode === "UNIT_TYPES"
-  ) {
-    return "Choose locations again";
-  }
   if (input.locationMode === "EXPLICIT_UNITS") {
     const names = input.locationNames ?? {};
     const ids = [...(input.spaceIds ?? []), ...(input.unitIds ?? [])];
@@ -184,13 +177,6 @@ export function describeUserFacingScope(input: {
   spaceIds?: readonly string[];
   locationNames?: Readonly<Record<string, string>>;
 }): string {
-  if (
-    input.locationMode === "OPERATIONAL_TYPES" ||
-    input.locationMode === "ROOM_TYPE" ||
-    input.locationMode === "UNIT_TYPES"
-  ) {
-    return "Choose locations again";
-  }
   if (input.locationMode === "EXPLICIT_UNITS") {
     const names = input.locationNames ?? {};
     const labels = [...(input.spaceIds ?? []), ...(input.unitIds ?? [])].map(
@@ -330,13 +316,7 @@ export function mealTimeNeighborhoodCandidates(input: {
     }
   };
 
-  if (input.locationMode === "ROOM_TYPE" && input.roomTypeKey) {
-    for (const id of neighborhoodIdsFromScopedRooms(
-      roomsMatchingRoomType(rooms, input.roomTypeKey),
-    )) {
-      add(id, true);
-    }
-  } else if (input.locationMode === "EXPLICIT_UNITS") {
+  if (input.locationMode === "EXPLICIT_UNITS") {
     for (const unitId of input.unitIds ?? []) add(unitId);
     for (const spaceId of input.spaceIds ?? []) {
       add(rooms.find((room) => room.id === spaceId)?.neighborhoodId, true);
@@ -371,16 +351,6 @@ export function validateCycleScopeAgainstCatalog(input: {
   const spaceIds = new Set(
     input.locations.filter((row) => row.kind === "room").map((row) => row.id),
   );
-
-  if (
-    input.locationMode === "OPERATIONAL_TYPES" ||
-    input.locationMode === "ROOM_TYPE" ||
-    input.locationMode === "UNIT_TYPES"
-  ) {
-    errors.push(
-      "Choose all locations this department is responsible for, or selected locations.",
-    );
-  }
 
   if (input.locationMode === "EXPLICIT_UNITS") {
     for (const unitId of input.unitIds ?? []) {

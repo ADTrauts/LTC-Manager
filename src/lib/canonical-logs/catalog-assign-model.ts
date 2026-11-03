@@ -60,8 +60,7 @@ export function parseTargetAssignKey(
     kind !== "ASSET" &&
     kind !== "SPACE" &&
     kind !== "UNIT" &&
-    kind !== "DEPARTMENT" &&
-    kind !== "OPERATIONAL_TYPE"
+    kind !== "DEPARTMENT"
   ) {
     return null;
   }

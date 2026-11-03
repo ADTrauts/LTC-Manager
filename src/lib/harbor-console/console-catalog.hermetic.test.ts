@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { DEPARTMENT_WORK_PRESET_KEYS, WORK_PRESET_PRODUCT_KEYS } from "@/lib/department-work/work-presets";
+import { DEPARTMENT_WORK_PRESET_KEYS, WORK_PRESET_PRODUCT_KEYS } from "@/lib/department-work";
 import { getDepartmentProduct, listDepartmentProducts } from "@/lib/department-products/registry";
 
 import {

@@ -5,7 +5,7 @@ import { EmployeeStatus, RoleKey } from "@prisma/client";
 
 import type { AppRole } from "@/lib/access";
 import { decideAssetOperationsAuthority } from "@/lib/asset-operations/authority";
-import { decideWorkAuthority } from "@/lib/department-work/authority";
+import { decideWorkAuthority } from "@/lib/department-work";
 import { decideJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
 import { decideEvidenceAuthority } from "@/lib/operational-evidence/evidence-authority";
 import { decideOperationalRequestAuthority } from "@/lib/operational-requests/authority";

@@ -88,7 +88,7 @@ export function planMealServiceDayExpectations(input: {
       configuredByUnit.set(row.unitId, row.configuredTime);
     }
 
-    const instantiateAllCandidates = cycle.locationMode === "ROOM_TYPE";
+    const instantiateAllCandidates = false;
 
     const unitIds = instantiateAllCandidates
       ? candidates.map((row) => row.unitId)

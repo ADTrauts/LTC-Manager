@@ -44,8 +44,8 @@ export async function installPlantStarterAction(input: {
     departmentId: input.departmentId,
     selectedIds: input.selectedIds,
     actor: {
-      userId: sessionUserIdForFk(session),
-      label: session.name || session.email || null,
+      userId: sessionUserIdForFk(session) ?? "",
+      label: session.name || session.email || "Manager",
     },
   });
   revalidatePath(`/build/departments/${input.departmentId}`);

@@ -76,7 +76,6 @@ function overrideKind(reason: string, oldUnitId: string | null, newUnitId: strin
 }
 
 function spaceIdsForAttachment(segment: LogAttachmentForResolve): string[] {
-  if (segment.targetKind === "OPERATIONAL_TYPE") return [];
   if (segment.targetKind === "SPACE" && segment.spaceId) return [segment.spaceId];
   return [];
 }

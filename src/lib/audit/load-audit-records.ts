@@ -45,21 +45,16 @@ export async function loadAuditOperationalRecords(
   const endExclusive = facilityLocalDateToServiceDate(shiftDate(input.toDateKey, 1));
 
   const [profiles, attachments, records, waivers, placeNames, spaces] = await Promise.all([
-    client.departmentOperationalProfile.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        status: { in: ["ACTIVE", "RETIRED", "CERTIFIED"] },
-      },
-      select: {
-        id: true,
-        departmentId: true,
-        version: true,
-        status: true,
-        activatedAt: true,
-        retiredAt: true,
-      },
-    }),
+    Promise.resolve(
+      [] as {
+        id: string;
+        departmentId: string;
+        version: number;
+        status: "ACTIVE" | "RETIRED" | "CERTIFIED";
+        activatedAt: Date | null;
+        retiredAt: Date | null;
+      }[],
+    ),
     client.logAttachment.findMany({
       where: { facilityId: input.facilityId, departmentId: input.departmentId },
       include: {
@@ -95,18 +90,11 @@ export async function loadAuditOperationalRecords(
     }),
   ]);
 
-  const profileIds = profiles.map((row) => row.id);
-  const bindings =
-    profileIds.length === 0
-      ? []
-      : await client.departmentRoomArchetypeBinding.findMany({
-          where: { profileId: { in: profileIds } },
-          select: {
-            profileId: true,
-            unitSpaceId: true,
-            archetype: { select: { key: true, name: true, isActive: true } },
-          },
-        });
+  const bindings: {
+    profileId: string;
+    unitSpaceId: string;
+    archetype: { key: string; name: string; isActive: boolean };
+  }[] = [];
 
   const placeFacts: PlaceNameChangeFact[] = placeNames.map((row) => ({
     placeId: row.unitSpaceId ?? row.unitId ?? "",

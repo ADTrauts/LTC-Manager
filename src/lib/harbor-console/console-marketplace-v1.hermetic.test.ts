@@ -11,7 +11,7 @@ import { getDepartmentProduct, listDepartmentProducts } from "@/lib/department-p
 import {
   DEPARTMENT_WORK_PRESET_KEYS,
   workPresetOwningProductKey,
-} from "@/lib/department-work/work-presets";
+} from "@/lib/department-work";
 
 import {
   formatMarketplaceInstallCount,

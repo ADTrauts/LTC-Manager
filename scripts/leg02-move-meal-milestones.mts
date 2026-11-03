@@ -99,11 +99,12 @@ await prisma.$transaction(async (tx) => {
           parent.applicableDaysOfWeek.length > 0 ? parent.applicableDaysOfWeek : [0, 1, 2, 3, 4, 5, 6],
         effectiveFrom: parent.effectiveFrom,
         mealType: null,
-        locationMode: create.plan.locationMode,
+        locationMode:
+          create.plan.locationMode === "ALL_DEPARTMENT_UNITS" ||
+          create.plan.locationMode === "EXPLICIT_UNITS"
+            ? create.plan.locationMode
+            : "ALL_DEPARTMENT_UNITS",
         locationInheritFromParent: false,
-        applicableUnitTypes: [],
-        applicableOperationalTypeKeys: [],
-        roomTypeKey: null,
         expectedMilestones: [],
         occurrenceTracking: create.plan.occurrenceTracking ?? "REQUIRED",
         keyPointGrain: create.plan.keyPointGrain ?? "LOCATION",

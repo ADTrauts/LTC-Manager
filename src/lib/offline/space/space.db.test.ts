@@ -196,7 +196,7 @@ test("space SQL: online and replay share canonical completion locks", { skip }, 
     if (outcomes[0][0]!.status === "unknown")
         await syncSpace(db, f.session, [cmd], f.device);
     assert.equal(await db.operationalCycleKeyPointActual.count({ where: { facilityId: f.facilityId } }), 1);
-    const work = f.command(p.bundle), { resolveUnitWorkRequirements } = await import("@/lib/department-work/load-runtime-work"), { completeExplicit } = await import("@/lib/department-work/occurrence-service");
+    const work = f.command(p.bundle), { resolveUnitWorkRequirements } = await import("@/lib/department-work"), { completeExplicit } = await import("@/lib/department-work");
     const requirements = await resolveUnitWorkRequirements({ client: db, facilityId: f.facilityId, departmentId: f.departmentId, unitId: f.unitId, operationalDate: facilityLocalDateToServiceDate(p.bundle.operationalDate), operationalDateKey: p.bundle.operationalDate, now: new Date(), facilityTimezone: "America/New_York" });
     const [replay] = await Promise.all([syncSpace(db, f.session, [work], f.device), completeExplicit(f.session, { facilityId: f.facilityId, departmentId: f.departmentId, requirement: requirements.find(r => r.occurrenceKey === work.target)!, operationalDate: p.bundle.operationalDate, actor: { userId: f.session.uid, employeeId: f.people.worker.employeeId }, client: db })]);
     if (replay[0]!.status === "unknown")
@@ -206,7 +206,7 @@ test("space SQL: online and replay share canonical completion locks", { skip }, 
 }));
 test("space SQL: supervisor not-required direction conflicts instead of implicit completion",{skip},()=>run(async db=>{
  const f=await fixture(db),p=await f.prepare(),cmd=f.command(p.bundle);
- const {resolveUnitWorkRequirements}=await import("@/lib/department-work/load-runtime-work"),{markNotRequired}=await import("@/lib/department-work/occurrence-service");
+ const {resolveUnitWorkRequirements}=await import("@/lib/department-work"),{markNotRequired}=await import("@/lib/department-work");
  const requirements=await resolveUnitWorkRequirements({client:db,facilityId:f.facilityId,departmentId:f.departmentId,unitId:f.unitId,operationalDate:facilityLocalDateToServiceDate(p.bundle.operationalDate),operationalDateKey:p.bundle.operationalDate,now:new Date(),facilityTimezone:"America/New_York"});
  const manager={...f.session,uid:f.people.manager.userId,email:f.people.manager.email,role:"GM" as const};
  await db.$transaction(tx=>markNotRequired(manager,{facilityId:f.facilityId,departmentId:f.departmentId,requirement:requirements.find(r=>r.occurrenceKey===cmd.target)!,operationalDate:p.bundle.operationalDate,actor:{userId:manager.uid},reason:"Manager deferred this check",client:tx}));

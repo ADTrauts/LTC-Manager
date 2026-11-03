@@ -92,12 +92,10 @@ function rowScopeLabel(
     operationalTypeNames[type.key] = type.name;
   }
   return scopeGroupLabel({
-    locationMode: row.locationMode as
-      | "ALL_DEPARTMENT_UNITS"
-      | "UNIT_TYPES"
-      | "EXPLICIT_UNITS"
-      | "ROOM_TYPE"
-      | "OPERATIONAL_TYPES",
+    locationMode:
+      row.locationMode === "ALL_DEPARTMENT_UNITS" || row.locationMode === "EXPLICIT_UNITS"
+        ? row.locationMode
+        : "EXPLICIT_UNITS",
     roomTypeKey: row.roomTypeKey,
     applicableOperationalTypeKeys: row.applicableOperationalTypeKeys,
     operationalTypeNames,

@@ -50,8 +50,8 @@ export function isDepartmentAssetOperationsEnabled(
   return sharedEngineEnabled(key);
 }
 
-export function isDepartmentWorkPlansEnabled(key: string | null | undefined): boolean {
-  return sharedEngineEnabled(key);
+export function isDepartmentWorkPlansEnabled(_key: string | null | undefined): boolean {
+  return false;
 }
 
 export async function isDepartmentEngineEnabledForFacility(

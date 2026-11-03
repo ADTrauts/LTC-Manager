@@ -1,17 +1,15 @@
-export type {
-  TodaysExpectedWorkCurrentGroupView,
-  TodaysExpectedWorkItemView,
-  TodaysExpectedWorkLocationView,
-  TodaysExpectedWorkPlanView,
-  TodaysExpectedWorkUpcomingView,
-  TodaysExpectedWorkView,
-} from "./types";
+import { emptyTodaysExpectedWork, type TodaysExpectedWorkView } from "./types";
 
 export {
-  presentExpectedWorkFromRequirements,
+  emptyTodaysExpectedWork,
   todaysExpectedWorkHasVisibleWork,
-  type AssignmentDisplayForTodayWork,
-  type PresentExpectedWorkInput,
-} from "./present-expected-work";
-
+  type TodaysExpectedWorkItemView,
+  type TodaysExpectedWorkLocationView,
+  type TodaysExpectedWorkPlanView,
+  type TodaysExpectedWorkView,
+} from "./types";
 export { loadTodaysExpectedWork } from "./load-expected-work";
+
+export function presentExpectedWorkFromRequirements(): TodaysExpectedWorkView {
+  return emptyTodaysExpectedWork();
+}

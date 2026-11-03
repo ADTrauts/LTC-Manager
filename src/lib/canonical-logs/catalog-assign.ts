@@ -86,11 +86,7 @@ function liveAssignmentMap(
           ? current.spaceId
           : kind === "UNIT"
             ? current.unitId
-            : kind === "OPERATIONAL_TYPE"
-              ? current.operationalTypeKey && current.departmentId
-                ? operationalTypeAssignId(current.departmentId, current.operationalTypeKey)
-                : null
-              : current.targetDepartmentId;
+            : current.targetDepartmentId;
     if (!id) continue;
     map.set(targetAssignKey(kind, id), current.id);
     if (kind === "SPACE" && current.spaceId && current.departmentId) {
@@ -245,7 +241,6 @@ export async function loadCatalogAssignView(input: {
         spaceId: true,
         unitId: true,
         targetDepartmentId: true,
-        operationalTypeKey: true,
         departmentId: true,
       },
     }),
@@ -512,29 +507,6 @@ export async function loadCatalogAssignView(input: {
     };
   });
 
-  const leftoverOperationalTypeRows: CatalogAssignTargetRow[] = [];
-  for (const [key, attachmentId] of assigned) {
-    const parsed = parseTargetAssignKey(key);
-    if (parsed?.kind !== "OPERATIONAL_TYPE") continue;
-    const operationalType = parseOperationalTypeAssignId(parsed.id);
-    if (!operationalType) continue;
-    const department = departments.find((row) => row.id === operationalType.departmentId);
-    leftoverOperationalTypeRows.push({
-      key,
-      kind: "OPERATIONAL_TYPE",
-      id: parsed.id,
-      label: operationalType.operationalTypeKey,
-      groupLabel: department?.name ?? null,
-      departmentId: operationalType.departmentId,
-      departmentName: department?.name ?? null,
-      suggested: false,
-      assigned: true,
-      attachmentId,
-      disabled: false,
-      disabledReason: null,
-    });
-  }
-
   return {
     catalogStableKey: catalog.stableKey,
     catalogName: catalog.name,
@@ -547,15 +519,6 @@ export async function loadCatalogAssignView(input: {
     effectiveFromKey: effective.effectiveFromKey,
     effectiveLabel: effective.label,
     categories: [
-      ...(leftoverOperationalTypeRows.length > 0
-        ? [
-            {
-              kind: "OPERATIONAL_TYPE" as const,
-              label: "Remove these assignments",
-              targets: leftoverOperationalTypeRows,
-            },
-          ]
-        : []),
       { kind: "SPACE", label: "Rooms", targets: spaceRows },
       { kind: "ASSET", label: "Assets", targets: assetRows },
       { kind: "UNIT", label: "Units", targets: unitRows },
@@ -634,7 +597,6 @@ export async function applyCatalogAssignSelection(input: {
     for (const key of diff.addKeys) {
       const row = byKey.get(key);
       if (!row?.departmentId) continue;
-      if (row.kind === "OPERATIONAL_TYPE") continue;
       const timing = await timingFor(row.departmentId);
       if (timing.needsSetup) continue;
       const target =

@@ -49,7 +49,7 @@ function LocationWorkList({ locations }: { locations: TodaysExpectedWorkLocation
                           <p className="ml-5 text-xs text-zinc-600">{item.statusLabel}</p>
                         ) : null}
                       </div>
-                      {item.canConfirm && item.unitId ? (
+                      {item.canConfirm && item.unitId && item.facilityId && item.departmentId ? (
                         <TodaysWorkConfirmWorkButton
                           facilityId={item.facilityId}
                           departmentId={item.departmentId}

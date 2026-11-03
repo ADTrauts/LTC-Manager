@@ -5,7 +5,6 @@ import { notFound, redirect } from "next/navigation";
 import { FacilityFormsSection } from "@/app/(protected)/admin/departments/[departmentId]/facility-forms-section";
 import { DepartmentMenusPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-menus-panel";
 import { RecordEnginePanel } from "@/app/(protected)/admin/departments/[departmentId]/record-engine-panel";
-import { DepartmentWorkPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-work-panel";
 import { DepartmentAdminLocalNav } from "@/app/(protected)/admin/departments/[departmentId]/local-nav";
 import { LocationsPanel } from "@/app/(protected)/admin/departments/[departmentId]/locations-panel";
 import { OperatingRhythmSection } from "@/app/(protected)/admin/departments/[departmentId]/operating-rhythm-section";
@@ -126,16 +125,9 @@ export default async function DepartmentBuilderPage({
   }
 
   const profileId = view.workingProfileMeta?.id ?? null;
-  const product = getDepartmentProduct(view.department.key);
-  const workEnabled =
-    view.department.key === "PLANT" ||
-    Boolean(product?.starters.workPresets) ||
-    contextSummary.publishedWorkPlanCount > 0 ||
-    contextSummary.draftWorkPlanCount > 0;
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
   const availableTabs = departmentAdminTabsForFlags({
     locationsEnabled: true,
-    workEnabled,
     recordsEnabled: canonicalLogsEnabled,
     menusEnabled: departmentProductOffersMenus(view.department.key),
     maintenanceEnabled: view.department.key === "PLANT",
@@ -284,7 +276,7 @@ export default async function DepartmentBuilderPage({
   return (
     <SetupBuilderFrame active={setupWorkspace}>
     <div className="space-y-3" data-testid="department-builder">
-      <SetupWorkspaceLink role={session.role} returned={setupWorkspace && product?.productKey ? `department:${product.productKey}` : undefined} />
+      <SetupWorkspaceLink role={session.role} returned={setupWorkspace ? `department:${view.department.key}` : undefined} />
       <DepartmentBuildContextBar
         departmentId={view.department.id}
         departmentName={view.department.name}
@@ -335,19 +327,6 @@ export default async function DepartmentBuilderPage({
             facilityId={session.facilityId}
             departmentId={view.department.id}
             departmentKey={view.department.key}
-          />
-        ) : null}
-        {tab === "work" ? (
-          <DepartmentWorkPanel
-            departmentName={view.department.name}
-            departmentKey={view.department.key}
-            publishedCount={contextSummary.publishedWorkPlanCount}
-            draftCount={contextSummary.draftWorkPlanCount}
-            unmatchedLocationFunctions={settings.guidanceRows.some(
-              (row) => row.id === "work" && row.description.includes("no bound room"),
-            )}
-            locationsHref={departmentAdminHref(view.department.id, "locations", profileId, setupWorkspace)}
-            starterHref={canInstallStarter ? `/build/departments/${view.department.id}?starter=1` : null}
           />
         ) : null}
         {tab === "people" ? (

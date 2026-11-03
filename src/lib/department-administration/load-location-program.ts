@@ -125,7 +125,6 @@ async function loadProgramsForDepartmentRooms(input: {
             requiredCount: true,
             unitId: true,
             spaceId: true,
-            applicableOperationalTypeKeys: true,
             applicableOperationalCycleStableKeys: true,
           },
         },

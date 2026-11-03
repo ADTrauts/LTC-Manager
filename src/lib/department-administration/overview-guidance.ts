@@ -145,44 +145,12 @@ export function formatPeopleGuidance(memberCount: number): {
   };
 }
 
-export function formatWorkGuidance(input: {
+export function formatWorkGuidance(_input: {
   departmentKey: string;
   publishedWorkPlanCount: number;
   draftWorkPlanCount: number;
 }): { applicable: boolean; status: string; actionLabel: string } {
-  const product = getDepartmentProduct(input.departmentKey);
-  const hasPresets = Boolean(product?.starters.workPresets);
-  if (
-    !hasPresets &&
-    input.departmentKey !== "PLANT" &&
-    input.publishedWorkPlanCount === 0 &&
-    input.draftWorkPlanCount === 0
-  ) {
-    return { applicable: false, status: "", actionLabel: "" };
-  }
-  if (input.publishedWorkPlanCount === 0 && input.draftWorkPlanCount === 0) {
-    return {
-      applicable: true,
-      status: "No recurring work configured",
-      actionLabel: "Configure work →",
-    };
-  }
-  const parts: string[] = [];
-  if (input.publishedWorkPlanCount > 0) {
-    parts.push(
-      input.publishedWorkPlanCount === 1
-        ? "1 live work plan"
-        : `${input.publishedWorkPlanCount} live work plans`,
-    );
-  }
-  if (input.draftWorkPlanCount > 0) {
-    parts.push(
-      input.draftWorkPlanCount === 1
-        ? "1 draft not live"
-        : `${input.draftWorkPlanCount} drafts not live`,
-    );
-  }
-  return { applicable: true, status: parts.join(" · "), actionLabel: "Configure work →" };
+  return { applicable: false, status: "", actionLabel: "" };
 }
 
 export function hasUnmatchedPublishedOperationalTypes(_input: {

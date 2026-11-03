@@ -98,13 +98,9 @@ async function resetPlantStarterRows(
   facilityId: string,
   departmentId: string,
 ) {
-  await db.departmentWorkPlan.deleteMany({
-    where: {
-      facilityId,
-      departmentId,
-      OR: [{ presetKey: { in: [...STARTER_WORK_KEYS] } }, { stableKey: { in: [...STARTER_WORK_KEYS] } }],
-    },
-  });
+  void db;
+  void facilityId;
+  void departmentId;
   await Promise.resolve();
 }
 

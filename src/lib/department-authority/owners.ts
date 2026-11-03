@@ -101,36 +101,18 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
       }),
     ),
 
-  locationFunctionProfile: async (db, { facilityId, id }) =>
-    owned(
-      await db.departmentOperationalProfile.findFirst({ where: { id, facilityId }, select: departmentIdSelect }),
-    ),
+  locationFunctionProfile: async () => null,
 
-  /** Room type inside a Location Function profile: the profile's Department. */
-  roomArchetype: async (db, { facilityId, id }) => {
-    const row = await db.departmentRoomArchetype.findFirst({
-      where: { id, profile: { facilityId } },
-      select: { profile: { select: departmentIdSelect } },
-    });
-    return owned(row?.profile ?? null);
-  },
+  roomArchetype: async () => null,
 
-  roomBinding: async (db, { facilityId, id }) => {
-    const row = await db.departmentRoomArchetypeBinding.findFirst({
-      where: { id, profile: { facilityId } },
-      select: { profile: { select: departmentIdSelect } },
-    });
-    return owned(row?.profile ?? null);
-  },
+  roomBinding: async () => null,
 
   departmentTeam: async (db, { facilityId, id }) =>
     owned(await db.departmentTeam.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
 
-  workPlan: async (db, { facilityId, id }) =>
-    owned(await db.departmentWorkPlan.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
+  workPlan: async () => null,
 
-  workOccurrence: async (db, { facilityId, id }) =>
-    owned(await db.departmentWorkOccurrence.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
+  workOccurrence: async () => null,
 
   menu: async (db, { facilityId, id }) =>
     owned(await db.menu.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
@@ -138,18 +120,9 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
   logAttachment: async (db, { facilityId, id }) =>
     owned(await db.logAttachment.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
 
-  logTypeDefault: async (db, { facilityId, id }) =>
-    owned(
-      await db.departmentFacilityTypeLogDefault.findFirst({ where: { id, facilityId }, select: departmentIdSelect }),
-    ),
+  logTypeDefault: async () => null,
 
-  logSuppression: async (db, { facilityId, id }) =>
-    owned(
-      await db.departmentLocationLogSuppression.findFirst({
-        where: { id, space: { facilityId } },
-        select: departmentIdSelect,
-      }),
-    ),
+  logSuppression: async () => null,
 
   evidenceTemplate: async () => null,
 

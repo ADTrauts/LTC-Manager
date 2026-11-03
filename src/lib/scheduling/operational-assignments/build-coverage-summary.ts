@@ -150,7 +150,7 @@ export async function buildDietaryCoverageSummary(
         requiredCount: item.requiredCount,
         unitId: item.unitId,
         spaceId: item.spaceId,
-        applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
+        applicableOperationalTypeKeys: [],
         applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       })),
     })) as CoverageTemplateVersionRow[],
