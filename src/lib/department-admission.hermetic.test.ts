@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
@@ -26,15 +26,10 @@ import { resolveOperationalCycle } from "@/lib/operational-cycles/resolve-operat
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
 import { decideJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
 import { decideOperationalRequestAuthority } from "@/lib/operational-requests";
-import {
-  listExperiencesByDepartment,
-  listOperationalAreasForDepartment,
-} from "@/lib/experiences";
 import { resolveEvidenceRequirements } from "@/lib/operational-evidence/resolve-requirements";
 import type { PublishedTemplateForResolve } from "@/lib/operational-evidence/types";
 import { resolveProjection } from "@/lib/projection/pipeline";
 import type { ProjectionSource } from "@/lib/projection/source";
-import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 
 /** Test-only key. Must not appear in production constants. */
 const AQUATICS = "AQUATICS";
@@ -133,10 +128,7 @@ describe("department admission — shared engines vs domain capabilities", () =>
   });
 
   it("does not grant a Location Function catalog", () => {
-    assert.deepEqual(listOperationalAreasForDepartment(AQUATICS), []);
-    assert.deepEqual(listExperiencesByDepartment(AQUATICS), []);
-    assert.deepEqual(listOperationalAreasForDepartment("DIETARY"), []);
-    assert.deepEqual(listExperiencesByDepartment("DIETARY"), []);
+    assert.equal(existsSync("src/lib/experiences"), false);
   });
 
   it("resolves a generic custom cycle without a compile-time department key", () => {
@@ -313,21 +305,15 @@ describe("department admission — shared engines vs domain capabilities", () =>
           key: AQUATICS,
           label: "Aquatics",
           isActive: true,
-          activeProfile: null,
           assignedRoomIds: [spaceId],
           assignedUnitIds: [],
-          archetypeBindings: [],
-          roomExceptions: [],
         },
       ],
       policies: [],
       revision: {
         hierarchyRevision: "h1",
         assignmentRevision: "a1",
-        profileRevision: "p1",
-        bindingRevision: "b1",
         policyRevision: "pol1",
-        experienceRegistryVersion: EXPERIENCE_REGISTRY_VERSION,
         accessClassRevision: "ac1",
       },
       resolvedAt: "2026-09-27T12:00:00.000Z",
@@ -431,9 +417,8 @@ describe("department admission — shared engines vs domain capabilities", () =>
       "src/lib/department-products/registry.ts",
       "src/lib/department-products/install.ts",
       "src/lib/feature-flags.ts",
-      "src/lib/experiences/operational-area-catalog.ts",
-      "src/lib/experiences/experience-catalog.ts",
     ];
+    assert.equal(existsSync("src/lib/experiences"), false);
     for (const relative of productionPaths) {
       const source = readFileSync(join(process.cwd(), relative), "utf8");
       assert.doesNotMatch(source, /AQUATICS/, relative);

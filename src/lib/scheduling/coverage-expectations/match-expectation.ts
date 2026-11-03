@@ -13,9 +13,7 @@ import type {
 
 export function describeCoverageApplicability(input: {
   source: CoverageProvenanceSource;
-  operationalTypeName?: string | null;
 }): string {
-  void input.operationalTypeName;
   return "Applied to this location";
 }
 
@@ -105,13 +103,10 @@ function toResolved(
     requiredCount: item.requiredCount,
     cycleStableKey: cycle?.stableKey ?? null,
     cycleLabel: cycle?.label ?? null,
-    operationalTypeKey: null,
-    operationalTypeName: null,
     unitId: item.unitId,
     provenance: source,
     detail: describeCoverageApplicability({
       source,
-      operationalTypeName: context.operationalTypeName,
     }),
   };
 }

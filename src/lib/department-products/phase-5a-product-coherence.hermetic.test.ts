@@ -110,7 +110,7 @@ test("Plant Builder exposes Work and Maintenance without Menus", () => {
   });
   assert.deepEqual(
     tabs.map((row) => row.id),
-    ["overview", "locations", "operating-rhythm", "work", "maintenance", "people", "records"],
+    ["overview", "locations", "operating-rhythm", "maintenance", "people", "records"],
   );
   const page = source("src/app/(protected)/admin/departments/[departmentId]/page.tsx");
   assert.match(page, /view\.department\.key === "PLANT"/);
@@ -127,7 +127,7 @@ test("Getting Started is derived guidance and never a persisted score", () => {
     recordCount: 0,
     publishedPmPlanCount: 0,
   });
-  assert.equal(rows.length, 10);
+  assert.equal(rows.length, 9);
   assert.equal(rows.find((row) => row.id === "starter")?.status, "optional");
   assert.equal(rows.find((row) => row.id === "operate")?.status, "ready");
   const gettingStarted = source("src/lib/department-administration/plant-getting-started.ts");

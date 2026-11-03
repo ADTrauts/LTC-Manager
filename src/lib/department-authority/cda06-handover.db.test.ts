@@ -30,7 +30,6 @@ import { searchEvidenceRecords } from "@/lib/operational-evidence/log-book";
 import { getFacilityServiceDate, toServiceDateKey } from "@/lib/operational-time";
 import { loadDepartmentDaySchedule } from "@/lib/scheduling/load-department-day-schedule";
 import { listMenus } from "@/lib/menu-db";
-import { loadPublishedWorkPlansForDate } from "@/lib/department-work";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 
 const databaseUrl = process.env.DEPARTMENT_WORK_TEST_DATABASE_URL || process.env.VERIFY_DATABASE_URL;
@@ -327,16 +326,6 @@ test("a vendor handover hides the previous period and keeps compliance Records",
     const menusFor = async () =>
       (await listMenus(prisma, { facilityId: facility.id, departmentId: department.id })).menus.map((menu) => menu.name);
     assert.deepEqual(await menusFor(), ["Sodexo menu"]);
-    assert.deepEqual(
-      (
-        await loadPublishedWorkPlansForDate({
-          facilityId: facility.id,
-          departmentId: department.id,
-          operationalDate: today,
-        })
-      ).map((plan) => plan.name),
-      [],
-    );
     assert.deepEqual(
       (
         await loadPublishedCyclesForLogsOnDate({

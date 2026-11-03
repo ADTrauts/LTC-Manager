@@ -30,8 +30,6 @@ export type CoverageExpectationItemInput = {
   requiredCount: number;
   unitId: string | null;
   spaceId: string | null;
-  /** Ignored. Coverage matching does not read Location Function. */
-  applicableOperationalTypeKeys?: readonly string[];
   applicableOperationalCycleStableKeys: readonly string[];
 };
 
@@ -39,8 +37,6 @@ export type CoverageLocationContext = {
   departmentId: string;
   spaceId: string;
   unitId: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
 };
 
 export type CoverageCycleRef = {
@@ -61,8 +57,6 @@ export type ResolvedCoverageExpectation = {
   requiredCount: number;
   cycleStableKey: string | null;
   cycleLabel: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
   unitId: string | null;
   provenance: CoverageProvenanceSource;
   detail: string;

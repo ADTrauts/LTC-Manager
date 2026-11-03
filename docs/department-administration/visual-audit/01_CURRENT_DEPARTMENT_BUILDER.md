@@ -11,28 +11,24 @@ flowchart TB
   DB["Department Builder<br/>/build/departments/:id"]
 
   DB --> OV["Overview<br/>CANON composition of install plus gaps"]
-  DB --> LOC["Locations<br/>label is still Locations"]
+  DB --> LOC["Facility<br/>Department responsibility"]
   DB --> RHY["Operating Rhythm<br/>CANON cycles, phases, key points"]
-  DB --> WRK["Work<br/>DUP generic Work Plans"]
-  DB --> MAI["Maintenance<br/>Plant only, separate route"]
-  DB --> PPL["People and Coverage<br/>renders TeamsPanel only"]
+  DB --> MAI["Preventive Maintenance<br/>Plant only, separate route"]
+  DB --> PPL["People and Coverage"]
   DB --> REC["Records<br/>when canonical logs are on"]
   DB --> MNU["Menus<br/>Food and Nutrition only"]
 
-  WRK -.-> WNOTE["Shown for Dietary, EVS, and Plant<br/>because each product still sets starters.workPresets"]
   MAI -.-> MNOTE["Href leaves the tab for<br/>/preventive-maintenance"]
   PPL -.-> PNOTE["Job Roles are not in this tab.<br/>They live at /employees/job-roles"]
   REC -.-> RNOTE["Also reachable from Build logs,<br/>not only this tab"]
 
   classDef canon fill:#e7f6ec,stroke:#1f7a3a,color:#1a2114
-  classDef dup fill:#fdecec,stroke:#9b2c2c,color:#1a2114
   classDef ext fill:#e8f1fb,stroke:#1d4e89,color:#1a2114
   class OV,LOC,RHY,PPL,REC canon
-  class WRK dup
   class MAI,MNU ext
 ```
 
-**Repo vs November 1.** The target shell is Overview / Facility / Operating Rhythm / People & Coverage / Records, plus Menus or Preventive Maintenance. The running shell still says Locations, still includes Work, and labels Plant’s extension Maintenance.
+The running shell is Overview, Facility, Operating Rhythm, People & Coverage, and Records, plus Menus or Preventive Maintenance. Generic Work is not a section.
 
 ## What sits under each section
 

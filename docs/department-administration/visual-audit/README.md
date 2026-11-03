@@ -2,11 +2,11 @@
 
 Review drawings only. Nothing in this folder changes production code, schema, or navigation.
 
-**Current** drawings describe the repository as it behaves today.
+**Current architecture.** Department Builder is Overview, Facility, Operating Rhythm, People & Coverage, and Records. Food & Nutrition adds Menus. Plant adds Preventive Maintenance. Facility Builder owns places and Department responsibility. Each engine owns its own location applicability.
+
+**Retired.** Location Function, Operational Type, Department Room Archetype, Department Operational Profile, Operational Area, Experience programming, and the generic Department Work Plan are not forward architecture. Drawings that still show those layers are historical.
 
 **Target** drawings began as the November 1, 2026 Department Builder decision. On November 2 that decision’s Location Function layer was retired. The trace is [08 — Location Function elimination audit](./08_LOCATION_FUNCTION_ELIMINATION_AUDIT.md). November 1 documents on [PR 5](https://github.com/ADTrauts/LTC-Manager/pull/5) are updated to match.
-
-Where the code and that decision disagree, the drawings say **Repo vs November 1**.
 
 | File | Visual |
 |---|---|
@@ -33,11 +33,11 @@ Example names such as “1A Naval Park,” “Resident Servery,” and “2 requ
 
 ## Decisions the visuals expose
 
-November 2 retired Location Function. Profile history for that key goes with it. Records keep explicit targets and drop the function-key target. These remain open.
+November 2 retired Location Function. November 3 removed the profile, Experience catalog, and generic Department Work. Coverage is `OperationalAssignmentTemplateItem` on a canonical room. A Team does not own rooms.
+
+These remain open for a later phase. This package does not start that phase.
 
 1. **Which list is Employee Builder “Role.”** `DepartmentJobRole` (generic tiers, not used by Run), the assignment-role catalog (`SERVER`, `COOK`, and the rest, which Coverage counts), `JobTitle`, and `RoleKey`. `RoleKey` is authority. The other three are not nested under Team.
-2. **Which coverage store survives.** `DepartmentTeamCycle.requiredCount` is what Location Program shows. `OperationalAssignmentTemplateItem.requiredCount` is what the evaluator uses. The surviving need must name canonical locations. The grain is still open.
-3. **What replaces team-owned rooms.** A Team does not own rooms. Whether Facility still shows a non-owning “usually served by” relationship is not named.
 4. **Who is the manager.** The Department head, `DepartmentStaffManager`, `DepartmentTeam.managerEmployeeId`, and the Job Role tier `MANAGER` are separate facts. `EmployeeDepartment.roleType` is a dormant `RoleKey` on membership.
 5. **Where rhythm participation is edited.** The cycle can already store explicit rooms. The Facility card shows the result and links to Operating Rhythm. Whether the card itself writes those ids is open.
 6. **Whether a room responsibility is “Primary.”** Neighborhood responsibility has PRIMARY, BACKUP, and SUPPORT. A room row is present or absent, plus a `capabilities` array.

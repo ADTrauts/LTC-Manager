@@ -1,14 +1,11 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import {
-  collectDepartmentActionableLocations,
-  groupLocationsByPhysicalHierarchy,
-  type DepartmentActionableLocation,
-  type DepartmentLocationFloorGroup,
+import type {
+  DepartmentActionableLocation,
+  DepartmentLocationFloorGroup,
 } from "@/lib/department-administration";
 import { loadDepartmentLocationsView } from "@/lib/department-administration/load-department-admin";
 import type { FacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
-import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
   normalizeMenuLocationTarget,
   selectEligibleMenuCycleIdentities,
@@ -24,24 +21,6 @@ import { prisma } from "@/lib/prisma";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
-async function loadRoomPatternBySpaceId(_input: {
-  client: DbClient;
-  facilityId: string;
-  departmentId: string;
-}) {
-  return new Map<
-    string,
-    {
-      archetypeKey: string;
-      archetypeName: string;
-      exceptionCount: number;
-      recommendedPatternKey: string | null;
-      spaceTypeLabel: string;
-      displayName: string;
-    }
-  >();
-}
-
 export async function loadDepartmentMenuLocations(input: {
   facilityId: string;
   departmentId: string;
@@ -51,27 +30,15 @@ export async function loadDepartmentMenuLocations(input: {
   locationHierarchy: DepartmentLocationFloorGroup[];
   vocabulary: FacilityVocabulary;
 } | null> {
-  const client = input.client ?? prisma;
   const view = await loadDepartmentLocationsView({
     facilityId: input.facilityId,
     departmentId: input.departmentId,
   });
   if (!view) return null;
 
-  const roomPatternBySpaceId = await loadRoomPatternBySpaceId({
-    client,
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-  });
-  const hierarchy = await loadFacilityHierarchy(input.facilityId);
-  const locations = collectDepartmentActionableLocations({
-    departmentId: input.departmentId,
-    units: hierarchy.units,
-    roomPatternBySpaceId,
-  });
   return {
-    locations,
-    locationHierarchy: groupLocationsByPhysicalHierarchy(locations),
+    locations: view.locations,
+    locationHierarchy: view.locationHierarchy,
     vocabulary: view.vocabulary,
   };
 }

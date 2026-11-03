@@ -150,7 +150,6 @@ export async function buildDietaryCoverageSummary(
         requiredCount: item.requiredCount,
         unitId: item.unitId,
         spaceId: item.spaceId,
-        applicableOperationalTypeKeys: [],
         applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       })),
     })) as CoverageTemplateVersionRow[],
@@ -233,8 +232,6 @@ export async function buildDietaryCoverageSummary(
         departmentId: input.departmentId,
         spaceId: space.id,
         unitId: space.unitId,
-        operationalTypeKey: null,
-        operationalTypeName: null,
       },
       cycles: locationCycles,
     });
@@ -246,8 +243,6 @@ export async function buildDietaryCoverageSummary(
           departmentId: input.departmentId,
           spaceId: space.id,
           unitId: space.unitId,
-          operationalTypeKey: null,
-          operationalTypeName: null,
         },
         cycles: cycleRefs,
       });

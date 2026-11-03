@@ -11,23 +11,6 @@ import { summarizeCoverage } from "../coverage-list";
 import { summarizeCallDowns } from "../call-down";
 import { summarizeHandoffs } from "../handoffs";
 
-import type {
-  TodaysWorkExperienceContributor,
-  TodaysWorkProjectionView,
-} from "./types";
-
-export type ExperienceWalkContribution = {
-  experienceKey: string;
-  label: string;
-  areaKey: string;
-  areaLabel: string;
-  order: number;
-  tools: TodaysWorkExperienceContributor["tools"];
-  actions: TodaysWorkExperienceContributor["actions"];
-  /** Walk items for this Experience's unit scope, ranked by engine priority. */
-  items: WalkListItem[];
-};
-
 export function filterWalkListToProjectedUnits(
   walk: WalkListData,
   projectedUnitIds: readonly string[],
@@ -96,41 +79,4 @@ export function filterHandoffsToProjectedUnits(
     summary: summarizeHandoffs(sections),
     isClear: allItems.length === 0,
   };
-}
-
-/**
- * Attach walk items to Experience contributors without reordering Experiences.
- * Priority within each Experience comes from the already-ranked walk list order.
- */
-export function assembleExperienceWalkContributions(
-  projection: TodaysWorkProjectionView,
-  walkItems: readonly WalkListItem[],
-): ExperienceWalkContribution[] {
-  const contributions: ExperienceWalkContribution[] = [];
-
-  for (const section of projection.sections) {
-    for (const area of section.areas) {
-      for (const experience of area.experiences) {
-        const unitPool =
-          experience.unitIds.length > 0
-            ? experience.unitIds
-            : projection.actionableUnitIds;
-        const allowed = new Set(unitPool);
-        const items = walkItems.filter((item) => allowed.has(item.unitId));
-        contributions.push({
-          experienceKey: experience.experienceKey,
-          label: experience.label,
-          areaKey: area.areaKey,
-          areaLabel: area.label,
-          order: experience.order,
-          tools: experience.tools,
-          actions: experience.actions,
-          items,
-        });
-      }
-    }
-  }
-
-  // Stable Experience order as emitted (Area order already applied in adapter).
-  return contributions;
 }

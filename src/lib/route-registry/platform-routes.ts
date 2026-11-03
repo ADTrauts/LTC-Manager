@@ -334,16 +334,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
     notes: "Harbor Department Product detail. Read-only registry metadata and adoption.",
   },
-  {
-    pattern: "/console/catalog/work/[presetKey]",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "HARBOR_STAFF" },
-    module: "harbor-console",
-    requiresDownstreamAuthorization: true,
-    notes: "Harbor Work preset detail. Read-only preset metadata and Facility Work Plan usage.",
-  },
-
   // ── Partner Facility Dashboard (Phase 2D7) ────────────────────────────────
   {
     pattern: "/partner",

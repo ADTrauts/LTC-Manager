@@ -9,7 +9,6 @@ import {
   formatLocationGuidance,
   formatOperatingRhythmGuidance,
   formatPeopleGuidance,
-  formatWorkGuidance,
   presentOverviewGuidance,
   resolveOverviewProductIdentity,
 } from "./overview-guidance";
@@ -124,16 +123,12 @@ describe("Overview guidance derivation", () => {
     );
   });
 
-  it("derives locations, people, work, and record facts", () => {
+  it("derives locations, people, and record facts", () => {
     assert.equal(formatLocationGuidance(0).status, "No locations assigned");
     assert.equal(formatLocationGuidance(0).href, "/admin/facility/builder");
     assert.equal(formatLocationGuidance(12).status, "12 assigned");
     assert.equal(formatPeopleGuidance(0).status, "No people assigned");
     assert.equal(formatPeopleGuidance(18).status, "18 assigned");
-    assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).status, "No recurring work configured");
-    assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).applicable, true);
-    assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).status, "No recurring work configured");
-    assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 3, draftWorkPlanCount: 2 }).status, "3 live work plans · 2 drafts not live");
     assert.equal(formatRecordsGuidance(0).status, "No records required yet");
     assert.equal(formatRecordsGuidance(8).status, "8 record requirements");
   });
@@ -149,8 +144,6 @@ describe("Overview guidance derivation", () => {
       scheduledCount: 0,
       scheduledEffectiveFrom: null,
       memberCount: 92,
-      publishedWorkPlanCount: 3,
-      draftWorkPlanCount: 0,
       placedLogCount: 8,
     });
     assert.deepEqual(
@@ -159,33 +152,10 @@ describe("Overview guidance derivation", () => {
         ["locations", "18 assigned"],
         ["rhythm", "Breakfast, Lunch, and Dinner live"],
         ["people", "92 assigned"],
-        ["work", "3 live work plans"],
         ["records", "8 record requirements"],
       ],
     );
     assert.doesNotMatch(JSON.stringify(rows), /67%|setup complete|configurationStatus/i);
-  });
-
-  it("does not treat a missing Location Function as a Work gap", () => {
-    const rows = presentOverviewGuidance({
-      departmentId: "dept1",
-      departmentKey: "DIETARY",
-      departmentName: "Dietary",
-      locationCount: 18,
-      currentRootLabels: ["Breakfast"],
-      draftRootCount: 0,
-      scheduledCount: 0,
-      scheduledEffectiveFrom: null,
-      memberCount: 12,
-      publishedWorkPlanCount: 1,
-      draftWorkPlanCount: 0,
-      placedLogCount: 0,
-      publishedWorkOperationalTypeKeys: ["servery"],
-      classifiedOperationalTypeKeys: ["main_kitchen", "retail"],
-    });
-    const work = rows.find((row) => row.id === "work")!;
-    assert.doesNotMatch(work.description, /no bound room|Location Function/);
-    assert.match(work.href, /work/);
   });
 
   it("does not persist readiness language in Overview or All Departments", () => {

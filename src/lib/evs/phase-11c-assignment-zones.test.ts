@@ -15,7 +15,6 @@ import {
   retireDepartmentZone,
   updateDepartmentZone,
 } from "@/lib/department-zones";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import { resolveAssignmentAuthority } from "@/lib/scheduling/operational-assignments/assignment-authority";
 import type { AssignmentAuthorityDecision } from "@/lib/scheduling/operational-assignments/assignment-authority";
 import { ensureAssignmentPlan } from "@/lib/scheduling/operational-assignments/assignment-plan";
@@ -57,48 +56,6 @@ function session(
     primaryDepartmentId: overrides.primaryDepartmentId,
     sessionVersion: 1,
   } as FacilitySession;
-}
-
-function stubWork(partial: Partial<WorkRequirement> & Pick<WorkRequirement, "spaceId" | "label" | "priority" | "state">): WorkRequirement {
-  return {
-    occurrenceKey: partial.occurrenceKey ?? `occ_${cuidLike()}`,
-    workPlanId: "plan",
-    workPlanStableKey: "plan",
-    workPlanVersion: 1,
-    workPlanName: "Plan",
-    workItemId: "item",
-    workItemKey: "surfaces",
-    label: partial.label,
-    instructions: null,
-    priority: partial.priority,
-    completionMode: "EXPLICIT_CONFIRMATION",
-    responsibilityMode: "UNIT_SHARED",
-    scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-    cycleStableKey: null,
-    windowStartLocal: null,
-    windowEndLocal: null,
-    dueAt: partial.dueAt ?? null,
-    windowStartsAt: null,
-    windowEndsAt: null,
-    unitId: null,
-    unitName: null,
-    spaceId: partial.spaceId,
-    assetId: null,
-    roleKeys: [],
-    knowledgeArticleId: null,
-    procedureTitle: null,
-    linkedTemplateStableKey: null,
-    linkedTemplateId: null,
-    state: partial.state,
-    occurrenceId: null,
-    occurrenceStatus: null,
-    assignedEmployeeId: null,
-    completedByLabel: null,
-    completedAt: null,
-    evidenceRecordId: null,
-    sourceKind: "WORK_PLAN",
-    sourceHref: null,
-  };
 }
 
 async function loadEvs11cFixture(prisma: PrismaClient) {
@@ -351,15 +308,13 @@ test("phase11c hermetic: deterministic sequencing is not route optimization", ()
       unitName: "East",
     },
   ];
-  const work = [
-    stubWork({ spaceId: "s3", label: "Routine wipe", priority: "ROUTINE", state: "CURRENT" }),
-    stubWork({ spaceId: "s2", label: "Urgent spill", priority: "URGENT", state: "CURRENT" }),
-    stubWork({ spaceId: "s1", label: "Done room", priority: "ROUTINE", state: "COMPLETED" }),
-  ];
-  const seq = buildDeterministicLocationSequence({ locations, workRequirements: work });
+  const seq = buildDeterministicLocationSequence({ locations });
   assert.match(seq.sequencingNote, /not an optimized walking route/i);
-  assert.equal(seq.now?.unitSpaceId, "s2", "urgent incomplete wins over lower sortOrder");
-  assert.equal(seq.next?.unitSpaceId, "s3");
+  assert.equal(seq.now?.unitSpaceId, "s1");
+  assert.deepEqual(
+    seq.all.map((row) => row.unitSpaceId),
+    ["s1", "s2", "s3"],
+  );
   assert.ok(seq.all.every((row) => row.unitSpaceId !== "route-optimizer"));
 
   const summary = formatAssignedScopeSummary({
@@ -755,48 +710,6 @@ test(
       assert.equal(overlapRow?.state, "OVERLAPPING");
       assert.equal(uncoveredRow?.state, "UNCOVERED");
 
-      // Completing work must not flip Assignment coverage (create a COMPLETED occurrence).
-      await prisma.departmentWorkOccurrence.create({
-        data: {
-          id: cuidLike(),
-          facilityId: fx.facility.id,
-          departmentId: fx.evs.id,
-          operationalDate: serviceDate,
-          occurrenceKey: `occ_${cuidLike()}`,
-          status: "COMPLETED",
-          sourceKind: "WORK_PLAN",
-          workPlanStableKey: "synthetic",
-          workPlanVersion: 1,
-          workItemKey: "surfaces",
-          workItemLabelSnapshot: "Clean",
-          unitId: fx.unit.id,
-          spaceId: coveredSpace.id,
-          completedAt: new Date(),
-          completedByLabel: "Synthetic",
-        },
-      });
-
-      const after = await buildLocationCoverageSummary(prisma, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        serviceDate,
-      });
-      assert.equal(
-        after.rows.find((r) => r.unitSpaceId === coveredSpace.id)?.state,
-        "COVERED",
-      );
-      assert.equal(
-        after.rows.find((r) => r.unitSpaceId === overlapSpace.id)?.state,
-        "OVERLAPPING",
-      );
-      assert.equal(
-        after.rows.find((r) => r.unitSpaceId === fx.spaces[2]!.id)?.state,
-        "UNCOVERED",
-      );
-
-      await prisma.departmentWorkOccurrence.deleteMany({
-        where: { facilityId: fx.facility.id, departmentId: fx.evs.id, operationalDate: serviceDate },
-      });
       await prisma.operationalAssignmentLocation.deleteMany({
         where: { assignmentId: { in: [a1.id, a2.id] } },
       });

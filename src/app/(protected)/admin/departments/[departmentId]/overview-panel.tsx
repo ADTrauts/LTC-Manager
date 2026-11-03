@@ -49,7 +49,6 @@ type Props = {
     total: number;
     neighborhoodCount: number;
     roomCount: number;
-    withPattern: number;
   };
   settings: OverviewDepartmentSettings;
   logsSection?: ReactNode;

@@ -87,9 +87,9 @@ A screen may show several canonical sources together. It does not create a shado
 
 ### Rule 4 — Department Products consume Platform mechanisms
 
-Food and Nutrition, Environmental Services, Facility Plant Operations, and future Department Products use the shared mechanisms: the building, Location Functions, Operational Cycles, Work, Records, Assets and repairs, shifts, daily Assignments, and Job Flow.
+Food and Nutrition, Environmental Services, Facility Plant Operations, and future Department Products use the shared mechanisms: the building, Department responsibility, Operating Rhythm, Records, Coverage, Assets and repairs, Plant Work Orders and Preventive Maintenance, shifts, daily Assignments, and Job Flow.
 
-A Product may define its own defaults, Location Functions, Work presets, Records forms, Operating Rhythm starters, coverage needs, domain-specific behavior, and Dashboard contributions.
+A Product may define its own defaults, Records forms, Operating Rhythm starters, coverage needs, Menus or Preventive Maintenance where that Product owns them, domain-specific behavior, and Dashboard contributions. It does not define Location Functions, Experiences, or generic Work presets.
 
 A Product does not receive its own location engine, employee engine, Cycle engine, Records engine, Assignment engine, Work engine, history store, or Catalog unless an explicit architecture decision changes the Constitution. Empty starters are allowed. A missing reusable mechanism is written down in the blueprint's platform-gap test before any new engine is discussed. The Product contributes Dashboard capabilities. It does not ship dashboard UI. See the [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md).
 
@@ -214,7 +214,7 @@ Facility
   → Rooms / Spaces (UnitSpace)
 ```
 
-A Department never receives a second copy of rooms. `DepartmentLocation`, `PlantLocation`, and any other physical identity created to simplify a filter are forbidden. Location Function gives a Department meaning to an existing room. It is not another room. The same physical room may carry different functions for different Departments. Food and Nutrition `food_service_area` and Environmental Services `service_support` on the same room are independent.
+A Department never receives a second copy of rooms. `DepartmentLocation`, `PlantLocation`, and any other physical identity created to simplify a filter are forbidden. Department responsibility selects existing rooms. It is not another room. The same physical room may be responsible to more than one Department. Each Department's Operating Rhythm, Records, Coverage, and Menus stay on that Department.
 
 Runtime matches `functionKey` on the ACTIVE profile. Build reads the working profile. Audit reads the profile effective on the service date. An empty binding set matches no rooms. Department responsibility does not imply Cycle participation.
 
@@ -236,7 +236,7 @@ The published Operational Cycle and Phase are the only answer to "what is happen
 
 A Key Point is not a Work item, not a Record, and not a second milestone engine. Food and Nutrition timing uses Key Points only. Meal Due is tracking NONE. Ready and Service Started are tracking REQUIRED at LOCATION grain. The canonical actual is `OperationalCycleKeyPointActual`. A service date has one authoritative timing source. Preventive Maintenance is not an Operational Cycle.
 
-**Work** is: Product preset → facility Work Plan → publish → derived Expected Work → optional Assignment of a person → sparse occurrence. A published Work Plan (`DepartmentWorkPlan` and its items) defines expected shared Work. Expected Work is derived from department-responsible locations, then applicability (including a Location Function key when the plan uses one), then Cycle participation when the item is cycle-bound. An empty Cycle binding means the item is not configured. Work may bind to a Cycle or a Phase stable key. It does not bind to Key Points.
+**Generic Department Work is retired.** There is no Work Plan, Work preset, or Expected Work. Documentation is a Record. Recurring timing is Operating Rhythm. Staffing is Coverage. Today's person, place, and role are an Operational Assignment. Equipment maintenance is a Work Order or Preventive Maintenance.
 
 Assignment does not create Work. Shift does not create Work. Cycle participation does not create Work unless those applicability rules say the item applies. Occurrences stay sparse (`DepartmentWorkOccurrence`).
 

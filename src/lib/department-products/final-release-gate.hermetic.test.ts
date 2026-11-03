@@ -4,7 +4,7 @@
  * simulation without mutating the Product registry.
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -157,10 +157,8 @@ test("controlled AVAILABLE makes Plant customer-visible, installable, and operab
   );
 });
 
-test("Work and Records use Plant runtime, not the env flag alone", () => {
-  const work = source("src/lib/department-work/authority.ts");
-  assert.match(work, /isDepartmentEngineEnabledForFacility/);
-  assert.doesNotMatch(work, /isDepartmentWorkPlansEnabled\(/);
+test("Records use Plant runtime, not the env flag alone", () => {
+  assert.equal(existsSync("src/lib/department-work"), false);
   const evidence = source("src/lib/operational-evidence/evidence-authority.ts");
   assert.match(evidence, /isDepartmentEngineEnabledForFacility/);
   const engine = source("src/lib/department-operations.ts");
@@ -262,7 +260,7 @@ test("Build and Run IA nouns stay Product language", () => {
       recordsEnabled: true,
       maintenanceEnabled: true,
     }).map((row) => row.id),
-    ["overview", "locations", "operating-rhythm", "work", "maintenance", "people", "records"],
+    ["overview", "locations", "operating-rhythm", "maintenance", "people", "records"],
   );
   assert.deepEqual(
     maintenanceSubNavItems(true).map((row) => row.label),

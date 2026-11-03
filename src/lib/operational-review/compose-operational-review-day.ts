@@ -90,8 +90,6 @@ export function composeOperationalReviewDay(
       parentUnitLabel: space.parentUnitLabel,
       displayLabel: space.displayLabel,
       displayLabelIsHistorical: false,
-      operationalTypeKey: null,
-      operationalTypeName: null,
     };
   });
 
@@ -256,8 +254,6 @@ export function composeOperationalReviewDay(
             departmentId: contextDepartmentId,
             spaceId: location.spaceId,
             unitId: location.parentUnitId,
-            operationalTypeKey: location.operationalTypeKey,
-            operationalTypeName: location.operationalTypeName,
           },
           cycles: cycleRefs,
         }),
@@ -280,7 +276,6 @@ export function composeOperationalReviewDay(
           templateVersion: slot.expectation.templateVersion,
           cycleStableKey: slot.expectation.cycleStableKey,
           cycleLabel: slot.expectation.cycleLabel,
-          operationalTypeKey: slot.expectation.operationalTypeKey,
           fillingAssignmentIds: slot.fillingAssignmentIds,
         });
       }
@@ -411,7 +406,6 @@ export function composeOperationalReviewDay(
     menu: composeReviewMenuDomain({
       facts,
       locations,
-      otByDepartment: new Map(),
     }),
   };
 }

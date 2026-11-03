@@ -13,7 +13,6 @@ import { loadHarborCatalogAdoption, loadHarborCatalogDetail } from "./catalog";
 import { CONSOLE_CATALOG_EMPTY, listConsoleCatalogItems } from "./console-catalog";
 import {
   loadConsoleDepartmentProductDetail,
-  loadConsoleWorkPresetDetail,
   productAccessRoleTotal,
 } from "./console-catalog-detail";
 
@@ -65,7 +64,7 @@ async function createOrgFacility(prisma: PrismaClient, label: string) {
 }
 
 test(
-  "product, record, and work detail match the projection",
+  "product and record detail match the projection",
   { skip: skipReason },
   async () =>
     serial(async () => {
@@ -77,9 +76,8 @@ test(
         const beforePlant = beforeItems.find((row) => row.stableKey === "PLANT");
         const beforeFood = beforeItems.find((row) => row.stableKey === "HEALTHCARE_FOOD_NUTRITION");
         const beforeEvs = beforeItems.find((row) => row.stableKey === "EVS");
-        const beforeRound = beforeItems.find((row) => row.stableKey === "MECHANICAL_ROOM_ROUND");
         const beforePlantDetail = await loadConsoleDepartmentProductDetail(prisma, "PLANT");
-        assert.ok(beforePlant && beforeFood && beforeEvs && beforeRound && beforePlantDetail);
+        assert.ok(beforePlant && beforeFood && beforeEvs && beforePlantDetail);
 
         const plantA = await createOrgFacility(prisma, "Plant A");
         const plantB = await createOrgFacility(prisma, "Plant B");
@@ -114,10 +112,10 @@ test(
         await prisma.department.create({
           data: { facilityId: evs.facility.id, key: "EVS", name: "Environmental Services", isActive: true },
         });
-        const workDepartment = await prisma.department.create({
+        await prisma.department.create({
           data: { facilityId: workHost.facility.id, key: "PLANT", name: "Plant Operations", isActive: true },
         });
-        const workOtherDepartment = await prisma.department.create({
+        await prisma.department.create({
           data: { facilityId: workOther.facility.id, key: "PLANT", name: "Plant Operations", isActive: true },
         });
         const recordDepartment = await prisma.department.create({
@@ -301,63 +299,19 @@ test(
           });
         }
 
-        const lineageKey = `phase6d_round_${workHost.suffix}`;
-        for (const version of [
-          { version: 1, status: "DRAFT" as const, name: "Night Mechanical Draft" },
-          { version: 2, status: "PUBLISHED" as const, name: "Night Mechanical Published" },
-          { version: 3, status: "DRAFT" as const, name: "Night Mechanical Successor" },
-        ]) {
-          await prisma.departmentWorkPlan.create({
-            data: {
-              facilityId: workHost.facility.id,
-              departmentId: workDepartment.id,
-              stableKey: lineageKey,
-              presetKey: "MECHANICAL_ROOM_ROUND",
-              version: version.version,
-              name: version.name,
-              status: version.status,
-            },
-          });
-        }
-        await prisma.departmentWorkPlan.create({
-          data: {
-            facilityId: workOther.facility.id,
-            departmentId: workOtherDepartment.id,
-            stableKey: "MECHANICAL_ROOM_ROUND",
-            presetKey: "MECHANICAL_ROOM_ROUND",
-            version: 1,
-            name: "Other Facility Round",
-            status: "PUBLISHED",
-          },
-        });
-        await prisma.departmentWorkPlan.create({
-          data: {
-            facilityId: decoy.facility.id,
-            departmentId: (
-              await prisma.department.findFirstOrThrow({ where: { facilityId: decoy.facility.id } })
-            ).id,
-            stableKey: `customer_walk_${decoy.suffix}`,
-            version: 1,
-            name: "Customer Walk",
-            status: "PUBLISHED",
-          },
-        });
-
         const items = await listConsoleCatalogItems(prisma);
         const plant = items.find((row) => row.stableKey === "PLANT");
         const food = items.find((row) => row.stableKey === "HEALTHCARE_FOOD_NUTRITION");
         const evsItem = items.find((row) => row.stableKey === "EVS");
-        const round = items.find((row) => row.stableKey === "MECHANICAL_ROOM_ROUND");
         const record = items.find((row) => row.stableKey === stableKey);
-        assert.ok(plant && food && evsItem && round && record);
+        assert.ok(plant && food && evsItem && record);
 
         const plantDetail = await loadConsoleDepartmentProductDetail(prisma, "PLANT");
         const foodDetail = await loadConsoleDepartmentProductDetail(prisma, "HEALTHCARE_FOOD_NUTRITION");
         const evsDetail = await loadConsoleDepartmentProductDetail(prisma, "EVS");
-        const workDetail = await loadConsoleWorkPresetDetail(prisma, "MECHANICAL_ROOM_ROUND");
         const recordDetail = await loadHarborCatalogDetail(prisma, stableKey);
         const recordAdoption = await loadHarborCatalogAdoption(prisma, stableKey);
-        assert.ok(plantDetail && foodDetail && evsDetail && workDetail && recordDetail);
+        assert.ok(plantDetail && foodDetail && evsDetail && recordDetail);
 
         assert.equal(plantDetail.facilityInstallCount, plant.facilityInstallCount);
         assert.equal(plantDetail.usersWithAccess, plant.usageCount);
@@ -428,24 +382,6 @@ test(
         assert.equal(evsRow.userCount, 0);
         assert.equal(evsRow.accessLabel, "Development/internal");
 
-        assert.equal(workDetail.facilityInstallCount, round.facilityInstallCount);
-        assert.equal(workDetail.publishedPlanCount, round.usageCount);
-        assert.equal(workDetail.facilityInstallCount, beforeRound.facilityInstallCount + 2);
-        assert.equal(workDetail.publishedPlanCount, (beforeRound.usageCount ?? 0) + 2);
-        assert.equal(workDetail.versionLabel, CONSOLE_CATALOG_EMPTY);
-        assert.equal(workDetail.statusLabel, CONSOLE_CATALOG_EMPTY);
-        assert.equal(workDetail.owningProductName, "Facility Plant Operations");
-        const hostPlans = workDetail.plans.filter((row) => row.facilityId === workHost.facility.id);
-        assert.deepEqual(
-          hostPlans.map((row) => `${row.version}:${row.status}:${row.planName}`),
-          [
-            "1:DRAFT:Night Mechanical Draft",
-            "2:PUBLISHED:Night Mechanical Published",
-            "3:DRAFT:Night Mechanical Successor",
-          ],
-        );
-        assert.equal(workDetail.plans.some((row) => row.planName === "Customer Walk"), false);
-
         assert.equal(record.versionDisplay, "v1");
         assert.equal(record.statusLabel, "Published · Draft");
         assert.equal(record.facilityInstallCount, 1);
@@ -456,7 +392,6 @@ test(
         assert.equal(recordDetail.draft?.version, 2);
 
         assert.equal(await loadConsoleDepartmentProductDetail(prisma, "NOT_REAL"), null);
-        assert.equal(await loadConsoleWorkPresetDetail(prisma, "NOT_REAL"), null);
         }, { isolationLevel: "RepeatableRead", timeout: 60000 });
     } finally {
         await prisma.$disconnect();

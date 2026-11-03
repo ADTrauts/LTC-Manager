@@ -89,10 +89,6 @@ export async function processSyncCommand(
     return processAssetIssueCommand(input, client, now);
   }
 
-  if (command.commandType === "COMPLETE_OPERATIONAL_TASK") {
-    return processWorkCompletionCommand(input, client, now);
-  }
-
   const actor = await resolveMilestoneActor(input.session);
   const eventType =
     command.commandType === "RECORD_SERVERY_READY" ||
@@ -407,15 +403,6 @@ async function processAssetIssueCommand(
     await upsertReceipt(client, input, command, "REJECTED", reason, null, null, null, null);
     return reject(command.clientCommandId, reason);
   }
-}
-
-async function processWorkCompletionCommand(
-  input: ProcessSyncCommandInput,
-  _client: PrismaClient,
-  _now: Date,
-): Promise<OfflineSyncCommandResult> {
-  const { command } = input;
-  return reject(command.clientCommandId, "WORK_PLANS_RETIRED");
 }
 
 function reject(clientCommandId: string, reasonCode: string): OfflineSyncCommandResult {

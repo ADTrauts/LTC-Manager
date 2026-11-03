@@ -77,7 +77,6 @@ export {
 
 export {
   adaptProjectionToTodaysWork,
-  assembleExperienceWalkContributions,
   assembleProjectedTodaysWorkHandoffs,
   assembleProjectedTodaysWorkHub,
   assembleProjectedTodaysWorkWalk,
@@ -87,6 +86,5 @@ export {
   filterWalkListToProjectedUnits,
   loadTodaysWorkProjection,
   type AssembledTodaysWork,
-  type ExperienceWalkContribution,
   type TodaysWorkProjectionView,
 } from "./projection";

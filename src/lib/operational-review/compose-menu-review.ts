@@ -122,7 +122,6 @@ function findingForIncompleteMenu(
 export function composeReviewMenuDomain(input: {
   facts: OperationalReviewDayFacts;
   locations: readonly ReviewLocationEntry[];
-  otByDepartment: ReadonlyMap<string, ReadonlyMap<string, { key: string; name: string }>>;
 }): {
   availability: ReviewDomainAvailability;
   findings: ReviewMenuFinding[];
@@ -139,10 +138,8 @@ export function composeReviewMenuDomain(input: {
   for (const departmentId of menuDepartmentIds) {
     const published = cyclesForDepartment(input.facts.cycles, departmentId, input.facts.departmentId);
     const roots = published.filter((cycle) => isRootCycle(cycle));
-    const otBySpace = input.otByDepartment.get(departmentId);
 
     for (const location of input.locations) {
-      const operationalTypeKey = otBySpace?.get(location.spaceId)?.key ?? null;
       for (const root of roots) {
         if (
           !cycleOccursAtMenuLocation({
@@ -150,7 +147,6 @@ export function composeReviewMenuDomain(input: {
             published,
             location: { unitId: null, spaceId: location.spaceId },
             serviceDateKey: input.facts.serviceDate,
-            operationalTypeKey,
           })
         ) {
           continue;
@@ -161,7 +157,6 @@ export function composeReviewMenuDomain(input: {
           serviceDateKey: input.facts.serviceDate,
           location: { unitId: null, spaceId: location.spaceId },
           cycleStableKey: root.stableKey,
-          operationalTypeKey,
           locationActionable: true,
           publishedCycles: published,
           candidates,

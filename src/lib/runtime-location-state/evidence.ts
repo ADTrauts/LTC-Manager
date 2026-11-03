@@ -23,8 +23,6 @@ export type RuntimeEvidenceSpaceContext = {
   spaceId: string;
   departmentId: string;
   unitId: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
   facilityId: string;
 };
 
@@ -63,8 +61,6 @@ export function resolveEvidenceRequirementsForSpaces(input: {
         departmentId: space.departmentId,
         spaceId: space.spaceId,
         unitId: space.unitId,
-        operationalTypeKey: space.operationalTypeKey,
-        operationalTypeName: space.operationalTypeName,
       });
       if (!match) continue;
 

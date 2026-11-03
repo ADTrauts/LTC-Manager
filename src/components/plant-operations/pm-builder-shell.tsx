@@ -48,14 +48,12 @@ export function PmBuilderShell({
         departmentId={departmentId}
         departmentName={departmentName}
         locationCount={locationCount}
-        profileId={null}
         activeTab={activeTab}
         context={context}
       />
       <DepartmentAdminLocalNav
         departmentId={departmentId}
         activeTab={activeTab}
-        profileId={null}
         tabs={tabs}
       />
       <div className={`min-w-0 ${contentClassName}`.trim()}>{children}</div>

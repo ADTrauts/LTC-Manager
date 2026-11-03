@@ -71,18 +71,6 @@ export type RuntimeSpaceIdentityRow = {
   facilityRoomTypeId: string | null;
 };
 
-export type RuntimeActiveProfileRef = {
-  id: string;
-  version: number;
-  status: "ACTIVE";
-};
-
-export type RuntimeOperationalTypeRow = {
-  key: string;
-  name: string;
-  id: string | null;
-};
-
 export type RuntimePublishedRunModel = {
   cycles: OperationalCycleDefinition[];
   timings: KeyTimeDayTiming[];
@@ -113,8 +101,6 @@ export type RuntimeLocationComposeInput = {
   operationalAssignmentsEnabled: boolean;
   spaces: readonly RuntimeSpaceIdentityRow[];
   spaceRefs?: readonly RuntimeLocationSpaceRef[];
-  profilesByDepartmentId: ReadonlyMap<string, RuntimeActiveProfileRef | null>;
-  operationalTypesBySpaceId: ReadonlyMap<string, RuntimeOperationalTypeRow | null>;
   runModelsByDepartmentId: ReadonlyMap<string, RuntimePublishedRunModel>;
   coverageTemplatesByDepartmentId: ReadonlyMap<string, CoverageTemplateVersionRow[]>;
   coveragePlanByDepartmentId: ReadonlyMap<string, string | null>;
@@ -198,7 +184,6 @@ function composeOperation(
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: space.spaceId,
-    operationalTypeKey: null,
   });
 
   const presented = presentLocationRunOperation({
@@ -208,7 +193,6 @@ function composeOperation(
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: space.spaceId,
-    operationalTypeKey: null,
     nowLocalHhMm: model.nowLocalHhMm,
     location: {
       title: space.name,
@@ -275,7 +259,6 @@ function composeOperation(
 
 function composeTemplateCoverage(input: {
   space: RuntimeSpaceIdentityRow;
-  operationalType: RuntimeOperationalTypeRow | null;
   operation: RuntimeCurrentOperation;
   templates: readonly CoverageTemplateVersionRow[];
   planStatus: string | null;
@@ -309,8 +292,6 @@ function composeTemplateCoverage(input: {
       departmentId: input.space.departmentId,
       spaceId: input.space.spaceId,
       unitId: input.space.unitId,
-      operationalTypeKey: input.operationalType?.key ?? null,
-      operationalTypeName: input.operationalType?.name ?? null,
     },
     cycles: cycleRefs,
     cycleStableKey: input.operation.current.cycleStableKey,
@@ -363,7 +344,6 @@ function composeTemplateCoverage(input: {
 function composeCoverage(input: {
   enabled: boolean;
   space: RuntimeSpaceIdentityRow;
-  operationalType: RuntimeOperationalTypeRow | null;
   operation: RuntimeCurrentOperation;
   program: LocationProgram;
   templates: readonly CoverageTemplateVersionRow[];
@@ -631,7 +611,6 @@ export function composeRuntimeLocationStates(
   input: RuntimeLocationComposeInput,
 ): RuntimeLocationState[] {
   return input.spaces.map((space) => {
-    const operationalType = input.operationalTypesBySpaceId.get(space.spaceId) ?? null;
     const model = input.runModelsByDepartmentId.get(space.departmentId);
     const program =
       input.programsBySpaceId.get(space.spaceId) ??
@@ -649,7 +628,6 @@ export function composeRuntimeLocationStates(
     const coverage = composeCoverage({
       enabled: input.operationalAssignmentsEnabled,
       space,
-      operationalType,
       operation,
       program,
       templates: input.coverageTemplatesByDepartmentId.get(space.departmentId) ?? [],

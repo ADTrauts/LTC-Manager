@@ -5,17 +5,10 @@
  * Contains no Projection resolution logic — that belongs to Wave 15C.
  */
 
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 
-import {
-  PLANT_FACILITY_WIDE_POLICY,
-  type ExperienceConfiguration,
-  type ProfileSnapshot,
-  type RoomArchetypeBindingSnapshot,
-  type RoomExceptionSnapshot,
-} from "@/lib/department-administration";
+import { PLANT_FACILITY_WIDE_POLICY } from "@/lib/department-administration";
 import { hasPlantDomainCapabilities } from "@/lib/department-admission";
-import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 import { isStagedUnit, isUndesignatedSpace } from "@/lib/facility-builder/operational-visibility";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
@@ -92,15 +85,6 @@ function mapParentHierarchyRole(
   if (role === "NEIGHBORHOOD" || role === "LEGACY_LOCATION") return "NEIGHBORHOOD";
   if (role === "STAGED") return "STAGED";
   return null;
-}
-
-function asConfiguration(
-  value: Prisma.JsonValue | null,
-): ExperienceConfiguration | null {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  return value as ExperienceConfiguration;
 }
 
 /**
@@ -361,10 +345,6 @@ export async function loadProjectionSource(
   const policies: ProjectionSourcePolicy[] = [];
 
   for (const department of facility.departments) {
-    const activeProfile: ProfileSnapshot | null = null;
-    const archetypeBindings: RoomArchetypeBindingSnapshot[] = [];
-    const roomExceptions: RoomExceptionSnapshot[] = [];
-
     const assignedRoomIds = rooms
       .filter((room) =>
         room.context.assignedDepartmentIds.includes(department.id),
@@ -387,17 +367,8 @@ export async function loadProjectionSource(
       key: department.key,
       label: department.name,
       isActive: department.isActive,
-      activeProfile,
       assignedRoomIds,
       assignedUnitIds,
-      archetypeBindings: archetypeBindings.sort((a, b) =>
-        a.unitSpaceId.localeCompare(b.unitSpaceId),
-      ),
-      roomExceptions: roomExceptions.sort(
-        (a, b) =>
-          a.unitSpaceId.localeCompare(b.unitSpaceId) ||
-          a.areaExperienceId.localeCompare(b.areaExperienceId),
-      ),
     });
 
     if (hasPlantDomainCapabilities(department.key) && department.isActive) {
@@ -405,8 +376,6 @@ export async function loadProjectionSource(
         kind: PLANT_FACILITY_WIDE_POLICY.kind,
         departmentId: department.id,
         departmentKey: department.key,
-        defaultArchetypeKey: "",
-        directBindingsTakePrecedence: true,
         createsRoomAssignments: false,
       });
     }
@@ -441,10 +410,7 @@ export async function loadProjectionSource(
   const revision: ProjectionRevision = {
     hierarchyRevision: `hierarchy:${maxIso(hierarchyTimestamps)}`,
     assignmentRevision: `assignments:${maxIso(assignmentTimestamps)}`,
-    profileRevision: "profiles:none",
-    bindingRevision: "bindings:none",
     policyRevision: `policy:${PLANT_FACILITY_WIDE_POLICY.kind}`,
-    experienceRegistryVersion: EXPERIENCE_REGISTRY_VERSION,
     accessClassRevision: `access:${request.accessClass.key}`,
   };
 

@@ -53,8 +53,6 @@ export type ReviewLocationEntry = {
   /** Current SPACE display name. Not historically immutable. */
   displayLabel: string;
   displayLabelIsHistorical: false;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
 };
 
 export type ReviewEvidenceOccurrence = {
@@ -95,7 +93,6 @@ export type ReviewCoverageSlot = {
   templateVersion: number;
   cycleStableKey: string | null;
   cycleLabel: string | null;
-  operationalTypeKey: string | null;
   fillingAssignmentIds: string[];
 };
 

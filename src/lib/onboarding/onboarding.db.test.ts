@@ -14,7 +14,6 @@ import { loadFacilityDepartmentCatalog, loadCustomerOperableDepartments } from "
 import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { resolveCycleAuthority } from "@/lib/operational-cycles/cycle-authority";
-import { resolveWorkAuthority } from "@/lib/department-work";
 import { resolveEvidenceAuthority } from "@/lib/operational-evidence/evidence-authority";
 import { saveFacilityOnboarding } from "./transitions";
 
@@ -75,7 +74,6 @@ test("SQL: representative Stripe sequence agrees across webhook, return, Console
   const f = await fixture(db);
   await f.event("customer.subscription.created", f.current);
   const department = await db.department.findFirstOrThrow({ where: { facilityId: f.facility.id } });
-  process.env.DIETARY_WORK_PLANS_ENABLED = "true";
   for (const [stripeStatus, mirrorStatus, allowed] of [
     ["active", "ACTIVE", true], ["past_due", "PAST_DUE", true], ["unpaid", "UNPAID", false],
     ["active", "ACTIVE", true], ["paused", "PAUSED", false], ["active", "ACTIVE", true], ["canceled", "CANCELED", false],
@@ -91,7 +89,6 @@ test("SQL: representative Stripe sequence agrees across webhook, return, Console
       assert.equal((await loadFacilityDepartmentCatalog(db, f.facility.id))[0]!.operable, allowed);
       assert.equal(await isCustomerDepartmentAccessAllowed(db, f.session, department.id), allowed);
       assert.equal((await resolveCycleAuthority(f.session, f.facility.id, department.id)).canManage, allowed);
-      assert.equal((await resolveWorkAuthority(f.session, f.facility.id, department.id)).canManage, allowed);
       const evidence = await resolveEvidenceAuthority(f.session, f.facility.id, department.id);
       if (!allowed) assert.equal(evidence.canSubmit, false);
     }

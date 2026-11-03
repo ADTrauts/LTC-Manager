@@ -20,7 +20,6 @@ import { loadHarborCatalogAdoption, loadHarborCatalogDetail } from "@/lib/harbor
 import { listConsoleCatalogItems, type ConsoleCatalogItem } from "./console-catalog";
 import {
   loadConsoleDepartmentProductDetail,
-  loadConsoleWorkPresetDetail,
   productAccessRoleTotal,
 } from "./console-catalog-detail";
 
@@ -93,17 +92,12 @@ test(
         const beforePlant = findItem(before, "PLANT");
         const beforeFood = findItem(before, "HEALTHCARE_FOOD_NUTRITION");
         const beforeEvs = findItem(before, "EVS");
-        const beforeRound = findItem(before, "MECHANICAL_ROOM_ROUND");
 
         assert.equal(beforePlant.name, "Facility Plant Operations");
         assert.equal(beforePlant.versionDisplay, "1.0");
         assert.equal(beforePlant.statusLabel, "AVAILABLE");
         assert.equal(beforePlant.categoryLabel, "Healthcare");
         assert.equal(beforePlant.usageLabel, "users");
-        assert.equal(beforeRound.versionDisplay, "\u2014");
-        assert.equal(beforeRound.statusLabel, "\u2014");
-        assert.equal(beforeRound.categoryLabel, "Facility Plant Operations");
-        assert.equal(beforeRound.usageLabel, "published plans");
         assert.equal(before.filter((row) => row.stableKey === "HEALTHCARE_FOOD_NUTRITION").length, 1);
         assert.equal(before.filter((row) => row.stableKey === "DIETARY").length, 0);
 
@@ -457,51 +451,10 @@ test(
           },
         });
 
-        const workStable = `v1_round_${plantA.suffix}`;
-        for (const version of [
-          { version: 1, status: "DRAFT" as const, name: "Night Mechanical Draft" },
-          { version: 2, status: "PUBLISHED" as const, name: "Night Mechanical Published" },
-          { version: 3, status: "DRAFT" as const, name: "Night Mechanical Successor" },
-        ]) {
-          await prisma.departmentWorkPlan.create({
-            data: {
-              facilityId: workA.facility.id,
-              departmentId: workDeptA.id,
-              stableKey: workStable,
-              presetKey: "MECHANICAL_ROOM_ROUND",
-              version: version.version,
-              name: version.name,
-              status: version.status,
-            },
-          });
-        }
-        await prisma.departmentWorkPlan.create({
-          data: {
-            facilityId: workB.facility.id,
-            departmentId: workDeptB.id,
-            stableKey: workStable,
-            presetKey: "MECHANICAL_ROOM_ROUND",
-            version: 1,
-            name: "Other Facility Round",
-            status: "PUBLISHED",
-          },
-        });
-        await prisma.departmentWorkPlan.create({
-          data: {
-            facilityId: isolation.facility.id,
-            departmentId: isolationDept.id,
-            stableKey: `customer_walk_${plantA.suffix}`,
-            version: 1,
-            name: "Customer Walk",
-            status: "PUBLISHED",
-          },
-        });
-
         const after = await listConsoleCatalogItems(prisma);
         const plant = findItem(after, "PLANT");
         const food = findItem(after, "HEALTHCARE_FOOD_NUTRITION");
         const evsItem = findItem(after, "EVS");
-        const round = findItem(after, "MECHANICAL_ROOM_ROUND");
         const record = findItem(after, stableKey);
 
         // Plant: A, B, C, workA, workB, isolation = +6; decoy excluded.
@@ -596,28 +549,12 @@ test(
           3,
         );
 
-        assert.equal(round.facilityInstallCount, beforeRound.facilityInstallCount + 2);
-        assert.equal(round.usageCount, (beforeRound.usageCount ?? 0) + 2);
-        const workDetail = await loadConsoleWorkPresetDetail(prisma, "MECHANICAL_ROOM_ROUND");
-        assert.ok(workDetail);
-        assert.equal(workDetail.versionLabel, "\u2014");
-        assert.equal(workDetail.statusLabel, "\u2014");
-        assert.equal(workDetail.owningProductName, "Facility Plant Operations");
-        assert.equal(workDetail.facilityInstallCount, round.facilityInstallCount);
-        assert.equal(workDetail.publishedPlanCount, round.usageCount);
-        const workARows = workDetail.plans.filter((row) => row.facilityId === workA.facility.id);
-        assert.equal(workARows.length, 3);
-        assert.ok(workARows.some((row) => row.status === "PUBLISHED" && row.version === 2));
         assert.equal(
           after.some((row) => row.stableKey === procedureKey),
           false,
         );
         assert.equal(
           after.some((row) => row.name === "Cooler Temperature Log" && row.sourceType !== "CATALOG_RECORD"),
-          false,
-        );
-        assert.equal(
-          after.some((row) => row.stableKey === `customer_walk_${plantA.suffix}`),
           false,
         );
         assert.equal(
@@ -641,7 +578,6 @@ test(
         assert.equal(authoredAfterRetire.versionDisplay, "v2");
 
         assert.equal(await loadConsoleDepartmentProductDetail(prisma, "NOT_REAL"), null);
-        assert.equal(await loadConsoleWorkPresetDetail(prisma, "NOT_REAL"), null);
         }, { isolationLevel: "RepeatableRead", timeout: 60000 });
     } finally {
         await prisma.$disconnect();

@@ -90,7 +90,6 @@ function toCoverageTemplates(
       requiredCount: item.requiredCount,
       unitId: item.unitId,
       spaceId: item.spaceId,
-      applicableOperationalTypeKeys: [],
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
     })),
   }));
@@ -123,8 +122,6 @@ export async function prefetchRuntimeLocationInputs(
       operationalAssignmentsEnabled: oaEnabled,
       spaces: [],
       spaceRefs,
-      profilesByDepartmentId: new Map(),
-      operationalTypesBySpaceId: new Map(),
       runModelsByDepartmentId: new Map(),
       coverageTemplatesByDepartmentId: new Map(),
       coveragePlanByDepartmentId: new Map(),
@@ -202,22 +199,6 @@ export async function prefetchRuntimeLocationInputs(
       facilityRoomTypeId: space.facilityRoomTypeId ?? space.facilityRoomType?.id ?? null,
     };
   });
-
-  const profilesByDepartmentId = new Map<
-    string,
-    { id: string; version: number; status: "ACTIVE" } | null
-  >();
-  for (const departmentId of departmentIds) {
-    profilesByDepartmentId.set(departmentId, null);
-  }
-
-  const operationalTypesBySpaceId = new Map<
-    string,
-    { key: string; name: string; id: string | null } | null
-  >();
-  for (const space of spaceRows) {
-    operationalTypesBySpaceId.set(space.spaceId, null);
-  }
 
   const runModelsByDepartmentId = new Map<string, RuntimePublishedRunModel>();
   const loadedModels = await Promise.all(
@@ -501,7 +482,6 @@ export async function prefetchRuntimeLocationInputs(
       spaceId: row.spaceId,
       unitId: row.unitId,
       targetDepartmentId: row.targetDepartmentId,
-      operationalTypeKey: null,
       dailyWindows: row.dailyWindows,
       cycleSelections: row.cycleSelections,
       catalogDefinition: {
@@ -560,8 +540,6 @@ export async function prefetchRuntimeLocationInputs(
         spaceId: space.spaceId,
         departmentId: space.departmentId,
         unitId: space.unitId,
-        operationalTypeKey: null,
-        operationalTypeName: null,
         facilityId: input.facilityId,
       })),
       operationalDateKey,
@@ -599,8 +577,6 @@ export async function prefetchRuntimeLocationInputs(
     operationalAssignmentsEnabled: oaEnabled,
     spaces: spaceRows,
     spaceRefs,
-    profilesByDepartmentId,
-    operationalTypesBySpaceId,
     runModelsByDepartmentId,
     coverageTemplatesByDepartmentId,
     coveragePlanByDepartmentId,

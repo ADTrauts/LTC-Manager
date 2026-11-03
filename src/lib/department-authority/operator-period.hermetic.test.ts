@@ -140,7 +140,7 @@ test("a vendor handover retires menus, work plans, and cycles once the replaceme
     if (previous === undefined) delete process.env.CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED;
     else process.env.CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED = previous;
   }
-  assert.deepEqual(calls, ["menu:metz:INACTIVE", "plan:RETIRED", "cycle:RETIRED"]);
+  assert.deepEqual(calls, ["menu:metz:INACTIVE", "cycle:RETIRED"]);
 });
 
 test("operating reads keep the current vendor period and otherwise keep the facility period", () => {

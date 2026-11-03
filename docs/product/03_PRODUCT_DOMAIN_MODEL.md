@@ -20,11 +20,11 @@
 | **User authorization (partner)** | Not implemented in Phase 2A. Partner relationship + Department scope do **not** grant any user Facility access. |
 | **Department Product** | Vssyl-owned operational product (Food and Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
-| **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Work preset, Operating Rhythm starter or Menu template. Included or Paid. Runs on Platform engines. Today only Records forms exist as items (`CatalogLogDefinition`). |
+| **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Operating Rhythm starter, or Menu template. Included or Paid. Runs on Platform engines. Today Records forms exist as items (`CatalogLogDefinition`). Generic Work presets are retired. |
 | **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. Operational records stay facility/department-scoped even when the operator differs from the parent Organization. |
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
 | **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
-| **Location Function** | Product `functionKey` bound to an existing room on a Department profile. Stored as `DepartmentRoomArchetype.key`. Not a room name, a label slug, or a physical room type. |
+| **Location Function** | Retired November 3, 2026. A Department's locations are Facility responsibility. Each engine stores its own canonical location. Do not add `functionKey`, `DepartmentRoomArchetype`, or a Department profile. |
 | **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). Email/password authenticates the global `User`. Workspace eligibility is available contexts, not a facility-native vs organization-only identity class. |
 | **User home Facility** | Optional `User.facilityId` presentation marker. Not login authority and not the active Facility. |
 | **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
@@ -164,8 +164,8 @@ Disruption path
 
 | Concern | Authoritative owner |
 |---------|---------------------|
-| What kind of operational location is this for a Department? | Location Function on that Department’s profile (`functionKey`) |
-| Where does published Work apply? | Published Work Plan applicability, including a Location Function key when the plan uses one |
+| Which places belong to this Department? | Facility Builder Department responsibility |
+| Where does Operating Rhythm, a Record, Coverage, or a Menu apply? | That engine's own canonical location rows |
 | What window is active (what is happening now)? | Published Operational Cycle and Phase effective now. Build uses the working profile; Run uses ACTIVE. No published Cycle means no window, never a meal-time guess (foundation round, October 20, 2026). |
 | What was expected on a past service date? | Audit / Reports, using the profile and requirement segment effective that day |
 | Where should the supervisor look first? | The Dashboard |

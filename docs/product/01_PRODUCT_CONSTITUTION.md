@@ -37,9 +37,9 @@ GOVERNANCE
 
 | Layer | Owns | Does not own |
 |-------|------|----------------|
-| **Platform** | Physical facility tree, Location Functions mechanism, Operational Cycles, Work, Records, Assets, Issues where present | A department’s domain rules |
-| **Department Product** | Purpose, function keys, rhythm starters, Work presets, Record definitions, coverage needs, starter content | A second location tree, Cycle engine, Work engine, Record engine, or history store |
-| **Facility configuration** | Which rooms are bound, local times, published plans, people, installed departments, Marketplace items added to each Department | Product identity (`functionKey`, catalog definitions) |
+| **Platform** | Physical facility tree, Department responsibility, Operating Rhythm, Records, Coverage, Assets, Issues, Plant Work Orders and Preventive Maintenance | A department’s domain rules, or a second location classification |
+| **Department Product** | Purpose, Operating Rhythm starters, Record definitions, coverage needs, Menus or Preventive Maintenance where that Product owns them | A second location tree, Cycle engine, Record engine, Coverage engine, or generic Work engine |
+| **Facility configuration** | Which rooms the Department is responsible for, local times, published rhythm, people, installed departments, Marketplace items added to each Department | A Department room type or Experience catalog |
 | **Run** | What is true in the current operation | Permanent configuration |
 | **History / Audit** | Expected versus actual for a requested service date, using the configuration effective that day | A central history ledger |
 | **Governance** | Organization, facility access, licensing, permissions | Day-of operational truth |
@@ -48,7 +48,7 @@ GOVERNANCE
 
 | State | Meaning here |
 |-------|----------------|
-| **Implemented** | Food and Nutrition and Facility Plant Operations V1 as customer-visible AVAILABLE Department Products, Location Function binding, Operational Cycles, Work projection, one Record engine, Audit / Reports, shared Assets and repairs |
+| **Implemented** | Food and Nutrition and Facility Plant Operations V1 as customer-visible AVAILABLE Department Products, Facility responsibility, Operating Rhythm, Coverage, one Record engine, Audit / Reports, shared Assets, Plant Work Orders, and Preventive Maintenance |
 | **Legacy compatibility** | Systems in the [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md). Readable. Not the forward architecture. |
 | **In development** | Environmental Services exists in the registry, tests, and internal tooling. It is not customer-visible until marked AVAILABLE. |
 
@@ -197,11 +197,15 @@ A partner company is born in Vssyl Console. Console invites the first Organizati
 
 **Physical world.** One Facility tree: Facility → structural Units → neighborhoods / operational Units → Rooms / Spaces. Departments do not clone the building. Facility Builder owns physical hierarchy, physical room type, and physical names.
 
-**Location Functions.** The Product defines `functionKey` and the product label. The facility binds those functions to existing rooms on a Department profile. Runtime matches `functionKey`. Build reads the working profile. Run reads the ACTIVE profile. Audit reads the profile effective on the service date. An empty binding set matches no rooms. Food and Nutrition `food_service_area` and EVS `service_support` on the same room are independent.
+**Department locations.** Facility Builder owns the physical hierarchy and the physical room type. Department responsibility selects the Department’s Units and rooms. Operating Rhythm, Records, Coverage, and Menus each store their own canonical location applicability. A room-type filter may help someone select many rooms. The filter is not saved as a live classification rule.
 
-**Operational Rhythm.** An Operational Cycle is a root recurring window. A Phase is one interval inside that Cycle. A Key Point is an instant on the Cycle. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Current cycles are derived. Cycles may overlap and may cross midnight. Phases may overlap and may leave gaps. Key Points are not Work.
+**There is no Location Function, Operational Type, Department Room Archetype, Department Operational Profile, Operational Area, Experience layer, or generic Department Work Plan.** Historical amendments below record that decision. They are not a second architecture.
 
-**Work.** Product preset → facility Work Plan → publish → derived WorkRequirement → optional Assignment → sparse WorkOccurrence. Assignment does not create Work. Work may bind to a Cycle or a Phase. An empty Cycle binding means not configured.
+**Operational Rhythm.** An Operational Cycle is a root recurring window. A Phase is one interval inside that Cycle. A Key Point is an instant on the Cycle. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Current cycles are derived. Cycles may overlap and may cross midnight. Phases may overlap and may leave gaps. Applicability is every location the Department is responsible for, or an explicit Unit or room.
+
+**Department Builder.** The core sections are Overview, Facility, Operating Rhythm, People & Coverage, and Records. Food & Nutrition adds Menus. Plant adds Preventive Maintenance.
+
+**Plant maintenance.** A maintenance request is an Issue or Work Order. Recurring equipment work is Preventive Maintenance. Neither is a Department Work Plan.
 
 **Records.** One engine. Manager forms are Reading, Checklist, Inspection, Acknowledgement, and On-demand Record. The forward chain is:
 

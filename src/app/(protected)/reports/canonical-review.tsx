@@ -221,9 +221,9 @@ export function CanonicalReview({
                       ) : (
                         location.displayLabel
                       )}
-                      {location.operationalTypeName ? (
+                      {location.contextLabel ? (
                         <span className="mt-0.5 block text-xs text-zinc-500">
-                          {location.operationalTypeName}
+                          {location.contextLabel}
                         </span>
                       ) : null}
                     </ReviewCell>

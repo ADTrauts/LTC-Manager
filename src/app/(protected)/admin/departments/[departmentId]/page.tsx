@@ -99,7 +99,7 @@ export default async function DepartmentBuilderPage({
   const requestedTab = query.tab;
   if (requestedTab && isDepartmentAdminRetiredTabId(requestedTab)) {
     const dest = DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[requestedTab];
-    const href = departmentAdminHref(departmentId, dest, null, setupWorkspace);
+    const href = departmentAdminHref(departmentId, dest, setupWorkspace);
     const team = query.team?.trim();
     const expectation = query.expectation?.trim();
     const extras = [
@@ -112,7 +112,6 @@ export default async function DepartmentBuilderPage({
   const view = await loadDepartmentAdminView({
     facilityId: session.facilityId,
     departmentId,
-    requestedProfileId: query.profile ?? null,
   });
 
   if (!view) {
@@ -124,7 +123,6 @@ export default async function DepartmentBuilderPage({
     notFound();
   }
 
-  const profileId = view.workingProfileMeta?.id ?? null;
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
   const availableTabs = departmentAdminTabsForFlags({
     locationsEnabled: true,
@@ -275,7 +273,6 @@ export default async function DepartmentBuilderPage({
         departmentId={view.department.id}
         departmentName={view.department.name}
         locationCount={view.locationCoverage.total}
-        profileId={profileId}
         activeTab={tab}
         context={contextSummary}
         setupWorkspace={setupWorkspace}
@@ -284,7 +281,6 @@ export default async function DepartmentBuilderPage({
       <DepartmentAdminLocalNav
         departmentId={view.department.id}
         activeTab={tab}
-        profileId={profileId}
         tabs={availableTabs}
         setupWorkspace={setupWorkspace}
       />

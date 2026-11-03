@@ -176,7 +176,6 @@ export function isPreventiveMaintenanceBuilderPath(pathname: string | null | und
 export function departmentAdminHref(
   departmentId: string,
   tab: DepartmentAdminPrimaryTabId | DepartmentAdminRetiredTabId,
-  profileId?: string | null,
   setupWorkspace?: boolean,
 ): string {
   const resolved = isDepartmentAdminRetiredTabId(tab)
@@ -187,7 +186,6 @@ export function departmentAdminHref(
   }
   const params = new URLSearchParams();
   if (resolved !== "overview") params.set("tab", resolved);
-  if (profileId) params.set("profile", profileId);
   if (setupWorkspace) params.set("onboarding", "workspace");
   const query = params.toString();
   return query
