@@ -149,7 +149,7 @@ The current key exists so a cycle, a record attachment, a coverage item, a team,
 
 ### 4.4 Current code is deletion debt
 
-Until the approved removal sequence runs, code still contains:
+Phase 5B closed the Facility authoring path, the historical profile label in Review, and the menu operational-type load. Department Builder → Facility composes identity, responsibility, Operating Rhythm, Coverage, Records, Assets, and Menus. It does not publish a profile. Remaining deletion debt, until generic Work and the projection Experience decoration are removed:
 
 - `DepartmentRoomArchetype` and `DepartmentRoomArchetypeBinding`
 - `DepartmentOperationalProfile`

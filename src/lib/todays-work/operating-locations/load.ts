@@ -21,7 +21,7 @@ import {
   narrowTeamScopeToCollectedRooms,
   resolveViewerTeamScopes,
   type ViewerTeamScope,
-} from "@/lib/todays-work/viewer-team-scope";
+} from "@/lib/todays-work/operational-placement";
 
 import { applyViewerTeamScopeToLocations } from "./apply-team-scope";
 import { operatingBoardToWalkList, sortOperatingLocationsForWalk } from "./build";

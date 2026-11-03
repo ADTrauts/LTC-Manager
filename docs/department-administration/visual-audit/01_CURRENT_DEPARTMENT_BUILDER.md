@@ -138,7 +138,7 @@ flowchart TB
 
   subgraph reads ["Two composed views of the same room"]
     LP["location-program.ts<br/>READ current Director inspect<br/>teams, cycles, logs, assets<br/>does not carry Location Function"]
-    ELP["effective-location-program.ts<br/>LEGACY READ<br/>header says keep until Run<br/>stops keying off archetype bindings<br/>still emits Experiences and Work overlays"]
+    ELP["effective-location-program.ts<br/>DELETED in Phase 5B"]
     RLS["Runtime Location State<br/>READ<br/>Location Program plus an<br/>operationalType sidecar"]
   end
 
@@ -231,6 +231,6 @@ profile Experiences
     → sparse room exceptions
 ```
 
-`effective-location-program.ts` still returns Operational Areas and Experiences, and its overlay list still includes cycles, teams, log attachments, assets, **work plans**, and coverage expectations. The Locations panel the director sees composes `location-program.ts` instead. Both resolvers exist.
+`effective-location-program.ts` is deleted. The Locations panel composes `location-program.ts`: identity, responsibility, Operating Rhythm, Coverage, Records, Assets, and Menus. It does not author a Location Function.
 
 The Experience catalog in `src/lib/experiences` still names areas such as Dietary Service, Food Safety, and Production, and experiences such as `MEAL_SERVICE` and `TEMPERATURE_MONITORING`. Department Builder no longer has Areas or Archetypes tabs. The old `room-types` department panel file is still in the tree and is not mounted by the current page.

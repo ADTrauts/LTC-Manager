@@ -213,8 +213,6 @@ test(
         managerEmployeeId: employee.id,
       });
       assert.equal(residentServices.displayName, "Resident Services");
-      assert.equal(residentServices.roomCount, 0);
-      assert.deepEqual(residentServices.rooms, []);
       assert.equal(residentServices.managerEmployeeId, employee.id);
 
       const afterCreate = await prisma.employee.findUniqueOrThrow({
@@ -228,7 +226,7 @@ test(
         departmentId: dietary.id,
         displayName: "Clinical Nutrition",
       });
-      assert.deepEqual(clinical.rooms, []);
+      assert.equal(clinical.displayName, "Clinical Nutrition");
 
       await assert.rejects(
         () =>
@@ -297,7 +295,6 @@ test(
       assert.equal(renamed.id, residentServices.id);
       assert.equal(renamed.displayName, "Neighborhood Services");
       assert.equal(renamed.managerEmployeeId, employee.id);
-      assert.equal(renamed.roomCount, 0);
 
       const cleared = await updateDepartmentTeam(mgr, {
         facilityId: facility.id,
@@ -340,7 +337,6 @@ test(
         displayName: "Mechanical",
       });
       assert.equal(mechanical.displayName, "Mechanical");
-      assert.equal(mechanical.roomCount, 0);
 
       await pruneTeamRoomsAfterResponsibilityRemoved(prisma, {
         spaceId: naval.id,
@@ -352,7 +348,6 @@ test(
       });
       const resident = afterPrune.find((team) => team.id === residentServices.id);
       assert.ok(resident);
-      assert.deepEqual(resident.rooms, []);
 
       const zoneCount = await prisma.departmentOperationalZone.count({
         where: { departmentId: dietary.id },

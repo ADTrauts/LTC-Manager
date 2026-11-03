@@ -1,7 +1,7 @@
 import {
   formatViewerTeamScopeLabel,
   type ViewerTeamScope,
-} from "@/lib/todays-work/viewer-team-scope";
+} from "@/lib/todays-work/operational-placement";
 
 export function TodaysWorkScopeLabel({
   scope,

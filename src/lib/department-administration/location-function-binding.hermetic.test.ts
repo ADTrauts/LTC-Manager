@@ -189,7 +189,7 @@ test("a past service date keeps the function from the profile effective then", (
   assert.equal(historicalOtAssignmentsFromBindings(bindings, later.profile.id).get("naval"), undefined);
 });
 
-test("the work gap clears when a published function matches a bound room", () => {
+test("a missing Location Function is not a configuration gap", () => {
   const open = presentOverviewGuidance({
     departmentId: "dept",
     departmentKey: "DIETARY",
@@ -209,8 +209,8 @@ test("the work gap clears when a published function matches a bound room", () =>
   assert.equal(hasUnmatchedPublishedOperationalTypes({
     publishedWorkOperationalTypeKeys: ["food_service_area"],
     classifiedOperationalTypeKeys: [],
-  }), true);
-  assert.match(open.find((row) => row.id === "work")?.description ?? "", /no bound room/);
+  }), false);
+  assert.doesNotMatch(open.find((row) => row.id === "work")?.description ?? "", /no bound room/);
 
   const closed = presentOverviewGuidance({
     departmentId: "dept",
@@ -235,10 +235,10 @@ test("the work gap clears when a published function matches a bound room", () =>
   assert.doesNotMatch(closed.find((row) => row.id === "work")?.description ?? "", /no bound room/);
 });
 
-test("Locations saves a Product function through the canonical action", () => {
+test("Locations does not author a Location Function", () => {
   const panel = source("src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx");
-  assert.match(panel, /bindLocationFunctionAction/);
-  assert.match(panel, /publishLocationFunctionsAction/);
-  assert.match(panel, /Location Function/);
+  const actions = source("src/app/(protected)/admin/departments/[departmentId]/actions.ts");
+  assert.doesNotMatch(panel, /bindLocationFunctionAction|publishLocationFunctionsAction|Location Function/);
+  assert.match(actions, /A room does not have a Location Function/);
   assert.doesNotMatch(panel, /assignLocationOperationalTypeAction|Operational Type|Archetype/);
 });

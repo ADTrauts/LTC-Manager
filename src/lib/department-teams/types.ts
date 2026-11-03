@@ -7,15 +7,6 @@ export type TeamEmployeeOption = {
   onRoster: boolean;
 };
 
-export type TeamRoomView = {
-  spaceId: string;
-  name: string;
-  displayName: string;
-  floorName: string | null;
-  neighborhoodName: string | null;
-  roomTypeLabel: string | null;
-};
-
 export type TeamCycleNeedGrain = "TOTAL" | "PER_ROOM";
 
 export type TeamCycleChildView = {
@@ -60,10 +51,7 @@ export type DepartmentTeamView = {
   archivedAt: string | null;
   managerEmployeeId: string | null;
   managerLabel: string | null;
-  roomCount: number;
   activeMemberCount: number;
-  rooms: TeamRoomView[];
-  cycles: TeamCycleView[];
 };
 
 export type TeamOperationalTypeOption = {

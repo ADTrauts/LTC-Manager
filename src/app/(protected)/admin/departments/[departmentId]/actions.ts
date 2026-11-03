@@ -7,9 +7,6 @@ import type { AppRole } from "@/lib/access";
 import {
   clearRoomArchetypeBinding,
   adoptProductLocationFunction,
-  bindLocationFunction,
-  clearLocationFunction,
-  publishLocationFunctionDraft,
   createRoomArchetype,
   ensureWorkingDraftForPatterns,
   loadProfile,
@@ -117,68 +114,15 @@ export async function createOperationalTypeAction(formData: FormData): Promise<A
   }
 }
 
-export async function bindLocationFunctionAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    const functionKey = String(formData.get("functionKey") ?? "").trim();
-    await assertDepartmentInFacility(departmentId, session);
-    const actor = actorFromSession(session);
-    if (!functionKey) {
-      const cleared = await clearLocationFunction(actor, {
-        facilityId: session.facilityId,
-        departmentId,
-        unitSpaceId,
-      });
-      revalidateDepartmentAdmin(departmentId);
-      return {
-        ok: true,
-        message: "Location Function cleared. Publish before Run uses this change.",
-        profileId: cleared.profileId,
-      };
-    }
-    const bound = await bindLocationFunction(actor, {
-      facilityId: session.facilityId,
-      departmentId,
-      unitSpaceId,
-      functionKey,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: "Location Function saved on the draft. Publish before Run uses it.",
-      profileId: bound.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not save Location Function.",
-    };
-  }
+const LOCATION_FUNCTION_RETIRED =
+  "A room does not have a Location Function. Facility Builder owns the place and who is responsible.";
+
+export async function bindLocationFunctionAction(_formData: FormData): Promise<ActionResult> {
+  return { ok: false, message: LOCATION_FUNCTION_RETIRED };
 }
 
-export async function publishLocationFunctionsAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    await assertDepartmentInFacility(departmentId, session);
-    const published = await publishLocationFunctionDraft(actorFromSession(session), {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: "Location Functions are published. Run uses this configuration.",
-      profileId: published.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not publish Location Functions.",
-    };
-  }
+export async function publishLocationFunctionsAction(_formData: FormData): Promise<ActionResult> {
+  return { ok: false, message: LOCATION_FUNCTION_RETIRED };
 }
 
 export async function ensurePatternDraftAction(formData: FormData): Promise<ActionResult> {

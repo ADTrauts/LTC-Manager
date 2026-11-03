@@ -15,8 +15,8 @@ export function DepartmentWorkPanel({
   departmentKey,
   publishedCount,
   draftCount,
-  unmatchedLocationFunctions,
-  locationsHref,
+  unmatchedLocationFunctions: _unmatchedLocationFunctions,
+  locationsHref: _locationsHref,
   starterHref = null,
 }: Props) {
   const parts: string[] = [];
@@ -57,15 +57,6 @@ export function DepartmentWorkPanel({
       ) : (
         <p className="text-sm text-zinc-800">{parts.length > 0 ? parts.join(" · ") : "No work plan yet."}</p>
       )}
-      {unmatchedLocationFunctions ? (
-        <p className="text-sm text-zinc-700">
-          A published plan targets a Location Function that has no bound room.{" "}
-          <Link href={locationsHref} className="font-medium underline underline-offset-2">
-            Bind Location Functions
-          </Link>{" "}
-          before expecting that work to land.
-        </p>
-      ) : null}
       <Link
         href="/staffing/work-plans"
         className="inline-flex min-h-10 items-center text-sm font-medium text-zinc-900 underline underline-offset-2"

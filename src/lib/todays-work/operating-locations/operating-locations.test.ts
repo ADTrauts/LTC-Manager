@@ -24,7 +24,7 @@ import type {
   OperatingLocationIssueFacts,
   SupervisorOperatingLocation,
 } from "@/lib/todays-work/operating-locations/types";
-import type { ViewerTeamScope } from "@/lib/todays-work/viewer-team-scope";
+import type { ViewerTeamScope } from "@/lib/todays-work/operational-placement";
 
 function locationNode(
   partial: Partial<LocationsTreeNode> & Pick<LocationsTreeNode, "kind" | "label" | "physicalId">,

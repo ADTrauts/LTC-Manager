@@ -105,23 +105,16 @@ export async function loadOperationalReviewDayFacts(input: {
     assetIssues,
     legacyCount,
   ] = await Promise.all([
-    departmentIds.length === 0
-      ? Promise.resolve([])
-      : input.client.departmentOperationalProfile.findMany({
-          where: {
-            facilityId: input.facilityId,
-            departmentId: { in: departmentIds },
-            status: { in: ["ACTIVE", "RETIRED", "CERTIFIED"] },
-          },
-          select: {
-            id: true,
-            departmentId: true,
-            version: true,
-            status: true,
-            activatedAt: true,
-            retiredAt: true,
-          },
-        }),
+    Promise.resolve(
+      [] as {
+        id: string;
+        departmentId: string;
+        version: number;
+        status: "ACTIVE" | "RETIRED" | "CERTIFIED";
+        activatedAt: Date | null;
+        retiredAt: Date | null;
+      }[],
+    ),
     input.client.logAttachment.findMany({
       where: {
         facilityId: input.facilityId,
@@ -331,25 +324,7 @@ export async function loadOperationalReviewDayFacts(input: {
     retiredAt: row.retiredAt,
   }));
 
-  const bindings: ReviewOtBindingFact[] =
-    profileFacts.length === 0
-      ? []
-      : (
-          await input.client.departmentRoomArchetypeBinding.findMany({
-            where: { profileId: { in: profileFacts.map((row) => row.id) } },
-            select: {
-              profileId: true,
-              unitSpaceId: true,
-              archetype: { select: { key: true, name: true, isActive: true } },
-            },
-          })
-        ).map((row) => ({
-          profileId: row.profileId,
-          spaceId: row.unitSpaceId,
-          operationalTypeKey: row.archetype.key,
-          operationalTypeName: row.archetype.name,
-          archetypeIsActive: row.archetype.isActive,
-        }));
+  const bindings: ReviewOtBindingFact[] = [];
 
   const attachmentSegments: ReviewAttachmentSegmentFact[] = attachments.map((row) => ({
     id: row.id,

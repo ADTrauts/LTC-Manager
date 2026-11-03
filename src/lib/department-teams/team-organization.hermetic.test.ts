@@ -3,10 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { composeLocationProgram } from "@/lib/department-administration/location-program";
-import { evaluateViewerTeamScope } from "@/lib/dashboard/viewer/viewer-team-scope";
+import { evaluateViewerTeamScope } from "@/lib/dashboard/viewer/operational-placement";
 import { matchCoverageItemToLocation } from "@/lib/scheduling/coverage-expectations/match-expectation";
-
-import { configuredTeamSpaceIds, matchTeamToLocation } from "./team-operational-type-applicability";
 
 const servery = {
   spaceId: "space-1a-servery",
@@ -47,31 +45,8 @@ test("a Team is members, not rooms, operational types, or a coverage count", () 
   assert.match(service, /organizational grouping of people/);
   assert.doesNotMatch(service, /roomMemberships/);
   assert.doesNotMatch(service, /applicableOperationalTypeKeys:/);
-  const match = matchTeamToLocation(
-    {
-      id: "resident-services",
-      departmentId: "dietary",
-      displayName: "Resident Services",
-      status: "ACTIVE",
-      applicableOperationalTypeKeys: ["food_service_area"],
-      explicitSpaceIds: ["space-1a-servery"],
-    },
-    {
-      departmentId: "dietary",
-      spaceId: "space-1a-servery",
-      operationalTypeKey: "food_service_area",
-      operationalTypeName: "Food service",
-    },
-  );
-  assert.deepEqual(match, []);
-  assert.deepEqual(
-    configuredTeamSpaceIds({
-      explicitSpaceIds: ["space-1a-servery"],
-      applicableOperationalTypeKeys: ["food_service_area"],
-      runtimeAssignments: new Map([["space-1a-servery", { key: "food_service_area" }]]),
-    }),
-    [],
-  );
+  assert.doesNotMatch(service, /rooms: \[\]/);
+  assert.doesNotMatch(service, /cycles: \[\]/);
 });
 
 test("a responsible room stays visible with no Team", () => {
@@ -162,7 +137,7 @@ test("the same room can belong to two Departments without either Team owning it"
 
 test("viewer placement does not read Location Function or Team rooms", () => {
   const scope = readFileSync(
-    new URL("../dashboard/viewer/viewer-team-scope.ts", import.meta.url),
+    new URL("../dashboard/viewer/operational-placement.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(scope, /applicableOperationalTypeKeys/);

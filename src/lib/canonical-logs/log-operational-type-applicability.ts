@@ -9,8 +9,6 @@
 
 import type { LogAttachmentTarget, LogRequirement } from "@/lib/logs-architecture/types";
 
-import type { OverlayProvenanceSource } from "@/lib/department-administration/effective-location-program";
-
 export type LocationLogApplicabilitySource =
   | "OPERATIONAL_TYPE_DEFAULT"
   | "EXPLICIT_LOCATION"
@@ -148,23 +146,6 @@ export function matchLogAttachmentToLocation(
         }),
       };
     }
-  }
-}
-
-export function overlaySourceFromLogMatch(
-  source: LocationLogApplicabilitySource,
-): OverlayProvenanceSource {
-  switch (source) {
-    case "OPERATIONAL_TYPE_DEFAULT":
-      return "OPERATIONAL_TYPE_DEFAULT";
-    case "EXPLICIT_LOCATION":
-      return "EXPLICIT_LOCATION";
-    case "DEPARTMENT_WIDE":
-      return "DEPARTMENT_WIDE";
-    case "UNIT":
-    case "FACILITY":
-    case "ASSET":
-      return "EXPLICIT_APPLICABILITY";
   }
 }
 

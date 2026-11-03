@@ -97,7 +97,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Department** | Facility-installed instance / operational ownership | Line of business |
 | **Enabled** | `Department.isActive` — admitted to shared operations | Operationally active, configured, ready, healthy |
 | **Operating rhythm** | Recurring Operational Cycles the department runs | Shift, schedule ceremony, setup steps |
-| **Location Function** | Product-owned `functionKey` bound by the facility to an existing room. Persistence is `DepartmentRoomArchetype.key` on the Department profile. | Operational Type, Archetype, room name, physical room type, label slug |
+| **Location Function** | Retired. A room is a Facility place plus Department responsibility. Do not bind a function key, Operational Type, or archetype onto it. | Operational Type, Archetype, Experience, Operational Area |
 | **Operational Cycle** | Root recurring window (persisted as root PERIOD) | Peer “Breakfast Cleanup” as a top-level operation, meal milestone engine |
 | **Phase** | One interval inside an Operational Cycle (persisted as nested PERIOD) | Sub-operation, peer cycle |
 | **Key Point** | Instant on a Cycle (persisted as `KEY_TIME`) | Key Time in current product language, Work, a Record |

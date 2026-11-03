@@ -31,7 +31,7 @@ export {
   isTeamUnconfiguredScope,
   keyTimeSpaceFilterFromTeamScope,
   type ViewerTeamScope,
-} from "./viewer-team-scope";
+} from "./operational-placement";
 export {
   buildCoverageItems,
   buildStaffingHref,

@@ -166,7 +166,7 @@ describe("Overview guidance derivation", () => {
     assert.doesNotMatch(JSON.stringify(rows), /67%|setup complete|configurationStatus/i);
   });
 
-  it("points Work at Locations when published operational types have no matching rooms", () => {
+  it("does not treat a missing Location Function as a Work gap", () => {
     const rows = presentOverviewGuidance({
       departmentId: "dept1",
       departmentKey: "DIETARY",
@@ -184,9 +184,8 @@ describe("Overview guidance derivation", () => {
       classifiedOperationalTypeKeys: ["main_kitchen", "retail"],
     });
     const work = rows.find((row) => row.id === "work")!;
-    assert.match(work.description, /no bound room/);
-    assert.match(work.href, /locations/);
-    assert.equal(work.actionLabel, "Configure locations →");
+    assert.doesNotMatch(work.description, /no bound room|Location Function/);
+    assert.match(work.href, /work/);
   });
 
   it("does not persist readiness language in Overview or All Departments", () => {

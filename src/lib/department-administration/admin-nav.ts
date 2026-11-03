@@ -15,7 +15,7 @@ export const DEPARTMENT_ADMIN_TABS = [
   {
     id: "locations",
     label: "Locations",
-    description: "Physical places and Location Functions",
+    description: "Places this department is responsible for",
   },
   {
     id: "operating-rhythm",

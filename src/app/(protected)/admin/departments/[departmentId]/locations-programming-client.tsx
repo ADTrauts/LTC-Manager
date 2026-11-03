@@ -85,7 +85,7 @@ function LocationRoomInspector({
 
       <section className="space-y-2" data-testid="location-program-cycles">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Cycles that landed here
+          Operating Rhythm
         </h3>
         {inspect.cycles.length === 0 ? (
           <p className="text-xs text-zinc-400">No cycles land on this room yet.</p>
@@ -123,7 +123,7 @@ function LocationRoomInspector({
 
       <section className="space-y-2" data-testid="location-program-logs">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Logs</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Records</h3>
           {canManage && inspect.addLogHref ? (
             <Link
               href={inspect.addLogHref}
@@ -135,7 +135,7 @@ function LocationRoomInspector({
           ) : null}
         </div>
         {inspect.logs.length === 0 ? (
-          <p className="text-xs text-zinc-400">No logs on this room or its assets.</p>
+          <p className="text-xs text-zinc-400">No records on this room or its assets.</p>
         ) : (
           <ul className="space-y-2">
             {inspect.logs.map((log) => (
@@ -170,6 +170,26 @@ function LocationRoomInspector({
                   {asset.code ? ` (${asset.code})` : ""}
                 </Link>
                 <span className="block text-zinc-400">From Asset Builder</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2" data-testid="location-program-menus">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Menus</h3>
+        {inspect.menus.length === 0 ? (
+          <p className="text-xs text-zinc-400">No menu is placed on this room.</p>
+        ) : (
+          <ul className="space-y-1">
+            {inspect.menus.map((menu) => (
+              <li key={menu.id} className="text-xs text-zinc-800">
+                <Link
+                  href={`/admin/departments/${inspect.departmentId}?tab=menus`}
+                  className="font-medium underline-offset-2 hover:underline"
+                >
+                  {menu.name}
+                </Link>
               </li>
             ))}
           </ul>

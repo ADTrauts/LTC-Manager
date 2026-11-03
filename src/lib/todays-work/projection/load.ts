@@ -21,7 +21,7 @@ import {
   loadedBoardToWalkList,
   type OperatingLocationBoard,
 } from "../operating-locations";
-import type { ViewerTeamScope } from "../viewer-team-scope";
+import type { ViewerTeamScope } from "../operational-placement";
 
 import {
   assembleExperienceWalkContributions,

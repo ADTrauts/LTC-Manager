@@ -22,7 +22,7 @@ import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "
 import { prisma } from "@/lib/prisma";
 import type { RouteFeatureFlags } from "@/lib/route-registry/authorize";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
-import { resolveViewerTeamScopes } from "@/lib/dashboard/viewer/viewer-team-scope";
+import { resolveViewerTeamScopes } from "@/lib/dashboard/viewer/operational-placement";
 
 import {
   applyDashboardLens,

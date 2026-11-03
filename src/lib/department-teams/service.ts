@@ -161,10 +161,7 @@ function mapTeamView(
     archivedAt: row.archivedAt?.toISOString() ?? null,
     managerEmployeeId: row.managerEmployeeId,
     managerLabel: manager ? `${manager.lastName}, ${manager.firstName}` : null,
-    roomCount: 0,
     activeMemberCount,
-    rooms: [],
-    cycles: [],
   };
 }
 

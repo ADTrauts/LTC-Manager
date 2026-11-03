@@ -80,6 +80,7 @@ export type LocationProgram = {
   }[];
   logs: LocationProgramLog[];
   assets: LocationProgramAsset[];
+  menus: readonly { id: string; name: string }[];
 };
 
 export type ComposeLocationProgramInput = {
@@ -131,6 +132,7 @@ export type ComposeLocationProgramInput = {
   }[];
   suppressions: readonly { defaultId: string; spaceId: string }[];
   assets: readonly { id: string; name: string; code: string | null }[];
+  menus?: readonly { id: string; name: string }[];
 };
 
 export function formatNeedSummary(
@@ -171,6 +173,7 @@ export function emptyLocationProgram(input: {
     coverage: [],
     logs: [],
     assets: [],
+    menus: [],
   };
 }
 
@@ -184,7 +187,8 @@ export function locationProgramIsAttached(
     program.cycles.length > 0 ||
     program.coverage.length > 0 ||
     program.logs.some((log) => !log.suppressed) ||
-    program.assets.length > 0
+    program.assets.length > 0 ||
+    program.menus.length > 0
   );
 }
 
@@ -268,5 +272,6 @@ export function composeLocationProgram(
     coverage: [...(input.coverageNeeds ?? [])],
     logs: logs.sort((a, b) => a.label.localeCompare(b.label)),
     assets: [...input.assets].sort((a, b) => a.name.localeCompare(b.name)),
+    menus: [...(input.menus ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
   };
 }

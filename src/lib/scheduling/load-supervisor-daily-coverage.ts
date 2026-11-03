@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import {
   resolveViewerTeamScopes,
   type ViewerTeamScope,
-} from "@/lib/dashboard/viewer/viewer-team-scope";
+} from "@/lib/dashboard/viewer/operational-placement";
 
 import { loadDepartmentDaySchedule } from "./load-department-day-schedule";
 import {

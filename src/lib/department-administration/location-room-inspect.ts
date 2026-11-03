@@ -46,6 +46,7 @@ export type LocationRoomInspectView = {
   coverage: LocationProgram["coverage"];
   logs: LocationRoomLogInspect[];
   assets: LocationRoomAssetInspect[];
+  menus: readonly { id: string; name: string }[];
   addLogHref: string | null;
   catalogOptions: Array<{ stableKey: string; name: string }>;
 };
@@ -91,6 +92,7 @@ export function toLocationRoomInspect(
       ...asset,
       href: `/assets/${asset.id}`,
     })),
+    menus: program.menus,
     addLogHref: extras.logsEnabled
       ? `/build/logs/attach?targetKind=SPACE&targetId=${encodeURIComponent(spaceId)}&departmentId=${encodeURIComponent(program.department.id)}&returnTo=${encodeURIComponent(`/admin/departments/${program.department.id}?tab=locations`)}`
       : null,

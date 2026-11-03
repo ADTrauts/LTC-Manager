@@ -8,7 +8,6 @@ import {
   type CycleLifecycleRow,
 } from "@/lib/operational-cycles/cycle-lifecycle";
 import { mapCycleRow } from "@/lib/operational-cycles/load-published-cycles";
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -119,20 +118,8 @@ export async function loadDepartmentBuilderContextSummary(
     prisma.logAttachment.count({
       where: { facilityId, departmentId, status: "ACTIVE" },
     }),
-    prisma.departmentWorkPlanApplicability.findMany({
-      where: {
-        kind: "OPERATIONAL_TYPE",
-        operationalTypeKey: { not: null },
-        workPlan: { facilityId, departmentId, status: "PUBLISHED" },
-      },
-      select: { operationalTypeKey: true },
-      distinct: ["operationalTypeKey"],
-    }),
-    loadSpaceOperationalTypeAssignments({
-      facilityId,
-      departmentId,
-      perspective: "runtime",
-    }),
+    Promise.resolve([] as { operationalTypeKey: string | null }[]),
+    Promise.resolve(new Map<string, { key: string }>()),
   ]);
 
   const mappedCycles: CycleLifecycleRow[] = cycleRows.map((row) => ({

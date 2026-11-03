@@ -6,7 +6,7 @@ import {
   formatViewerTeamScopeLabel,
   keyTimeSpaceFilterFromTeamScope,
   narrowTeamScopeToCollectedRooms,
-} from "./viewer-team-scope";
+} from "./operational-placement";
 
 const base = {
   departmentId: "dept-dietary",

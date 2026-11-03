@@ -45,21 +45,20 @@ flowchart TB
   PROF --> RUN
   PROF --> AUD
 
-  subgraph resolvers ["Two resolvers"]
-    OLD["resolve-room-profile.ts<br/>LEGACY<br/>Experiences → archetype → exceptions"]
-    ELP["effective-location-program.ts<br/>LEGACY READ<br/>still returns areas, experiences, work plans"]
-    LP["location-program.ts<br/>READ the Director uses<br/>teams, cycles, logs, assets<br/>function is a sidecar, not a field"]
+  subgraph resolvers ["Facility read"]
+    OLD["resolve-room-profile.ts<br/>projection Experience decoration only"]
+    LP["location-program.ts<br/>Department Facility read<br/>rhythm, coverage, records, assets, menus"]
   end
 
-  AREA --> OLD --> ELP
-  BIND --> ELP
+  AREA --> OLD
+  BIND --> OLD
   BIND --> LP
 
   classDef legacy fill:#f4f1ea,stroke:#8a6a2f,color:#1a2114
   classDef persist fill:#e8f1fb,stroke:#1d4e89,color:#1a2114
   classDef canon fill:#e7f6ec,stroke:#1f7a3a,color:#1a2114
   classDef dup fill:#fdecec,stroke:#9b2c2c,color:#1a2114
-  class AREA,AEXP,AEX,RX,OLD,ELP legacy
+  class AREA,AEXP,AEX,RX,OLD legacy
   class PROF,ARCH,BIND,ROOM persist
   class CAT,BUILD,RUN,AUD,LP canon
   class ACT,CODE dup

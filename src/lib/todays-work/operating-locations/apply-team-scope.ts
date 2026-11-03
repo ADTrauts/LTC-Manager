@@ -6,7 +6,7 @@
 
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 
-import type { ViewerTeamScope } from "../viewer-team-scope";
+import type { ViewerTeamScope } from "../operational-placement";
 import type { SupervisorOperatingLocation } from "./types";
 
 export function applyViewerTeamScopeToLocations(

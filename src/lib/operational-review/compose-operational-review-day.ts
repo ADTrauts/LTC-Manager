@@ -25,10 +25,6 @@ import {
   groupAttachmentLineages,
 } from "./historical-attachment";
 import { composeReviewMenuDomain } from "./compose-menu-review";
-import {
-  historicalOtAssignmentsFromBindings,
-  selectHistoricalProfileForServiceDate,
-} from "./historical-operational-type";
 import { reviewEvidenceStateFromOccurrence } from "@/lib/operational-occurrence/classify-operational-requirement";
 
 import type {
@@ -88,42 +84,15 @@ function spaceIdsForAttachment(segment: LogAttachmentForResolve): string[] {
 export function composeOperationalReviewDay(
   facts: OperationalReviewDayFacts,
 ): OperationalReviewDayViewModel {
-  const otByDepartment = new Map<string, Map<string, { key: string; name: string }>>();
-  let otUnavailable = false;
-  for (const departmentId of facts.departmentIds) {
-    const selected = selectHistoricalProfileForServiceDate(facts.profiles, {
-      departmentId,
-      serviceDateKey: facts.serviceDate,
-      timezone: facts.timezone,
-    });
-    if (selected.status === "unavailable") {
-      otUnavailable = true;
-      otByDepartment.set(departmentId, new Map());
-      continue;
-    }
-    otByDepartment.set(
-      departmentId,
-      historicalOtAssignmentsFromBindings(facts.otBindings, selected.profile.id),
-    );
-  }
-
   const locations: ReviewLocationEntry[] = facts.spaces.map((space) => {
-    let ot: { key: string; name: string } | null = null;
-    for (const departmentId of facts.departmentIds) {
-      const found = otByDepartment.get(departmentId)?.get(space.spaceId);
-      if (found) {
-        ot = found;
-        break;
-      }
-    }
     return {
       spaceId: space.spaceId,
       parentUnitId: space.parentUnitId,
       parentUnitLabel: space.parentUnitLabel,
       displayLabel: space.displayLabel,
       displayLabelIsHistorical: false,
-      operationalTypeKey: ot?.key ?? null,
-      operationalTypeName: ot?.name ?? null,
+      operationalTypeKey: null,
+      operationalTypeName: null,
     };
   });
 
@@ -443,7 +412,7 @@ export function composeOperationalReviewDay(
     menu: composeReviewMenuDomain({
       facts,
       locations,
-      otByDepartment,
+      otByDepartment: new Map(),
     }),
   };
 }

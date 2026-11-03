@@ -9,7 +9,7 @@ import { PrismaClient } from "@prisma/client";
 
 import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import { archiveDepartmentTeam, createDepartmentTeam } from "@/lib/department-teams";
-import { resolveViewerTeamScopes } from "./viewer-team-scope";
+import { resolveViewerTeamScopes } from "./operational-placement";
 
 const databaseUrl =
   process.env.DEPARTMENT_WORK_TEST_DATABASE_URL ||

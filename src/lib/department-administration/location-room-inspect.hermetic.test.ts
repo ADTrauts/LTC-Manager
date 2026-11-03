@@ -120,7 +120,7 @@ describe("Locations modal contracts", () => {
       "utf8",
     );
     assert.doesNotMatch(client, /Teams that work here/);
-    assert.match(client, /Cycles that landed here/);
+    assert.match(client, /Operating Rhythm/);
     assert.match(client, /location-program-coverage/);
     assert.match(client, /Add log/);
     assert.doesNotMatch(client, /Inherited from Facility type/);

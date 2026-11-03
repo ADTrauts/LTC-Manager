@@ -9,7 +9,7 @@ import {
 import { getDepartmentProduct, matchEntitlementStatusForProduct } from "@/lib/department-products/registry";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import type { RouteFeatureFlags } from "@/lib/route-registry/authorize";
-import type { ViewerTeamScope } from "@/lib/dashboard/viewer/viewer-team-scope";
+import type { ViewerTeamScope } from "@/lib/dashboard/viewer/operational-placement";
 
 import type {
   DashboardAuthority,

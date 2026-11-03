@@ -185,14 +185,11 @@ export function formatWorkGuidance(input: {
   return { applicable: true, status: parts.join(" · "), actionLabel: "Configure work →" };
 }
 
-export function hasUnmatchedPublishedOperationalTypes(input: {
+export function hasUnmatchedPublishedOperationalTypes(_input: {
   publishedWorkOperationalTypeKeys?: readonly string[];
   classifiedOperationalTypeKeys?: readonly string[];
 }): boolean {
-  const published = (input.publishedWorkOperationalTypeKeys ?? []).filter(Boolean);
-  if (!published.length) return false;
-  const classified = new Set(input.classifiedOperationalTypeKeys ?? []);
-  return published.some((key) => !classified.has(key));
+  return false;
 }
 
 export function formatRecordsGuidance(placedLogCount: number): {

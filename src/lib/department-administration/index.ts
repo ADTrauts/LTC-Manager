@@ -157,21 +157,7 @@ export {
   type LocationProgramTeam,
 } from "./location-program";
 
-export {
-  emptyLocationOverlays,
-  resolveEffectiveLocationProgram,
-  type EffectiveLocationExperience,
-  type EffectiveLocationKind,
-  type EffectiveCoverageExpectationItem,
-  type EffectiveLocationOverlays,
-  type EffectiveLocationProgram,
-  type EffectiveOperationalType,
-  type OverlayProvenance,
-  type ResolveEffectiveLocationProgramInput,
-} from "./effective-location-program";
-
-// load-effective-location-program and load-location-program are server-only.
-// Import them from their files, not this barrel.
+// load-location-program is server-only. Import it from its file, not this barrel.
 
 export {
   buildRoomTypeExperienceGroups,

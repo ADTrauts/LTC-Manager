@@ -343,8 +343,9 @@ test("OT change is applied per day, not current profile across the range", () =>
     "2026-09-02",
     "2026-09-06",
   );
-  assert.equal(range.days[0]?.locations[0]?.operationalTypeKey, "servery");
-  assert.equal(range.days[1]?.locations[0]?.operationalTypeKey, "retail");
+  assert.equal(range.days[0]?.locations[0]?.operationalTypeKey, null);
+  assert.equal(range.days[1]?.locations[0]?.operationalTypeKey, null);
+  assert.equal(range.days[0]?.locations[0]?.displayLabel, range.days[1]?.locations[0]?.displayLabel);
 });
 
 test("unavailable days are excluded from false denominators", () => {

@@ -24,7 +24,6 @@ export type {
   TeamCycleView,
   TeamEmployeeOption,
   TeamOperationalTypeOption,
-  TeamRoomView,
 } from "./types";
 export {
   assertUniqueRootCycleLabel,
@@ -40,13 +39,4 @@ export {
   normalizeTeamDescription,
   normalizeTeamDisplayName,
   teamNamesConflict,
-  validateTeamRoomSubmission,
 } from "./validation";
-export {
-  configuredTeamSpaceIds,
-  describeTeamApplicability,
-  matchTeamToLocation,
-  dedupeTeamLocationMatches,
-  overlaySourceFromTeamMatch,
-  validateTeamOperationalTypeKeys,
-} from "./team-operational-type-applicability";

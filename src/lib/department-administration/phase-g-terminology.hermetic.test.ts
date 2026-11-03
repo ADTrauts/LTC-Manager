@@ -26,7 +26,8 @@ describe("Phase G manager terminology", () => {
     const locations = source(
       "src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx",
     );
-    assert.match(locations, /Location Functions/);
+    assert.match(locations, /Facility Builder owns the place/);
+    assert.doesNotMatch(locations, /Location Function/);
     assert.doesNotMatch(locations, /Operational Type|Archetype/);
   });
 

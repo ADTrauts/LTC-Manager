@@ -60,7 +60,7 @@ async function loadProgramsForDepartmentRooms(input: {
   const serviceDateKey = toServiceDateKey(
     getFacilityServiceDate(await loadFacilityTimezone(prisma, input.facilityId)),
   );
-  const [spaces, attachments, assets, coverageTemplates, periodCycles] = await Promise.all([
+  const [spaces, attachments, assets, coverageTemplates, periodCycles, menus] = await Promise.all([
     spaceIds.length
       ? prisma.unitSpace.findMany({
           where: { id: { in: spaceIds }, facilityId: input.facilityId },
@@ -140,6 +140,21 @@ async function loadProgramsForDepartmentRooms(input: {
       },
       select: { stableKey: true, label: true },
     }),
+    spaceIds.length
+      ? prisma.menu.findMany({
+          where: {
+            facilityId: input.facilityId,
+            departmentId: input.department.id,
+            status: "ACTIVE",
+            locationApplicability: { some: { spaceId: { in: spaceIds } } },
+          },
+          select: {
+            id: true,
+            name: true,
+            locationApplicability: { select: { spaceId: true } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   const placementRows =
@@ -258,6 +273,11 @@ async function loadProgramsForDepartmentRooms(input: {
           name: asset.name,
           code: asset.assetCode,
         })),
+      menus: menus
+        .filter((menu) =>
+          menu.locationApplicability.some((row) => row.spaceId === room.spaceId),
+        )
+        .map((menu) => ({ id: menu.id, name: menu.name })),
     });
   }
 
