@@ -13,8 +13,6 @@ import type { MealType, OperationalCycleType, ServeryMilestone } from "@prisma/c
 import type { CycleMilestoneStatusKey } from "@/lib/operational-cycles/milestone-cycle-status";
 import type { OfflineConnectivityState, OfflineMilestoneUiState } from "@/lib/offline/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
-
 /** Due Soon window: 45 minutes before cycle start. */
 export const DUE_SOON_MS = 45 * 60 * 1000;
 
@@ -52,8 +50,8 @@ export type JobFlowAttentionKind =
   | "evidence_due"
   | "evidence_corrective"
   | "evidence_review"
-  | "work_due"
-  | "work_past_due"
+  | "work_order_open"
+  | "request_urgent"
   | "work_conflict";
 
 export type JobFlowAssignmentSnapshot = {
@@ -163,16 +161,6 @@ export type JobFlowBase = {
   attention: JobFlowAttentionItem[];
   /** Derived evidence requirements for the current unit/date (Phase 9C). Empty when flag off. */
   evidenceRequirements: EvidenceRequirement[];
-  /** Derived Work requirements for the current unit/date (Phase 11A). Empty when flag off. */
-  workRequirements: WorkRequirement[];
-  /** Compact space Work progress when requirements carry spaceIds (Phase 11B EVS). */
-  spaceWorkSummaries: Array<{
-    spaceId: string;
-    state: string;
-    completedCount: number;
-    totalCount: number;
-    label: string;
-  }>;
   /** Phase 11C — assigned location scope summary for Employee Job Flow. */
   scopeSummary?: JobFlowScopeSummary | null;
   /** Phase 11C — deterministic NOW/NEXT/QUEUE (not route optimization). */
@@ -230,7 +218,6 @@ export type SupervisorExceptionGroup =
   | "Readiness"
   | "ServiceTiming"
   | "Evidence"
-  | "Work"
   | "Asset"
   | "Equipment"
   | "OfflineSync"

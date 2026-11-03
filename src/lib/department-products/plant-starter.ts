@@ -8,11 +8,6 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { FacilitySession } from "@/lib/auth";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
-import {
-  createDraftFromPreset as createWorkDraftFromPreset,
-  PLANT_WORK_PRESET_KEYS,
-  type WorkActor,
-} from "@/lib/department-work";
 import { upsertPublishedCatalogSeeds } from "@/lib/canonical-logs/catalog-seed";
 import { installPublishedCatalog } from "@/lib/canonical-logs/facility-catalog-install";
 import type { EvidenceActor } from "@/lib/operational-evidence";
@@ -104,7 +99,7 @@ export async function installPlantStarterConfiguration(
     facilityId: string;
     departmentId: string;
     selectedIds: readonly string[];
-    actor: WorkActor & EvidenceActor;
+    actor: EvidenceActor;
     client?: DbClient;
   },
 ): Promise<PlantStarterInstallResult> {
@@ -124,9 +119,6 @@ export async function installPlantStarterConfiguration(
     if (!item) continue;
     if (already.has(id)) {
       alreadyExisted += 1;
-      continue;
-    }
-    if (item.kind === "work") {
       continue;
     }
     const catalogStableKey = PLANT_STARTER_CATALOG_KEYS[id];

@@ -7,12 +7,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { DEPARTMENT_ADMIN_TABS } from "@/lib/department-administration/admin-nav";
+import { DEPARTMENT_ADMIN_TABS, DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT } from "@/lib/department-administration/admin-nav";
 import { composeLocationProgram } from "@/lib/department-administration/location-program";
-import { isDepartmentWorkPlansEnabled } from "@/lib/department-operations";
-import { EXPERIENCE_CATALOG } from "@/lib/experiences/experience-catalog";
-import { resolveUnitWorkRequirements } from "@/lib/department-work";
-import { emptyTodaysExpectedWork } from "@/lib/work/expected";
 
 const root = process.cwd();
 
@@ -47,18 +43,26 @@ test("generic Work and profile tables are gone from the schema", () => {
   assert.equal(schema.includes("spaceId"), true);
 });
 
-test("Work plans are not a Department capability", () => {
-  assert.equal(isDepartmentWorkPlansEnabled("DIETARY"), false);
-  assert.equal(isDepartmentWorkPlansEnabled("EVS"), false);
-  assert.equal(isDepartmentWorkPlansEnabled("PLANT"), false);
-  assert.equal(isDepartmentWorkPlansEnabled(null), false);
-});
-
-test("runtime Work and Expected Work do not load a plan", async () => {
-  assert.deepEqual(await resolveUnitWorkRequirements({ facilityId: "f", departmentId: "d" }), []);
-  const expected = emptyTodaysExpectedWork();
-  assert.equal(expected.workCapabilityEnabled, false);
-  assert.deepEqual(expected.currentGroups, []);
+test("retired Work and Location Function surfaces are not executable modules", () => {
+  for (const path of [
+    "src/lib/department-work",
+    "src/lib/work/expected",
+    "src/lib/todays-work/expected-work",
+    "src/components/department-work",
+    "src/components/todays-work/todays-work-expected-work.tsx",
+    "src/app/(protected)/staffing/work-plans",
+    "src/app/partner/work",
+    "src/app/console/(staff)/catalog/work",
+  ]) {
+    assert.equal(existsSync(join(root, path)), false, path);
+  }
+  const operations = readFileSync(join(root, "src/lib/department-operations.ts"), "utf8");
+  assert.equal(operations.includes("isDepartmentWorkPlansEnabled"), false);
+  assert.equal(operations.includes("workPlans"), false);
+  const redirects = Object.keys(DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT);
+  for (const retired of ["work", "room-types", "areas", "archetypes"]) {
+    assert.equal(redirects.includes(retired), false, retired);
+  }
 });
 
 test("a responsible room composes without a profile", () => {
@@ -89,8 +93,7 @@ test("a responsible room composes without a profile", () => {
   assert.equal("experiences" in program, false);
 });
 
-test("Experience catalog and profile services are gone", () => {
-  assert.deepEqual(EXPERIENCE_CATALOG, []);
+test("profile services are gone", () => {
   assert.equal(existsSync(join(root, "src/lib/department-administration/profile-service.ts")), false);
   assert.equal(existsSync(join(root, "src/lib/department-administration/resolve-room-profile.ts")), false);
   assert.equal(existsSync(join(root, "src/lib/operational-cycles/load-operational-type-targets.ts")), false);

@@ -99,7 +99,6 @@ const ROW_ICONS: Record<OverviewGuidanceRow["id"], typeof AppIcons.locations> = 
   locations: AppIcons.locations,
   rhythm: AppIcons.todaysWork,
   people: AppIcons.employees,
-  work: AppIcons.todaysWork,
   records: AppIcons.logs,
 };
 

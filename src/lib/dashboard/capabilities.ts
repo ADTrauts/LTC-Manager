@@ -9,7 +9,6 @@ import { hasDietaryDomainCapabilities, hasPlantDomainCapabilities } from "@/lib/
 import {
   isDepartmentAssetOperationsEnabled,
   isDepartmentOperationalCyclesEnabled,
-  isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import {
@@ -27,7 +26,6 @@ import type { DashboardViewer } from "./viewer/types";
 export const DASHBOARD_CAPABILITIES = [
   "locations.runtime",
   "cycles.published",
-  "work.expected",
   "coverage.planned",
   "people.roster",
   "records.canonical",
@@ -60,7 +58,6 @@ export type DepartmentDashboardCapabilities = {
 export const NOT_CONFIGURED_MESSAGES = {
   "locations.runtime": "No locations are assigned to this Department.",
   "cycles.published": "No Operating Rhythm is published.",
-  "work.expected": "No Work Plans are published.",
   "coverage.planned": "No coverage plan is set.",
   "people.roster": "No employees are in this Department.",
   "records.legacy": "This Department still uses legacy Records.",
@@ -76,10 +73,10 @@ type SetupCapability = Exclude<keyof typeof NOT_CONFIGURED_MESSAGES, "records.le
  * get the shared people and Work steps only.
  */
 const SETUP_EXPECTATIONS: Readonly<Record<DepartmentProductKey | "CUSTOM", readonly SetupCapability[]>> = {
-  HEALTHCARE_FOOD_NUTRITION: ["locations.runtime", "cycles.published", "work.expected", "coverage.planned", "menus"],
+  HEALTHCARE_FOOD_NUTRITION: ["locations.runtime", "cycles.published", "coverage.planned", "menus"],
   PLANT: ["plant.maintenance"],
   EVS: [],
-  CUSTOM: ["work.expected", "coverage.planned", "people.roster"],
+  CUSTOM: ["coverage.planned", "people.roster"],
 };
 
 /** Facts for one Department. `null` means the source failed, so the capability stays absent. */
@@ -89,7 +86,6 @@ export type DepartmentCapabilityFacts = {
   plantRuntimeEnabled: boolean;
   hasRuntimeLocations: boolean | null;
   hasPublishedCycles: boolean | null;
-  hasPublishedWorkPlans: boolean | null;
   hasCoveragePlan: boolean | null;
   hasRoster: boolean | null;
   recordEngine: RecordEngineMode | null;
@@ -97,7 +93,7 @@ export type DepartmentCapabilityFacts = {
   hasMenuApplicability: boolean | null;
 };
 
-type EngineFeature = "cycles" | "workPlans" | "asset";
+type EngineFeature = "cycles" | "asset";
 
 /** `isDepartmentEngineEnabledForFacility` with Plant runtime resolved once per request. */
 export function isDashboardEngineAdmitted(
@@ -109,8 +105,6 @@ export function isDashboardEngineAdmitted(
   switch (feature) {
     case "cycles":
       return isDepartmentOperationalCyclesEnabled(departmentKey);
-    case "workPlans":
-      return isDepartmentWorkPlansEnabled(departmentKey);
     case "asset":
       return isDepartmentAssetOperationsEnabled(departmentKey);
   }
@@ -122,13 +116,11 @@ export function deriveDepartmentDashboardCapabilities(
   const key = facts.departmentKey;
   const product = getDepartmentProduct(key);
   const cyclesAdmitted = isDashboardEngineAdmitted("cycles", key, facts.plantRuntimeEnabled);
-  const workPlansAdmitted = isDashboardEngineAdmitted("workPlans", key, facts.plantRuntimeEnabled);
   const isPlant = hasPlantDomainCapabilities(key);
 
   const has = new Set<DashboardCapability>();
   if (facts.hasRuntimeLocations === true) has.add("locations.runtime");
   if (cyclesAdmitted && facts.hasPublishedCycles === true) has.add("cycles.published");
-  if (workPlansAdmitted && facts.hasPublishedWorkPlans === true) has.add("work.expected");
   if (facts.hasCoveragePlan === true) has.add("coverage.planned");
   if (facts.hasRoster === true) has.add("people.roster");
   if (facts.recordEngine === "CANONICAL") has.add("records.canonical");
@@ -142,7 +134,6 @@ export function deriveDepartmentDashboardCapabilities(
   const missing: Record<SetupCapability, boolean> = {
     "locations.runtime": facts.hasRuntimeLocations === false,
     "cycles.published": cyclesAdmitted && facts.hasPublishedCycles === false,
-    "work.expected": workPlansAdmitted && facts.hasPublishedWorkPlans === false,
     "coverage.planned": facts.hasCoveragePlan === false,
     "people.roster": facts.hasRoster === false,
     "plant.maintenance": isPlant && !facts.plantRuntimeEnabled,
@@ -210,7 +201,7 @@ export async function resolveDepartmentDashboardCapabilities(
     .filter((department) => departmentProductOffersMenus(department.key))
     .map((department) => department.id);
 
-  const [locations, cycles, workPlans, coverage, roster, rollouts, requestRoutes, menus] = await Promise.all([
+  const [locations, cycles, coverage, roster, rollouts, requestRoutes, menus] = await Promise.all([
     departmentsWith(async () =>
       (
         await db.unitSpaceResponsibility.findMany({
@@ -247,14 +238,6 @@ export async function resolveDepartmentDashboardCapabilities(
         .filter((row) => isApplicableWeekday(row.applicableDaysOfWeek, viewer.serviceDate))
         .map((row) => row.departmentId),
     ),
-    departmentsWith(async () => {
-      const weekday = serviceDate.getUTCDay();
-      return (
-        await Promise.resolve([] as { departmentId: string; weekdays: number[] }[])
-      )
-        .filter((row) => row.weekdays.length === 0 || row.weekdays.includes(weekday))
-        .map((row) => row.departmentId);
-    }),
     departmentsWith(async () => {
       const [templates, assignments] = await Promise.all([
         db.operationalAssignmentTemplate.findMany({
@@ -348,7 +331,6 @@ export async function resolveDepartmentDashboardCapabilities(
         plantRuntimeEnabled,
         hasRuntimeLocations: presence(locations, department.id),
         hasPublishedCycles: presence(cycles, department.id),
-        hasPublishedWorkPlans: presence(workPlans, department.id),
         hasCoveragePlan: presence(coverage, department.id),
         hasRoster: presence(roster, department.id),
         recordEngine:

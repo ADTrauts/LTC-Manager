@@ -386,16 +386,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Partner operating rhythm (CDA-08). Cycles, phases, and key points for the active Department. The cycle covers the whole Department.",
   },
   {
-    pattern: "/partner/work",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "PARTNER_SESSION" },
-    module: "partner-facility-session",
-    requiresDownstreamAuthorization: true,
-    notes:
-      "Partner work plans (CDA-08). A step may link an organization-owned Catalog Record.",
-  },
-  {
     pattern: "/partner/menus",
     match: "EXACT",
     surface: "PAGE",
@@ -841,27 +831,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "build",
     featureFlag: "CANONICAL_LOGS",
-  },
-  {
-    pattern: "/staffing/work-plans",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
-    module: "staffing",
-    featureFlag: "DIETARY_WORK_PLANS",
-    // BUILD · Work — Department Work Plan builder. Owned by Department Builder, not Staffing.
-    nav: { label: "Work", order: 250 },
-    notes:
-      "Department Work Plan Builder. Work Plans come with the Department.",
-  },
-  {
-    pattern: "/staffing/work-plans/[workPlanId]",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
-    module: "staffing",
-    notes:
-      "Work Plan detail. Work Plans come with the Department.",
   },
   {
     pattern: "/staffing/log-book",

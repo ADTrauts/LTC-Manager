@@ -253,33 +253,6 @@ export type OfflineRuntimeBundle = {
     lastSyncedAt: string;
   } | null;
   /**
-   * Scoped Work requirements for DUE/CURRENT/UPCOMING only — never full catalog.
-   * Unit rebind does not retarget occurrence keys in queued commands.
-   */
-  workContext?: {
-    requirements: Array<{
-      occurrenceKey: string;
-      label: string;
-      state: string;
-      priority: string;
-      completionMode: string;
-      workPlanStableKey: string;
-      workPlanVersion: number;
-      workItemKey: string;
-      workPlanId: string;
-      workItemId: string;
-      instructions: string | null;
-      knowledgeArticleId: string | null;
-      procedureTitle: string | null;
-      dueAt: string | null;
-      cycleStableKey: string | null;
-      windowStartLocal: string | null;
-      windowEndLocal: string | null;
-      assignedEmployeeId: string | null;
-    }>;
-    lastSyncedAt: string;
-  } | null;
-  /**
    * Phase 12A Plant — read-only assigned open Work Orders + assignment coverage.
    * Offline Work Order mutations are NOT implemented in Phase 12A.
    */

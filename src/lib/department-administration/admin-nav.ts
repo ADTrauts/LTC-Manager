@@ -51,17 +51,9 @@ export type DepartmentAdminPrimaryTabId = (typeof DEPARTMENT_ADMIN_TABS)[number]
  * Cycles configure under Operating Rhythm. Teams configure under People & Coverage.
  */
 export const DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT = {
-  work: "overview",
   coverage: "people",
   cycles: "operating-rhythm",
   teams: "people",
-  "room-types": "locations",
-  areas: "locations",
-  archetypes: "locations",
-  rooms: "locations",
-  diagnostics: "overview",
-  versions: "overview",
-  settings: "overview",
 } as const satisfies Record<string, DepartmentAdminPrimaryTabId>;
 
 export type DepartmentAdminRetiredTabId = keyof typeof DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT;

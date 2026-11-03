@@ -11,12 +11,6 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { facilityIndustryLabel, facilityTypeLabel } from "@/lib/facility-classification";
 import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
 import {
-  buildWorkPlanPresetDraft,
-  DEPARTMENT_WORK_PRESET_KEYS,
-  workPresetOwningProductKey,
-  type DepartmentWorkPresetKey,
-} from "@/lib/department-work";
-import {
   departmentProductLineageKeys,
   getDepartmentProduct,
   matchDepartmentRecordForProduct,
@@ -31,8 +25,6 @@ import {
   billingStatusFor,
   departmentInstallIsCustomerOperable,
   productFacilityAccessIdentities,
-  summarizeWorkPresetAdoption,
-  workPlanMatchesPreset,
   type ProductAccessRole,
 } from "@/lib/harbor-console/console-catalog";
 
@@ -148,37 +140,9 @@ export type ConsoleDepartmentProductDetail = {
   facilities: ConsoleDepartmentProductFacilityRow[];
 };
 
-export type ConsoleWorkPresetPlanRow = {
-  id: string;
-  facilityId: string;
-  facilityName: string;
-  organizationName: string;
-  departmentName: string;
-  planName: string;
-  status: "DRAFT" | "PUBLISHED" | "RETIRED";
-  version: number;
-};
-
-export type ConsoleWorkPresetDetail = {
-  presetKey: DepartmentWorkPresetKey;
-  name: string;
-  description: string | null;
-  owningProductKey: string;
-  owningProductName: string;
-  versionLabel: string;
-  statusLabel: string;
-  facilityInstallCount: number;
-  publishedPlanCount: number;
-  plans: ConsoleWorkPresetPlanRow[];
-};
-
 function emptyOrganization(name: string | null | undefined): string {
   const trimmed = name?.trim() ?? "";
   return trimmed || CONSOLE_CATALOG_EMPTY;
-}
-
-function isWorkPresetKey(value: string): value is DepartmentWorkPresetKey {
-  return (DEPARTMENT_WORK_PRESET_KEYS as readonly string[]).includes(value);
 }
 
 function addRoleCounts(target: ProductAccessRoleCounts, role: ProductAccessRole | null, times = 1) {
@@ -389,13 +353,6 @@ async function loadDepartmentProductDetail(
     roleCounts,
     facilities,
   };
-}
-
-export async function loadConsoleWorkPresetDetail(
-  _client: Db,
-  _presetKey: string,
-): Promise<ConsoleWorkPresetDetail | null> {
-  return null;
 }
 
 export function productAccessRoleTotal(counts: ProductAccessRoleCounts): number {

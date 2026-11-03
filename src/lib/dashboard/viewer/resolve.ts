@@ -38,7 +38,6 @@ export function currentDashboardRouteFlags(): RouteFeatureFlags {
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
   return {
     dietaryOperationalEvidenceEnabled: true,
-    dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled,
   };
 }

@@ -21,7 +21,7 @@ export async function loadPlantStarterAction(input: {
   if (!hasAtLeastRole(session.role, "MANAGER") || session.authMethod === "QUICK_PIN") {
     throw new Error("Manager or above required to manage starter configuration.");
   }
-  await requireDepartmentFeatureEnabled(input.departmentId, "workPlans");
+  await requireDepartmentFeatureEnabled(input.departmentId, "evidence");
   return loadPlantStarterState(input);
 }
 
@@ -37,7 +37,6 @@ export async function installPlantStarterAction(input: {
   if (!hasAtLeastRole(session.role, "MANAGER") || session.authMethod === "QUICK_PIN") {
     throw new Error("Manager or above required to add starter configuration.");
   }
-  await requireDepartmentFeatureEnabled(input.departmentId, "workPlans");
   await requireDepartmentFeatureEnabled(input.departmentId, "evidence");
   const result = await installPlantStarterConfiguration(session, {
     facilityId: input.facilityId,
@@ -49,7 +48,6 @@ export async function installPlantStarterAction(input: {
     },
   });
   revalidatePath(`/build/departments/${input.departmentId}`);
-  revalidatePath("/staffing/work-plans");
   revalidatePath("/staffing/templates");
   return result;
 }

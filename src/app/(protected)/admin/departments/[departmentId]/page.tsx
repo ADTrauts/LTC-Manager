@@ -153,8 +153,6 @@ export default async function DepartmentBuilderPage({
             where: { unit: { facilityId: session.facilityId } },
           }),
           peopleCount: contextSummary.assignedEmployeeCount,
-          workPlanCount:
-            contextSummary.publishedWorkPlanCount + contextSummary.draftWorkPlanCount,
           recordCount: contextSummary.placedLogCount,
           publishedPmPlanCount: await prisma.preventiveMaintenancePlan.count({
             where: {
@@ -222,11 +220,7 @@ export default async function DepartmentBuilderPage({
       scheduledCount: contextSummary.scheduledCount,
       scheduledEffectiveFrom: contextSummary.scheduledEffectiveFrom,
       memberCount: contextSummary.assignedEmployeeCount,
-      publishedWorkPlanCount: contextSummary.publishedWorkPlanCount,
-      draftWorkPlanCount: contextSummary.draftWorkPlanCount,
       placedLogCount: contextSummary.placedLogCount,
-      publishedWorkOperationalTypeKeys: contextSummary.publishedWorkOperationalTypeKeys,
-      classifiedOperationalTypeKeys: contextSummary.classifiedOperationalTypeKeys,
       mealTimingUpgradeRequired: contextSummary.mealTimingUpgradeRequired,
     }),
     plantGettingStarted: plantFacts

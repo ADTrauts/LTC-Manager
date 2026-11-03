@@ -556,8 +556,6 @@ function composeChanges(input: {
 function programRefs(input: {
   space: RuntimeSpaceIdentityRow;
   program: LocationProgram;
-  operationalType: RuntimeOperationalTypeRow | null;
-  profile: RuntimeActiveProfileRef | null;
   model: RuntimePublishedRunModel | undefined;
   coverage: RuntimeCoverageState;
   evidence: RuntimeLocationState["evidence"];
@@ -608,15 +606,6 @@ function programRefs(input: {
 
   return {
     locationProgram: input.program,
-    operationalType: {
-      state: input.operationalType ? "assigned" : "unassigned",
-      key: input.operationalType?.key ?? null,
-      name: input.operationalType?.name ?? null,
-      id: input.operationalType?.id ?? null,
-      profileId: input.profile?.id ?? null,
-      profileVersion: input.profile?.version ?? null,
-      profileStatus: input.profile?.status ?? null,
-    },
     cycleSetRef:
       cycleRefs.length > 0
         ? {
@@ -643,7 +632,6 @@ export function composeRuntimeLocationStates(
 ): RuntimeLocationState[] {
   return input.spaces.map((space) => {
     const operationalType = input.operationalTypesBySpaceId.get(space.spaceId) ?? null;
-    const profile = input.profilesByDepartmentId.get(space.departmentId) ?? null;
     const model = input.runModelsByDepartmentId.get(space.departmentId);
     const program =
       input.programsBySpaceId.get(space.spaceId) ??
@@ -699,8 +687,6 @@ export function composeRuntimeLocationStates(
     const programRef = programRefs({
       space,
       program,
-      operationalType,
-      profile,
       model,
       coverage,
       evidence,

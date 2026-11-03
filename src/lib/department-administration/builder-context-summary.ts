@@ -40,11 +40,7 @@ export type DepartmentBuilderContextSummary = {
   scheduledEffectiveFrom: string | null;
   /** null = no drafts; changes = drafts differ from current; no_changes = drafts match current. */
   draftState: null | "changes" | "no_changes";
-  publishedWorkPlanCount: number;
-  draftWorkPlanCount: number;
   placedLogCount: number;
-  publishedWorkOperationalTypeKeys: string[];
-  classifiedOperationalTypeKeys: string[];
   mealTimingUpgradeRequired: boolean;
 };
 
@@ -73,11 +69,7 @@ export async function loadDepartmentBuilderContextSummary(
     cycleRows,
     canEditHead,
     activeTeamCount,
-    publishedWorkPlanCount,
-    draftWorkPlanCount,
     placedLogCount,
-    publishedOtRows,
-    operationalTypeAssignments,
   ] = await Promise.all([
     prisma.employee.findMany({
       where: { facilityId },
@@ -109,13 +101,9 @@ export async function loadDepartmentBuilderContextSummary(
     prisma.departmentTeam.count({
       where: { facilityId, departmentId, status: "ACTIVE" },
     }),
-    Promise.resolve(0),
-    Promise.resolve(0),
     prisma.logAttachment.count({
       where: { facilityId, departmentId, status: "ACTIVE" },
     }),
-    Promise.resolve([] as { operationalTypeKey: string | null }[]),
-    Promise.resolve(new Map<string, { key: string }>()),
   ]);
 
   const mappedCycles: CycleLifecycleRow[] = cycleRows.map((row) => ({
@@ -180,19 +168,7 @@ export async function loadDepartmentBuilderContextSummary(
     scheduledCount,
     scheduledEffectiveFrom,
     draftState,
-    publishedWorkPlanCount,
-    draftWorkPlanCount,
     placedLogCount,
-    publishedWorkOperationalTypeKeys: [
-      ...new Set(
-        publishedOtRows
-          .map((row) => row.operationalTypeKey)
-          .filter((key): key is string => Boolean(key)),
-      ),
-    ],
-    classifiedOperationalTypeKeys: [
-      ...new Set([...operationalTypeAssignments.values()].map((row) => row.key)),
-    ],
     mealTimingUpgradeRequired:
       department.key === "DIETARY" && dietaryMealTimingUpgradeRequired(current),
   };
