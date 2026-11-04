@@ -65,7 +65,7 @@ export type DepartmentWeekScheduleProjection = {
   summary: DepartmentWeekScheduleSummary;
   filterOptions: {
     teams: string[];
-    jobRoles: string[];
+    jobTitles: string[];
   };
 };
 
@@ -77,7 +77,6 @@ export type WeekScheduleEntryInput = {
   plannedEnd: string | null;
   shift: string;
   departmentId: string | null;
-  unitId: string | null;
   workShiftId: string | null;
 };
 
@@ -156,7 +155,7 @@ export function buildDepartmentWeekScheduleProjection(input: {
         employeeId: emp.id,
         employeeFirstName: emp.firstName,
         employeeLastName: emp.lastName,
-        jobRoleDisplayName: emp.jobRoleDisplayName,
+        jobTitleName: emp.jobTitleDisplayName,
         teamDisplayName: emp.teamDisplayName,
         serviceDate,
         scheduleEntries: dayShifts.map((s) => ({
@@ -165,7 +164,6 @@ export function buildDepartmentWeekScheduleProjection(input: {
           plannedEnd: s.plannedEnd,
           shift: s.shift,
           departmentId: s.departmentId,
-          unitId: s.unitId,
           workShiftId: s.workShiftId,
         })),
         operationalAssignments: dayAssignments.map((a) => ({
@@ -244,8 +242,8 @@ export function buildDepartmentWeekScheduleProjection(input: {
   const teams = [
     ...new Set(employees.map((e) => e.teamDisplayName).filter((v): v is string => Boolean(v))),
   ].sort();
-  const jobRoles = [
-    ...new Set(employees.map((e) => e.jobRoleDisplayName).filter((v): v is string => Boolean(v))),
+  const jobTitles = [
+    ...new Set(employees.map((e) => e.jobTitleDisplayName).filter((v): v is string => Boolean(v))),
   ].sort();
 
   return {
@@ -260,7 +258,7 @@ export function buildDepartmentWeekScheduleProjection(input: {
       needAssignmentDayCount,
       assignedUnscheduledDayCount,
     },
-    filterOptions: { teams, jobRoles },
+    filterOptions: { teams, jobTitles },
   };
 }
 
@@ -269,7 +267,7 @@ export function filterDepartmentWeekEmployees(
   projection: DepartmentWeekScheduleProjection,
   filters: {
     team?: string | null;
-    jobRole?: string | null;
+    jobTitle?: string | null;
     search?: string | null;
     scheduledOnly?: boolean;
     unscheduledOnly?: boolean;
@@ -278,11 +276,11 @@ export function filterDepartmentWeekEmployees(
   const search = filters.search?.trim().toLowerCase() ?? "";
   return projection.employees.filter((row) => {
     if (filters.team && row.teamDisplayName !== filters.team) return false;
-    if (filters.jobRole && row.jobRoleDisplayName !== filters.jobRole) return false;
+    if (filters.jobTitle && row.jobTitleDisplayName !== filters.jobTitle) return false;
     if (filters.scheduledOnly && !row.hasAnyShift) return false;
     if (filters.unscheduledOnly && row.hasAnyShift) return false;
     if (search) {
-      const hay = `${row.employeeFirstName} ${row.employeeLastName} ${row.teamDisplayName ?? ""} ${row.jobRoleDisplayName ?? ""}`.toLowerCase();
+      const hay = `${row.employeeFirstName} ${row.employeeLastName} ${row.teamDisplayName ?? ""} ${row.jobTitleDisplayName ?? ""}`.toLowerCase();
       if (!hay.includes(search)) return false;
     }
     return true;

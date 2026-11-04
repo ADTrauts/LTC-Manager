@@ -25,8 +25,7 @@ function missingRequiredDelegates(client: PrismaClient): string[] {
     "departmentTeam",
     "facilityCatalogInstall",
     "employeeTeamMembership",
-    "departmentJobRole",
-    "employeeDepartmentJobRole",
+    "employeeOperationalRoleQualification",
     "facilityOrganization",
     "catalogLogDefinition",
     "catalogLogField",
@@ -59,7 +58,7 @@ function modelMissingFields(
 }
 
 function employeeModelMissingJobRoles(client: PrismaClient): boolean {
-  return modelMissingFields(client, "Employee", ["departmentJobRoles", "teamMemberships"]);
+  return modelMissingFields(client, "Employee", ["operationalRoleQualifications", "teamMemberships"]);
 }
 
 /** True when this client instance cannot serve the current schema. */
@@ -81,7 +80,7 @@ function getPrismaClient(): PrismaClient {
     // (dev server started before `prisma generate`).
     const missing = missingRequiredDelegates(client);
     throw new Error(
-      `Prisma Client is stale in this Next.js process (missing: ${missing.join(", ") || "Employee.departmentJobRoles"}). ` +
+      `Prisma Client is stale in this Next.js process (missing: ${missing.join(", ") || "Employee.operationalRoleQualifications"}). ` +
         `Stop the dev server, run \`pnpm exec prisma generate\`, then start \`pnpm dev\` again.`,
     );
   }

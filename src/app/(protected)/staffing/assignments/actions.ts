@@ -587,18 +587,12 @@ export async function editAssignmentAction(formData: FormData) {
 
     await tx.operationalAssignment.update({ where: { id: assignment.id }, data });
     if (editExceptionReason && parsed.roleKey) {
-      await tx.operationalAssignmentEligibilityException.upsert({
-        where: { assignmentId: assignment.id },
-        create: {
+      await tx.operationalAssignmentEligibilityException.create({
+        data: {
           assignmentId: assignment.id,
           facilityId: session.facilityId,
           departmentId: assignment.departmentId,
           employeeId: assignment.employeeId,
-          roleKey: parsed.roleKey,
-          reason: editExceptionReason,
-          actorUserId,
-        },
-        update: {
           roleKey: parsed.roleKey,
           reason: editExceptionReason,
           actorUserId,

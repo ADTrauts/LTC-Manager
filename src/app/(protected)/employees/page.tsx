@@ -27,7 +27,6 @@ import {
   visibleDepartmentIdList,
 } from "@/lib/department-authority/visibility";
 import { ensureGmEmployeeRosterRow } from "@/lib/ensure-gm-employee-roster";
-import { loadActiveJobRolesForFacilityDepartments } from "@/lib/department-job-roles";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { findOtherOpenFacilityAdministratorPeriod } from "@/lib/facility-access";
 import { prisma } from "@/lib/prisma";
@@ -62,7 +61,6 @@ function toEmployeeCardProps(
     jobTitleId: string | null;
     employeeDepartments?: { departmentId: string }[];
     teamMemberships?: { teamId: string; isPrimary: boolean }[];
-    departmentJobRoles?: { departmentId: string; jobRoleId: string }[];
     operationalRoleQualifications?: { departmentId: string; roleKey: string; status: string }[];
     unionMember: boolean;
     onLeave: boolean;
@@ -79,8 +77,6 @@ function toEmployeeCardProps(
     chrcOffboardingCompletedAt: Date | null;
     chrcOffboardingNotes: string | null;
     unitAccesses: { unitId: string }[];
-    workStations: { station: EmployeeForManagementCard["workStations"][number] }[];
-    defaultAssignments: EmployeeForManagementCard["defaultAssignments"];
     disciplinePointEntries: {
       id: string;
       category: DisciplinePointCategory;
@@ -122,15 +118,10 @@ function toEmployeeCardProps(
       .filter((id) => id !== employee.primaryDepartmentId),
     jobTitleId: employee.jobTitleId,
     teamMemberships: employee.teamMemberships ?? [],
-    jobRoleAssignments: (employee.departmentJobRoles ?? []).map((row) => ({
-      departmentId: row.departmentId,
-      jobRoleId: row.jobRoleId,
-    })),
     operationalQualifications: (employee.operationalRoleQualifications ?? [])
       .filter((row) => row.status === "ACTIVE")
       .map((row) => ({ departmentId: row.departmentId, roleKey: row.roleKey })),
     unitAccesses: employee.unitAccesses,
-    defaultAssignments: employee.defaultAssignments,
     unionMember: employee.unionMember,
     onLeave: employee.onLeave,
     hireDateIso: toIsoDate(employee.hireDate),
@@ -142,7 +133,6 @@ function toEmployeeCardProps(
     chrcNotes: employee.chrcNotes,
     shirtSize: employee.shirtSize,
     hrNotes: employee.hrNotes,
-    workStations: employee.workStations.map((w) => w.station),
     disciplineEntries,
     disciplineTotals,
     terminationDateIso: toIsoDate(employee.terminationDate),
@@ -158,7 +148,7 @@ function parseDirectoryQuery(sp: { [key: string]: string | string[] | undefined 
     status: one("status"),
     union: one("union"),
     classification: one("classification"),
-    station: one("station"),
+    role: one("role"),
     chrc: one("chrc"),
     leave: one("leave"),
     hasPoints: one("hasPoints"),
@@ -243,9 +233,6 @@ export default async function EmployeesPage({
           where: { team: { status: "ACTIVE" } },
           select: { teamId: true, isPrimary: true },
         },
-        departmentJobRoles: {
-          select: { departmentId: true, jobRoleId: true },
-        },
         operationalRoleQualifications: {
           select: { departmentId: true, roleKey: true, status: true },
         },
@@ -265,16 +252,6 @@ export default async function EmployeesPage({
         chrcOffboardingNotes: true,
         ...(showPinManagement ? { pinDigest: true as const } : {}),
         unitAccesses: { select: { unitId: true } },
-        workStations: { select: { station: true } },
-        defaultAssignments: {
-          where: { isActive: true },
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            roleType: true,
-            unit: { select: { name: true } },
-          },
-        },
         disciplinePointEntries: {
           orderBy: { occurredAt: "desc" },
           select: { id: true, category: true, points: true, occurredAt: true, note: true },
@@ -348,13 +325,6 @@ export default async function EmployeesPage({
   ).filter((department) => operableIds.has(department.id));
 
   const departmentsForCreate = departments.filter((d) => d.showInEmployeeApp);
-  const jobRoleDepartmentIds = [
-    ...new Set([...departments.map((d) => d.id), ...assignedDeptIdsOnPage]),
-  ];
-  const jobRoles = await loadActiveJobRolesForFacilityDepartments(prisma, {
-    facilityId,
-    departmentIds: jobRoleDepartmentIds,
-  });
 
   const linkedUserIds = [...new Set(employees.map((e) => e.userId).filter((id): id is string => Boolean(id)))];
   const linkedUsers =
@@ -449,7 +419,6 @@ export default async function EmployeesPage({
               departments={departmentsForCreate}
               jobTitles={jobTitles}
               teams={activeTeams}
-              jobRoles={jobRoles}
             />
           ) : null}
         </div>
@@ -496,7 +465,6 @@ export default async function EmployeesPage({
             departments={departments}
             jobTitles={jobTitles}
             teams={activeTeams}
-            jobRoles={jobRoles}
             showManagerTools={showManagerTools && canAuthorPeople}
             showPinManagement={showPinManagement}
             {...(showPinManagement ? { hasPinSet: Boolean(employee.pinDigest) } : {})}

@@ -294,7 +294,6 @@ export const WRITE_MANIFEST: WriteManifest = {
       "clearEmployeePinAction",
       "updateEmployeeStatusAction",
       "recordEmployeeSeparationAction",
-      "setDefaultAssignmentAction",
       "addDisciplinePointEntryAction",
       "deleteDisciplinePointEntryAction",
     ]),
@@ -321,10 +320,6 @@ export const WRITE_MANIFEST: WriteManifest = {
     "previewEmployeeCsvAction",
     "confirmEmployeeCsvAction",
   ]),
-  [`${PROTECTED}/employees/job-roles/actions.ts`]: {
-    createJobRoleAction: department("department"),
-    ...each(department("jobRole"), ["updateJobRoleAction", "archiveJobRoleAction"]),
-  },
   [`${PROTECTED}/staffing/schedule/actions.ts`]: {
     createCanonicalShiftAction: department("department"),
     ...each(department("scheduleEntry"), [

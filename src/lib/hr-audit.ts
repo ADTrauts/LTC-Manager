@@ -1,4 +1,4 @@
-import type { ChrcStatus, EmployeeStatus, EmploymentType, JobClassification, RoleKey, WorkStation } from "@prisma/client";
+import type { ChrcStatus, EmployeeStatus, EmploymentType, JobClassification, RoleKey } from "@prisma/client";
 
 export type EmployeeProfileSnapshot = {
   firstName: string;
@@ -19,7 +19,6 @@ export type EmployeeProfileSnapshot = {
   chrcNotes: string | null;
   shirtSize: string | null;
   hrNotes: string | null;
-  workStationsSorted: WorkStation[];
   terminationDateIso: string | null;
   chrcOffboardingCompletedAtIso: string | null;
   chrcOffboardingNotes: string | null;
@@ -60,7 +59,6 @@ export function buildTerminationSnapshotJson(row: {
   terminationDate: Date | null;
   chrcOffboardingCompletedAt: Date | null;
   chrcOffboardingNotes: string | null;
-  workStations: { station: WorkStation }[];
 },
   extras?: {
     separationKind?: string;
@@ -92,7 +90,6 @@ export function buildTerminationSnapshotJson(row: {
       ? row.chrcOffboardingCompletedAt.toISOString()
       : null,
     chrcOffboardingNotes: row.chrcOffboardingNotes,
-    workStations: row.workStations.map((w) => w.station).sort(),
   };
   if (extras) {
     if (extras.separationKind !== undefined) snap.separationKind = extras.separationKind;
@@ -125,7 +122,6 @@ export function diffProfileForAudit(
     "chrcNotes",
     "shirtSize",
     "hrNotes",
-    "workStationsSorted",
     "terminationDateIso",
     "chrcOffboardingCompletedAtIso",
     "chrcOffboardingNotes",
@@ -141,21 +137,17 @@ export function diffProfileForAudit(
     const o = before[k];
     const n = after[k];
     const os =
-      k === "workStationsSorted"
-        ? (before.workStationsSorted ?? []).join(",")
-        : k === "additionalDepartmentIdsSorted"
-          ? (before.additionalDepartmentIdsSorted ?? []).join(",")
-          : k === "teamMembershipsSorted"
-            ? (before.teamMembershipsSorted ?? []).join(",")
-            : str(o as unknown);
+      k === "additionalDepartmentIdsSorted"
+        ? (before.additionalDepartmentIdsSorted ?? []).join(",")
+        : k === "teamMembershipsSorted"
+          ? (before.teamMembershipsSorted ?? []).join(",")
+          : str(o as unknown);
     const ns =
-      k === "workStationsSorted"
-        ? (after.workStationsSorted ?? []).join(",")
-        : k === "additionalDepartmentIdsSorted"
-          ? (after.additionalDepartmentIdsSorted ?? []).join(",")
-          : k === "teamMembershipsSorted"
-            ? (after.teamMembershipsSorted ?? []).join(",")
-            : str(n as unknown);
+      k === "additionalDepartmentIdsSorted"
+        ? (after.additionalDepartmentIdsSorted ?? []).join(",")
+        : k === "teamMembershipsSorted"
+          ? (after.teamMembershipsSorted ?? []).join(",")
+          : str(n as unknown);
     if (os !== ns) {
       out.push({ fieldKey: `profile.${k}`, oldValue: os, newValue: ns });
     }
@@ -190,7 +182,6 @@ export function snapshotFromProfileForm(
     chrcNotes: string | null;
     shirtSize: string | null;
     hrNotes: string | null;
-    workStations: WorkStation[];
     terminationDate: Date | null;
     chrcOffboardingCompletedAt: Date | null;
     chrcOffboardingNotes: string | null;
@@ -216,7 +207,6 @@ export function snapshotFromProfileForm(
     chrcNotes: hr.chrcNotes,
     shirtSize: hr.shirtSize,
     hrNotes: hr.hrNotes,
-    workStationsSorted: [...hr.workStations].sort(),
     terminationDateIso:
       terminated && hr.terminationDate ? hr.terminationDate.toISOString().slice(0, 10) : null,
     chrcOffboardingCompletedAtIso:
@@ -253,7 +243,6 @@ export function snapshotFromEmployeeRow(row: {
   terminationDate: Date | null;
   chrcOffboardingCompletedAt: Date | null;
   chrcOffboardingNotes: string | null;
-  workStations: { station: WorkStation }[];
   primaryDepartmentId: string | null;
   jobTitleId: string | null;
   employeeDepartments?: { departmentId: string }[];
@@ -278,7 +267,6 @@ export function snapshotFromEmployeeRow(row: {
     chrcNotes: row.chrcNotes,
     shirtSize: row.shirtSize,
     hrNotes: row.hrNotes,
-    workStationsSorted: row.workStations.map((w) => w.station).sort(),
     terminationDateIso: row.terminationDate ? row.terminationDate.toISOString().slice(0, 10) : null,
     chrcOffboardingCompletedAtIso: row.chrcOffboardingCompletedAt
       ? row.chrcOffboardingCompletedAt.toISOString().slice(0, 10)

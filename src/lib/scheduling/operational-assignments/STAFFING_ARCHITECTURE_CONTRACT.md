@@ -9,12 +9,7 @@ This module codifies the canonical semantics for the LTC Manager staffing system
 **Canonical questions answered:**
 - “Is this employee working today, and when?”
 
-**Transitional implementation notes:**
-- `ScheduleEntry` may still contain legacy/transitional fields such as:
-  - unit placement
-  - meal `ShiftType`
-  - platform `roleType` (historical)
-- **Do not treat** platform `RoleKey` as the canonical operational identity.
+**Not on the shift:** unit, platform `RoleKey`, or an operational role. The stored meal-slot label (`shift`) remains for older presence views. Identity shown beside the time is Job Title and primary Team.
 
 ## OperationalAssignment (RUN: daily responsibility)
 
@@ -38,11 +33,11 @@ This module codifies the canonical semantics for the LTC Manager staffing system
 
 **Not:** a daily assignment truth table.
 
-## Department Job Role (BUILD operational identity; not daily location)
+## Operational eligibility (Employee Builder; not daily location)
 
-**Meaning:** enduring BUILD operational role + capabilities package.
+**Meaning:** `EmployeeOperationalRoleQualification` for one `OPERATIONAL_ROLE_REGISTRY` key in one Department.
 
-**Not:** a daily location assignment model.
+**Not:** a permission catalog, a Team child, a Job Title, or RoleKey. Department Job Role and its capability keys are removed. An assignment exception records one authorization and does not create a qualification.
 
 ## Coverage (derived RUN interpretation; not a new truth table)
 
@@ -55,12 +50,7 @@ This module codifies the canonical semantics for the LTC Manager staffing system
 
 **Do not:** persist `covered = true` as additional truth.
 
-## Transition rule: ScheduleEntry fallback
+## Shift and Assignment stay separate
 
-During migration, Daily responsibility truth may be incomplete.
-
-- Prefer OA-derived daily responsibility where local OA data exists.
-- Fallback to `ScheduleEntry` staffing count where local OA data is absent.
-
-This is a local-grain rule: OA data in one location must not suppress ScheduleEntry fallback in another location.
+A shift is presence in time. It does not fill a location slot. Coverage of a place uses the Assignment and the coverage template. Do not restore `ScheduleEntry.unitId` as a fallback placement.
 

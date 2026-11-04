@@ -1,8 +1,6 @@
-# Visual 1 — Current workforce architecture
+# Visual 1 — Workforce architecture
 
-**Label:** current. November 4, 2026.
-
-Overlapping stores are the boxes that all claim to say what a person "is."
+**Label:** current after Phase 7B. November 4, 2026.
 
 ```mermaid
 flowchart TB
@@ -10,44 +8,39 @@ flowchart TB
     E[Employee]
   end
 
-  subgraph auth [Platform authority — KEEP]
+  subgraph auth [Platform authority]
     RK[RoleKey on Employee.roleType]
     RP[UserFacilityRolePeriod]
   end
 
-  subgraph hr [HR — KEEP]
+  subgraph hr [HR identity]
     JT[JobTitle]
     JC[JobClassification]
   end
 
-  subgraph org [Organization — KEEP]
+  subgraph org [Organization]
     ED[EmployeeDepartment plus primary department]
     TM[DepartmentTeam]
-    MEM[EmployeeTeamMembership isPrimary]
+    MEM[EmployeeTeamMembership one primary per Department]
     LEAD[Team.managerEmployeeId]
     HEAD[Department.headEmployeeId]
     SM[DepartmentStaffManager]
   end
 
-  subgraph job [Department Job Role — overlaps authority]
-    DJR[DepartmentJobRole tier plus capabilities]
-    EDJR[EmployeeDepartmentJobRole one per Department]
-  end
-
-  subgraph ops [Operations — KEEP one catalog]
+  subgraph ops [Operational eligibility and placement]
     REG[OPERATIONAL_ROLE_REGISTRY]
+    QUAL[EmployeeOperationalRoleQualification]
     COV[Coverage template item roleKey]
     OA[OperationalAssignment roleKey and roleLabel]
+    EX[Eligibility exception event]
   end
 
-  subgraph legacy [Unused or demoted]
-    WS[EmployeeWorkStation]
-    DA[DefaultAssignment RoleKey plus unit]
-    SR[ScheduleEntry.roleType and unitId]
-    DORM[EmployeeDepartment.roleType dormant]
+  subgraph time [Schedule]
+    SE[ScheduleEntry when they work]
   end
 
   E --> RK
+  RK --> RP
   E --> JT
   E --> JC
   E --> ED
@@ -56,15 +49,13 @@ flowchart TB
   TM --> LEAD
   E --> HEAD
   E --> SM
-  E --> EDJR
-  EDJR --> DJR
+  E --> QUAL
+  QUAL --> REG
   REG --> COV
   REG --> OA
   E --> OA
-  E --> WS
-  E --> DA
-  E --> SR
-  ED --> DORM
+  OA --> EX
+  E --> SE
 ```
 
-`DepartmentJobRole` uses the words Lead, Supervisor, and Manager, and stores capability strings that look like permissions. Run and the policy engine do not read them. `WorkStation` names Cook and Server again. The assignment form ignores both and uses the registry.
+Department Job Role, Default Assignment, EmployeeWorkStation, `EmployeeDepartment.roleType`, and `ScheduleEntry.roleType` / `unitId` are removed. A qualification does not grant RoleKey. A Team lead does not grant RoleKey. An exception does not create a qualification.

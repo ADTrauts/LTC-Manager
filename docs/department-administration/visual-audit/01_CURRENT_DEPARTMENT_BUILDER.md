@@ -19,7 +19,7 @@ flowchart TB
   DB --> MNU["Menus<br/>Food and Nutrition only"]
 
   MAI -.-> MNOTE["Href leaves the tab for<br/>/preventive-maintenance"]
-  PPL -.-> PNOTE["Job Roles are not in this tab.<br/>They live at /employees/job-roles"]
+  PPL -.-> PNOTE["People are authored in Employee Builder.<br/>This tab configures Coverage"]
   REC -.-> RNOTE["Also reachable from Build logs,<br/>not only this tab"]
 
   classDef canon fill:#e7f6ec,stroke:#1f7a3a,color:#1a2114
@@ -66,12 +66,12 @@ Department Builder
 │     versions, record requirements, occurrences
 │     NOT generic Work, but the product still also has work presets
 │
-├── People & Coverage                                  the tab is Teams
-│     DepartmentTeam
-│       employees, manager, rooms, operational-type keys,
-│       cycle link, required count, TOTAL or PER_ROOM grain
-│     Coverage expectations are location, period, role, and required count
-│     Department Job Roles are a different screen
+├── People & Coverage
+│     reads Employee Builder workforce
+│     DepartmentTeam is organizational, with a lead
+│     Coverage need is location, period, registry role, and required count
+│     this tab does not author people
+│     Department Job Roles are removed
 │
 ├── Records                                            CANON engine, several aimers
 │     CatalogLogDefinition → FacilityCatalogInstall → LogAttachment

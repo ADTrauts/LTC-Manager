@@ -1,6 +1,6 @@
 # Visual 5 — People / Team / Role / Coverage
 
-Phase 5A leaves Team as an organizational grouping. Role is still not nested under Team. That consolidation is the later Employee Builder pass.
+Phase 7B is the current picture. Team is an organizational grouping. Operational eligibility is a qualification on the shared registry. Role is not nested under Team. Department Job Role is removed. The diagrams below that still draw a Job Role or a Team → Role → Employee database tree are the November 1 proposal that was not adopted as a schema.
 
 ## Team after Phase 5A
 
@@ -18,9 +18,9 @@ A Team does not own a room, a Location Function, a cycle, a coverage count, or a
 
 The earlier room membership, operational-type keys, and team-cycle tables are dropped. Location Program does not label a room with a Team.
 
-## Current: Role is not one thing, and it is not under Team
+## Historical: Role was not one thing
 
-Nothing in the schema places `DepartmentJobRole` under `DepartmentTeam`. An employee’s job role is one row per Department (`EmployeeDepartmentJobRole`). Team membership is a different row.
+The drawing below is the overlap Phase 7B removed. Nothing in the surviving schema places a role under `DepartmentTeam`.
 
 ```mermaid
 flowchart TB
@@ -50,9 +50,9 @@ flowchart TB
   class DEPT,MEM,TITLE person
 ```
 
-Starters for Department Job Roles are the generic tiers Team Member, Lead, Supervisor, and Manager. They are not Cook, Server, or Baker. Cook and Server are assignment roles. Both lists exist. Coverage’s own comment says the “what” of a requirement is `OperationalAssignment` `roleKey`, and that actual coverage is never Schedule, Team, or Job Role.
+Those Job Role tiers and capability keys are deleted. Cook and Server remain registry roles. Coverage counts `OperationalAssignment.roleKey`. Schedule, Team, and Job Title do not fill a slot.
 
-A further manager fact exists beside team manager and the MANAGER job-role tier: `DepartmentStaffManager`, plus the Department head. `EmployeeDepartment.roleType` is another `RoleKey` column, and the schema marks it dormant. The drawings do not merge those.
+Leadership that remains: the Department head, `DepartmentStaffManager`, and `DepartmentTeam.managerEmployeeId`. Membership has no role column.
 
 ## Current: one configured need, then a derived answer
 
@@ -88,9 +88,9 @@ ANSWER
 
 **Phase 4.** Need B is the surviving configuration. Need A is an organizational cycle link with no staffing count.
 
-## Proposed: organization in Employee Builder
+## Not adopted: a database tree of Team then Role
 
-The tree below is the November 1 ownership. The names are the decision’s Food & Nutrition example, not a seeded catalog.
+The tree below was the November 1 sketch. It is a presentation example, not the schema. Lead Server and Prep Cook are not registry roles. Cook, Server, Cashier, and Barista are qualifications, not children of a Team.
 
 ```mermaid
 flowchart TB
@@ -154,15 +154,14 @@ Food & Nutrition
     └── Barista
 ```
 
-In that target:
+What was kept from that sketch:
 
 - Team identity does not own physical rooms.
 - Team identity is not Coverage.
-- Role is the workforce role under the Team.
 - `RoleKey` stays governance. It is not a job Role.
-- Department Builder → People & Coverage reads this tree and shows coverage. It does not become a second authoring home.
+- Department Builder → People & Coverage reads the workforce and shows coverage. It does not become a second authoring home.
 
-**Repo vs November 1.** Getting to that tree means choosing which current role list is “Role.” Job Roles, assignment roles, and job titles are three lists today, and assignment roles are the ones Coverage uses.
+What was not kept: a database child Role under the Team, Lead Server, Prep Cook, and Department Job Role capabilities. Eligibility is `EmployeeOperationalRoleQualification` on `OPERATIONAL_ROLE_REGISTRY`.
 
 ## Proposed: Coverage is derived
 

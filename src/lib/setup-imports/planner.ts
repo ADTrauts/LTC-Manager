@@ -51,7 +51,6 @@ export function planImport(source: ImportSource, catalog: Catalog, scopeDepartme
   };
   const options = (v: Record<string,string>, deptId: string) => {
     if (v.teamId && !catalog.teams.some(t => t.id === v.teamId && t.departmentId === deptId && t.status === "ACTIVE")) throw Error("Team ID must identify an active Team in the selected Department.");
-    if (v.jobRoleId && !catalog.jobRoles.some(j => j.id === v.jobRoleId && j.departmentId === deptId && j.status === "ACTIVE")) throw Error("Job Role ID must identify an active Job Role in the selected Department.");
     if (v.jobTitleId && !catalog.jobTitles.some(j => j.id === v.jobTitleId && j.isActive)) throw Error("Job Title ID must identify an active Facility Job Title.");
   };
   const rows = source.rows.map((r): PlanRow => {
@@ -74,7 +73,7 @@ export function planImport(source: ImportSource, catalog: Catalog, scopeDepartme
         if (e) {
           for (const key of ["firstName","lastName","roleType","employmentType","phone"] as const) if (v[key] && String(e[key] ?? "") !== v[key]) throw Error(`${key} differs. Use ONB-01 Update employees or the dedicated authority/lifecycle action; create/reuse never patches existing people.`);
           if (v.primaryDepartment && department(v.primaryDepartment).id !== e.primaryDepartmentId) throw Error("Primary Department differs. Review membership in People.");
-          if ((v.teamId && !e.teamMemberships.some(t => t.teamId === v.teamId)) || (v.jobRoleId && !e.departmentJobRoles.some(j => j.jobRoleId === v.jobRoleId)) || (v.jobTitleId && e.jobTitleId !== v.jobTitleId)) throw Error("Use employee-department CSV or People to add relationships to an existing Employee.");
+          if ((v.teamId && !e.teamMemberships.some(t => t.teamId === v.teamId)) || (v.jobTitleId && e.jobTitleId !== v.jobTitleId)) throw Error("Use employee-department CSV or People to add relationships to an existing Employee.");
           return done({ kind: "workforce", targetKey: `employee:${e.id}`, employeeId: e.id, userId: e.userId! },"reuse","Reuse the existing linked Employee. No fields, credentials, roles or relationships will be replaced.",e,accountId);
         }
         if (!v.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email) || v.email.length > 120) throw Error("A real email is required. No fake emails or PIN-only unlinked people.");
@@ -84,7 +83,7 @@ export function planImport(source: ImportSource, catalog: Catalog, scopeDepartme
         if (!Object.values(EmploymentType).includes(v.employmentType as EmploymentType)) throw Error("New employees require an explicit employmentType.");
         if (v.phone && v.phone.length > 30) throw Error("Phone exceeds 30 characters.");
         const d = department(v.primaryDepartment || ""); options(v,d.id);
-        return done({ kind: "workforce", targetKey: `email:${norm(v.email)}`, email: norm(v.email), userId: u?.id, firstName: v.firstName, lastName: v.lastName, roleType: v.roleType, employmentType: v.employmentType, phone: v.phone, departmentId: d.id, teamId: v.teamId, jobRoleId: v.jobRoleId, jobTitleId: v.jobTitleId },"create","Create one linked Employee and canonical Facility access. Account activation / eligible PIN enrollment may remain pending; no credential is generated.",{ user: u, department: d, team: catalog.teams.find(t => t.id === v.teamId), jobRole: catalog.jobRoles.find(j => j.id === v.jobRoleId), title: catalog.jobTitles.find(j => j.id === v.jobTitleId), role: v.roleType },accountId);
+        return done({ kind: "workforce", targetKey: `email:${norm(v.email)}`, email: norm(v.email), userId: u?.id, firstName: v.firstName, lastName: v.lastName, roleType: v.roleType, employmentType: v.employmentType, phone: v.phone, departmentId: d.id, teamId: v.teamId, jobTitleId: v.jobTitleId },"create","Create one linked Employee and canonical Facility access. Account activation / eligible PIN enrollment may remain pending; no credential is generated.",{ user: u, department: d, team: catalog.teams.find(t => t.id === v.teamId), title: catalog.jobTitles.find(j => j.id === v.jobTitleId), role: v.roleType },accountId);
       }
       if (source.dataset === "employee_departments") {
         const { employee: e } = person(r); if (!e) throw Error("Relationship import requires an existing linked Employee in this Facility. Import workforce first.");
@@ -98,15 +97,13 @@ export function planImport(source: ImportSource, catalog: Catalog, scopeDepartme
         const primaryTeam = e.teamMemberships.find(t => t.isPrimary && catalog.teams.some(x => x.id === t.teamId && x.departmentId === d.id));
         if (v.teamPrimary === "true" && primaryTeam && primaryTeam.teamId !== v.teamId) throw Error("A different Primary Team exists; review it in People.");
         if (currentTeam && v.teamPrimary && currentTeam.isPrimary !== (v.teamPrimary === "true")) throw Error("Import cannot replace existing Team priority.");
-        const currentJob = e.departmentJobRoles.find(j => j.departmentId === d.id);
-        if (v.jobRoleId && currentJob && currentJob.jobRoleId !== v.jobRoleId) throw Error("A different Department Job Role exists; review in People.");
         // Validate preserved dependencies too: canonical sync must not silently remove them.
         const preservedDepartments = [e.primaryDepartmentId,...e.employeeDepartments.map(x => x.departmentId)].filter(Boolean);
         if (preservedDepartments.some(id => !catalog.departments.some(x => x.id === id))) throw Error("An existing membership needs licensing/Department review before organizational synchronization.");
         if (e.jobTitleId && !catalog.jobTitles.some(j => j.id === e.jobTitleId && j.isActive)) throw Error("An existing Job Title needs review in People before organizational synchronization.");
         if (e.teamMemberships.some(t => !catalog.teams.some(x => x.id === t.teamId && x.status === "ACTIVE" && preservedDepartments.includes(x.departmentId)))) throw Error("An existing archived/missing Team requires review in People.");
-        const unchanged = member && (v.membership !== "PRIMARY" || e.primaryDepartmentId === d.id) && (!v.teamId || Boolean(currentTeam)) && (!v.jobRoleId || Boolean(currentJob));
-        return done({ kind: "employee_departments", targetKey: `${e.id}:${d.id}`, employeeId: e.id, departmentId: d.id, membership: v.membership, teamId: v.teamId, teamPrimary: v.teamPrimary === "true", jobRoleId: v.jobRoleId },unchanged ? "reuse" : "add","Add/reuse this relationship only. Other memberships, Teams, Job Roles and HR fields are preserved.",{ employee: { id: e.id, userId: e.userId, status: e.status, terminationDate: e.terminationDate, sessionVersion: e.sessionVersion, user: e.user, ...(v.membership === "PRIMARY" ? { primaryDepartmentId: e.primaryDepartmentId } : {}) }, department: d, member, team: currentTeam, jobRole: currentJob, wantedTeam: catalog.teams.find(t => t.id === v.teamId), wantedJobRole: catalog.jobRoles.find(j => j.id === v.jobRoleId) });
+        const unchanged = member && (v.membership !== "PRIMARY" || e.primaryDepartmentId === d.id) && (!v.teamId || Boolean(currentTeam));
+        return done({ kind: "employee_departments", targetKey: `${e.id}:${d.id}`, employeeId: e.id, departmentId: d.id, membership: v.membership, teamId: v.teamId, teamPrimary: v.teamPrimary === "true" },unchanged ? "reuse" : "add","Add/reuse this relationship only. Other memberships, Teams, and HR fields are preserved.",{ employee: { id: e.id, userId: e.userId, status: e.status, terminationDate: e.terminationDate, sessionVersion: e.sessionVersion, user: e.user, ...(v.membership === "PRIMARY" ? { primaryDepartmentId: e.primaryDepartmentId } : {}) }, department: d, member, team: currentTeam, wantedTeam: catalog.teams.find(t => t.id === v.teamId) });
       }
       if (source.dataset === "department_locations") {
         const d = department(v.department || "");

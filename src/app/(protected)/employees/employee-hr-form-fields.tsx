@@ -1,13 +1,12 @@
 "use client";
 
-import { ChrcStatus, JobClassification, WorkStation } from "@prisma/client";
+import { ChrcStatus, JobClassification } from "@prisma/client";
 
 import {
   CHRC_STATUS_LABEL,
   JOB_CLASSIFICATION_LABEL,
   SHIRT_SIZE_OPTIONS,
   SHIRT_SIZE_VALUES,
-  WORK_STATION_LABEL,
 } from "@/lib/employee-hr-labels";
 
 export type EmployeeHrFormDefaults = {
@@ -22,7 +21,6 @@ export type EmployeeHrFormDefaults = {
   chrcNotes: string;
   shirtSize: string;
   hrNotes: string;
-  workStations: WorkStation[];
   terminationDateIso: string;
   chrcOffboardingCompletedAtIso: string;
   chrcOffboardingNotes: string;
@@ -36,7 +34,7 @@ function dayOptions() {
   return Array.from({ length: 31 }, (_, i) => i + 1);
 }
 
-/** HR & union: flags, hire, classification, shirt, birthday, stations, HR notes; optional termination date when terminated. */
+/** HR & union: flags, hire, classification, shirt, birthday, HR notes; optional termination date when terminated. */
 export function EmployeeHrUnionFormSection({
   defaults,
   showTerminationDate,
@@ -52,7 +50,6 @@ export function EmployeeHrUnionFormSection({
   unionMemberChecked?: boolean;
   onUnionMemberChange?: (checked: boolean) => void;
 }) {
-  const stationSet = new Set(defaults.workStations);
   const unionControlled = unionMemberChecked !== undefined && onUnionMemberChange !== undefined;
 
   return (
@@ -155,23 +152,6 @@ export function EmployeeHrUnionFormSection({
               ))}
             </select>
           </label>
-        </div>
-      </div>
-
-      <div>
-        <p className="text-xs font-medium text-zinc-700">Trained stations</p>
-        <div className="mt-2 flex flex-wrap gap-3">
-          {(Object.keys(WORK_STATION_LABEL) as WorkStation[]).map((station) => (
-            <label key={station} className="flex items-center gap-2 text-sm text-zinc-700">
-              <input
-                type="checkbox"
-                name="workStations"
-                value={station}
-                defaultChecked={stationSet.has(station)}
-              />
-              {WORK_STATION_LABEL[station]}
-            </label>
-          ))}
         </div>
       </div>
 

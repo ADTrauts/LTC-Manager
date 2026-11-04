@@ -258,9 +258,9 @@ A **User** is the global person. One identity, many places they can enter. Email
 
 An **Employee** is that person's workforce record at one facility. At most one Employee per User per facility. New Employees are account-backed. Employee first and last name are facility workforce facts. `User.displayName` is global presentation.
 
-**Operational eligibility** is `EmployeeOperationalRoleQualification`: this Employee may perform one `OPERATIONAL_ROLE_REGISTRY` key in one Department. It is not a new role catalog, not a child of Team, and not RoleKey. Coverage and Assignment both use that same registry key. Coverage does not store the qualification.
+**Operational eligibility** is `EmployeeOperationalRoleQualification`: this Employee may perform one `OPERATIONAL_ROLE_REGISTRY` key in one Department. It is not a new role catalog, not a child of Team, and not RoleKey. Coverage and Assignment both use that same registry key. Coverage does not store the qualification. Department Job Role, Default Assignment, and workstation eligibility are retired. Do not add a second permission catalog.
 
-A **Shift** is `ScheduleEntry`, drawn from a `WorkShift` pattern. A call-off marks that Shift (`calledOffAt` / `callOffReason`). A call-off is not a call-down, and it is not a move. Legacy `ScheduleEntry.unitId` is not where the person works today.
+A **Shift** is `ScheduleEntry`, drawn from a `WorkShift` pattern. A call-off marks that Shift (`calledOffAt` / `callOffReason`). A call-off is not a call-down, and it is not a move. The shift stores when the person works. It does not store a unit or a platform role. Where they work today is the Assignment.
 
 An **Assignment** is the daily `OperationalAssignment`. A move changes the Assignment. Shift and Assignment never create each other. The person assigned to a Work Order (`Repair.assignedEmployeeId`) is a maintenance assignment on that Work Order, not this daily Assignment. **Client assignment** is Organization-governed partner Facility access. It is not `OperationalAssignment` and not a second placement engine.
 

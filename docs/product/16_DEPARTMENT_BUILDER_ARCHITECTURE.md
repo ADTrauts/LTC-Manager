@@ -276,7 +276,7 @@ A Team does not own locations, define Coverage, define authorization, or define 
 
 Do not nest an operational role under a Team. Do not put rooms, Location Function keys, or cycle staffing counts on the Team.
 
-Department Job Role remains a retiring capability package. Do not add new readers that treat it as operational eligibility or as RoleKey. Phase 7B removes it after this qualification path is in use.
+Department Job Role, its capability keys, Default Assignment, and the workstation eligibility map are removed. Do not add another permission catalog in their place. People & Coverage composes this workforce and configures Coverage. It does not author people.
 
 ---
 

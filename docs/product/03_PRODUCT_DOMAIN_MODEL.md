@@ -43,7 +43,9 @@
 | **Record** | One engine. Facility requirement segment, derived expected slot, `OperationalEvidenceRecord`, permitted waiver, correction, and follow-up. Legacy log and inspection stores are compatibility. |
 | **Asset** | Equipment / plant object that can fail or need PM. |
 | **Knowledge article** | Facility-scoped SOP/reference publishable into work context. |
-| **Shift** | Who works, for which Department, and when (`ScheduleEntry`, from a `WorkShift` pattern). Not a place. A call-off marks the shift. |
+| **Job Title** | HR position (`JobTitle`). One title on the Employee. Not eligibility and not authority. |
+| **Team** | Organizational group inside one Department (`DepartmentTeam`). Many memberships, one primary Team per Department. The lead is `managerEmployeeId`. Not eligibility and not authority. |
+| **Shift** | Who works, for which Department, and when (`ScheduleEntry`, from a `WorkShift` pattern). Identity on the schedule is the Employee, Job Title, and primary Team. Not a place and not an operational role. A call-off marks the shift. |
 | **Assignment** | Where a person works today and what they cover (`OperationalAssignment`). A move changes the Assignment. Optional: without one, a person sees the Work for the place they are signed into. |
 | **Schedule / Override / Call-down** | Older umbrella for the two rows above. `AssignmentOverride` is legacy unit movement and retires (LEG-Q04). |
 | **WorkspacePreference** | Per-user, per-facility Workspace layout prefs. |
@@ -179,7 +181,9 @@ Disruption path
 | Which Marketplace items does this Department use? | Its added items. Today: `FacilityCatalogInstall` plus `LogAttachment` for Records forms. |
 | What Work is expected? | Published Work Plans (derived requirements). Assignment does not create Work. |
 | What is **my** work? | One "my work" view: Work Plan items for my assigned places, or for the place I'm signed into when I have no Assignment; Records due there; work orders and preventive maintenance assigned to me. Each source keeps its own store. The view is **Job Flow**, in every Department. |
-| Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks the shift. |
+| Who is this person in HR, and which Team are they on? | `JobTitle` and `EmployeeTeamMembership`. Neither grants eligibility or authority. |
+| Who may perform an operational role in this Department? | `EmployeeOperationalRoleQualification` for one `OPERATIONAL_ROLE_REGISTRY` key. Revoked is not active. |
+| Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks the shift. The shift does not store a unit or a role. |
 | Who covers this location or Work right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. |
 | Who owns this equipment? | Title on the asset: the facility, or the company operating that Department. Existing assets stay facility-titled. A partner-titled asset leaves when the contract ends, and the facility keeps a closed note. |
 | Who maintains it, and who is called to repair it? | The responsible maintainer, and a repair vendor from that maintainer's list. Title and maintainer are separate facts. |

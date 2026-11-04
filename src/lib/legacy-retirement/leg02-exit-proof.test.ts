@@ -116,7 +116,7 @@ test(
           status: "ACTIVE",
           primaryDepartmentId: plant.id,
           userId: supervisorUser.id,
-          employeeDepartments: { create: { departmentId: plant.id, roleType: "MANAGER" } },
+          employeeDepartments: { create: { departmentId: plant.id } },
         },
       });
       await prisma.department.update({

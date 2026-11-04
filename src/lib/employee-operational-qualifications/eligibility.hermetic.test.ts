@@ -169,6 +169,8 @@ test("new assignments snapshot the registry label and do not derive a job role",
   );
   assert.match(action, /const roleLabel = roleDef\.label/);
   assert.equal(action.includes("deriveDefaultRoleKeyForDepartmentJobRole"), false);
+  assert.equal(action.includes("operationalAssignmentEligibilityException.upsert"), false);
+  assert.match(action, /operationalAssignmentEligibilityException\.create/);
   assert.equal(action.includes("deriveRoleLabelSnapshot"), false);
   assert.equal(action.includes("teamMembership"), false);
 });

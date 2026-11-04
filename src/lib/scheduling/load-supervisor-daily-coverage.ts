@@ -224,7 +224,7 @@ export async function loadSupervisorDailyCoverage(input: {
       employeeFirstName: row.projection.employeeFirstName,
       employeeLastName: row.projection.employeeLastName,
       teamDisplayName: row.projection.teamDisplayName,
-      jobRoleDisplayName: row.projection.jobRoleDisplayName,
+      jobRoleDisplayName: row.projection.jobTitleName,
       jobTitleDisplayName: row.jobTitleDisplayName,
       relationship: row.projection.relationship,
       shifts: row.projection.shifts,

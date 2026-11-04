@@ -27,11 +27,10 @@ async function fixture(db: PrismaClient) {
     hireDate: new Date("2024-01-15"), birthMonth: 3, birthDay: 15, jobClassification: "COOK", chrcStatus: "CLEARED",
     chrcClearedAt: new Date("2024-01-20"), chrcNotes: "Reviewed", shirtSize: "M", hrNotes: "Retain notes",
     primaryUnitId: unit.id, pinDigest: `test-digest-${suffix}`, sessionVersion: 7,
-    workStations: { create: [{ station: "COOK" }, { station: "SERVER" }] },
   } });
   const session = { uid: actor.id, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "MANAGER", facilityId: facility.id, sessionVersion: 0, name: "Manager", email: actor.email } as FacilitySession;
   const source = (body: string) => ({ text: body, fileName: "updates.csv" });
-  const snapshot = () => db.employee.findUniqueOrThrow({ where: { id: employee.id }, include: { workStations: { orderBy: { station: "asc" } }, terminationRecords: true } });
+  const snapshot = () => db.employee.findUniqueOrThrow({ where: { id: employee.id }, include: { terminationRecords: true } });
   return { facility, actor, grant, targetUser, unit, employee, session, source, snapshot };
 }
 
@@ -44,7 +43,7 @@ test("SQL: names-only and blank-column previews do not write; confirmation prese
   const f = await fixture(db);
   const before = await f.snapshot();
   const userBefore = await db.user.findUniqueOrThrow({ where: { id: f.targetUser.id } });
-  const src = f.source("firstName,lastName,email,roleType,status,employmentType,workStations\nJane,Doe,,,,,");
+  const src = f.source("firstName,lastName,email,roleType,status,employmentType,hrNotes\nJane,Doe,,,,,");
   const preview = await previewEmployeeCsv(db, f.session, src, secret);
   assert.equal(preview.rows[0]!.status, "unchanged");
   assert.deepEqual(await f.snapshot(), before);
@@ -71,14 +70,14 @@ test("SQL: names-only and blank-column previews do not write; confirmation prese
 
 test("SQL: clears are previewed, allowlisted and atomic; retries are unchanged without duplicate audit", { skip }, () => run(async (db) => {
   const f = await fixture(db);
-  const src = f.source(`employeeId,phone,workStations,birthMonth,birthDay,onLeave\n${f.employee.id},__CLEAR__,__CLEAR__,__CLEAR__,__CLEAR__,false`);
+  const src = f.source(`employeeId,phone,hrNotes,birthMonth,birthDay,onLeave\n${f.employee.id},__CLEAR__,__CLEAR__,__CLEAR__,__CLEAR__,false`);
   const p = await previewEmployeeCsv(db, f.session, src, secret);
   assert.equal(p.rows[0]!.changes.filter((change) => change.clear).length, 4);
   assert.equal((await f.snapshot()).phone, "555-1234");
   const result = await confirmEmployeeCsv(db, f.session, src, p.reviewToken, secret);
   assert.equal(result.committed, 1);
   const after = await f.snapshot();
-  assert.equal(after.phone, null); assert.equal(after.birthMonth, null); assert.deepEqual(after.workStations, []); assert.equal(after.onLeave, false);
+  assert.equal(after.phone, null); assert.equal(after.birthMonth, null); assert.equal(after.hrNotes, null); assert.equal(after.onLeave, false);
   assert.equal(after.roleType, "STAFF"); assert.equal(after.status, "OFF"); assert.equal(after.sessionVersion, 7); assert.equal(after.pinDigest, f.employee.pinDigest);
   const count = await db.employeeHrAuditLog.count({ where: { employeeId: f.employee.id } });
   assert.equal((await confirmEmployeeCsv(db, f.session, src, p.reviewToken, secret)).unchanged, 1);
@@ -155,7 +154,7 @@ test("SQL: stale target, changed matching ambiguity, membership and location dep
   await db.employee.create({ data: { facilityId: f.facility.id, firstName: "Jane", lastName: "Doe", roleType: "STAFF" } });
   assert.equal((await confirmEmployeeCsv(db, f.session, names, p2.reviewToken, secret)).blocked, 1);
   const p3 = await previewEmployeeCsv(db, f.session, src, secret);
-  await db.employeeWorkStation.create({ data: { employeeId: f.employee.id, station: "PORTER" } });
+  await db.employee.update({ where: { id: f.employee.id }, data: { shirtSize: "L" } });
   assert.equal((await confirmEmployeeCsv(db, f.session, src, p3.reviewToken, secret)).blocked, 1);
   const unitSource = f.source(`employeeId,primaryUnit,phone\n${f.employee.id},North,555-9999`), p4 = await previewEmployeeCsv(db, f.session, unitSource, secret);
   await db.unit.update({ where: { id: f.unit.id }, data: { isActive: false } });
@@ -228,7 +227,7 @@ test("SQL: employment end after preview preserves revoked PIN/grant, global iden
   const preview = await previewEmployeeCsv(db, f.session, src, secret);
   await db.$transaction(async (tx) => {
     await endEmployeeEmployment(tx, { employeeId: f.employee.id, facilityId: f.facility.id, actorUserId: f.actor.id, terminationDate: new Date("2026-10-01") });
-    const separated = await tx.employee.findUniqueOrThrow({ where: { id: f.employee.id }, include: { workStations: true } });
+    const separated = await tx.employee.findUniqueOrThrow({ where: { id: f.employee.id } });
     await tx.employeeTerminationRecord.create({ data: { facilityId: f.facility.id, employeeId: f.employee.id, terminatedAt: new Date("2026-10-01"), snapshotJson: buildTerminationSnapshotJson(separated), createdByUserId: f.actor.id } });
   });
   const separated = await f.snapshot();

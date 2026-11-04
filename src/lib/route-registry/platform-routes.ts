@@ -946,16 +946,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "employees",
     legacyArea: { key: "employees", label: "Employees", navOrder: 30, navVisible: true, critical: false },
-    // BUILD · Employee Builder — workforce configuration (person, employment, department, job role, HR).
+    // BUILD · Employee Builder — person, Job Title, Departments, Teams, operational eligibility, HR.
     // Today's staffing/attendance/assignments live in RUN Employees (/staffing).
     nav: { label: "Employee Builder", order: 230 },
-  },
-  {
-    pattern: "/employees/job-roles",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
-    module: "employees",
   },
   {
     pattern: "/employees/chrc-report",

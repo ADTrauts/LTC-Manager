@@ -106,7 +106,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Log Book** | `/staffing/log-book` — projection over submitted `OperationalEvidenceRecord` rows | A second evidence store; merging Log Book with due Logs |
 | **Audit / Reports** | Expected versus actual for a service date or range. Route may remain `/reports`. | Review as a workspace |
 | **People & Coverage** | Department Builder section for teams and coverage | Teams as a peer top-level product, a second people system, an operational-eligibility editor |
-| **Operational eligibility** | Employee Builder fact: this person may perform this operational role in this Department | Inferring it from job title, Team, RoleKey, or a past Assignment |
+| **Operational eligibility** | Employee Builder fact: this person may perform this operational role in this Department | Inferring it from job title, Team, RoleKey, a past Assignment, or a Department Job Role capability |
 | **Participating location** | Room explicitly attached to a cycle | Department-responsible room *(responsibility ≠ participation)* |
 | **Work applicability** | Retired with generic Work. Each engine stores its own location. | A second applicability model |
 | **Menu** | Department-owned food offering identity plus its content | Facility singleton, Operational Cycle, recipe catalog |

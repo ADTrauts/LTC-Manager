@@ -208,7 +208,6 @@ export async function loadOperationalReviewRangeFacts(input: {
           id: true,
           date: true,
           employeeId: true,
-          unitId: true,
           departmentId: true,
           shift: true,
           calledOffAt: true,
@@ -401,7 +400,7 @@ export async function loadOperationalReviewRangeFacts(input: {
         id: row.id,
         employeeId: row.employeeId,
         employeeDisplayName: employeeDisplayName(row.employee),
-        unitId: row.unitId,
+        unitId: null,
         departmentId: row.departmentId,
         shift: row.shift,
       })),
@@ -411,7 +410,7 @@ export async function loadOperationalReviewRangeFacts(input: {
         employeeDisplayName: employeeDisplayName(row.employee),
         reason: row.callOffReason ?? "Call-off",
         oldUnitId: null,
-        newUnitId: row.unitId ?? "",
+        newUnitId: "",
       })),
       assetImpacts: (assetsByDate.get(serviceDate) ?? [])
         .filter(

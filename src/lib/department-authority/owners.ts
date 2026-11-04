@@ -53,9 +53,6 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
     return { kind: "workforce", primaryDepartmentId: row.primaryDepartmentId, departmentIds: [...departmentIds] };
   },
 
-  jobRole: async (db, { facilityId, id }) =>
-    owned(await db.departmentJobRole.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
-
   /** Shift. Legacy entries without a Department are judged by the employee's primary Department. */
   scheduleEntry: async (db, { facilityId, id }) => {
     const row = await db.scheduleEntry.findFirst({

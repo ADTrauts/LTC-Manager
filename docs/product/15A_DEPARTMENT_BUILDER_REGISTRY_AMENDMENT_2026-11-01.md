@@ -78,7 +78,7 @@ User
 
 Employee Builder owns workforce organization. Department Builder → People & Coverage composes that organization with Shift / call-off / Assignment and derived Coverage.
 
-Current Department Team and Department Job Role code must be reconciled into this model. Team identity must not own rooms, Cycles, or coverage state simply because one legacy model combined them.
+Department Team is organizational. Operational eligibility is a separate qualification on the shared registry. Team identity must not own rooms, Cycles, coverage state, or a role. Department Job Role is removed.
 
 Coverage is still derived. Shift and Assignment remain separate facts.
 

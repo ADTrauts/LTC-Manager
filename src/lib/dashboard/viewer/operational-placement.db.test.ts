@@ -181,7 +181,7 @@ test(
       assert.deepEqual(multi.get(dietary.id)?.roomIds, []);
 
       await prisma.employeeDepartment.create({
-        data: { employeeId: sharon.id, departmentId: evs.id, roleType: "STAFF" },
+        data: { employeeId: sharon.id, departmentId: evs.id },
       });
       await prisma.employeeTeamMembership.create({
         data: { employeeId: sharon.id, teamId: publicAreas.id, isPrimary: true },

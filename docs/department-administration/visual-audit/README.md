@@ -37,8 +37,8 @@ November 2 retired Location Function. November 3 removed the profile, Experience
 
 These remain open for a later phase. This package does not start that phase.
 
-1. **Which list is Employee Builder “Role.”** `DepartmentJobRole` (generic tiers, not used by Run), the assignment-role catalog (`SERVER`, `COOK`, and the rest, which Coverage counts), `JobTitle`, and `RoleKey`. `RoleKey` is authority. The other three are not nested under Team.
-4. **Who is the manager.** The Department head, `DepartmentStaffManager`, `DepartmentTeam.managerEmployeeId`, and the Job Role tier `MANAGER` are separate facts. `EmployeeDepartment.roleType` is a dormant `RoleKey` on membership.
+1. **Which list is Employee Builder “Role.”** Resolved in Phase 7B. Operational eligibility uses `OPERATIONAL_ROLE_REGISTRY`. Job Title is HR. RoleKey is authority. Department Job Role is removed. None of these is nested under Team.
+4. **Who is the manager.** The Department head, `DepartmentStaffManager`, and `DepartmentTeam.managerEmployeeId` stay separate. Membership has no role. A Team lead is not a platform Manager.
 5. **Where rhythm participation is edited.** The cycle can already store explicit rooms. The Facility card shows the result and links to Operating Rhythm. Whether the card itself writes those ids is open.
 6. **Whether a room responsibility is “Primary.”** Neighborhood responsibility has PRIMARY, BACKUP, and SUPPORT. A room row is present or absent, plus a `capabilities` array.
 7. **Zones.** They are a saved room group, not a Location Function. The reader/writer trace is still not done.

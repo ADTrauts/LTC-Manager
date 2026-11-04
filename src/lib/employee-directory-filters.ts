@@ -1,4 +1,4 @@
-import { ChrcStatus, EmployeeStatus, JobClassification, Prisma, WorkStation } from "@prisma/client";
+import { ChrcStatus, EmployeeStatus, JobClassification, Prisma } from "@prisma/client";
 
 import { employeeBelongsToDepartmentWhere } from "@/lib/employee-department-scope";
 import { employeeBelongsToTeamWhere } from "@/lib/employee-membership";
@@ -8,7 +8,8 @@ export type EmployeeDirectoryQuery = {
   status?: string;
   union?: string;
   classification?: string;
-  station?: string;
+  /** Active operational role key in any Department. */
+  role?: string;
   chrc?: string;
   leave?: string;
   /** `yes` = any discipline entry with points &gt; 0; `no` = none such */
@@ -56,11 +57,12 @@ export function buildEmployeeWhere(
     }
   }
 
-  if (query.station && query.station !== "all") {
-    const st = query.station as WorkStation;
-    if ((Object.values(WorkStation) as WorkStation[]).includes(st)) {
-      parts.push({ workStations: { some: { station: st } } });
-    }
+  if (query.role && query.role !== "all") {
+    parts.push({
+      operationalRoleQualifications: {
+        some: { roleKey: query.role, status: "ACTIVE" },
+      },
+    });
   }
 
   if (query.chrc && query.chrc !== "all") {
@@ -142,7 +144,7 @@ export function countNonDefaultEmployeeFilters(query: EmployeeDirectoryQuery): n
   if (query.status && query.status !== "all") n += 1;
   if (query.union && query.union !== "all") n += 1;
   if (query.classification && query.classification !== "all") n += 1;
-  if (query.station && query.station !== "all") n += 1;
+  if (query.role && query.role !== "all") n += 1;
   if (query.chrc && query.chrc !== "all") n += 1;
   if (query.leave && query.leave !== "all") n += 1;
   if (query.hasPoints && query.hasPoints !== "all") n += 1;

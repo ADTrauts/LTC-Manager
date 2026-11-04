@@ -16,18 +16,18 @@ flowchart LR
   end
 
   subgraph notauth [Does not authorize]
-    TIER[Department Job Role tier and capabilities]
     QUAL[Qualified operational role]
     ASN[Today's assignment role]
+    TITLE[Job Title]
   end
 
   HEAD -->|accountable for the Department| DEPT[Department]
   LEAD -->|leads people| TEAM[Team]
   GRANT -->|only if RoleKey is already MANAGER| POL
   RK --> POL
-  TIER -.->|stored, not enforced| POL
   QUAL -.->|must not imply| POL
   ASN -.->|must not imply| POL
+  TITLE -.->|must not imply| POL
 ```
 
 A team lead does not become `RoleKey.MANAGER`. A Department head does not become `FACILITY_ADMINISTRATOR`. Qualifying someone for `SERVER` does not add a management route. The staff-manager grant is the only intentional delegation, and it requires the platform role first.

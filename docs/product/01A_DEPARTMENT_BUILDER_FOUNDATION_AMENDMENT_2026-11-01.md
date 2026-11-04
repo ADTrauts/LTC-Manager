@@ -59,7 +59,7 @@ Department Builder → People & Coverage consumes that organization and combines
 
 Team identity, Role identity, and Employee identity are not Department Builder-owned engines. Coverage remains derived from configured need plus canonical Shift, call-off, and Assignment facts.
 
-Existing Department Team / Job Role implementations must be reconciled toward this ownership. No second Department-only role/capability system may be added.
+Department Team is the organizational group. Operational eligibility is the registry qualification. Department Job Role capabilities are removed. No second Department-only role/capability system may be added.
 
 ---
 

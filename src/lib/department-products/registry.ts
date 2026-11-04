@@ -75,8 +75,6 @@ export type DepartmentProductStarterRefs = {
   cycleStarter?: "dietary" | "evs";
   /** `OPERATIONAL_ROLE_REGISTRY` keyed by productKey — product-authoring. */
   assignmentRoles?: true;
-  /** Generic Team Member / Lead / Supervisor / Manager tiers — lazy on load. */
-  jobRoleTiers?: "generic";
   /** Facility Builder responsibility presets — configuration-time. */
   responsibilityPresets?: true;
   /** Department may own first-class Menus. Not a Menu schema hard-code. */
@@ -135,7 +133,6 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     starters: {
       cycleStarter: "dietary",
       assignmentRoles: true,
-      jobRoleTiers: "generic",
       responsibilityPresets: true,
       menus: true,
     },
@@ -155,7 +152,6 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     starters: {
       cycleStarter: "evs",
       assignmentRoles: true,
-      jobRoleTiers: "generic",
       responsibilityPresets: true,
     },
     versionLabel: null,
@@ -184,7 +180,6 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     ],
     starters: {
       assignmentRoles: true,
-      jobRoleTiers: "generic",
       responsibilityPresets: true,
     },
     versionLabel: "1.0",

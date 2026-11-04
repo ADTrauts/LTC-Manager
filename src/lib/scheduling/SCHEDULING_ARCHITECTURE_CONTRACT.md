@@ -16,10 +16,10 @@ It is the authoritative reference for RUN scheduling decisions going forward.
 | `plannedEnd`  | A – canonical Shift fact | Clock-time end (string HH:MM, legacy) |
 | `departmentId`| A – canonical Shift fact | **Added in migration 81**; owner Department |
 | `workShiftId` | A – canonical (optional) | Link to reusable BUILD WorkShift pattern |
-| `shift`       | D – compatibility-only | Meal-slot label (BREAKFAST/LUNCH/DINNER/FULL_DAY). Not primary presence. |
-| `unitId`      | B – legacy assignment fact | Legacy placement; demoted from canonical Shift meaning |
-| `roleType`    | C – platform authority leakage | Platform RoleKey on a Shift is conceptually wrong; demoted |
-| `createdById` | D – compatibility-only | Audit trail |
+| `shift`       | D – stored meal-slot label | BREAKFAST/LUNCH/DINNER/FULL_DAY for older presence views. Not placement. |
+| `createdById` | D – audit | Who created the row |
+
+`unitId` and `roleType` were removed in `20261104200000_retire_duplicate_workforce_roles`. A shift does not store where someone works or a platform role. Placement is `OperationalAssignment`. Authority is `Employee.roleType` and the facility role period.
 
 ### Classification legend
 - **A**: Canonical Shift fact — keep and evolve.
@@ -43,9 +43,12 @@ Fields:
 - optional `workShiftId` link
 
 A Shift does **not** say:
-- what Unit they work in (→ belongs to legacy `unitId` or `OperationalAssignment`)
-- what they are responsible for (→ `OperationalAssignment`)
-- their platform authority (→ `Employee.roleType`)
+- what Unit they work in (`OperationalAssignment`)
+- what they are responsible for (`OperationalAssignment`)
+- their platform authority (`Employee.roleType` and the facility role period)
+- their operational role (`EmployeeOperationalRoleQualification` and the assignment snapshot)
+
+The schedule shows the Employee name, Job Title, primary Team, Department, and the scheduled time.
 
 ---
 
@@ -82,46 +85,9 @@ A Shift does **not** say:
 
 ---
 
-## Unit Placement Disposition
+## Unit and role on the shift — removed
 
-`ScheduleEntry.unitId` is **demoted from primary Shift semantics**.
-
-### Audit of active consumers
-| Consumer | Purpose | Status |
-|---|---|---|
-| `/staffing` scheduler grid | Groups schedule rows by Unit | Legacy display |
-| `coverage-list.ts` | Employee-to-Unit effective assignment | Legacy (override-aware) |
-| `load-call-down-list.ts` | Unit movement tracking | Legacy |
-| `load-daily-assignment-board.ts` | Unit of employee on schedule | Used as employee context |
-| `isEmployeeEligibleForUnit` | Eligibility check | Preserved via `UnitAccess` |
-| `AssignmentOverride` | `oldUnitId`/`newUnitId` | Preserved (its own semantic) |
-
-### Target
-- New canonical Shifts created through Department-aware scheduler do **not** require a Unit.
-- Existing rows keep their Unit for historical reads.
-- Consumers expecting `unitId` must gracefully handle `null` and fall back to `OperationalAssignment` where present.
-- `unitId` on `ScheduleEntry` becomes optional via migration 81.
-
----
-
-## roleType Disposition
-
-`ScheduleEntry.roleType` stores platform `RoleKey`. **This is conceptually wrong for Shift.**
-
-### Audit of active consumers
-| Consumer | Purpose | Status |
-|---|---|---|
-| `createScheduleEntryAction` | Inherits from `employee.roleType` | Legacy default |
-| `/staffing` schedule list | Displays `entry.roleType` | Display only |
-| Daily assignment board | Not used | — |
-| Authorization | Not used for auth | — |
-
-### Decision
-- `roleType` on `ScheduleEntry` is **made optional** (nullable) via migration 81.
-- New canonical Shift creation does **not** require `roleType`.
-- Existing rows retain their value.
-- Display consumers must handle `null` gracefully.
-- Do **not** populate `roleType` from Department Job Role tier — those are separate concepts.
+`ScheduleEntry.unitId` and `ScheduleEntry.roleType` were legacy placement and platform-role copies. Phase 7B dropped both columns. PIN login uses `primaryUnitId` and `EmployeeUnitAccess`. Call-off labels name the shift, not a unit. The coverage list does not place a person on a unit from a shift. Today's place and operational role are the Assignment.
 
 ---
 

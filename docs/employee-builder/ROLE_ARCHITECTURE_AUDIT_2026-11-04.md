@@ -2,7 +2,7 @@
 
 **Date:** November 4, 2026
 **Branch:** `architecture/department-builder-facility-reconciliation` at `0c3d5bc`
-**Status:** architecture audit. Phase 7A accepted operational eligibility afterward. See [OPERATIONAL_ELIGIBILITY.md](./OPERATIONAL_ELIGIBILITY.md). This file does not authorize the Phase 7B deletions.
+**Status:** historical trace. Phase 7B retired the duplicate models this audit named. The tables, columns, and screens below are gone. See [OPERATIONAL_ELIGIBILITY.md](./OPERATIONAL_ELIGIBILITY.md) for the surviving facts. Do not treat Department Job Role capabilities as a permission system.
 
 There are no customers. Duplicate workforce systems should not survive because they already have tables. Genuine HR facts, staffing facts, and authorization boundaries should.
 

@@ -204,7 +204,6 @@ export async function loadOperationalReviewDayFacts(input: {
       select: {
         id: true,
         employeeId: true,
-        unitId: true,
         departmentId: true,
         shift: true,
         calledOffAt: true,
@@ -530,7 +529,7 @@ export async function loadOperationalReviewDayFacts(input: {
       id: row.id,
       employeeId: row.employeeId,
       employeeDisplayName: `${row.employee.firstName} ${row.employee.lastName}`.trim(),
-      unitId: row.unitId,
+      unitId: null,
       departmentId: row.departmentId,
       shift: row.shift,
     })),
@@ -542,7 +541,7 @@ export async function loadOperationalReviewDayFacts(input: {
         employeeDisplayName: `${row.employee.firstName} ${row.employee.lastName}`.trim(),
         reason: row.callOffReason ?? "Call-off",
         oldUnitId: null,
-        newUnitId: row.unitId ?? "",
+        newUnitId: "",
       })),
     assetImpacts: assetIssues
       .filter(
