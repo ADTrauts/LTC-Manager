@@ -196,8 +196,8 @@ test("phase11b sql: DEVELOPMENT denies cycle creation/publication and retains hi
     const actor = { userId: fx.manager.id, label: "EVS Manager" };
     const draft = { stableKey: cuidLike(), label: "Retained EVS morning", cycleType: "PREPARATION" as const,
       startLocal: "06:00", endLocal: "10:00", applicableDaysOfWeek: [0,1,2,3,4,5,6],
-      effectiveFrom: "2099-01-01", mealType: null, locationMode: "UNIT_TYPES" as const,
-      applicableUnitTypes: ["RESIDENT_AREA" as const], expectedMilestones: [] };
+      effectiveFrom: "2099-01-01", mealType: null, locationMode: "ALL_DEPARTMENT_UNITS" as const,
+      expectedMilestones: [] };
     await assert.rejects(createCycleDraft(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
       actor, client: prisma, draft }), /commercial access is unavailable/);
     assert.equal(await prisma.departmentOperationalCycle.count({ where: { departmentId: fx.evs.id, stableKey: draft.stableKey } }), 0);

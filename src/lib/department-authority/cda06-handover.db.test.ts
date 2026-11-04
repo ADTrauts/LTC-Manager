@@ -143,16 +143,6 @@ test("a vendor handover hides the previous period and keeps compliance Records",
         operatorPeriodId: metzPeriodId,
       },
     });
-    await prisma.departmentWorkPlan.create({
-      data: {
-        facilityId: facility.id,
-        departmentId: department.id,
-        stableKey: `metz-plan-${suffix}`,
-        name: "Metz plan",
-        status: "PUBLISHED",
-        operatorPeriodId: metzPeriodId,
-      },
-    });
     await prisma.departmentOperationalCycle.create({
       data: {
         facilityId: facility.id,
@@ -285,10 +275,6 @@ test("a vendor handover hides the previous period and keeps compliance Records",
     assert.equal(retiredMenu.status, "INACTIVE");
     assert.equal(retiredMenu.operatorPeriodId, metzPeriodId);
     assert.equal(
-      (await prisma.departmentWorkPlan.findFirstOrThrow({ where: { operatorPeriodId: metzPeriodId } })).status,
-      "RETIRED",
-    );
-    assert.equal(
       (await prisma.departmentOperationalCycle.findFirstOrThrow({ where: { operatorPeriodId: metzPeriodId } })).status,
       "RETIRED",
     );
@@ -409,7 +395,6 @@ test("a vendor handover hides the previous period and keeps compliance Records",
     assert.equal(metzArchive.length, 1);
     assert.equal(metzArchive[0]?.department.name, "Food & Nutrition");
     assert.equal(metzArchive[0]?._count.menus, 1);
-    assert.equal(metzArchive[0]?._count.workPlans, 1);
     assert.equal(metzArchive[0]?._count.operationalCycles, 1);
     assert.equal(metzArchive[0]?._count.employees, 1);
     assert.equal(metzArchive[0]?._count.evidenceRecords, 1);

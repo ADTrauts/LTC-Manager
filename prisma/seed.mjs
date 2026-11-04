@@ -249,10 +249,16 @@ async function main() {
   await prisma.scheduleEntry.deleteMany({
     where: { employeeId: { in: sampleEmployeeIds } },
   });
+  await prisma.operationalAssignmentEligibilityException.deleteMany({
+    where: { employeeId: { in: sampleEmployeeIds } },
+  });
   await prisma.operationalAssignment.deleteMany({
     where: { employeeId: { in: sampleEmployeeIds } },
   });
-  await prisma.defaultAssignment.deleteMany({
+  await prisma.employeeOperationalRoleQualification.deleteMany({
+    where: { employeeId: { in: sampleEmployeeIds } },
+  });
+  await prisma.employeeTeamMembership.deleteMany({
     where: { employeeId: { in: sampleEmployeeIds } },
   });
   await prisma.employeeUnitAccess.deleteMany({
@@ -302,15 +308,6 @@ async function main() {
 
     const unitId = unitIdByName[item.unitName];
     if (!unitId) continue;
-
-    await prisma.defaultAssignment.create({
-      data: {
-        employeeId: employee.id,
-        unitId,
-        roleType: item.roleType,
-        isActive: true,
-      },
-    }).catch(() => undefined);
 
     // Phase D: demo PIN sidebar restriction — Jane is limited to one unit; others use all units.
     if (item.firstName === "Jane" && serveryId) {

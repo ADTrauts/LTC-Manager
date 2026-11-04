@@ -142,10 +142,45 @@ test(
           reason: "Only closer on the floor",
         },
       });
+      await prisma.operationalAssignment.update({
+        where: { id: exceptionAssignment.id },
+        data: { roleKey: "DISHWASHING", roleLabel: "Dishwashing" },
+      });
+      await prisma.operationalAssignmentEligibilityException.create({
+        data: {
+          assignmentId: exceptionAssignment.id,
+          facilityId: facility.id,
+          departmentId: dietary.id,
+          employeeId: employee.id,
+          roleKey: "DISHWASHING",
+          reason: "Moved to dish for the close",
+        },
+      });
+      const events = await prisma.operationalAssignmentEligibilityException.findMany({
+        where: { assignmentId: exceptionAssignment.id },
+        orderBy: { createdAt: "asc" },
+        select: { roleKey: true, reason: true },
+      });
+      assert.deepEqual(
+        events.map((event) => `${event.roleKey}:${event.reason}`),
+        [
+          "COOK:Only closer on the floor",
+          "DISHWASHING:Moved to dish for the close",
+        ],
+      );
       const cookQualification = await prisma.employeeOperationalRoleQualification.count({
         where: { employeeId: employee.id, departmentId: dietary.id, roleKey: "COOK", status: "ACTIVE" },
       });
       assert.equal(cookQualification, 0);
+      const dishwashingQualification = await prisma.employeeOperationalRoleQualification.count({
+        where: {
+          employeeId: employee.id,
+          departmentId: dietary.id,
+          roleKey: "DISHWASHING",
+          status: "ACTIVE",
+        },
+      });
+      assert.equal(dishwashingQualification, 0);
       const stillStaff = await prisma.employee.findFirstOrThrow({
         where: { id: employee.id },
         select: { roleType: true },
