@@ -60,6 +60,25 @@ export async function loadAssignmentTemplatePreview(
   const activeAssignments = boardAssignments.filter(
     (a) => a.status === "PLANNED" || a.status === "ACTIVE",
   );
+  const roleKeys = [...new Set(template.items.map((item) => item.roleKey))];
+  const qualificationRows =
+    roleKeys.length === 0
+      ? []
+      : await prisma.employeeOperationalRoleQualification.findMany({
+          where: {
+            facilityId: input.facilityId,
+            departmentId: input.departmentId,
+            roleKey: { in: roleKeys },
+            status: "ACTIVE",
+          },
+          select: { employeeId: true, roleKey: true },
+        });
+  const eligibleByRole = new Map<string, Set<string>>();
+  for (const row of qualificationRows) {
+    const ids = eligibleByRole.get(row.roleKey) ?? new Set<string>();
+    ids.add(row.employeeId);
+    eligibleByRole.set(row.roleKey, ids);
+  }
 
   const positions: TemplatePreviewPosition[] = [];
   const warnings: string[] = [];
@@ -91,6 +110,7 @@ export async function loadAssignmentTemplatePreview(
             scheduledEmployees: boardEmployees,
             existingAssignments: activeAssignments,
             alreadySuggestedIds,
+            eligibleEmployeeIds: eligibleByRole.get(item.roleKey) ?? new Set(),
           });
 
       if (suggestion) {

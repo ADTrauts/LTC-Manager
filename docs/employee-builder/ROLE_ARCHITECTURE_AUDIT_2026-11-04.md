@@ -2,7 +2,7 @@
 
 **Date:** November 4, 2026
 **Branch:** `architecture/department-builder-facility-reconciliation` at `0c3d5bc`
-**Status:** architecture audit. No schema or production change is authorized by this file.
+**Status:** architecture audit. Phase 7A accepted operational eligibility afterward. See [OPERATIONAL_ELIGIBILITY.md](./OPERATIONAL_ELIGIBILITY.md). This file does not authorize the Phase 7B deletions.
 
 There are no customers. Duplicate workforce systems should not survive because they already have tables. Genuine HR facts, staffing facts, and authorization boundaries should.
 

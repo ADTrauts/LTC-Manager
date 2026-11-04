@@ -1,7 +1,7 @@
-# Employee Builder — role architecture audit
+# Employee Builder
 
-**Status:** audit only. November 4, 2026. Not an approved schema.
+Operational eligibility is the accepted workforce fact. Read [OPERATIONAL_ELIGIBILITY.md](./OPERATIONAL_ELIGIBILITY.md).
 
-Read [ROLE_ARCHITECTURE_AUDIT_2026-11-04.md](./ROLE_ARCHITECTURE_AUDIT_2026-11-04.md).
+The November 4 audit remains the trace of the older role systems: [ROLE_ARCHITECTURE_AUDIT_2026-11-04.md](./ROLE_ARCHITECTURE_AUDIT_2026-11-04.md). Department → Team → Role → Employee is a screen, not a database tree.
 
-The proposed Department → Team → Role → Employee tree is a view to test, not a database model. Operational roles stay in `OPERATIONAL_ROLE_REGISTRY`. Platform `RoleKey` stays authorization. Do not implement the migration sequence until the open decisions in that audit are accepted.
+Phase 7A does not delete Department Job Role, Default Assignment, or workstation infrastructure. Those stay until Phase 7B.

@@ -16,7 +16,9 @@ const DIETARY_ROLES: OperationalRoleDefinition[] = [
   { key: "RECEIVING", label: "Receiving", departmentKeys: ["DIETARY"], defaultUnitTypes: ["STORAGE"] },
   { key: "PORTER", label: "Porter", departmentKeys: ["DIETARY"] },
   { key: "DISHWASHING", label: "Dishwashing", departmentKeys: ["DIETARY"], defaultUnitTypes: ["KITCHEN"] },
-  { key: "SERVER", label: "Server", departmentKeys: ["DIETARY"], defaultUnitTypes: ["SERVERY", "RESIDENT_AREA"] },
+  { key: "SERVER", label: "Server", departmentKeys: ["DIETARY"], description: "Trayline and dining-room service. A team lead who serves uses this role.", defaultUnitTypes: ["SERVERY", "RESIDENT_AREA"] },
+  { key: "CASHIER", label: "Cashier", departmentKeys: ["DIETARY"], description: "Retail register, counted separately from trayline service.", defaultUnitTypes: ["RETAIL"] },
+  { key: "BARISTA", label: "Barista", departmentKeys: ["DIETARY"], description: "Retail beverage service, counted separately from trayline service.", defaultUnitTypes: ["RETAIL"] },
   { key: "CALL_DOWN_RUNNER", label: "Call-Down Runner", departmentKeys: ["DIETARY"] },
   { key: "DIETARY_SUPERVISOR_ROUNDING", label: "Supervisor Rounding", departmentKeys: ["DIETARY"] },
 ];

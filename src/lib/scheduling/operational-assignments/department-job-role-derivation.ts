@@ -1,10 +1,9 @@
 import { getRolesForDepartment } from "@/lib/scheduling/assignment-roles";
 
 /**
- * Derive the default operational roleKey for new RUN Daily Assignments
- * from the employee's Department Job Role tier (BUILD operational identity).
- *
- * This is intentionally pure so it can be hermetically tested.
+ * Historical Department Job Role tier mapping.
+ * New Assignment writes choose a registry role and snapshot its label.
+ * They do not call this, and it is not operational eligibility.
  */
 export function deriveDefaultRoleKeyForDepartmentJobRole(input: {
   departmentKey: string;

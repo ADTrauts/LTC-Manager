@@ -63,6 +63,7 @@ function toEmployeeCardProps(
     employeeDepartments?: { departmentId: string }[];
     teamMemberships?: { teamId: string; isPrimary: boolean }[];
     departmentJobRoles?: { departmentId: string; jobRoleId: string }[];
+    operationalRoleQualifications?: { departmentId: string; roleKey: string; status: string }[];
     unionMember: boolean;
     onLeave: boolean;
     hireDate: Date | null;
@@ -125,6 +126,9 @@ function toEmployeeCardProps(
       departmentId: row.departmentId,
       jobRoleId: row.jobRoleId,
     })),
+    operationalQualifications: (employee.operationalRoleQualifications ?? [])
+      .filter((row) => row.status === "ACTIVE")
+      .map((row) => ({ departmentId: row.departmentId, roleKey: row.roleKey })),
     unitAccesses: employee.unitAccesses,
     defaultAssignments: employee.defaultAssignments,
     unionMember: employee.unionMember,
@@ -242,6 +246,9 @@ export default async function EmployeesPage({
         departmentJobRoles: {
           select: { departmentId: true, jobRoleId: true },
         },
+        operationalRoleQualifications: {
+          select: { departmentId: true, roleKey: true, status: true },
+        },
         unionMember: true,
         onLeave: true,
         hireDate: true,
@@ -306,6 +313,7 @@ export default async function EmployeesPage({
         id: true,
         displayName: true,
         departmentId: true,
+        managerEmployeeId: true,
         department: { select: { name: true } },
       },
     }),
@@ -335,7 +343,7 @@ export default async function EmployeesPage({
         ],
       },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, showInEmployeeApp: true },
+      select: { id: true, name: true, key: true, showInEmployeeApp: true },
     })
   ).filter((department) => operableIds.has(department.id));
 

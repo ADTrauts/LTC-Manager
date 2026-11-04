@@ -170,6 +170,8 @@ model Facility {
   assetPresenceNotes             AssetPresenceNote[]
   facilityRoomTypes              FacilityRoomType[]
   employees                      Employee[]
+  operationalRoleQualifications  EmployeeOperationalRoleQualification[]
+  eligibilityExceptions          OperationalAssignmentEligibilityException[]
   employeeUserLinkInvitations    EmployeeUserLinkInvitation[]
   vendors                        Vendor[]
   facilityOrganizations          FacilityOrganization[]
@@ -262,6 +264,8 @@ model Department {
   teams                          DepartmentTeam[]
   jobRoles                       DepartmentJobRole[]
   employeeJobRoleAssignments     EmployeeDepartmentJobRole[]
+  operationalRoleQualifications  EmployeeOperationalRoleQualification[]
+  eligibilityExceptions          OperationalAssignmentEligibilityException[]
   requestRoutesAsRequesting      DepartmentRequestRoute[]        @relation("RequestRouteRequesting")
   requestRoutesAsResponsible     DepartmentRequestRoute[]        @relation("RequestRouteResponsible")
   operationalRequestsRequesting  OperationalRequest[]            @relation("OperationalRequestRequesting")
@@ -973,6 +977,7 @@ model User {
   supportContacts                SupportContact[]
   createdSchedules               ScheduleEntry[]                 @relation("ScheduleCreatedBy")
   createdAssignments             OperationalAssignment[]         @relation("AssignmentCreatedBy")
+  eligibilityExceptions          OperationalAssignmentEligibilityException[] @relation("EligibilityExceptionActor")
   lastChangedAssignments         OperationalAssignment[]         @relation("AssignmentLastChangedBy")
   createdTemplates               OperationalAssignmentTemplate[] @relation("TemplateCreatedBy")
   assignmentEvents               OperationalAssignmentEvent[]    @relation("AssignmentEventActor")
@@ -1915,6 +1920,54 @@ model DepartmentJobRole {
   @@index([departmentId, status])
 }
 
+/// This Employee may perform this operational Role in this Department.
+/// The roleKey is OPERATIONAL_ROLE_REGISTRY. It is not a Team, Job Title, or RoleKey.
+enum EmployeeOperationalQualificationStatus {
+  ACTIVE
+  REVOKED
+}
+
+model EmployeeOperationalRoleQualification {
+  id           String                                  @id @default(cuid())
+  facilityId   String
+  facility     Facility                                @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee                                @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department                              @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  roleKey      String
+  status       EmployeeOperationalQualificationStatus  @default(ACTIVE)
+  revokedAt    DateTime?
+  createdAt    DateTime                                @default(now())
+  updatedAt    DateTime                                @updatedAt
+
+  @@unique([employeeId, departmentId, roleKey])
+  @@index([facilityId, departmentId])
+  @@index([employeeId])
+}
+
+/// An authorized staffing exception for one Assignment.
+/// It does not create or restore a qualification.
+model OperationalAssignmentEligibilityException {
+  id           String                @id @default(cuid())
+  assignmentId String                @unique
+  assignment   OperationalAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  facilityId   String
+  facility     Facility              @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  roleKey      String
+  reason       String
+  actorUserId  String?
+  actor        User?                 @relation("EligibilityExceptionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt    DateTime              @default(now())
+
+  @@index([facilityId, departmentId])
+  @@index([employeeId])
+}
+
 /// One active Job Role assignment per Employee per Department (V1).
 /// Requires Department membership. Removing membership reconciles this row.
 model EmployeeDepartmentJobRole {
@@ -1982,6 +2035,8 @@ model Employee {
   employeeDepartments            EmployeeDepartment[]
   teamMemberships                EmployeeTeamMembership[]
   departmentJobRoles             EmployeeDepartmentJobRole[]
+  operationalRoleQualifications  EmployeeOperationalRoleQualification[]
+  eligibilityExceptions          OperationalAssignmentEligibilityException[]
   unitAccesses                   EmployeeUnitAccess[]
   roleType                       RoleKey
   status                         EmployeeStatus                  @default(ACTIVE)
@@ -3404,6 +3459,7 @@ model OperationalAssignment {
   lastChangedAt       DateTime?
   events              OperationalAssignmentEvent[]
   locations           OperationalAssignmentLocation[]
+  eligibilityException OperationalAssignmentEligibilityException?
   createdAt           DateTime                           @default(now())
   updatedAt           DateTime                           @updatedAt
 

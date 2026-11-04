@@ -35,6 +35,7 @@ import {
   type OrganizationJobRoleAssignment,
   type OrganizationJobRoleOption,
 } from "@/components/employee-organization-fields";
+import { EmployeeOperationalEligibility } from "@/components/employee-operational-eligibility";
 
 export type EmployeeCardAssignment = {
   id: string;
@@ -64,6 +65,7 @@ export type EmployeeForManagementCard = {
   jobTitleId: string | null;
   teamMemberships: { teamId: string; isPrimary: boolean }[];
   jobRoleAssignments: OrganizationJobRoleAssignment[];
+  operationalQualifications: { departmentId: string; roleKey: string }[];
   unitAccesses: { unitId: string }[];
   defaultAssignments: EmployeeCardAssignment[];
   unionMember: boolean;
@@ -86,8 +88,13 @@ export type EmployeeForManagementCard = {
 };
 
 type UnitOption = { id: string; name: string };
-type DeptJobOption = { id: string; name: string; showInEmployeeApp?: boolean };
-type TeamOption = { id: string; displayName: string; departmentId: string };
+type DeptJobOption = { id: string; name: string; key?: string; showInEmployeeApp?: boolean };
+type TeamOption = {
+  id: string;
+  displayName: string;
+  departmentId: string;
+  managerEmployeeId?: string | null;
+};
 
 type EmployeeManagementCardProps = {
   employee: EmployeeForManagementCard;
@@ -447,7 +454,7 @@ export function EmployeeManagementCard({
   employee,
   units: _units,
   departments = [],
-  jobTitles: _jobTitles = [],
+  jobTitles = [],
   teams = [],
   jobRoles = [],
   showManagerTools,
@@ -549,6 +556,20 @@ export function EmployeeManagementCard({
           ) : (
             <p className="text-sm text-zinc-600">You can view employee cards; editing requires manager access.</p>
           )}
+
+          <EmployeeOperationalEligibility
+            employeeId={employee.id}
+            departments={departments ?? []}
+            membershipDepartmentIds={[
+              ...(employee.primaryDepartmentId ? [employee.primaryDepartmentId] : []),
+              ...employee.additionalDepartmentIds,
+            ]}
+            qualifications={employee.operationalQualifications}
+            jobTitleName={jobTitles.find((title) => title.id === employee.jobTitleId)?.name ?? null}
+            teams={teams ?? []}
+            teamMemberships={employee.teamMemberships}
+            canEdit={showManagerTools}
+          />
 
           {showPinManagement || showManagerTools ? (
             <section

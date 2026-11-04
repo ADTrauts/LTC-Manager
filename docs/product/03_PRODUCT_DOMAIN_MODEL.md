@@ -30,6 +30,8 @@
 | **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
 | **Organization membership** | `UserOrganizationMembership` + `UserOrganizationRolePeriod` (`ORG_ADMIN` / `ORG_MEMBER`). Independent of Facility access. |
 | **Role** | Facility Capability ladder (RoleKey): Staff → Lead → Supervisor → Manager → GM → Facility Administrator. Not Organization membership roles. |
+| **Operational role** | A function a Department assigns and covers. Identity is `OPERATIONAL_ROLE_REGISTRY`. Not a Job Title, Team, or RoleKey. |
+| **Operational eligibility** | This Employee may perform that operational role in this Department (`EmployeeOperationalRoleQualification`). Membership is required and is not eligibility. An Assignment exception does not grant it. |
 | **Operation** | **Retired** September 25, 2026 ([RETIRED](../platform-vision/RETIRED.md)). The window is an Operational Cycle. Remaining `operationInstanceId` code is removed in LEG-05, and the tables drop at LEG-06. |
 | **Readiness** | Computed location state: Ready / In Progress / Needs Attention. Location answers come from Runtime Location State. |
 | **Task** | **Legacy.** Written only by Task Sync and legacy inspection work. Not Work. Removed in LEG-05, and the table drops at LEG-06 ([LEG-D12](../legacy-retirement/DECISIONS.md#leg-d12--dormant-systems-are-removed-not-kept-dormant--accepted-program-default-october-20-2026)). |

@@ -233,48 +233,27 @@ Department responsibility alone does not imply Cycle participation.
 
 ### 7.1 Employee Builder owns workforce organization
 
-Employee Builder owns the organizational hierarchy beneath a Department:
+Employee Builder owns the person. The useful screen can still read Department, then Team, then the people on that Team. That screen is not a database tree. Role is not a child of Team.
 
-```text
-Department
-  → Team
-    → Role
-      → Employee membership / assignment to that role
-```
+The facts stay separate:
 
-Examples:
+- HR identity is Job Title.
+- Department membership is who belongs to the Department.
+- Team organization is the group, with one primary Team per Department.
+- Operational eligibility is which `OPERATIONAL_ROLE_REGISTRY` role that person may perform in that Department.
+- Daily Assignment is where they work today.
+- Coverage is the need: Department, room, role, period, and count.
+- Platform authorization is RoleKey.
 
-```text
-Food & Nutrition
-  Culinary
-    Cook
-    Prep Cook
-    Baker
-
-  Resident Services
-    Server
-    Lead Server
-
-  Utility
-    Dishwasher
-    Porter
-    Receiver
-
-  Retail
-    Cashier
-    Barista
-```
-
-Teams and Roles are workforce organization. They do **not** belong to Department Builder as separate authoring domains.
+A Team lead is the Team's `managerEmployeeId`. That relationship does not grant a RoleKey and does not grant eligibility. Cashier and Barista are registry roles because retail coverage counts them apart from Server. Lead Server and Prep Cook are not registry roles: serving is Server, prep is Hot Prep or Cold Prep, and leadership is the Team lead.
 
 ### 7.2 Department Builder People & Coverage consumes the model
 
 People & Coverage may show:
 
 - Department employee count
-- Teams
-- Roles within Teams
-- managers / leads where the Employee model supports them
+- Teams and who leads them
+- Eligible operational roles, read from Employee Builder
 - required coverage
 - scheduled coverage
 - actual/daily coverage
@@ -292,12 +271,12 @@ A Team does not own locations, define Coverage, define authorization, or define 
 - Department responsibility is the Department footprint.
 - Coverage is the staffing need.
 - `OperationalAssignment` is today's placement.
-- Employee Builder remains the later home for Team, Role, and member organization.
+- Employee Builder is the home for Team membership and operational eligibility.
 - Authorization stays with policy and authority.
 
-Role is not yet nested under Team. That consolidation is still ahead. Do not put rooms, Location Function keys, or cycle staffing counts back on the Team.
+Do not nest an operational role under a Team. Do not put rooms, Location Function keys, or cycle staffing counts on the Team.
 
-The existing Department Job Role implementation also requires consolidation into the Employee Builder workforce model. A second Department-only role/capability system must not remain beside canonical Employee roles.
+Department Job Role remains a retiring capability package. Do not add new readers that treat it as operational eligibility or as RoleKey. Phase 7B removes it after this qualification path is in use.
 
 ---
 

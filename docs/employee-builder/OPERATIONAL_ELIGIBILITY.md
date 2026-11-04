@@ -1,0 +1,27 @@
+# Operational eligibility
+
+Accepted November 4, 2026, with Phase 7A.
+
+Department → Team → Role → Employee is a useful presentation. It is not a database ownership tree.
+
+| Fact | What it is | Where it is edited |
+| --- | --- | --- |
+| HR identity | Job Title | Employee Builder |
+| Department membership | This person belongs to this Department | Employee Builder |
+| Team organization | Many Teams, one primary Team per Department. A Team lead is `DepartmentTeam.managerEmployeeId` | Employee Builder |
+| Operational eligibility | This Employee may perform this registry role in this Department | Employee Builder |
+| Daily Assignment | Where they work today, and which role they cover. `roleKey` and `roleLabel` are snapshotted | Run |
+| Coverage need | Department + room + role + period + required count | Department Builder → People & Coverage |
+| Platform authorization | RoleKey and the current facility role period | Existing access rules |
+
+Eligibility uses `OPERATIONAL_ROLE_REGISTRY`. It is not inferred from Job Title, Team, RoleKey, Department Job Role, the schedule, or a past Assignment. Department membership is required and is not itself eligibility.
+
+One Employee may hold several roles, and different roles in different Departments. An Assignment does not change Team membership, Job Title, RoleKey, the Department head, or a staff-manager grant.
+
+An Assignment for someone who is not eligible requires an explicit exception. The exception records the actor, reason, employee, role, Department, and Assignment. It does not mark the person eligible. This release does not model licensure or another mandatory credential, so the exception is ordinary staffing. It is not a waiver of a legal requirement.
+
+Cashier and Barista are registry roles because retail coverage counts them apart from Server. Lead Server and Prep Cook are not. Serving is Server. Prep is Hot Prep or Cold Prep. Leadership is the Team lead or RoleKey.
+
+Today's eligibility is the current ACTIVE row. Revoking it keeps that row and does not rewrite an Assignment or a Coverage need. Eligibility is not effective-dated in this release. Assignment history remains the snapshotted role key and label.
+
+Department Job Role, Default Assignment, and the workstation eligibility map are not this fact. Phase 7B removes those after this path is in use. Do not add new dependencies on them.
