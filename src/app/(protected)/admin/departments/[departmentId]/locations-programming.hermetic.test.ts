@@ -14,13 +14,13 @@ describe("Department Locations programming contracts", () => {
       "export async function clearLocationOperationalTypeAction",
     );
     const assignBlock = actions.slice(assignStart, assignEnd);
-    assert.match(assignBlock, /ROLE_BINDING_RETIRED/);
+    assert.match(assignBlock, /return retired\(\)/);
     assert.doesNotMatch(assignBlock, /bindRoomToArchetype/);
     assert.doesNotMatch(assignBlock, /requireFeature\(/);
 
     const createStart = actions.indexOf("export async function createLocationOperationalTypeAction");
     const createBlock = actions.slice(createStart);
-    assert.match(createBlock, /ROLE_BINDING_RETIRED/);
+    assert.match(createBlock, /return retired\(\)/);
     assert.doesNotMatch(createBlock, /bindRoomToArchetype/);
   });
 

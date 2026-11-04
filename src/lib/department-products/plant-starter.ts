@@ -55,7 +55,7 @@ function starterIdForCatalogKey(stableKey: string): string | null {
 
 export async function loadPlantStarterInstalledKeys(
   input: { facilityId: string; departmentId: string; client?: DbClient },
-): Promise<{ workPresetKeys: string[]; recordPresetKeys: string[] }> {
+): Promise<{ recordPresetKeys: string[] }> {
   const client = input.client ?? prisma;
   const records = await client.facilityCatalogInstall.findMany({
       where: {
@@ -66,7 +66,6 @@ export async function loadPlantStarterInstalledKeys(
     });
 
   return {
-    workPresetKeys: [],
     recordPresetKeys: records
       .map((row) => starterIdForCatalogKey(row.catalogStableKey))
       .filter((id): id is string => id != null),
@@ -108,9 +107,8 @@ export async function installPlantStarterConfiguration(
     catalog.has(id as PlantStarterItemId),
   );
   const existing = await loadPlantStarterInstalledKeys(input);
-  const already = new Set([...existing.workPresetKeys, ...existing.recordPresetKeys]);
+  const already = new Set(existing.recordPresetKeys);
 
-  let workAdded = 0;
   let recordAdded = 0;
   let alreadyExisted = 0;
 
@@ -134,20 +132,9 @@ export async function installPlantStarterConfiguration(
   }
 
   return {
-    workAdded,
     recordAdded,
     alreadyExisted,
     selectedCount: selected.length,
-    workHref: departmentAdminHref(input.departmentId, "overview"),
     recordsHref: departmentAdminHref(input.departmentId, "records"),
   };
-}
-
-function uniqueKeys(rows: Array<{ presetKey: string | null; stableKey: string }>): string[] {
-  const keys = new Set<string>();
-  for (const row of rows) {
-    if (row.presetKey) keys.add(row.presetKey);
-    if (row.stableKey) keys.add(row.stableKey);
-  }
-  return [...keys];
 }

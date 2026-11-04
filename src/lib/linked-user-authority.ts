@@ -17,7 +17,7 @@ export type LinkedUserAuthorityInput = {
   updateHomeRole?: boolean;
   /**
    * Employee primary department is the operational home for password login scoping
-   * (Work Plans, Cycles, nav). Always written onto the linked User when provided.
+   * (Cycles, nav). Always written onto the linked User when provided.
    */
   primaryDepartmentId?: string | null;
 };

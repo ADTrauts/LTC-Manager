@@ -201,7 +201,6 @@ export async function loadFacilityRunLogRequirements(
           spaceId: attachment.spaceId,
           unitId: attachment.unitId,
           targetDepartmentId: attachment.targetDepartmentId,
-          operationalTypeKey: null,
           departmentId: attachment.departmentId,
         })
       )?.title ?? "Target";
@@ -308,7 +307,6 @@ export async function loadFacilityRunLogRequirements(
           spaceId: row.spaceId,
           unitId: row.unitId,
           targetDepartmentId: row.targetDepartmentId,
-          operationalTypeKey: null,
           departmentId: undefined,
         })
       )?.title ?? null;

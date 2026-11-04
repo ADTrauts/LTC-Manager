@@ -30,7 +30,6 @@ export async function resolveAttachmentTargetLabel(
     spaceId?: string | null;
     unitId?: string | null;
     targetDepartmentId?: string | null;
-    operationalTypeKey?: string | null;
     departmentId?: string | null;
   },
 ): Promise<ResolvedTargetLabel | null> {

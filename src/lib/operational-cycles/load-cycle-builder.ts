@@ -37,8 +37,6 @@ export type CycleBuilderCatalog = {
   locations: CycleScopeLocationOption[];
   /** Facility Room Types for Build room-picker filters (id + displayName). */
   roomTypes: StandardRoomTypeOption[];
-  /** Department Operational Types — preferred cycle applicability target. */
-  operationalTypes: Array<{ key: string; name: string }>;
 };
 
 /**
@@ -160,7 +158,6 @@ export async function loadCycleBuilder(input: {
       key: row.id,
       label: row.displayName,
     })),
-    operationalTypes: [],
   };
 
   return {

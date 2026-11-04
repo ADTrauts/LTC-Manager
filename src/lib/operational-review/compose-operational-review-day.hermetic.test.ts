@@ -337,8 +337,7 @@ test("a historical room label comes from Facility identity, not a profile", () =
       ],
     }),
   );
-  assert.equal(model.locations[0]?.operationalTypeKey, null);
-  assert.equal(model.locations[0]?.operationalTypeName, null);
+  assert.equal("operationalTypeKey" in (model.locations[0] ?? {}), false);
   assert.equal(model.locations[0]?.displayLabel, "Main Kitchen");
   assert.equal(model.locations[0]?.displayLabelIsHistorical, false);
 });

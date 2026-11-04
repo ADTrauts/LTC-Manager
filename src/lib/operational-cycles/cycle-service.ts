@@ -264,20 +264,6 @@ function milestoneTimeCreates(input: CycleDraftInput) {
   return rows;
 }
 
-function resolvedRoomTypeKey(
-  _locationMode: CycleDraftInput["locationMode"],
-  _roomTypeKey: string | null | undefined,
-): string | null {
-  return null;
-}
-
-function resolvedOperationalTypeKeys(
-  _locationMode: CycleDraftInput["locationMode"],
-  _keys: readonly string[] | undefined,
-): string[] {
-  return [];
-}
-
 export async function loadScopeLocations(
   client: DbClient,
   facilityId: string,
@@ -374,9 +360,6 @@ async function assertDraftScope(
   const locations = await loadScopeLocations(client, input.facilityId, input.departmentId);
   const errors = validateCycleScopeAgainstCatalog({
     locationMode: input.locationMode,
-    roomTypeKey: input.draft.roomTypeKey,
-    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
-    allowedOperationalTypeKeys: [],
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     milestoneTimes: input.draft.milestoneTimes,
@@ -474,7 +457,6 @@ async function loadPublishedOverlapPeers(
     overnight: r.overnight,
     applicableDaysOfWeek: r.applicableDaysOfWeek,
     locationMode: r.locationMode,
-    applicableUnitTypes: [],
     unitIds: r.locations.map((l) => l.unitId).filter((id): id is string => Boolean(id)),
     effectiveFrom: toServiceDateKey(r.effectiveFrom),
     effectiveTo: r.effectiveTo ? toServiceDateKey(r.effectiveTo) : null,
@@ -518,12 +500,9 @@ export async function createDraft(
     mealType: input.draft.mealType,
     locationMode,
     locationInheritFromParent: locationInherit,
-    applicableUnitTypes: input.draft.applicableUnitTypes,
-    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     keyTimeGroups: input.draft.keyTimeGroups,
-    roomTypeKey: input.draft.roomTypeKey,
     expectedMilestones: input.draft.expectedMilestones,
   });
   if (!validation.valid) {
@@ -665,12 +644,9 @@ export async function updateDraft(
     mealType: input.draft.mealType,
     locationMode,
     locationInheritFromParent: locationInherit,
-    applicableUnitTypes: input.draft.applicableUnitTypes,
-    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     keyTimeGroups: input.draft.keyTimeGroups,
-    roomTypeKey: input.draft.roomTypeKey,
     expectedMilestones: input.draft.expectedMilestones,
   });
   if (!validation.valid) {
@@ -1098,11 +1074,8 @@ export async function publishCycle(
       mealType: mapped.mealType,
       locationMode: mapped.locationMode,
       locationInheritFromParent: mapped.locationInheritFromParent,
-      applicableUnitTypes: mapped.applicableUnitTypes,
-      applicableOperationalTypeKeys: mapped.applicableOperationalTypeKeys,
       unitIds: mapped.unitIds,
       spaceIds: mapped.spaceIds,
-      roomTypeKey: mapped.roomTypeKey,
       expectedMilestones: mapped.expectedMilestones,
       keyTimeGroups:
         input.keyTimeGroups && input.keyTimeGroups.length > 0
@@ -1568,12 +1541,9 @@ export async function generateDietaryDefaultsDrafts(
         mealType: plan.mealType,
         locationMode: plan.locationMode,
         locationInheritFromParent: plan.locationInheritFromParent,
-        applicableUnitTypes: [],
-        roomTypeKey: null,
         expectedMilestones: plan.expectedMilestones,
         occurrenceTracking: plan.occurrenceTracking,
         keyPointGrain: plan.keyPointGrain,
-        applicableOperationalTypeKeys: [],
         keyTimeGroups: (plan.dueLocals ?? []).map((dueLocal) => ({
           dueLocal,
           spaceIds: [],
@@ -1667,12 +1637,9 @@ export async function prepareDietaryMealTimingUpgrade(
         mealType: null,
         locationMode: keyPoint.locationMode,
         locationInheritFromParent: keyPoint.locationInheritFromParent,
-        applicableUnitTypes: [],
-        roomTypeKey: null,
         expectedMilestones: [],
         occurrenceTracking: keyPoint.occurrenceTracking,
         keyPointGrain: keyPoint.keyPointGrain,
-        applicableOperationalTypeKeys: [],
         keyTimeGroups: (keyPoint.dueLocals ?? []).map((dueLocal) => ({
           dueLocal,
           spaceIds: [],
@@ -1745,8 +1712,6 @@ export async function generateEvsDefaultsDrafts(
             ? plan.locationMode
             : "ALL_DEPARTMENT_UNITS",
         locationInheritFromParent: plan.locationInheritFromParent,
-        applicableUnitTypes: [],
-        roomTypeKey: null,
         expectedMilestones: [],
       },
     });

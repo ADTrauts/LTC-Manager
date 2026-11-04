@@ -271,23 +271,6 @@ export type OperationalReviewRangeViewModel = {
   totals: OperationalReviewRangeTotals;
 };
 
-export type ReviewProfileFact = {
-  id: string;
-  departmentId: string;
-  version: number;
-  status: "DRAFT" | "CERTIFIED" | "ACTIVE" | "RETIRED";
-  activatedAt: Date | null;
-  retiredAt: Date | null;
-};
-
-export type ReviewOtBindingFact = {
-  profileId: string;
-  spaceId: string;
-  operationalTypeKey: string;
-  operationalTypeName: string;
-  archetypeIsActive: boolean;
-};
-
 export type ReviewSpaceFact = {
   spaceId: string;
   displayLabel: string;
@@ -392,8 +375,6 @@ export type OperationalReviewDayFacts = {
   now: Date;
   todayKey: string;
   spaces: ReviewSpaceFact[];
-  profiles: ReviewProfileFact[];
-  otBindings: ReviewOtBindingFact[];
   attachmentSegments: ReviewAttachmentSegmentFact[];
   evidenceRecords: ReviewEvidenceRecordFact[];
   /** Sparse administrative excuses. Evidence on the same requirement wins. */

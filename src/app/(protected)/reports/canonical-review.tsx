@@ -101,7 +101,6 @@ export function CanonicalReview({
   spaceId,
   todayKey,
   definition = "",
-  locationFunction = "",
   auditSlots = null,
   timingRows = null,
   departmentId = "",
@@ -111,7 +110,6 @@ export function CanonicalReview({
   spaceId: string | null;
   todayKey: string;
   definition?: string;
-  locationFunction?: string;
   auditSlots?: readonly AuditRecordSlot[] | null;
   timingRows?: readonly TimingAuditRow[] | null;
   departmentId?: string | null;
@@ -151,7 +149,6 @@ export function CanonicalReview({
               locationOptions={presentation.locationOptions}
               testId="review-date-form"
               definition={definition}
-              locationFunction={locationFunction}
             />
           </div>
         }
@@ -168,7 +165,6 @@ export function CanonicalReview({
                   definition,
                   from: presentation.serviceDate,
                   to: presentation.serviceDate,
-                  ...(locationFunction ? { locationFunction } : {}),
                 }).toString()}`
               : null
           }

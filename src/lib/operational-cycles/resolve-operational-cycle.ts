@@ -62,11 +62,8 @@ export function cycleAppliesToUnit(
   cycle: Pick<
     OperationalCycleDefinition,
     | "locationMode"
-    | "applicableUnitTypes"
-    | "applicableOperationalTypeKeys"
     | "unitIds"
     | "spaceIds"
-    | "roomTypeKey"
     | "locationInheritFromParent"
     | "parentStableKey"
     | "nodeKind"
@@ -103,8 +100,6 @@ export function cycleAppliesToUnit(
 }
 
 export type CycleSpaceApplicabilityContext = {
-  /** Ignored. Cycle matching does not use Location Function or Operational Type. */
-  operationalTypeKey?: string | null;
   /**
    * False when this room is outside the Department's Facility responsibility.
    * Omitted means the caller already limited the question to responsible places.
@@ -248,8 +243,6 @@ export function resolveOperationalCycle(input: {
   unit?: CycleUnitScope | null;
   /** When set, Room grain is authoritative — parents do not expand the set. */
   spaceId?: string | null;
-  /** Ignored. Cycle matching does not use Location Function or Operational Type. */
-  operationalTypeKey?: string | null;
   /** False when spaceId is outside this Department's Facility responsibility. */
   responsible?: boolean;
   /** When false, department has no cycle applicability (e.g. wrong department). */

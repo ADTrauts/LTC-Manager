@@ -212,8 +212,6 @@ function parseDraftFromForm(formData: FormData) {
     })(),
     locationMode: locationInheritFromParent ? "EXPLICIT_UNITS" : locationMode,
     locationInheritFromParent,
-    applicableUnitTypes: [],
-    applicableOperationalTypeKeys: [],
     unitIds:
       locationMode === "EXPLICIT_UNITS" && !locationInheritFromParent
         ? parseIdList(formData.get("unitIds"))
@@ -223,7 +221,6 @@ function parseDraftFromForm(formData: FormData) {
         ? parseIdList(formData.get("spaceIds"))
         : [],
     keyTimeGroups: nodeKind === "KEY_TIME" ? parseKeyTimeGroups(formData.get("keyTimeGroups")) : [],
-    roomTypeKey: null,
     expectedMilestones: parseCsvEnums(
       formData.get("expectedMilestones"),
       milestoneSchema.options as unknown as readonly z.infer<typeof milestoneSchema>[],

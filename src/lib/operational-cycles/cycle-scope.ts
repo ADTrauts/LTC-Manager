@@ -150,9 +150,6 @@ export function shouldShowServiceStartTimes(input: {
 
 export function scopeGroupLabel(input: {
   locationMode: OperationalCycleLocationMode;
-  roomTypeKey?: string | null;
-  applicableOperationalTypeKeys?: readonly string[];
-  operationalTypeNames?: Readonly<Record<string, string>>;
   unitIds?: readonly string[];
   spaceIds?: readonly string[];
   locationNames?: Readonly<Record<string, string>>;
@@ -170,9 +167,6 @@ export function scopeGroupLabel(input: {
 
 export function describeUserFacingScope(input: {
   locationMode: OperationalCycleLocationMode;
-  roomTypeKey?: string | null;
-  applicableOperationalTypeKeys?: readonly string[];
-  operationalTypeNames?: Readonly<Record<string, string>>;
   unitIds?: readonly string[];
   spaceIds?: readonly string[];
   locationNames?: Readonly<Record<string, string>>;
@@ -192,33 +186,23 @@ export function describeUserFacingScope(input: {
 export function summarizeScopeChange(input: {
   from: {
     locationMode: OperationalCycleLocationMode;
-    roomTypeKey?: string | null;
-    applicableOperationalTypeKeys?: readonly string[];
-    operationalTypeNames?: Readonly<Record<string, string>>;
     unitIds?: readonly string[];
     spaceIds?: readonly string[];
   };
   to: {
     locationMode: OperationalCycleLocationMode;
-    roomTypeKey?: string | null;
-    applicableOperationalTypeKeys?: readonly string[];
-    operationalTypeNames?: Readonly<Record<string, string>>;
     unitIds?: readonly string[];
     spaceIds?: readonly string[];
   };
   locationNames?: Readonly<Record<string, string>>;
-  operationalTypeNames?: Readonly<Record<string, string>>;
 }): string | null {
-  const names = input.operationalTypeNames;
   const before = describeUserFacingScope({
     ...input.from,
     locationNames: input.locationNames,
-    operationalTypeNames: input.from.operationalTypeNames ?? names,
   });
   const after = describeUserFacingScope({
     ...input.to,
     locationNames: input.locationNames,
-    operationalTypeNames: input.to.operationalTypeNames ?? names,
   });
   if (before === after) return null;
   return `${before} → ${after}`;
@@ -282,7 +266,6 @@ export function locationNameMap(
 
 export function mealTimeNeighborhoodCandidates(input: {
   locationMode: OperationalCycleLocationMode;
-  roomTypeKey?: string | null;
   unitIds?: readonly string[];
   spaceIds?: readonly string[];
   locations: readonly CycleScopeLocationOption[];
@@ -333,9 +316,6 @@ export function mealTimeNeighborhoodCandidates(input: {
 
 export function validateCycleScopeAgainstCatalog(input: {
   locationMode: OperationalCycleLocationMode;
-  roomTypeKey?: string | null;
-  applicableOperationalTypeKeys?: readonly string[];
-  allowedOperationalTypeKeys?: readonly string[];
   unitIds?: readonly string[];
   spaceIds?: readonly string[];
   milestoneTimes?: readonly CycleMilestoneTimeInput[];

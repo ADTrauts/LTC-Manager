@@ -23,7 +23,6 @@ export type {
   TeamCycleNeedGrain,
   TeamCycleView,
   TeamEmployeeOption,
-  TeamOperationalTypeOption,
 } from "./types";
 export {
   assertUniqueRootCycleLabel,

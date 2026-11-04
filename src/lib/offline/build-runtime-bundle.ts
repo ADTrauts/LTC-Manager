@@ -140,7 +140,7 @@ export async function buildRuntimeBundle(
     return { ok: false, reason: "UNIT_NOT_FOUND", status: 404 };
   }
 
-  // Prefer flagged Job Flow / Work Plans department (DIETARY or EVS). Classic SERVERY
+  // Prefer a Job Flow department (DIETARY or EVS). Classic SERVERY
   // milestone offline must still work when DIETARY_JOB_FLOW_ENABLED is off — fall back
   // to Dietary for SERVERY units (Phase 6/9 offline foundation).
   let operationalDepartment = await resolveUnitOperationalDepartment({

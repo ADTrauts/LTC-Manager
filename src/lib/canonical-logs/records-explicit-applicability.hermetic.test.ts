@@ -6,7 +6,6 @@ import type { LogExpectationHistorySegment } from "@/lib/canonical-logs/expectat
 import { composeLocationProgram } from "@/lib/department-administration/location-program";
 
 import {
-  expandOperationalTypeSpaces,
   matchLogAttachmentToLocation,
   type LocationLogAttachmentRow,
   type LocationLogMatchContext,
@@ -73,7 +72,6 @@ test("a new room of the same Facility Room Type does not inherit the requirement
   const spaceD = ctx({ spaceId: "space-d", operationalTypeKey: "servery", operationalTypeName: "Servery" });
   assert.equal(existing.some((requirement) => matchLogAttachmentToLocation(requirement, spaceD)), false);
   assert.equal(matchLogAttachmentToLocation(inherited, spaceD), null);
-  assert.deepEqual(expandOperationalTypeSpaces(new Map([["space-d", { key: "servery" }]]), "servery"), []);
 });
 
 test("UNIT applies to that unit and does not include a room inside it", () => {

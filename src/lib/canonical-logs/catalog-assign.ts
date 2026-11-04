@@ -7,10 +7,6 @@ import type { PrismaClient, UnitHierarchyRole } from "@prisma/client";
 
 import { isActionableDepartmentUnit } from "@/lib/department-administration/department-locations";
 import { loadFacilityTimezone } from "@/lib/operational-time";
-import {
-  operationalTypeAssignId,
-  parseOperationalTypeAssignId,
-} from "./log-operational-type-applicability";
 
 import { logicalAttachmentsForBuildList, groupLogicalLogAttachments } from "./logical-attachment";
 import { parseRecommendedFixedWindows } from "./catalog-authoring";
@@ -68,7 +64,6 @@ function liveAssignmentMap(
     spaceId: string | null;
     unitId: string | null;
     targetDepartmentId: string | null;
-    operationalTypeKey?: string | null;
     departmentId?: string | null;
     stableKey: string;
   }>,

@@ -500,8 +500,6 @@ export function presentLocationRunOperation(input: {
   nowLocalHhMm: string;
   canAdjust?: boolean;
   canComplete?: boolean;
-  /** Ignored. Cycle matching does not use Location Function or Operational Type. */
-  operationalTypeKey?: string | null;
 }): RunLocationOperationPresentation {
   const scopedTimings = timingsForPublishedKeyTimeCycles(input.timings, input.cycles).filter(
     (row) => row.spaceId === input.spaceId,
@@ -513,7 +511,6 @@ export function presentLocationRunOperation(input: {
     facilityTimezone: input.facilityTimezone,
     operationalDateKey: input.operationalDateKey,
     spaceId: input.spaceId,
-    operationalTypeKey: input.operationalTypeKey,
   });
 
   let currentOperation: RunLocationCurrentOperation = {
@@ -573,7 +570,7 @@ export function presentLocationRunOperation(input: {
 function roomCountSpaceIds(
   cycle: OperationalCycleDefinition | undefined,
   allByKey: ReadonlyMap<string, OperationalCycleDefinition>,
-  functionSpaces?: readonly { id: string; operationalTypeKey?: string | null }[],
+  functionSpaces?: readonly { id: string }[],
 ): string[] {
   if (!cycle) return [];
   if (functionSpaces) {
@@ -590,11 +587,8 @@ export function presentDepartmentRunOperation(input: {
   operationalDateKey: string;
   nowLocalHhMm: string;
   spaceIdFilter?: ReadonlySet<string>;
-  /**
-   * Responsible rooms for department-wide room counts.
-   * operationalTypeKey is ignored. Explicit Cycles use stored space ids.
-   */
-  functionSpaces?: readonly { id: string; operationalTypeKey?: string | null }[];
+  /** Responsible rooms for department-wide room counts. Explicit Cycles use stored space ids. */
+  functionSpaces?: readonly { id: string }[];
 }): RunDepartmentOperationPresentation {
   const provenance = detectRunModelProvenance(input.cycles, input.timings);
   const defsByKey = buildCyclesByStableKey(

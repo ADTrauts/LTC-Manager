@@ -76,7 +76,6 @@ export function toCoverageExpectationView(row: {
       roleKey: item.roleKey,
       roleLabel: item.roleLabel,
       requiredCount: item.requiredCount,
-      applicableOperationalTypeKeys: [],
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       unitId: item.unitId,
       unitName: item.unit?.name ?? null,
@@ -145,7 +144,6 @@ export async function loadCoverageCatalog(input: {
       key: role.key,
       label: role.label,
     })),
-    operationalTypes: [],
     locations: spaces.map((space) => ({
       id: space.id,
       name: space.name,

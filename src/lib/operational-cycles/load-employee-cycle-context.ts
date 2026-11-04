@@ -114,7 +114,6 @@ export async function loadEmployeeCycleContext(input: {
     parentUnitId: string | null;
     childRoomTypeKeys?: string[];
     spaceIds?: string[];
-    childOperationalTypeKeys?: string[];
   } | null = null;
   let mealTargets: UnitMealTarget[] = [];
   let keyTimes: EmployeeKeyTimeCard[] = [];
@@ -208,7 +207,6 @@ export async function loadEmployeeCycleContext(input: {
     operationalDateKey,
     unit,
     spaceId: input.spaceId,
-    operationalTypeKey: null,
     mealTargets,
   });
 

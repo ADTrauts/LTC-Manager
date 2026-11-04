@@ -69,7 +69,6 @@ function targetFromRow(row: {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
-  operationalTypeKey?: string | null;
 }): LogAttachmentTarget {
   switch (row.targetKind) {
     case "ASSET":

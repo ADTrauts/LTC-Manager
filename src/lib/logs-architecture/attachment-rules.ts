@@ -82,8 +82,6 @@ export function targetIdentityKey(target: LogAttachmentTarget, facilityId: strin
       return `DEPARTMENT:${target.departmentId}`;
     case "FACILITY":
       return `FACILITY:${facilityId}`;
-    case "OPERATIONAL_TYPE":
-      return `OPERATIONAL_TYPE:${target.operationalTypeKey}`;
   }
 }
 

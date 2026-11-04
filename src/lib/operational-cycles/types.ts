@@ -42,11 +42,6 @@ export type OperationalCycleDefinition = {
   locationMode: OperationalCycleLocationMode;
   /** When true (nested PERIOD only), effective rooms come from the immediate parent. */
   locationInheritFromParent: boolean;
-  applicableUnitTypes: UnitType[];
-  /** Department Operational Type keys when locationMode = OPERATIONAL_TYPES. */
-  applicableOperationalTypeKeys?: string[];
-  /** Facility Room Type preset key when locationMode = ROOM_TYPE. */
-  roomTypeKey: string | null;
   expectedMilestones: ServeryMilestone[];
   status: OperationalCycleStatus;
   /** Explicit unit ids when locationMode = EXPLICIT_UNITS. */
@@ -148,12 +143,9 @@ export type CycleDraftInput = {
   mealType?: MealType | null;
   locationMode?: OperationalCycleLocationMode;
   locationInheritFromParent?: boolean;
-  applicableUnitTypes?: UnitType[];
-  applicableOperationalTypeKeys?: string[];
   unitIds?: string[];
   spaceIds?: string[];
   keyTimeGroups?: KeyTimeGroupDefinition[];
-  roomTypeKey?: string | null;
   expectedMilestones?: ServeryMilestone[];
   milestoneTimes?: Array<{
     unitId: string;
@@ -182,8 +174,6 @@ export type CycleUnitScope = {
   childRoomTypeKeys?: string[];
   /** Space ids under this location — a listed space makes an explicit Cycle apply here. */
   spaceIds?: string[];
-  /** Ignored by Cycle matching. Kept so older fixtures still type-check. */
-  childOperationalTypeKeys?: string[];
   /**
    * False when this Unit is outside the Department's Facility responsibility.
    * Omitted means the caller already limited the question to responsible places.

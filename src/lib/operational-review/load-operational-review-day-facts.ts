@@ -26,8 +26,6 @@ import type {
   ReviewAttachmentSegmentFact,
   ReviewAssignmentFact,
   ReviewEvidenceRecordFact,
-  ReviewOtBindingFact,
-  ReviewProfileFact,
 } from "./types";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -92,7 +90,6 @@ export async function loadOperationalReviewDayFacts(input: {
   const departmentIds = departments.map((row) => row.id);
 
   const [
-    profiles,
     attachments,
     evidence,
     templates,
@@ -105,16 +102,6 @@ export async function loadOperationalReviewDayFacts(input: {
     assetIssues,
     legacyCount,
   ] = await Promise.all([
-    Promise.resolve(
-      [] as {
-        id: string;
-        departmentId: string;
-        version: number;
-        status: "ACTIVE" | "RETIRED" | "CERTIFIED";
-        activatedAt: Date | null;
-        retiredAt: Date | null;
-      }[],
-    ),
     input.client.logAttachment.findMany({
       where: {
         facilityId: input.facilityId,
@@ -314,17 +301,6 @@ export async function loadOperationalReviewDayFacts(input: {
       .filter((id): id is string => Boolean(id)),
   );
 
-  const profileFacts: ReviewProfileFact[] = profiles.map((row) => ({
-    id: row.id,
-    departmentId: row.departmentId,
-    version: row.version,
-    status: row.status,
-    activatedAt: row.activatedAt,
-    retiredAt: row.retiredAt,
-  }));
-
-  const bindings: ReviewOtBindingFact[] = [];
-
   const attachmentSegments: ReviewAttachmentSegmentFact[] = attachments.map((row) => ({
     id: row.id,
     stableKey: row.stableKey,
@@ -348,7 +324,6 @@ export async function loadOperationalReviewDayFacts(input: {
     spaceId: row.spaceId,
     unitId: row.unitId,
     targetDepartmentId: row.targetDepartmentId,
-    operationalTypeKey: null,
     dailyWindows: row.dailyWindows.map((window) => ({
       label: window.label,
       startLocal: window.startLocal,
@@ -520,8 +495,6 @@ export async function loadOperationalReviewDayFacts(input: {
       parentUnitId: space.unitId,
       parentUnitLabel: space.unit?.name ?? null,
     })),
-    profiles: profileFacts,
-    otBindings: bindings,
     attachmentSegments,
     evidenceRecords,
     waivers: waiverRows.map((row) => ({
@@ -544,7 +517,6 @@ export async function loadOperationalReviewDayFacts(input: {
         requiredCount: item.requiredCount,
         unitId: item.unitId,
         spaceId: item.spaceId,
-        applicableOperationalTypeKeys: [],
         applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       })),
     })),

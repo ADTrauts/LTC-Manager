@@ -30,7 +30,7 @@ import {
 } from "./review-fact-maps";
 import { operationalReviewSpaceWhere } from "./review-space-scope";
 import { addServiceDateKey } from "./service-date-range";
-import type { OperationalReviewDayFacts, ReviewOtBindingFact, ReviewProfileFact } from "./types";
+import type { OperationalReviewDayFacts } from "./types";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -109,18 +109,8 @@ export async function loadOperationalReviewRangeFacts(input: {
     parentUnitLabel: space.unit?.name ?? null,
   }));
 
-  const [profiles, attachments, evidence, templates, plans, assignments, scheduleEntries, serveryEvents, keyTimes, keyPointActuals, assetIssues, legacyRows] =
+  const [attachments, evidence, templates, plans, assignments, scheduleEntries, serveryEvents, keyTimes, keyPointActuals, assetIssues, legacyRows] =
     await Promise.all([
-      Promise.resolve(
-        [] as {
-          id: string;
-          departmentId: string;
-          version: number;
-          status: "ACTIVE" | "RETIRED" | "CERTIFIED";
-          activatedAt: Date | null;
-          retiredAt: Date | null;
-        }[],
-      ),
       input.client.logAttachment.findMany({
         where: {
           facilityId: input.facilityId,
@@ -306,17 +296,6 @@ export async function loadOperationalReviewRangeFacts(input: {
         });
   const changedAssignmentIds = detectLocationChangedAssignmentIds(locationEvents);
 
-  const profileFacts: ReviewProfileFact[] = profiles.map((row) => ({
-    id: row.id,
-    departmentId: row.departmentId,
-    version: row.version,
-    status: row.status,
-    activatedAt: row.activatedAt,
-    retiredAt: row.retiredAt,
-  }));
-
-  const bindings: ReviewOtBindingFact[] = [];
-
   const attachmentSegments = mapReviewAttachmentSegments(attachments);
   const coverageTemplates = mapReviewCoverageTemplates(templates);
   const evidenceByDate = groupByDateKey(mapReviewEvidenceRecords(evidence), (row) => row.operationalDateKey);
@@ -399,8 +378,6 @@ export async function loadOperationalReviewRangeFacts(input: {
       now,
       todayKey,
       spaces: spaceFacts,
-      profiles: profileFacts,
-      otBindings: bindings,
       attachmentSegments,
       evidenceRecords: evidenceByDate.get(serviceDate) ?? [],
       waivers: waiversByDate.get(serviceDate) ?? [],

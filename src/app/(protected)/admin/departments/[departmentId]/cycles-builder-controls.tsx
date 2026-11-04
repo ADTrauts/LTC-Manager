@@ -277,10 +277,7 @@ export type CycleRowData = {
   effectiveTo: string | null;
   locationMode: string;
   locationInheritFromParent: boolean;
-  applicableUnitTypes: string[];
-  applicableOperationalTypeKeys: string[];
   expectedMilestones: string[];
-  roomTypeKey: string | null;
   unitIds: string[];
   spaceIds: string[];
   keyTimeGroups: Array<{ dueLocal: string; spaceIds: string[] }>;
@@ -293,7 +290,6 @@ export type CycleRowData = {
 export type CycleEditorCatalog = {
   locations: CycleScopeLocationOption[];
   roomTypes: StandardRoomTypeOption[];
-  operationalTypes?: Array<{ key: string; name: string }>;
 };
 
 function normalizeTimeInput(value: string | null | undefined): string {
@@ -328,10 +324,7 @@ export function CycleEditorFields({
   idPrefix: string;
   defaults: Partial<CycleRowData> & {
     applicableDaysOfWeek?: number[];
-    applicableUnitTypes?: string[];
-    applicableOperationalTypeKeys?: string[];
     expectedMilestones?: string[];
-    roomTypeKey?: string | null;
     unitIds?: string[];
     spaceIds?: string[];
     keyTimeGroups?: Array<{ dueLocal: string; spaceIds: string[] }>;
@@ -381,7 +374,6 @@ export function CycleEditorFields({
   const [showLegacyMilestones, setShowLegacyMilestones] = useState(false);
   const hasLegacyMilestoneData =
     (defaults.milestoneTimes ?? []).some((row) => row.milestone === "SERVICE_STARTED") ||
-    defaults.locationMode === "ROOM_TYPE" ||
     (defaults.expectedMilestones ?? []).includes("SERVICE_STARTED");
   const [appliesTo, setAppliesTo] = useState<CycleUserScope>(() =>
     defaults.locationMode === "ALL_DEPARTMENT_UNITS" ? "department" : "specific",
@@ -437,7 +429,6 @@ export function CycleEditorFields({
   const candidates = showTimes
     ? mealTimeNeighborhoodCandidates({
         locationMode,
-        roomTypeKey: null,
         unitIds,
         spaceIds,
         locations,
@@ -686,8 +677,6 @@ export function CycleEditorFields({
                       </span>
                     </label>
                   </div>
-                  <input type="hidden" name="applicableOperationalTypeKeys" value="" />
-                  <input type="hidden" name="roomTypeKey" value="" />
                   {appliesTo === "specific" ? (
                     <>
                       <div className="grid gap-2 sm:grid-cols-2">

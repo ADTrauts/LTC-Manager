@@ -132,10 +132,10 @@ test("reject self-drop and descendant loop", () => {
   );
 });
 
-test("service-time candidates appear from Room Type Servery without Neighborhood catalog rows", () => {
+test("explicit Servery rooms surface Neighborhood names without Neighborhood catalog rows", () => {
   const candidates = mealTimeNeighborhoodCandidates({
-    locationMode: "ROOM_TYPE",
-    roomTypeKey: "servery",
+    locationMode: "EXPLICIT_UNITS",
+    spaceIds: ["s1", "s2"],
     locations: [
       {
         id: "s1",
@@ -246,10 +246,21 @@ test("allow moving KEY_TIME between PERIOD parents", () => {
   assert.equal(result.updates.find((u) => u.id === "due")?.parentStableKey, "lunch");
 });
 
-test("legacy UNIT_TYPES label is not user-facing database jargon", () => {
+test("scope labels name department-wide and selected locations", () => {
   assert.equal(
-    scopeGroupLabel({ locationMode: "UNIT_TYPES" }),
-    "Choose locations again",
+    scopeGroupLabel({ locationMode: "ALL_DEPARTMENT_UNITS" }),
+    "All department locations",
   );
-  assert.doesNotMatch(scopeGroupLabel({ locationMode: "UNIT_TYPES" }), /Legacy unit types/);
+  assert.equal(
+    scopeGroupLabel({
+      locationMode: "EXPLICIT_UNITS",
+      spaceIds: ["kitchen"],
+      locationNames: { kitchen: "Main Kitchen" },
+    }),
+    "Main Kitchen",
+  );
+  assert.doesNotMatch(
+    scopeGroupLabel({ locationMode: "ALL_DEPARTMENT_UNITS" }),
+    /Legacy unit types|OPERATIONAL_TYPES|UNIT_TYPES/,
+  );
 });

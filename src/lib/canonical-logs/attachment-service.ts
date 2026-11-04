@@ -285,7 +285,6 @@ function snapshotFromRow(row: {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
-  operationalTypeKey?: string | null;
 }): AttachmentHistoricalSnapshot {
   return {
     timingMode: row.timingMode,
@@ -309,7 +308,6 @@ function snapshotFromRow(row: {
     spaceId: row.spaceId,
     unitId: row.unitId,
     targetDepartmentId: row.targetDepartmentId,
-    operationalTypeKey: row.operationalTypeKey ?? null,
   };
 }
 
@@ -438,7 +436,6 @@ export async function updateLogAttachment(
   let spaceId = existing.spaceId;
   let unitId = existing.unitId;
   let targetDepartmentId = existing.targetDepartmentId;
-  let operationalTypeKey: string | null = null;
   if (input.target) {
     const validated = await validateAttachmentTarget({
       client,
@@ -451,7 +448,6 @@ export async function updateLogAttachment(
     spaceId = validated.spaceId;
     unitId = validated.unitId;
     targetDepartmentId = validated.targetDepartmentId;
-    operationalTypeKey = validated.operationalTypeKey;
   }
 
   const timingMode = input.timingMode ?? existing.timingMode;
@@ -518,7 +514,6 @@ export async function updateLogAttachment(
     spaceId,
     unitId,
     targetDepartmentId,
-    operationalTypeKey,
   });
 
   const classified = classifyAttachmentUpdate({
@@ -571,7 +566,6 @@ export async function updateLogAttachment(
           spaceId,
           unitId,
           targetDepartmentId,
-          operationalTypeKey,
         },
         timingMode,
         dailyWindows,

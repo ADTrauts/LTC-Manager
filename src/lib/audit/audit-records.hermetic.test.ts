@@ -5,7 +5,6 @@ import test from "node:test";
 import { classifyAttachmentUpdate, type AttachmentHistoricalSnapshot } from "@/lib/canonical-logs/attachment-update-policy";
 import type { LogExpectationHistorySegment } from "@/lib/canonical-logs/expectation-history";
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
-import type { ReviewOtBindingFact, ReviewProfileFact } from "@/lib/operational-review/types";
 
 import { auditOperationalRecords, auditRecordsToCsv, type AuditRecordFact } from "./audit-records";
 import { ASSET_HISTORY_SOURCES } from "./history-boundaries";
@@ -48,7 +47,6 @@ function segment(
     spaceId: "room-a",
     unitId: null,
     targetDepartmentId: null,
-    operationalTypeKey: null,
     dailyWindows: windows("TWICE_DAILY"),
     cycleSelections: [],
     catalogDefinition: {
@@ -77,47 +75,6 @@ function segment(
     ...overrides,
   };
 }
-
-function profile(
-  overrides: Partial<ReviewProfileFact> & Pick<ReviewProfileFact, "id" | "version" | "activatedAt">,
-): ReviewProfileFact {
-  return {
-    departmentId: "dietary",
-    status: "RETIRED",
-    retiredAt: null,
-    ...overrides,
-  };
-}
-
-const earlyProfile = profile({
-  id: "profile-sept-1",
-  version: 1,
-  status: "RETIRED",
-  activatedAt: new Date("2026-09-01T14:00:00.000Z"),
-  retiredAt: new Date("2026-09-11T14:00:00.000Z"),
-});
-const laterProfile = profile({
-  id: "profile-sept-11",
-  version: 2,
-  status: "RETIRED",
-  activatedAt: new Date("2026-09-11T14:00:00.000Z"),
-  retiredAt: new Date("2026-10-01T14:00:00.000Z"),
-});
-const currentProfile = profile({
-  id: "profile-oct-1",
-  version: 3,
-  status: "ACTIVE",
-  activatedAt: new Date("2026-10-01T14:00:00.000Z"),
-  retiredAt: null,
-});
-
-const bindings: ReviewOtBindingFact[] = [
-  { profileId: earlyProfile.id, spaceId: "room-a", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
-  { profileId: earlyProfile.id, spaceId: "room-b", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
-  { profileId: laterProfile.id, spaceId: "room-b", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
-  { profileId: currentProfile.id, spaceId: "room-a", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
-  { profileId: currentProfile.id, spaceId: "room-b", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
-];
 
 const twice = segment({
   id: "seg-twice",
@@ -160,10 +117,7 @@ function audit(overrides?: Partial<Parameters<typeof auditOperationalRecords>[0]
     facilityTimezone: TZ,
     departmentId: "dietary",
     catalogStableKey: "cooler_temperature",
-    locationFunctionKey: "food_service_area",
     segments: [twice, thrice],
-    profiles: [earlyProfile, laterProfile, currentProfile],
-    bindings,
     spaces,
     placeNames: [],
     records: [],
@@ -173,7 +127,7 @@ function audit(overrides?: Partial<Parameters<typeof auditOperationalRecords>[0]
 }
 
 test("September cooler audit uses each day's Record attachment, not a Department profile", () => {
-  const result = audit({ profiles: [], bindings: [] });
+  const result = audit();
   const sept5 = result.slots.filter((slot) => slot.serviceDate === "2026-09-05");
   const sept12 = result.slots.filter((slot) => slot.serviceDate === "2026-09-12");
   const sept20 = result.slots.filter((slot) => slot.serviceDate === "2026-09-20");
@@ -358,12 +312,11 @@ test("operational instructions close and succeed; display labels stay in place",
     catalogDefinitionId: "cat-v2",
     catalogVersion: 2,
     departmentId: "dietary",
-    targetKind: "OPERATIONAL_TYPE",
+    targetKind: "SPACE",
     assetId: null,
-    spaceId: null,
+    spaceId: "room-a",
     unitId: null,
     targetDepartmentId: null,
-    operationalTypeKey: "food_service_area",
   };
   const instructions = classifyAttachmentUpdate({
     effectiveFromKey: "2026-09-01",

@@ -13,10 +13,7 @@ import {
   type AttachmentHistoricalSnapshot,
 } from "./attachment-update-policy";
 import { projectLogExpectationHistory } from "./expectation-history";
-import {
-  expandOperationalTypeSpaces,
-  matchLogAttachmentToLocation,
-} from "./log-operational-type-applicability";
+import { matchLogAttachmentToLocation } from "./log-operational-type-applicability";
 import {
   followUpRecordDecision,
   legacyRecordWriteDecision,
@@ -63,12 +60,11 @@ function snap(overrides?: Partial<AttachmentHistoricalSnapshot>): AttachmentHist
     catalogDefinitionId: "cat-v3",
     catalogVersion: 3,
     departmentId: "dietary",
-    targetKind: "OPERATIONAL_TYPE",
+    targetKind: "SPACE",
     assetId: null,
-    spaceId: null,
+    spaceId: "naval-park",
     unitId: null,
     targetDepartmentId: null,
-    operationalTypeKey: "food_service_area",
     ...overrides,
   };
 }
@@ -112,12 +108,11 @@ function coolerAttachment(
     calendarDueTimeLocal: null,
     localDisplayLabel: "Cooler Temperature",
     localInstructions: null,
-    targetKind: "OPERATIONAL_TYPE",
+    targetKind: "SPACE",
     assetId: null,
-    spaceId: null,
+    spaceId: "naval-park",
     unitId: null,
     targetDepartmentId: null,
-    operationalTypeKey: "food_service_area",
     resolvedSpaceId: "naval-park",
     dailyWindows: windows("TWICE_DAILY"),
     cycleSelections: [],
@@ -232,22 +227,20 @@ test("twice daily through Oct 14 succeeds to three times daily on Oct 15", () =>
   assert.equal(
     attachmentLineageKey({
       catalogStableKey: "cooler_temperature",
-      targetKind: "OPERATIONAL_TYPE",
+      targetKind: "SPACE",
       assetId: null,
-      spaceId: null,
+      spaceId: "naval-park",
       unitId: null,
       targetDepartmentId: null,
-      operationalTypeKey: "food_service_area",
       departmentId: "dietary",
     }),
     attachmentLineageKey({
       catalogStableKey: "cooler_temperature",
-      targetKind: "OPERATIONAL_TYPE",
+      targetKind: "SPACE",
       assetId: null,
-      spaceId: null,
+      spaceId: "naval-park",
       unitId: null,
       targetDepartmentId: null,
-      operationalTypeKey: "food_service_area",
       departmentId: "dietary",
     }),
   );
@@ -298,23 +291,48 @@ test("derived slots do not persist placeholder records", () => {
     windowStartLocal: day?.slots[0]?.windowStartLocal,
     windowEndLocal: day?.slots[0]?.windowEndLocal,
     target: {
-      kind: "OPERATIONAL_TYPE",
-      operationalTypeKey: "food_service_area",
-      resolvedSpaceId: "naval-park",
+      kind: "SPACE",
+      spaceId: "naval-park",
     },
     operationalDateKey: "2026-10-01",
   });
   assert.match(slotKey, /cooler_temperature_requirement/);
-  assert.match(slotKey, /naval-park|ot:food_service_area/);
+  assert.match(slotKey, /naval-park/);
+  assert.doesNotMatch(slotKey, /\|ot:/);
+  const otherSpace = buildLogRequirementKey({
+    attachmentStableKey: "cooler_temperature_requirement",
+    catalogStableKey: "cooler_temperature",
+    scheduleKind: "FIXED_DAILY_WINDOW",
+    windowStartLocal: day?.slots[0]?.windowStartLocal,
+    windowEndLocal: day?.slots[0]?.windowEndLocal,
+    target: { kind: "SPACE", spaceId: "other-room" },
+    operationalDateKey: "2026-10-01",
+  });
+  const assetKey = buildLogRequirementKey({
+    attachmentStableKey: "asset_cooler",
+    catalogStableKey: "cooler_temperature",
+    scheduleKind: "FIXED_DAILY_WINDOW",
+    windowStartLocal: day?.slots[0]?.windowStartLocal,
+    windowEndLocal: day?.slots[0]?.windowEndLocal,
+    target: { kind: "ASSET", assetId: "cooler-1" },
+    operationalDateKey: "2026-10-01",
+  });
+  const unitKey = buildLogRequirementKey({
+    attachmentStableKey: "cooler_temperature_requirement",
+    catalogStableKey: "cooler_temperature",
+    scheduleKind: "FIXED_DAILY_WINDOW",
+    windowStartLocal: day?.slots[0]?.windowStartLocal,
+    windowEndLocal: day?.slots[0]?.windowEndLocal,
+    target: { kind: "UNIT", unitId: "kitchen" },
+    operationalDateKey: "2026-10-01",
+  });
+  assert.notEqual(slotKey, otherSpace);
+  assert.notEqual(slotKey, assetKey);
+  assert.notEqual(slotKey, unitKey);
+  assert.notEqual(otherSpace, unitKey);
 });
 
-test("food_service_area slots use the location function binding", () => {
-  const assignments = new Map([
-    ["naval-park", { key: "food_service_area" }],
-    ["labeled-servery", { key: "servery" }],
-    ["unassigned", { key: "" }],
-  ]);
-  assert.deepEqual(expandOperationalTypeSpaces(assignments, "food_service_area"), []);
+test("an Operational Type attachment does not apply to a room", () => {
   const attachment = {
     id: "att",
     departmentId: "dietary",

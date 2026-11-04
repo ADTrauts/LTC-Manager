@@ -42,8 +42,6 @@ export type ResolveApplicableMenusInput = {
   location: MenuLocationTarget;
   /** Root PERIOD or a deeper node. Normalized to the root PERIOD identity. */
   cycleStableKey: string;
-  /** Optional Operational Type key for cycle location-mode OPERATIONAL_TYPES. */
-  operationalTypeKey?: string | null;
 };
 
 export type MenuResolutionIssueCode =
@@ -245,8 +243,6 @@ export function cycleOccursAtMenuLocation(input: {
   published: readonly OperationalCycleDefinition[];
   location: MenuLocationTarget;
   serviceDateKey: string;
-  /** Ignored. Cycle matching uses the menu's canonical Unit or UnitSpace. */
-  operationalTypeKey?: string | null;
   unitCycleScope?: CycleUnitScope | null;
 }): boolean {
   if (!cycleIsDateEffective(input.root, input.serviceDateKey)) return false;
@@ -323,7 +319,6 @@ export function resolveApplicableMenusFromFacts(
       published: input.publishedCycles,
       location: request.location,
       serviceDateKey: request.serviceDateKey,
-      operationalTypeKey: input.operationalTypeKey,
       unitCycleScope: input.unitCycleScope,
     })
   ) {

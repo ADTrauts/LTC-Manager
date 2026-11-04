@@ -111,7 +111,6 @@ Internal names may remain in code. User-facing UI and manager documentation foll
 | `Repair` | Work Order |
 | `Unit` | Location, where the UI means the place of work |
 | internal `blocked` | Needs Attention |
-| `DepartmentRoomArchetype.key` | Location Function |
 | `/reports`, internal Review | Audit / Reports |
 | `KEY_TIME` | Key Point |
 
@@ -158,8 +157,8 @@ A Platform Domain is not a new engine, module, navigation destination, database 
         │                       │                        │
  CONTEXT / CONFIG         OPERATING MECHANISMS       GOVERNANCE
  Facility                 Cycles                    Identity
- Locations                Work                      Access
- Location Functions       Records                   Authority
+ Locations                Records                   Access
+ Department responsibility People / Coverage       Authority
  Department install       People / Coverage         Entitlement
  Catalog                  Assets / Maintenance      Publication
                           Readiness / Recovery      History rules
@@ -238,9 +237,7 @@ A Key Point is not a Work item, not a Record, and not a second milestone engine.
 
 **Generic Department Work is retired.** There is no Work Plan, Work preset, or Expected Work. Documentation is a Record. Recurring timing is Operating Rhythm. Staffing is Coverage. Today's person, place, and role are an Operational Assignment. Equipment maintenance is a Work Order or Preventive Maintenance.
 
-Assignment does not create Work. Shift does not create Work. Cycle participation does not create Work unless those applicability rules say the item applies. Occurrences stay sparse (`DepartmentWorkOccurrence`).
-
-**Job Flow** is the "my work" view in every installed Department. It shows the Assignment, the current window, what is expected now and next, Work Plan items, Records due, and assigned work orders and preventive maintenance, with one next action. It stores nothing. Each source keeps its own store and lifecycle. Plant work orders never become Work Plan items. Without an Assignment, a person sees the Work for the place they are signed into. An empty Assignment plan never hides Work.
+**Job Flow** is the "my work" view in every installed Department. It shows the Assignment, the current window, Records due, and assigned work orders and preventive maintenance, with one next action. It stores nothing. Each source keeps its own store and lifecycle. Plant work orders stay Work Orders. Without an Assignment, a person sees the Records and maintenance for the place they are signed into. An empty Assignment plan never hides those sources.
 
 ---
 
@@ -321,7 +318,7 @@ A **Request** (`OperationalRequest`) is intake: someone is asking for maintenanc
 
 An **Asset Issue** (`AssetIssue`) is the current store for a known undesirable condition in this maintenance loop. The schema treats the Asset as optional and the location as required; a location-only condition is allowed. The [Domain Model](./03_PRODUCT_DOMAIN_MODEL.md) still says the row is asset-required. That sentence is stale against the schema. The row is still maintenance-shaped: it carries maintenance priority, equipment impact, and the relationship to Work Orders. It is not a Request and not a Work Order. See [Domain F](#platform-domain-f--issues-readiness--recovery) before using it for a problem that is not this condition.
 
-A **Work Order** is accepted Facility Plant Operations maintenance work. Persistence is `Repair`. Kinds in the Product architecture are corrective and preventive. A Work Order may target an Asset, a location, or both. Asset is not required on the Work Order. Shared recurring rounds stay on the Work Plan. A Work Order does not become a Work Plan item because Job Flow shows both.
+A **Work Order** is accepted Facility Plant Operations maintenance work. Persistence is `Repair`. Kinds in the Product architecture are corrective and preventive. A Work Order may target an Asset, a location, or both. Asset is not required on the Work Order. Recurring maintenance cadence is a Preventive Maintenance Plan, not a generic Work Plan.
 
 Work Order priority, reported urgency, and Asset criticality are three facts. A critical Asset does not make every Work Order an emergency.
 
@@ -390,7 +387,7 @@ These states answer different questions. They stay distinct.
 | Installed | Does a `Department` row exist? |
 | Enabled | Is `Department.isActive` true, so the Department is admitted to shared operations? |
 | Configured | Have the facility's rooms, rhythm, plans, people, and Records been set? Derived. Not a status column on Department. |
-| Published | Has the facility made a draft the ACTIVE profile, Cycle, or Work Plan? |
+| Published | Has the facility made a draft the published Cycle, Coverage template, or Catalog version? |
 | Ready | Is the place operationally Ready right now? A Readiness answer. |
 | Authorized | May this principal do this in the current context? Server authority. |
 
@@ -406,7 +403,7 @@ Self-operated and vendor-run are derived from the operating Organization (`Depar
 
 Parent Organization, Operating Organization, Partner Organization, repair vendor, and vendor account stay apart. Words for them are in the [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026).
 
-Publication and effective dating belong to the domain that publishes: Cycles, Work Plans, Catalog versions, and operator periods. A later Catalog version does not reinterpret an earlier Record. Audit reads the profile and requirement effective on the requested service date.
+Publication and effective dating belong to the domain that publishes: Cycles, Coverage templates, Catalog versions, and operator periods. A later Catalog version does not reinterpret an earlier Record. Audit reads the attachment, Cycle, and Coverage template effective on the requested service date.
 
 Some maintenance rows store capture metadata (`recordedOnline`, `synchronizedAt`). The shell can show a connectivity indicator, and sign-out can clear a device cache. That cache and that metadata are not a platform sync engine, not a second Issue store, and not the history ledger. A general offline store of operational truth would be a new engine and needs the proposal template.
 
@@ -423,27 +420,24 @@ Domain in the first column is wayfinding only.
 | Platform Domain | Primitive / Engine | Type | Owns | Explicitly does not own | Primary consumers | User-facing? | Reuse / extension rule | Canonical sources |
 |-----------------|-------------------|------|------|-------------------------|-------------------|--------------|------------------------|-------------------|
 | A | Facility | Primitive | The operational site: timezone, tenancy boundary, physical tree root | Departments, people, Assets, what is happening now | Every engine, Console provisioning, onboarding | Yes | Extend Facility. Do not add a Site aggregate or a second tenancy root. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [03](./03_PRODUCT_DOMAIN_MODEL.md) |
-| A | Physical location tree | Primitive | Facility → Unit → UnitSpace identity, physical names, physical room type | Department meaning, Cycle participation, readiness, Work | Facility Builder, Location Function binding, Run locations, Assets | Partially. UI says Location for the section and Room / Space for `UnitSpace`. | Bind functions and plans to existing ids. Never copy a room per Department. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
-| A | Location Function | Primitive | Product `functionKey` and label, bound by the facility to an existing room on the Department profile. Persistence: `DepartmentRoomArchetype.key`. | The room, physical type, a label slug, another Department's function on that room | Cycles, Work applicability, Records targeting, Run | Yes. The word is Location Function. | Add a Product key in the blueprint. Bind it to rooms the facility already has. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [13](./13_DEPARTMENT_PRODUCT.md) |
+| A | Physical location tree | Primitive | Facility → Unit → UnitSpace identity, physical names, Facility room type | Department responsibility, Cycle participation, readiness | Facility Builder, Run locations, Assets | Partially. UI says Location for the section and Room / Space for `UnitSpace`. | Point Department responsibility at existing ids. Never copy a room per Department. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
+| A | Department location responsibility | Primitive | Which existing Units and rooms a Department is responsible for | A second room type, Team room membership, Cycle applicability stored as a type | Operating Rhythm, Records, Coverage, Runtime Location State | Yes, as the Department's locations | Assign responsibility in Facility Builder. Omitted responsible places participate in department-wide rhythm. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--november-3-2026) |
 | A | Department Product registry | Catalog | Vssyl-authored Product identity, release status, industry and facility-type applicability, starter declarations | Entitlement, installation, local names, customer-editable rows | Marketplace, install, Dashboard capability derivation | Yes, as the Product name | Add a DEVELOPMENT registry entry and fill the blueprint. Do not add a second product catalog. | [13](./13_DEPARTMENT_PRODUCT.md) |
 | A | Department installation | Primitive | The facility's installed instance (`Department`), including local name and `Department.key` | Product identity, license, readiness, configuration-complete | Build, Run lens, authority | Yes | Install idempotently through the Product path. Do not mint a second Food and Nutrition Department. | [13](./13_DEPARTMENT_PRODUCT.md#sources-of-truth) |
 | A | Department operator relationship | Governance | Who runs one Department for a date-effective period (`DepartmentOperatorRelationship`) | Parent Organization, partnership, repair vendor, a stored self-operated switch | Vendor-run authority, data ownership, Asset title rules | Yes, as vendor-run or the operating company | Record an operator that already exists. Derive self-operated vs vendor-run. | [01](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), [03](./03_PRODUCT_DOMAIN_MODEL.md) |
-| A | Catalog / Marketplace | Catalog | Shared definitions for Records forms today; the same Catalog is the future home for Work presets, rhythm starters, and Menu templates. Included or Paid. | A second catalog, engines, Department licenses | Console authoring, facility install, Department-owned forms | Yes | New item kinds reuse this Catalog. Owner-scoped forms stay unsold. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) |
+| A | Catalog / Marketplace | Catalog | Shared definitions for Records forms today; the same Catalog is the future home for rhythm starters and Menu templates. Included or Paid. | A second catalog, engines, Department licenses, generic Work presets | Console authoring, facility install, Department-owned forms | Yes | New item kinds reuse this Catalog. Owner-scoped forms stay unsold. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) |
 | A | Menu | Domain | Food and Nutrition offering identity, content, and explicit applicability (`Menu`, cycle settings, location and cycle applicability) | Operational Cycle timing, Records, Work, a facility-wide singleton, historical menu snapshots | Today's Menu on the space workspace | Yes | Extend Menu and `resolveApplicableMenus`. Do not infer rooms from neighborhoods or bind a cycle row id. | [01](./01_PRODUCT_CONSTITUTION.md#product-workspaces), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
-| A | Operational scope | Resolver | A read-only request view of places already in the facility tree. It persists nothing. | Which rooms exist, which Location Functions they carry, live Cycle / Work / Records, authorization, an Experience catalog | Locations, sidebar, loaders that must not invent eligibility | No | Filter through the existing scope path. Place membership stays on the tree and the Department's bindings. Do not add `DepartmentLocation`. Do not revive Experience keys. | [LEG-D10](../legacy-retirement/DECISIONS.md#leg-d10--projection-fallbacks-are-removed--accepted-program-default-october-20-2026), [RETIRED](../platform-vision/RETIRED.md) |
+| A | Operational scope | Resolver | A read-only request view of places already in the facility tree. It persists nothing. | Which rooms exist, live Cycle / Records / Coverage, authorization | Locations, sidebar, loaders that must not invent eligibility | No | Filter through the existing scope path. Place membership stays on the tree and Facility responsibility. Do not add `DepartmentLocation`. | [LEG-D10](../legacy-retirement/DECISIONS.md#leg-d10--projection-fallbacks-are-removed--accepted-program-default-october-20-2026), [RETIRED](../platform-vision/RETIRED.md) |
 | A | Service date and facility context | Resolver | Facility-local service date and timezone for Run and Audit | The Cycle window, entitlement, the User's home facility | Dashboard, Records occurrence, Audit selectors | Partially. People see "today" in facility time. | Consume operational time. Do not store a page-specific today. | [Dashboard architecture](../dashboard/ARCHITECTURE.md) |
 
 ### B — Operating Rhythm & Work
 
 | Platform Domain | Primitive / Engine | Type | Owns | Explicitly does not own | Primary consumers | User-facing? | Reuse / extension rule | Canonical sources |
 |-----------------|-------------------|------|------|-------------------------|-------------------|--------------|------------------------|-------------------|
-| B | Operational Cycle | Engine | The published root recurring window. Persistence: root PERIOD on `DepartmentOperationalCycle`. | Phases and Key Points as peer cycles, PM cadence, Menu rotation, meal-time guesses, a persisted "current operation" row | Run rhythm, Work bindings, Menu resolution, Audit | Yes | Add a Cycle on the Department profile and publish it. Do not create a Department Cycle engine. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [03](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) |
-| B | Phase | Primitive | One interval inside a Cycle (nested PERIOD) | A second window engine, Work itself | Work phase binding, Run timeline | Yes | Add phases on the Cycle. Gaps and overlaps are allowed. | [08](./08_PRODUCT_LANGUAGE_GUIDE.md), [13](./13_DEPARTMENT_PRODUCT.md) |
-| B | Key Point | Primitive | An instant on a Cycle, plus the canonical actual `OperationalCycleKeyPointActual` when tracking requires it | Work, Records, a meal-milestone engine | Food and Nutrition timing, Runtime Location State, Audit | Yes. Avoid "Key Time" in product copy. | Add a Key Point with NONE, OPTIONAL, or REQUIRED tracking. One timing source per service date. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [LEG-D07](../legacy-retirement/DECISIONS.md#leg-d07--food--nutrition-meal-timing-uses-key-points-only--accepted-program-default-october-20-2026) |
-| B | Work Plan | Engine | Recurring shared Work configuration after publish (`DepartmentWorkPlan`, items, applicability) | Work Orders, Records, Assignments, Key Points | Expected Work, Job Flow, Dashboard expected-work | Yes | Apply a Product preset into a facility draft. Publish explicitly. Never auto-publish. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [13](./13_DEPARTMENT_PRODUCT.md) |
-| B | Expected Work | Resolver | What shared Work applies now or on a service date, derived from the published plan | The plan definition, occurrence facts, Work Orders, Records due | Job Flow, Dashboard, Audit | Yes | Extend the applicability derivation. Do not cache a second expected-work table as truth. | [03](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) |
-| B | Work occurrence | Primitive | Sparse actuals for shared Work (`DepartmentWorkOccurrence`) | The definition of Work, Work Order execution | Job Flow completion, Audit actuals | Partially | Write an occurrence only when shared Work is actually recorded. Do not pre-materialize every slot as a Task. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms) |
-| B | Job Flow | Composition | Nothing. It reads Assignment, Cycle, Work Plans, Records, and assigned work orders. | Any canonical store, a combined work lifecycle, authorization | Floor staff in every Department | Yes. It is the "my work" view. | Add a source beside the others. Do not merge stores. Work orders on Job Flow need Plant scope. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) |
+| B | Operational Cycle | Engine | The published root recurring window. Persistence: root PERIOD on `DepartmentOperationalCycle`. Applicability is department-wide or explicit canonical Unit / UnitSpace ids. | Phases and Key Points as peer cycles, PM cadence, Menu rotation, meal-time guesses, a persisted "current operation" row, Operational Type or Location Function targeting | Run rhythm, Menu resolution, Audit | Yes | Add a Cycle for the Department and publish it. Do not create a Department Cycle engine. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [03](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) |
+| B | Phase | Primitive | One interval inside a Cycle (nested PERIOD) | A second window engine | Run timeline | Yes | Add phases on the Cycle. Gaps and overlaps are allowed. | [08](./08_PRODUCT_LANGUAGE_GUIDE.md), [13](./13_DEPARTMENT_PRODUCT.md) |
+| B | Key Point | Primitive | An instant on a Cycle, plus the canonical actual `OperationalCycleKeyPointActual` when tracking requires it | Records, a meal-milestone engine | Food and Nutrition timing, Runtime Location State, Audit | Yes. Avoid "Key Time" in product copy. | Add a Key Point with NONE, OPTIONAL, or REQUIRED tracking. One timing source per service date. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [LEG-D07](../legacy-retirement/DECISIONS.md#leg-d07--food--nutrition-meal-timing-uses-key-points-only--accepted-program-default-october-20-2026) |
+| B | Job Flow | Composition | Nothing. It reads Assignment, Cycle, Records due, and assigned work orders and preventive maintenance. | Any canonical store, a combined work lifecycle, authorization, a generic Work Plan | Floor staff in every Department | Yes. It is the "my work" view. | Add a source beside the others. Do not merge stores. Work orders on Job Flow need Plant scope. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) |
 
 ### C — People & Coverage
 
@@ -484,7 +478,7 @@ Domain in the first column is wayfinding only.
 | E | Preventive Maintenance Plan | Domain | The published rule: target Asset, cadence, procedure, required Records, lead time, priority (`PreventiveMaintenancePlan` and version) | Operational Cycles, shared Work rounds, the generated Work Order's lifecycle | PM board, preventive Work Orders, Job Flow as assigned PM | Yes | Extend the plan. Fixed cadence does not slide. One occurrence, one Work Order. | [14](./14_FACILITY_PLANT_OPERATIONS.md#preventive-maintenance-plan) |
 | E | Maintenance Request | Domain | Intake asking for maintenance attention (`OperationalRequest`), including reported urgency | The problem itself, the Work Order, authoritative priority | Plant triage, requesting Departments | Yes. Say Request. | Open a Request from any Department. Acceptance creates or links maintenance work. It does not become shared Work. | [14](./14_FACILITY_PLANT_OPERATIONS.md#request) |
 | E | Asset Issue | Domain | The current maintenance condition row (`AssetIssue`): location required, asset optional, priority, equipment impact, link to Work Orders | Staffing gaps, missed Records, late service, food-safety outcomes, policy exceptions, Request intake, Work Order execution | Plant, asset evidence escalation, Asset history | Yes, as an Issue when the speaker means this condition | Extend this row for this maintenance condition. Do not rebrand it into a universal problem store. See Domain F. | [14](./14_FACILITY_PLANT_OPERATIONS.md#issue), schema comment on `AssetIssue` |
-| E | Work Order | Domain | Accepted maintenance work (`Repair`): corrective or preventive, priority, target, technician, closeout, cost facts the Product already stores | Shared Work Plans, Record submission, Asset condition, Issue resolution, daily Assignment | Repairs queue, Job Flow for assigned orders, requester status | Yes. Say Work Order. `Repair` stays internal. | Add a Work Order field on this lifecycle. Do not fold the lifecycle into `DepartmentWorkPlan`. Technician assignment is `Repair.assignedEmployeeId`, not `OperationalAssignment`. | [14](./14_FACILITY_PLANT_OPERATIONS.md#work-order), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
+| E | Work Order | Domain | Accepted maintenance work (`Repair`): corrective or preventive, priority, target, technician, closeout, cost facts the Product already stores | Record submission, Asset condition, Issue resolution, daily Assignment, a generic Work Plan | Repairs queue, Job Flow for assigned orders, requester status | Yes. Say Work Order. `Repair` stays internal. | Add a Work Order field on this lifecycle. Technician assignment is `Repair.assignedEmployeeId`, not `OperationalAssignment`. | [14](./14_FACILITY_PLANT_OPERATIONS.md#work-order), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
 | E | Vendor | Primitive | The repair or service company called for equipment (`Vendor`) | The operating partner, a vendor account, a Partner Organization | Work Order external cost, Asset repair vendor | Yes, as repair vendor | Add a vendor on the facility list. Do not reuse it as the Department operator. | [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
 
 ### F — Issues, Readiness & Recovery
@@ -512,7 +506,7 @@ Domain in the first column is wayfinding only.
 | H | Authorization | Governance | Whether this principal may do this here: route registry, facility role period, Department write manifest, domain checks | Navigation visibility, Dashboard scope, a Department lens | Every mutation and every sensitive read | No | Classify Department writes in the write manifest. UI may only narrow. | [01](./01_PRODUCT_CONSTITUTION.md), [CDA](../contracted-departments/README.md) |
 | H | Organization relationships | Governance | Parent, Operating, and Partner Organization, partner Department scope, portfolio visibility | Facility access from membership alone, repair vendor, Asset title | Console, Admin partners, vendor-run Departments | Yes, with the words that must stay apart | Attach a company that already exists. Console creates the company. Saving a partnership does not. | [03](./03_PRODUCT_DOMAIN_MODEL.md), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
 | H | Release, entitlement, install, enabled | Governance | The four distinct commercial and admission facts, plus publication on the owning domain | Readiness, authorization, a capability environment switch | Marketplace, customer operability | Partially. Customers see available products and Enabled. | Keep the states apart. Capabilities come with the installed Department. | [13](./13_DEPARTMENT_PRODUCT.md), [LEG-D20](../legacy-retirement/DECISIONS.md#leg-d20--department-capabilities-come-with-the-installed-department--accepted-user-october-20-2026) |
-| H | Publication and effective dating | Governance | Which profile, Cycle, Work Plan, Catalog version, or operator period is effective for a date | A central history ledger | Run (ACTIVE / published), Audit (effective that day) | Yes, as Make live / publish | Publish in the owning domain. Audit must read the effective version, not the latest draft. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms) |
+| H | Publication and effective dating | Governance | Which Cycle, Coverage template, Catalog version, or operator period is effective for a date | A central history ledger, a Department profile | Run (ACTIVE / published), Audit (effective that day) | Yes, as Make live / publish | Publish in the owning domain. Audit must read the effective version, not the latest draft. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms) |
 
 ---
 
@@ -523,12 +517,12 @@ Use this before implementing a feature. The owner is the domain that already ans
 | Question | Owner |
 |----------|--------|
 | What physical place is this? | Facility physical tree |
-| What role does this room play for a Department? | Location Function binding on that Department's profile |
+| Which Department is responsible for this room? | Facility responsibility for that Department |
 | What is happening now? | Published Operational Cycle and Phase |
 | Who was supposed to work? | Shift |
 | Where are they covering today? | Assignment |
 | Is needed responsibility covered? | Coverage derivation |
-| What recurring work is expected? | Published Work Plan / Expected Work |
+| What recurring documentation is expected? | Records attachment effective that day |
 | What documentation is due? | Records requirement / expected slot |
 | What was actually documented? | `OperationalEvidenceRecord` |
 | What equipment is this? | Asset |
@@ -704,11 +698,11 @@ Environmental Services is a Department Product. It does not bring its own engine
 ```text
 Environmental Services Department Product
     ↓
-Location Functions on existing rooms
+Facility responsibility on existing rooms
     ↓
 Operational Cycle / Phase where the facility publishes them
     ↓
-Work Plan for expected cleaning work
+Coverage for explicit staffing needs
     ↓
 Records for required documentation / inspection
     ↓
@@ -783,9 +777,8 @@ If a source fact is missing, extend the source domain.
 New Department Product
     ↓
 Product-owned defaults
-Location Functions
+Facility responsibility
 Operating Rhythm starters
-Work presets
 Records forms
 Coverage needs
 Marketplace starter content

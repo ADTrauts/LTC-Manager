@@ -464,7 +464,6 @@ export async function performCanonicalLogSubmission(
     spaceId: attachment.spaceId,
     unitId: attachment.unitId,
     targetDepartmentId: attachment.targetDepartmentId,
-    operationalTypeKey: null,
   });
   const boundSpaceId = null;
 

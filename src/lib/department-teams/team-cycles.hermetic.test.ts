@@ -47,14 +47,14 @@ describe("Team cycle authoring contracts", () => {
     assert.match(rhythm, /OperatingRhythmPanel|function OperatingRhythm/);
   });
 
-  it("Department Builder redirects Coverage and Cycles into Teams", () => {
+  it("retired Coverage and Cycles tabs redirect, and Coverage stays its own section", () => {
     const page = readFileSync(
       join(process.cwd(), "src/app/(protected)/admin/departments/[departmentId]/page.tsx"),
       "utf8",
     );
     assert.match(page, /isDepartmentAdminRetiredTabId/);
     assert.match(page, /DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT/);
-    assert.match(page, /departmentAdminHref\(departmentId, dest, null, setupWorkspace\)/);
+    assert.match(page, /departmentAdminHref\(departmentId, dest, setupWorkspace\)/);
     assert.match(page, /CoveragePanel/);
     assert.doesNotMatch(page, /CyclesPanel/);
   });

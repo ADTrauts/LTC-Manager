@@ -78,27 +78,18 @@ function rowScopeLabel(
   row: Pick<
     CycleRowData,
     | "locationMode"
-    | "roomTypeKey"
     | "unitIds"
     | "spaceIds"
-    | "applicableOperationalTypeKeys"
   >,
   catalog?: CycleEditorCatalog,
 ): string | null {
   const names: Record<string, string> = {};
   for (const location of catalog?.locations ?? []) names[location.id] = location.name;
-  const operationalTypeNames: Record<string, string> = {};
-  for (const type of catalog?.operationalTypes ?? []) {
-    operationalTypeNames[type.key] = type.name;
-  }
   return scopeGroupLabel({
     locationMode:
       row.locationMode === "ALL_DEPARTMENT_UNITS" || row.locationMode === "EXPLICIT_UNITS"
         ? row.locationMode
         : "EXPLICIT_UNITS",
-    roomTypeKey: row.roomTypeKey,
-    applicableOperationalTypeKeys: row.applicableOperationalTypeKeys,
-    operationalTypeNames,
     unitIds: row.unitIds,
     spaceIds: row.spaceIds,
     locationNames: names,

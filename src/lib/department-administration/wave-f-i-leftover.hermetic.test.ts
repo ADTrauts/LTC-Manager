@@ -3,7 +3,7 @@
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -46,7 +46,7 @@ test("Today's Work and workspace adapters do not require the Experience catalog"
     false,
   );
   assert.equal(
-    source("src/lib/department-administration/certification.ts").includes("isExperienceKey"),
+    existsSync(join(process.cwd(), "src/lib/department-administration/certification.ts")),
     false,
   );
 });

@@ -68,7 +68,6 @@ export type LogAttachmentForResolve = {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
-  operationalTypeKey?: string | null;
   /** Runtime expansion only — never persisted on the Attachment row. */
   resolvedSpaceId?: string | null;
   dailyWindows: Array<{

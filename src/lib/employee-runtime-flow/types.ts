@@ -3,7 +3,7 @@
  *
  * Not persisted. Not a second operational truth engine.
  * OA = responsibility. RLS = place operation / Harbor evidence / impact / milestones.
- * Work Plans = work to perform. This contract reduces and prioritizes.
+ * Assignments and due Records are the work. This contract reduces and prioritizes.
  */
 
 import type { AssetOperationalImpact } from "@prisma/client";

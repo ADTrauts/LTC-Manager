@@ -1,6 +1,6 @@
 /**
  * Server loader for EmployeeRuntimeFlow.
- * OA → assigned SPACE refs → one RLS batch → Work Plans → compose.
+ * OA → assigned SPACE refs → one RLS batch → compose.
  * Returns null only when Job Flow is off or the session lacks authority.
  */
 

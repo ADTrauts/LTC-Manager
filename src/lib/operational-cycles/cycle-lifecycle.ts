@@ -329,14 +329,8 @@ export function reviewDraftChangesAgainstCurrent(input: {
     if (
       !draft.locationInheritFromParent &&
       (draft.locationMode !== prior.locationMode ||
-        !listEqual(draft.applicableUnitTypes, prior.applicableUnitTypes) ||
-        !listEqual(
-          draft.applicableOperationalTypeKeys ?? [],
-          prior.applicableOperationalTypeKeys ?? [],
-        ) ||
         !listEqual(draft.unitIds, prior.unitIds) ||
-        !listEqual(draft.spaceIds, prior.spaceIds) ||
-        (draft.roomTypeKey ?? "") !== (prior.roomTypeKey ?? ""))
+        !listEqual(draft.spaceIds, prior.spaceIds))
     ) {
       const addedSpaces = draft.spaceIds.filter((id) => !prior.spaceIds.includes(id));
       const removedSpaces = prior.spaceIds.filter((id) => !draft.spaceIds.includes(id));
@@ -365,15 +359,11 @@ export function reviewDraftChangesAgainstCurrent(input: {
           summarizeScopeChange({
             from: {
               locationMode: prior.locationMode,
-              roomTypeKey: prior.roomTypeKey,
-              applicableOperationalTypeKeys: prior.applicableOperationalTypeKeys,
               unitIds: prior.unitIds,
               spaceIds: prior.spaceIds,
             },
             to: {
               locationMode: draft.locationMode,
-              roomTypeKey: draft.roomTypeKey,
-              applicableOperationalTypeKeys: draft.applicableOperationalTypeKeys,
               unitIds: draft.unitIds,
               spaceIds: draft.spaceIds,
             },

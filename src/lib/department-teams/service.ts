@@ -271,7 +271,6 @@ export async function loadTeamCatalog(input: {
   );
 
   return {
-    operationalTypes: [],
     locations: locations.map((location) => {
       const type = typeBySpace.get(location.id);
       return {

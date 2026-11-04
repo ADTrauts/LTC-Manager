@@ -254,7 +254,8 @@ describe("coverage expectation applicability", () => {
       cycleStableKey: "breakfast",
     });
     assert.deepEqual(roles(labeledRetail), ["SERVER×1@breakfast"]);
-    assert.equal(labeledRetail[0]?.operationalTypeKey, null);
+    assert.equal(labeledRetail[0]?.provenance, "EXPLICIT_LOCATION");
+    assert.equal("operationalTypeKey" in (labeledRetail[0] ?? {}), false);
   });
 
   it("does not apply a unit need to a room", () => {

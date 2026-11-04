@@ -68,7 +68,6 @@ export function PlantStarterPanel({
     });
   }
 
-  const work = items.filter((item) => item.kind === "work");
   const records = items.filter((item) => item.kind === "record");
   const selectable = items.filter((item) => !item.alreadyAdded && selected[item.id]).length;
 
@@ -91,30 +90,6 @@ export function PlantStarterPanel({
 
       {open ? (
         <div className="space-y-4" data-testid="plant-starter-review">
-          <fieldset className="space-y-2">
-            <legend className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Recurring Work
-            </legend>
-            {work.map((item) => (
-              <label key={item.id} className="flex items-start gap-2 text-sm text-zinc-800">
-                <input
-                  type="checkbox"
-                  checked={item.alreadyAdded || Boolean(selected[item.id])}
-                  disabled={item.alreadyAdded || pending}
-                  onChange={() => toggle(item.id, item.alreadyAdded)}
-                  data-testid={`starter-work-${item.id}`}
-                />
-                <span>
-                  <span className="font-medium">{item.title}</span>
-                  {item.alreadyAdded ? (
-                    <span className="ml-2 text-xs text-zinc-500">Already added</span>
-                  ) : null}
-                  <span className="block text-xs text-zinc-600">{item.description}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
-
           <fieldset className="space-y-2">
             <legend className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
               Record Templates
@@ -161,9 +136,6 @@ export function PlantStarterPanel({
         <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800" data-testid="plant-starter-result">
           <p className="font-medium">Starter configuration added</p>
           <p className="mt-1">
-            {result.workAdded} recurring Work preset{result.workAdded === 1 ? "" : "s"} added
-          </p>
-          <p>
             {result.recordAdded} Record template{result.recordAdded === 1 ? "" : "s"} added
           </p>
           {result.alreadyExisted > 0 ? (
@@ -176,9 +148,6 @@ export function PlantStarterPanel({
             before publishing.
           </p>
           <p className="mt-2 flex flex-wrap gap-3">
-            <Link href={result.workHref} className="font-medium underline underline-offset-2">
-              Open Work
-            </Link>
             <Link href={result.recordsHref} className="font-medium underline underline-offset-2">
               Open Records
             </Link>

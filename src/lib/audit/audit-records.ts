@@ -16,7 +16,6 @@ import {
 import type { LogHistorySlotState } from "@/lib/logs-architecture/history-slot-state";
 import { classifyOperationalRequirement } from "@/lib/operational-occurrence/classify-operational-requirement";
 import { nextOperationalDayKey } from "@/lib/operational-cycles/cycle-lifecycle";
-import type { ReviewOtBindingFact, ReviewProfileFact } from "@/lib/operational-review/types";
 
 import { resolvePlaceLabel, type PlaceNameChangeFact } from "./place-name";
 
@@ -71,7 +70,6 @@ export type AuditRecordSlot = {
   recordForm: string;
   requirementSegmentId: string;
   attachmentStableKey: string;
-  locationFunctionKey: string | null;
   spaceId: string | null;
   assetId: string | null;
   unitId: string | null;
@@ -153,10 +151,7 @@ export type AuditOperationalRecordsInput = {
   facilityTimezone: string;
   departmentId: string;
   catalogStableKey?: string | null;
-  locationFunctionKey?: string | null;
   segments: readonly (LogExpectationHistorySegment & { waiverAllowed?: boolean })[];
-  profiles: readonly ReviewProfileFact[];
-  bindings: readonly ReviewOtBindingFact[];
   spaces: readonly AuditSpaceFact[];
   placeNames: readonly PlaceNameChangeFact[];
   records: readonly AuditRecordFact[];
@@ -184,7 +179,6 @@ function lineageOf(segment: LogExpectationHistorySegment): string {
     spaceId: segment.spaceId,
     unitId: segment.unitId,
     targetDepartmentId: segment.targetDepartmentId,
-    operationalTypeKey: segment.operationalTypeKey,
     departmentId: segment.departmentId,
   });
 }
@@ -277,7 +271,6 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
             recordForm: auditRecordFormLabel(segment),
             requirementSegmentId: segment.id,
             attachmentStableKey: segment.stableKey,
-            locationFunctionKey: null,
             spaceId: target.spaceId,
             assetId: segment.assetId,
             unitId: segment.unitId,
@@ -407,7 +400,6 @@ export function auditRecordsToCsv(slots: readonly AuditRecordSlot[]): string {
     "definitionVersion",
     "requirementSegmentId",
     "location",
-    "locationFunction",
     "windowStart",
     "windowEnd",
     "cycleStableKey",
@@ -445,7 +437,6 @@ export function auditRecordsToCsv(slots: readonly AuditRecordSlot[]): string {
           String(slot.catalogVersion),
           slot.requirementSegmentId,
           csv(slot.placeLabel ?? ""),
-          slot.locationFunctionKey ?? "",
           slot.windowStartLocal ?? "",
           slot.windowEndLocal ?? "",
           slot.cycleStableKey ?? "",

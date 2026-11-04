@@ -6,7 +6,6 @@ import test from "node:test";
 import { buildLogRequirementKey } from "@/lib/logs-architecture/requirement-key";
 
 import {
-  expandOperationalTypeSpaces,
   matchLogAttachmentToLocation,
   type LocationLogAttachmentRow,
 } from "./log-operational-type-applicability";
@@ -38,10 +37,6 @@ test("an Operational Type attachment does not apply to a room", () => {
     }),
     null,
   );
-  assert.deepEqual(
-    expandOperationalTypeSpaces(new Map([["3a", { key: "servery" }]]), "servery"),
-    [],
-  );
 });
 
 test("Records loaders do not expand Location Function", () => {
@@ -54,7 +49,7 @@ test("Records loaders do not expand Location Function", () => {
     assert.equal(text.includes("selectHistoricalProfileForServiceDate"), false);
     assert.equal(text.includes("loadSpaceOperationalTypeAssignments"), false);
   }
-  assert.match(assign, /OPERATIONAL_TYPE/);
+  assert.doesNotMatch(assign, /OPERATIONAL_TYPE/);
   assert.doesNotMatch(assign, /Leftover Operational Types/);
 });
 

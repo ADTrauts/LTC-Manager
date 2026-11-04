@@ -54,13 +54,7 @@ export type DepartmentTeamView = {
   activeMemberCount: number;
 };
 
-export type TeamOperationalTypeOption = {
-  key: string;
-  name: string;
-};
-
 export type TeamCatalog = {
   locations: CycleScopeLocationOption[];
   roomTypes: Array<{ key: string; label: string }>;
-  operationalTypes: TeamOperationalTypeOption[];
 };

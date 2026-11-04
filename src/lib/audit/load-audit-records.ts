@@ -32,7 +32,6 @@ export async function loadAuditOperationalRecords(
     fromDateKey: string;
     toDateKey: string;
     catalogStableKey?: string | null;
-    locationFunctionKey?: string | null;
     now?: Date;
   },
 ): Promise<AuditRecordResult> {
@@ -44,17 +43,7 @@ export async function loadAuditOperationalRecords(
   const startDate = facilityLocalDateToServiceDate(input.fromDateKey);
   const endExclusive = facilityLocalDateToServiceDate(shiftDate(input.toDateKey, 1));
 
-  const [profiles, attachments, records, waivers, placeNames, spaces] = await Promise.all([
-    Promise.resolve(
-      [] as {
-        id: string;
-        departmentId: string;
-        version: number;
-        status: "ACTIVE" | "RETIRED" | "CERTIFIED";
-        activatedAt: Date | null;
-        retiredAt: Date | null;
-      }[],
-    ),
+  const [attachments, records, waivers, placeNames, spaces] = await Promise.all([
     client.logAttachment.findMany({
       where: { facilityId: input.facilityId, departmentId: input.departmentId },
       include: {
@@ -89,12 +78,6 @@ export async function loadAuditOperationalRecords(
       select: { id: true, name: true },
     }),
   ]);
-
-  const bindings: {
-    profileId: string;
-    unitSpaceId: string;
-    archetype: { key: string; name: string; isActive: boolean };
-  }[] = [];
 
   const placeFacts: PlaceNameChangeFact[] = placeNames.map((row) => ({
     placeId: row.unitSpaceId ?? row.unitId ?? "",
@@ -151,18 +134,9 @@ export async function loadAuditOperationalRecords(
     facilityTimezone: timezone,
     departmentId: input.departmentId,
     catalogStableKey: input.catalogStableKey,
-    locationFunctionKey: input.locationFunctionKey,
     segments: mapReviewAttachmentSegments(attachments).map((segment) => ({
       ...segment,
       waiverAllowed: attachments.find((row) => row.id === segment.id)?.waiverAllowed ?? false,
-    })),
-    profiles,
-    bindings: bindings.map((row) => ({
-      profileId: row.profileId,
-      spaceId: row.unitSpaceId,
-      operationalTypeKey: row.archetype.key,
-      operationalTypeName: row.archetype.name,
-      archetypeIsActive: row.archetype.isActive,
     })),
     spaces: spaces.map((space) => ({ spaceId: space.id, currentLabel: space.name })),
     placeNames: placeFacts,

@@ -309,8 +309,8 @@ test("healthy Servery: Breakfast active, covered, no exceptions, no readiness ex
 
   const state = states[0]!;
   assert.equal(state.identity.location.kind, "SPACE");
-  assert.equal(state.program.operationalType.key, "SERVERY");
-  assert.equal(state.program.operationalType.profileVersion, 3);
+  assert.equal(state.identity.displayName, "Naval Park Servery");
+  assert.equal("operationalType" in state.program, false);
   assert.equal(state.operation.state, "ACTIVE");
   assert.equal(state.operation.current?.cycleStableKey, "breakfast");
   assert.equal(state.coverage.availability, "evaluated");
@@ -458,7 +458,7 @@ test("Retail uses its own OT / cycle / logs — no Servery leakage", () => {
   );
 
   const state = states[0]!;
-  assert.equal(state.program.operationalType.key, "RETAIL");
+  assert.equal(state.identity.displayName, "Cafe");
   assert.equal(state.operation.current?.cycleStableKey, "retail_day");
   assert.equal(state.coverage.slots.length, 1);
   assert.equal(state.coverage.slots[0]?.roleKey, "CASHIER");
@@ -551,7 +551,7 @@ test("Main Kitchen: multiple coverage slots and assets, not treated as Servery",
   );
 
   const state = states[0]!;
-  assert.equal(state.program.operationalType.key, "MAIN_KITCHEN");
+  assert.equal(state.identity.displayName, "Main Kitchen");
   assert.equal(state.operation.current?.cycleStableKey, "production");
   assert.equal(state.coverage.slots.length, 2);
   assert.ok(state.coverage.slots.every((slot) => slot.state === "COVERED"));
@@ -583,9 +583,9 @@ test("no active cycle is NONE, not failure", () => {
   );
 
   const state = states[0]!;
+  assert.equal(state.identity.location.spaceId, "servery-a");
   assert.equal(state.operation.state, "NONE");
   assert.equal(state.exceptions.length, 0);
-  assert.equal(state.program.operationalType.state, "assigned");
 });
 
 test("untyped space has unassigned program and no invented cycle", () => {
@@ -598,8 +598,10 @@ test("untyped space has unassigned program and no invented cycle", () => {
     }),
   );
   const state = states[0]!;
-  assert.equal(state.program.operationalType.state, "unassigned");
+  assert.equal(state.identity.displayName, "Closet");
+  assert.equal(state.identity.location.spaceId, "closet-1");
   assert.equal(state.operation.state, "NONE");
+  assert.equal("operationalType" in state.program, false);
 });
 
 test("OA disabled: coverage feature_disabled, no schedule-derived slots or exceptions", () => {
@@ -1200,7 +1202,8 @@ test("Location Program does not show a Team, and team counts do not create cover
   );
 
   const state = states[0]!;
-  assert.equal(state.program.operationalType.state, "unassigned");
+  assert.equal(state.identity.displayName, "Main Kitchen");
+  assert.equal("operationalType" in state.program, false);
   assert.deepEqual(state.program.locationProgram.teams, []);
   assert.deepEqual(state.program.locationProgram.cycles, []);
   assert.equal(state.coverage.slots.length, 0);

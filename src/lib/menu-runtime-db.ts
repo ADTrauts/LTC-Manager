@@ -261,12 +261,10 @@ export async function resolveApplicableMenus(
     request.departmentId,
     request.serviceDateKey,
   );
-  const operationalTypeKey = input.operationalTypeKey ?? null;
   const unitCycleScope = request.location.unitId ? await loadUnitCycleScope(request.location.unitId) : null;
 
   const emptyFacts = {
     ...request,
-    operationalTypeKey,
     locationActionable: locationState.actionable,
     publishedCycles,
     candidates: [] as MenuRuntimeCandidateFact[],
@@ -286,7 +284,6 @@ export async function resolveApplicableMenus(
       published: publishedCycles,
       location: request.location,
       serviceDateKey: request.serviceDateKey,
-      operationalTypeKey,
       unitCycleScope,
     })
   ) {

@@ -1,7 +1,7 @@
 /**
  * Harbor-only unified Console catalog projection.
  *
- * Department Products, catalog Records, and Work presets stay in their own
+ * Department Products and catalog Records stay in their own
  * sources. This module reads them in batches and returns one list. It does
  * not persist a Marketplace item, and it does not authorize the caller.
  * Console pages keep calling requireHarborStaff() before any Harbor read,

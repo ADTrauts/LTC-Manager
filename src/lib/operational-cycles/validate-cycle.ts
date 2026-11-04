@@ -4,7 +4,6 @@ import type {
   OperationalCycleNodeKind,
   OperationalCycleType,
   ServeryMilestone,
-  UnitType,
 } from "@prisma/client";
 
 import { effectiveDateRangesOverlap } from "./cycle-lifecycle";
@@ -36,13 +35,10 @@ export type ValidateCycleInput = {
   mealType?: MealType | null;
   locationMode: OperationalCycleLocationMode;
   locationInheritFromParent?: boolean;
-  applicableUnitTypes?: UnitType[];
-  applicableOperationalTypeKeys?: string[];
   unitIds?: string[];
   spaceIds?: string[];
   keyTimeGroups?: KeyTimeGroupDefinition[];
   keyPointGrain?: KeyPointGrain;
-  roomTypeKey?: string | null;
   expectedMilestones?: ServeryMilestone[];
   /** Latest parent row. Required to enforce one-level Phase and Cycle-parented Key Points. */
   parentNode?: CanonicalParentContext | null;
@@ -59,7 +55,6 @@ export type PublishedCycleOverlapCandidate = {
   overnight: boolean;
   applicableDaysOfWeek: number[];
   locationMode: OperationalCycleLocationMode;
-  applicableUnitTypes: UnitType[];
   unitIds: string[];
   /** YYYY-MM-DD — when set with peer ranges, only overlapping effective windows conflict. */
   effectiveFrom?: string;
@@ -85,8 +80,8 @@ function hasLegacyRoomTypeScope(_input: ValidateCycleInput): boolean {
 
 /** Location scopes intersect when both could apply to the same unit. */
 export function locationScopesIntersect(
-  a: Pick<PublishedCycleOverlapCandidate, "locationMode" | "applicableUnitTypes" | "unitIds">,
-  b: Pick<PublishedCycleOverlapCandidate, "locationMode" | "applicableUnitTypes" | "unitIds">,
+  a: Pick<PublishedCycleOverlapCandidate, "locationMode" | "unitIds">,
+  b: Pick<PublishedCycleOverlapCandidate, "locationMode" | "unitIds">,
 ): boolean {
   if (a.locationMode === "ALL_DEPARTMENT_UNITS" || b.locationMode === "ALL_DEPARTMENT_UNITS") {
     return true;
@@ -259,6 +254,19 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
 
   if (!input.label?.trim()) {
     errors.push(issue("label_required", "Cycle label is required.", "error"));
+  }
+
+  if (
+    input.locationMode !== "ALL_DEPARTMENT_UNITS" &&
+    input.locationMode !== "EXPLICIT_UNITS"
+  ) {
+    errors.push(
+      issue(
+        "location_targeting_retired",
+        "Choose all responsible locations or selected locations.",
+        "error",
+      ),
+    );
   }
 
   const structureError = canonicalParentRejection({
@@ -447,7 +455,6 @@ export function validateCycleForPublish(
         overnight: input.overnight ?? false,
         applicableDaysOfWeek: input.applicableDaysOfWeek,
         locationMode: input.locationMode,
-        applicableUnitTypes: input.applicableUnitTypes ?? [],
         unitIds: input.unitIds ?? [],
         effectiveFrom: input.effectiveFrom?.trim() || undefined,
         effectiveTo: input.effectiveTo ?? null,

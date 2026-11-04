@@ -223,18 +223,10 @@ test("other Products are unchanged by Plant release", () => {
   assert.equal(getCommittedDepartmentProductStatus("PLANT"), "AVAILABLE");
 });
 
-test("starter catalog is the certified Work and Record package", () => {
+test("starter catalog is the certified Record package", () => {
   const items = listPlantStarterCatalog();
   assert.equal(PLANT_STARTER_PACKAGE_NAME, "Plant Operations starter configuration");
-  assert.deepEqual(
-    items.filter((row) => row.kind === "work").map((row) => row.title),
-    [
-      "Mechanical Room Round",
-      "Building Walkthrough",
-      "Exterior / Grounds Walkthrough",
-      "Generator Visual Check",
-    ],
-  );
+  assert.equal(items.some((row) => row.kind === "work"), false);
   assert.deepEqual(
     items.filter((row) => row.kind === "record").map((row) => row.title),
     [

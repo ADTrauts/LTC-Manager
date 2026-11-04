@@ -262,7 +262,7 @@ test("coverage version change aggregates each day's published requirement", () =
   );
 });
 
-test("OT change is applied per day, not current profile across the range", () => {
+test("facility location labels stay stable across the range", () => {
   const range = rangeOf(
     [
       facts({
@@ -343,8 +343,9 @@ test("OT change is applied per day, not current profile across the range", () =>
     "2026-09-02",
     "2026-09-06",
   );
-  assert.equal(range.days[0]?.locations[0]?.operationalTypeKey, null);
-  assert.equal(range.days[1]?.locations[0]?.operationalTypeKey, null);
+  assert.equal("operationalTypeKey" in (range.days[0]?.locations[0] ?? {}), false);
+  assert.equal("operationalTypeKey" in (range.days[1]?.locations[0] ?? {}), false);
+  assert.equal(range.days[0]?.locations[0]?.displayLabel, "Main Kitchen");
   assert.equal(range.days[0]?.locations[0]?.displayLabel, range.days[1]?.locations[0]?.displayLabel);
 });
 

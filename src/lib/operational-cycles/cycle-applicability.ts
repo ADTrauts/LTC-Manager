@@ -40,14 +40,6 @@ export type CycleApplicabilityContext = {
    * Omitted means the caller already limited the question to responsible places.
    */
   responsible?: boolean;
-  /**
-   * Ignored. Location Function, Operational Type, Facility Room Type, and
-   * unit type do not choose Cycle membership.
-   */
-  operationalTypeKey?: string | null;
-  operationalTypeName?: string | null;
-  physicalRoomTypeKey?: string | null;
-  unitType?: string | null;
 };
 
 export type CycleApplicabilityMatch = {
@@ -143,7 +135,7 @@ export function primaryCycleApplicabilitySource(
 export function resolveWorkCycleRoomParticipation(
   cycle: OperationalCycleDefinition,
   allCyclesByStableKey: ReadonlyMap<string, OperationalCycleDefinition>,
-  spaces: readonly { id: string; operationalTypeKey?: string | null }[],
+  spaces: readonly { id: string }[],
 ): { spaceIds: string[]; roomSetClosed: boolean } {
   const mode = resolvedCycleLocationMode(cycle, allCyclesByStableKey);
   if (mode === "ALL_DEPARTMENT_UNITS") {

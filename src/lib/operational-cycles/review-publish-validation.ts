@@ -53,8 +53,6 @@ function hasExplicitLocationSelection(
     | "locationMode"
     | "spaceIds"
     | "unitIds"
-    | "roomTypeKey"
-    | "applicableOperationalTypeKeys"
   >,
 ): boolean {
   if (row.locationInheritFromParent) return false;
@@ -433,11 +431,9 @@ export function validateDraftsForReviewPublish(input: {
       mealType: row.mealType,
       locationMode: row.locationMode,
       locationInheritFromParent: row.locationInheritFromParent,
-      applicableUnitTypes: row.applicableUnitTypes,
       unitIds: row.unitIds,
       spaceIds: row.spaceIds,
       keyTimeGroups: row.keyTimeGroups,
-      roomTypeKey: row.roomTypeKey,
       expectedMilestones: row.expectedMilestones,
       forPublish: true,
     });
