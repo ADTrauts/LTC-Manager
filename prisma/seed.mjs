@@ -116,6 +116,7 @@ async function main() {
       passwordHash: hash,
       isActive: true,
       primaryDepartmentId: departmentIds.DIETARY,
+      emailVerifiedAt: new Date(),
     },
     create: {
       email: "admin@terraceview.local",
@@ -125,8 +126,33 @@ async function main() {
       passwordHash: hash,
       isActive: true,
       primaryDepartmentId: departmentIds.DIETARY,
+      emailVerifiedAt: new Date(),
     },
   });
+
+  const demoAdmin = await prisma.user.findUniqueOrThrow({
+    where: { email: "admin@terraceview.local" },
+    select: { id: true },
+  });
+  const demoAdminAccess = await prisma.userFacilityAccess.upsert({
+    where: { userId_facilityId: { userId: demoAdmin.id, facilityId: facility.id } },
+    update: { isActive: true, revokedAt: null },
+    create: { userId: demoAdmin.id, facilityId: facility.id, isActive: true },
+    select: { id: true },
+  });
+  const openAdminPeriod = await prisma.userFacilityRolePeriod.findFirst({
+    where: { userFacilityAccessId: demoAdminAccess.id, endsAt: null },
+    select: { id: true },
+  });
+  if (!openAdminPeriod) {
+    await prisma.userFacilityRolePeriod.create({
+      data: {
+        userFacilityAccessId: demoAdminAccess.id,
+        roleKey: RoleKey.FACILITY_ADMINISTRATOR,
+        startsAt: new Date(),
+      },
+    });
+  }
 
   const starterUnits = [
     {
