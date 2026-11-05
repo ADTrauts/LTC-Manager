@@ -216,6 +216,8 @@ The Facility section may show which places participate in an Operating Rhythm. P
 
 Floor, neighborhood, and Facility Room Type may filter the picker. They are not saved, and a new room does not join an explicit cycle because it matches a filter. Location Function, Operational Type, unit type, and room type are not cycle targeting.
 
+Key Point participation is a separate fact from Cycle applicability. A Key Point group stores a due time and the explicit UnitSpace ids that share it (`DepartmentOperationalCycleKeyTimeGroup` and `DepartmentOperationalCycleKeyTimeGroupRoom`). One room belongs to one group on that Key Point. Department Builder authors those groups on the mounted Operating Rhythm screen. Saving a Draft does not change a published group. A Service phase still has to name its meal before Review can schedule it; that meal is not a location. Runtime plans one expectation per published group room. The ordinary Run read uses expectation rows that already exist. A Department-wide Cycle still means every responsible place, including one assigned later. A Key Point room group does not.
+
 Facility must not create a second timing model.
 
 Other engines reference canonical rhythm facts:

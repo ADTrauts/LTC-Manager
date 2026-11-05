@@ -38,13 +38,11 @@ function row(partial: Partial<CycleLifecycleRow> & { stableKey: string; status: 
     mealType: null,
     locationMode: "ALL_DEPARTMENT_UNITS",
     locationInheritFromParent: false,
-    applicableUnitTypes: [],
-    roomTypeKey: null,
     expectedMilestones: [],
     unitIds: [],
     spaceIds: [],
     milestoneTimes: [],
-    keyTimeGroups: [],
+    keyTimeGroups: partial.keyTimeGroups ?? [],
     status: partial.status,
     publishedAt: null,
     retiredAt: null,
@@ -200,5 +198,46 @@ describe("Operating rhythm presentation", () => {
     assert.ok(roots[0]?.liveWindow);
     assert.ok(roots[0]?.draftWindow);
     assert.equal(roots[0]?.draftCycleId, "draft-b");
+  });
+
+  it("edits the draft Key Point room group and leaves the published group alone", () => {
+    const roots = presentOperatingRhythmRoots(
+      [
+        row({
+          id: "breakfast",
+          stableKey: "breakfast",
+          label: "Breakfast",
+          status: "DRAFT",
+          effectiveFrom: new Date("2026-09-01T00:00:00.000Z"),
+        }),
+        row({
+          id: "published-ready",
+          stableKey: "breakfast_ready",
+          parentStableKey: "breakfast",
+          nodeKind: "KEY_TIME",
+          label: "Breakfast Ready",
+          status: "PUBLISHED",
+          keyTimeGroups: [{ dueLocal: "07:05", spaceIds: ["old-room"] }],
+          effectiveFrom: new Date("2026-09-01T00:00:00.000Z"),
+        }),
+        row({
+          id: "draft-ready",
+          stableKey: "breakfast_ready",
+          parentStableKey: "breakfast",
+          nodeKind: "KEY_TIME",
+          label: "Breakfast Ready",
+          status: "DRAFT",
+          keyTimeGroups: [{ dueLocal: "07:05", spaceIds: ["servery-a", "servery-b"] }],
+          effectiveFrom: new Date("2026-09-28T00:00:00.000Z"),
+        }),
+      ],
+      "2026-09-27",
+    );
+    const keyPoint = roots[0]?.children.find((child) => child.stableKey === "breakfast_ready");
+    assert.equal(keyPoint?.cycleId, "draft-ready");
+    assert.equal(keyPoint?.nodeKind, "KEY_TIME");
+    assert.deepEqual(keyPoint?.keyTimeGroups, [
+      { dueLocal: "07:05", spaceIds: ["servery-a", "servery-b"] },
+    ]);
   });
 });

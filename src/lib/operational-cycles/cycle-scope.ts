@@ -318,6 +318,8 @@ export function validateCycleScopeAgainstCatalog(input: {
   locationMode: OperationalCycleLocationMode;
   unitIds?: readonly string[];
   spaceIds?: readonly string[];
+  /** Rooms named by a Key Point group. They are explicit space ids, not a room-type rule. */
+  keyTimeSpaceIds?: readonly string[];
   milestoneTimes?: readonly CycleMilestoneTimeInput[];
   cycleType: string;
   mealType?: string | null;
@@ -344,6 +346,13 @@ export function validateCycleScopeAgainstCatalog(input: {
         errors.push("Specific locations must belong to this department.");
         break;
       }
+    }
+  }
+
+  for (const spaceId of input.keyTimeSpaceIds ?? []) {
+    if (!spaceIds.has(spaceId)) {
+      errors.push("Key Point locations must be rooms this department is responsible for.");
+      break;
     }
   }
 

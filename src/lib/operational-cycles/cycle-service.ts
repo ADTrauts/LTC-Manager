@@ -362,6 +362,7 @@ async function assertDraftScope(
     locationMode: input.locationMode,
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
+    keyTimeSpaceIds: (input.draft.keyTimeGroups ?? []).flatMap((group) => group.spaceIds ?? []),
     milestoneTimes: input.draft.milestoneTimes,
     cycleType: input.draft.cycleType,
     mealType: input.draft.mealType,
