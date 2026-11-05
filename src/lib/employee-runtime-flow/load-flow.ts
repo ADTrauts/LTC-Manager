@@ -1,6 +1,6 @@
 /**
  * Server loader for EmployeeRuntimeFlow.
- * OA → assigned SPACE refs → one RLS batch → Work Plans → compose.
+ * OA → assigned SPACE refs → one RLS batch → compose.
  * Returns null only when Job Flow is off or the session lacks authority.
  */
 
@@ -8,10 +8,7 @@ import type { FacilitySession } from "@/lib/auth";
 import {
   isDepartmentJobFlowEnabled,
   isDepartmentOperationalEvidenceEnabled,
-  isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
-import { resolveUnitWorkRequirements } from "@/lib/department-work";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import { resolveJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
 import {
   detectAssignmentRevision,
@@ -76,11 +73,9 @@ export type LoadedEmployeeRuntimeFlow = {
 
 function toJobFlowLocationSequence(
   locations: ResolvedAssignmentLocation[],
-  workRequirements: WorkRequirement[],
 ): JobFlowLocationSequence {
   const seq = buildDeterministicLocationSequence({
     locations,
-    workRequirements,
   });
   const mapItem = (item: (typeof seq.all)[number]) => ({
     unitSpaceId: item.unitSpaceId,
@@ -102,7 +97,6 @@ function buildEvsScopeAttachment(input: {
   departmentKey: string;
   assignment: JobFlowAssignmentSnapshot | null;
   locations: ResolvedAssignmentLocation[];
-  workRequirements: WorkRequirement[];
 }): {
   scopeSummary: JobFlowScopeSummary | null;
   locationSequence: JobFlowLocationSequence | null;
@@ -119,7 +113,7 @@ function buildEvsScopeAttachment(input: {
   });
   const locationSequence =
     scopeKind === "SPACES" && input.locations.length > 0
-      ? toJobFlowLocationSequence(input.locations, input.workRequirements)
+      ? toJobFlowLocationSequence(input.locations)
       : null;
   return { scopeSummary, locationSequence };
 }
@@ -150,13 +144,13 @@ async function buildPlantWorkOrderAttention(input: {
   const items: JobFlowAttentionItem[] = [];
   if (openAssigned > 0) {
     items.push({
-      kind: "work_due",
+      kind: "work_order_open",
       message: `${openAssigned} assigned Work Order${openAssigned === 1 ? "" : "s"} need attention.`,
     });
   }
   if (urgentRequests > 0) {
     items.push({
-      kind: "work_past_due",
+      kind: "request_urgent",
       message: `${urgentRequests} urgent operational request${urgentRequests === 1 ? "" : "s"} in Plant queue.`,
     });
   }
@@ -240,7 +234,6 @@ export async function loadEmployeeRuntimeFlow(
       : { states: [], stats: { perSpaceDomainLoads: 0 } };
 
   const evidenceEnabled = isDepartmentOperationalEvidenceEnabled(department.key);
-  const workEnabled = isDepartmentWorkPlansEnabled(department.key);
 
   let templateEvidence: EvidenceRequirement[] = [];
   if (oaEnabled && !canonicalLogsEnabled && evidenceEnabled && activeAssignment) {
@@ -283,19 +276,6 @@ export async function loadEmployeeRuntimeFlow(
     });
   }
 
-  const workRequirementsRaw =
-    oaEnabled && workEnabled && (activeAssignment?.unitId || input.unitId)
-      ? await resolveUnitWorkRequirements({
-          facilityId: input.facilityId,
-          departmentId: input.departmentId,
-          operationalDateKey,
-          operationalDate: serviceDate,
-          now,
-          facilityTimezone: timezone,
-          unitId: activeAssignment?.unitId ?? input.unitId ?? "",
-        })
-      : [];
-
   const plan = await prisma.operationalAssignmentPlan.findUnique({
     where: {
       facilityId_departmentId_serviceDate: {
@@ -318,7 +298,6 @@ export async function loadEmployeeRuntimeFlow(
     spaceRefs,
     states: loadedStates.states,
     templateEvidence,
-    workRequirements: workRequirementsRaw,
     deviceBoundUnitId: input.deviceBoundUnitId ?? input.unitId ?? null,
     offline: { stale: input.offlineStale ?? false },
   });
@@ -327,7 +306,6 @@ export async function loadEmployeeRuntimeFlow(
     departmentKey: department.key,
     assignment: flow.assignmentAvailability === "evaluated" ? activeAssignment : null,
     locations: assignmentLocations,
-    workRequirements: flow.work,
   });
 
   const plantAttention =

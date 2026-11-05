@@ -53,18 +53,14 @@ function hasExplicitLocationSelection(
     | "locationMode"
     | "spaceIds"
     | "unitIds"
-    | "roomTypeKey"
-    | "applicableOperationalTypeKeys"
   >,
 ): boolean {
   if (row.locationInheritFromParent) return false;
-  if (row.locationMode === "ROOM_TYPE" && Boolean(row.roomTypeKey?.trim())) return true;
   if (row.locationMode === "ALL_DEPARTMENT_UNITS") return true;
-  if (row.locationMode === "UNIT_TYPES") return true;
-  if (row.locationMode === "OPERATIONAL_TYPES") {
-    return (row.applicableOperationalTypeKeys?.length ?? 0) > 0;
+  if (row.locationMode === "EXPLICIT_UNITS") {
+    return (row.spaceIds?.length ?? 0) + (row.unitIds?.length ?? 0) > 0;
   }
-  return (row.spaceIds?.length ?? 0) + (row.unitIds?.length ?? 0) > 0;
+  return false;
 }
 
 /**
@@ -358,10 +354,7 @@ export function validateDraftsForReviewPublish(input: {
       }
       continue;
     }
-    if (
-      (row.locationMode === "EXPLICIT_UNITS" || row.locationMode === "OPERATIONAL_TYPES") &&
-      !hasExplicitLocationSelection(row)
-    ) {
+    if (row.locationMode !== "ALL_DEPARTMENT_UNITS" && !hasExplicitLocationSelection(row)) {
       locationFailKeys.add(row.stableKey);
     }
   }
@@ -438,11 +431,9 @@ export function validateDraftsForReviewPublish(input: {
       mealType: row.mealType,
       locationMode: row.locationMode,
       locationInheritFromParent: row.locationInheritFromParent,
-      applicableUnitTypes: row.applicableUnitTypes,
       unitIds: row.unitIds,
       spaceIds: row.spaceIds,
       keyTimeGroups: row.keyTimeGroups,
-      roomTypeKey: row.roomTypeKey,
       expectedMilestones: row.expectedMilestones,
       forPublish: true,
     });

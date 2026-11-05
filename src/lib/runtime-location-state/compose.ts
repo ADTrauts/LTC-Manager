@@ -9,7 +9,6 @@ import { selectDietaryMealTimingModel } from "@/lib/dietary/meal-timing";
 import {
   emptyLocationProgram,
   type LocationProgram,
-  type LocationProgramCycle,
 } from "@/lib/department-administration/location-program";
 import type { LogRequirement } from "@/lib/logs-architecture/types";
 import {
@@ -29,9 +28,6 @@ import {
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
 import {
-  assignmentCoversLocation,
-  assignmentOverlapsCycle,
-  evaluateCoverageSlotState,
   evaluateCoverageSlots,
   flattenCoverageTemplateItems,
   planLifecycleFromStatus,
@@ -75,18 +71,6 @@ export type RuntimeSpaceIdentityRow = {
   facilityRoomTypeId: string | null;
 };
 
-export type RuntimeActiveProfileRef = {
-  id: string;
-  version: number;
-  status: "ACTIVE";
-};
-
-export type RuntimeOperationalTypeRow = {
-  key: string;
-  name: string;
-  id: string | null;
-};
-
 export type RuntimePublishedRunModel = {
   cycles: OperationalCycleDefinition[];
   timings: KeyTimeDayTiming[];
@@ -117,8 +101,6 @@ export type RuntimeLocationComposeInput = {
   operationalAssignmentsEnabled: boolean;
   spaces: readonly RuntimeSpaceIdentityRow[];
   spaceRefs?: readonly RuntimeLocationSpaceRef[];
-  profilesByDepartmentId: ReadonlyMap<string, RuntimeActiveProfileRef | null>;
-  operationalTypesBySpaceId: ReadonlyMap<string, RuntimeOperationalTypeRow | null>;
   runModelsByDepartmentId: ReadonlyMap<string, RuntimePublishedRunModel>;
   coverageTemplatesByDepartmentId: ReadonlyMap<string, CoverageTemplateVersionRow[]>;
   coveragePlanByDepartmentId: ReadonlyMap<string, string | null>;
@@ -202,7 +184,6 @@ function composeOperation(
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: space.spaceId,
-    operationalTypeKey: null,
   });
 
   const presented = presentLocationRunOperation({
@@ -212,7 +193,6 @@ function composeOperation(
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: space.spaceId,
-    operationalTypeKey: null,
     nowLocalHhMm: model.nowLocalHhMm,
     location: {
       title: space.name,
@@ -277,143 +257,8 @@ function composeOperation(
   };
 }
 
-function programCycleWindows(
-  program: LocationProgram,
-  cycles: readonly OperationalCycleDefinition[],
-  operationalDateKey: string,
-  timezone: string,
-): Map<string, { startsAt: Date | null; endsAt: Date | null }> {
-  const windows = cycleWindows(cycles, operationalDateKey, timezone);
-  for (const cycle of program.cycles) {
-    if (windows.has(cycle.cycleStableKey) || !cycle.startLocal || !cycle.endLocal) continue;
-    const window = resolveCycleWindowInstants({
-      operationalDateKey,
-      startLocal: cycle.startLocal,
-      endLocal: cycle.endLocal,
-      overnight: false,
-      facilityTimezone: timezone,
-    });
-    windows.set(cycle.cycleStableKey, window ?? { startsAt: null, endsAt: null });
-  }
-  return windows;
-}
-
-function matchingAssignmentsForTeamNeed(input: {
-  assignments: readonly CoverageAssignmentActual[];
-  spaceId: string;
-  unitId: string | null;
-  cycleStartsAt: Date | null;
-  cycleEndsAt: Date | null;
-}): CoverageAssignmentActual[] {
-  const seen = new Set<string>();
-  const matches: CoverageAssignmentActual[] = [];
-  for (const assignment of input.assignments) {
-    if (seen.has(assignment.id)) continue;
-    if (assignment.status !== "PLANNED" && assignment.status !== "ACTIVE") continue;
-    if (!assignmentCoversLocation(assignment, input.spaceId, input.unitId)) continue;
-    if (
-      !assignmentOverlapsCycle({
-        assignment,
-        cycleStartsAt: input.cycleStartsAt,
-        cycleEndsAt: input.cycleEndsAt,
-      })
-    ) {
-      continue;
-    }
-    seen.add(assignment.id);
-    matches.push(assignment);
-  }
-  return matches;
-}
-
-function composeProgramNeedCoverage(input: {
-  program: LocationProgram;
-  space: RuntimeSpaceIdentityRow;
-  operation: RuntimeCurrentOperation;
-  assignments: readonly CoverageAssignmentActual[];
-  cycles: readonly OperationalCycleDefinition[];
-  planStatus: string | null;
-  operationalDateKey: string;
-  timezone: string;
-  now: Date;
-}): RuntimeCoverageState | null {
-  const needs: Array<{ cycle: LocationProgramCycle; teamId: string; teamName: string; requiredCount: number }> =
-    [];
-  for (const cycle of input.program.cycles) {
-    for (const team of cycle.teams) {
-      if (team.requiredCount == null) continue;
-      needs.push({
-        cycle,
-        teamId: team.teamId,
-        teamName: team.teamName,
-        requiredCount: team.requiredCount,
-      });
-    }
-  }
-  if (needs.length === 0) return null;
-
-  const plan = planLifecycleFromStatus(input.planStatus);
-  const windows = programCycleWindows(
-    input.program,
-    input.cycles,
-    input.operationalDateKey,
-    input.timezone,
-  );
-  const activeKey = input.operation.current?.cycleStableKey ?? null;
-  const relevant = activeKey
-    ? needs.filter((need) => need.cycle.cycleStableKey === activeKey)
-    : needs.filter((need) => {
-        const window = windows.get(need.cycle.cycleStableKey);
-        if (!window?.startsAt || !window.endsAt) return false;
-        return input.now >= window.startsAt && input.now < window.endsAt;
-      });
-
-  const assignmentById = new Map(input.assignments.map((row) => [row.id, row]));
-  return {
-    availability: "evaluated",
-    planLifecycle: plan,
-    slots: relevant.map((need) => {
-      const window = windows.get(need.cycle.cycleStableKey);
-      const matches = matchingAssignmentsForTeamNeed({
-        assignments: input.assignments,
-        spaceId: input.space.spaceId,
-        unitId: input.space.unitId,
-        cycleStartsAt: window?.startsAt ?? null,
-        cycleEndsAt: window?.endsAt ?? null,
-      });
-      const filledCount = matches.length;
-      return {
-        expectationId: `team-need:${need.teamId}:${need.cycle.cycleStableKey}`,
-        templateStableKey: `location-program:${need.teamId}`,
-        templateVersion: 1,
-        roleKey: `TEAM:${need.teamId}`,
-        roleLabel: need.teamName,
-        requiredCount: need.requiredCount,
-        filledCount,
-        state: evaluateCoverageSlotState({
-          plan,
-          requiredCount: need.requiredCount,
-          filledCount,
-          hasCallDownRisk: matches.some((row) => row.hasCallDown === true),
-        }),
-        cycleStableKey: need.cycle.cycleStableKey,
-        assignmentIds: matches.map((row) => row.id),
-        assignmentRefs: matches.map((assignment) => ({
-          assignmentId: assignment.id,
-          employeeId: assignmentById.get(assignment.id)?.employeeId ?? assignment.employeeId ?? null,
-          employeeDisplayName:
-            assignmentById.get(assignment.id)?.employeeDisplayName ??
-            assignment.employeeDisplayName ??
-            null,
-        })),
-      };
-    }),
-  };
-}
-
 function composeTemplateCoverage(input: {
   space: RuntimeSpaceIdentityRow;
-  operationalType: RuntimeOperationalTypeRow | null;
   operation: RuntimeCurrentOperation;
   templates: readonly CoverageTemplateVersionRow[];
   planStatus: string | null;
@@ -447,8 +292,6 @@ function composeTemplateCoverage(input: {
       departmentId: input.space.departmentId,
       spaceId: input.space.spaceId,
       unitId: input.space.unitId,
-      operationalTypeKey: input.operationalType?.key ?? null,
-      operationalTypeName: input.operationalType?.name ?? null,
     },
     cycles: cycleRefs,
     cycleStableKey: input.operation.current.cycleStableKey,
@@ -501,7 +344,6 @@ function composeTemplateCoverage(input: {
 function composeCoverage(input: {
   enabled: boolean;
   space: RuntimeSpaceIdentityRow;
-  operationalType: RuntimeOperationalTypeRow | null;
   operation: RuntimeCurrentOperation;
   program: LocationProgram;
   templates: readonly CoverageTemplateVersionRow[];
@@ -513,20 +355,6 @@ function composeCoverage(input: {
   now: Date;
 }): RuntimeCoverageState {
   if (!input.enabled) return emptyCoverage("feature_disabled");
-
-  const fromProgram = composeProgramNeedCoverage({
-    program: input.program,
-    space: input.space,
-    operation: input.operation,
-    assignments: input.assignments,
-    cycles: input.cycles,
-    planStatus: input.planStatus,
-    operationalDateKey: input.operationalDateKey,
-    timezone: input.timezone,
-    now: input.now,
-  });
-  if (fromProgram) return fromProgram;
-
   return composeTemplateCoverage(input);
 }
 
@@ -708,8 +536,6 @@ function composeChanges(input: {
 function programRefs(input: {
   space: RuntimeSpaceIdentityRow;
   program: LocationProgram;
-  operationalType: RuntimeOperationalTypeRow | null;
-  profile: RuntimeActiveProfileRef | null;
   model: RuntimePublishedRunModel | undefined;
   coverage: RuntimeCoverageState;
   evidence: RuntimeLocationState["evidence"];
@@ -760,15 +586,6 @@ function programRefs(input: {
 
   return {
     locationProgram: input.program,
-    operationalType: {
-      state: input.operationalType ? "assigned" : "unassigned",
-      key: input.operationalType?.key ?? null,
-      name: input.operationalType?.name ?? null,
-      id: input.operationalType?.id ?? null,
-      profileId: input.profile?.id ?? null,
-      profileVersion: input.profile?.version ?? null,
-      profileStatus: input.profile?.status ?? null,
-    },
     cycleSetRef:
       cycleRefs.length > 0
         ? {
@@ -794,8 +611,6 @@ export function composeRuntimeLocationStates(
   input: RuntimeLocationComposeInput,
 ): RuntimeLocationState[] {
   return input.spaces.map((space) => {
-    const operationalType = input.operationalTypesBySpaceId.get(space.spaceId) ?? null;
-    const profile = input.profilesByDepartmentId.get(space.departmentId) ?? null;
     const model = input.runModelsByDepartmentId.get(space.departmentId);
     const program =
       input.programsBySpaceId.get(space.spaceId) ??
@@ -813,7 +628,6 @@ export function composeRuntimeLocationStates(
     const coverage = composeCoverage({
       enabled: input.operationalAssignmentsEnabled,
       space,
-      operationalType,
       operation,
       program,
       templates: input.coverageTemplatesByDepartmentId.get(space.departmentId) ?? [],
@@ -851,8 +665,6 @@ export function composeRuntimeLocationStates(
     const programRef = programRefs({
       space,
       program,
-      operationalType,
-      profile,
       model,
       coverage,
       evidence,

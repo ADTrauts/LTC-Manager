@@ -1,7 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { getRolesForDepartment } from "@/lib/scheduling/assignment-roles";
-import { loadDepartmentOperationalTypeOptions } from "@/lib/operational-cycles/load-operational-type-targets";
 import { toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
@@ -27,10 +26,11 @@ const TEMPLATE_SELECT = {
       roleKey: true,
       roleLabel: true,
       requiredCount: true,
-      applicableOperationalTypeKeys: true,
       applicableOperationalCycleStableKeys: true,
       unitId: true,
+      spaceId: true,
       unit: { select: { name: true } },
+      space: { select: { name: true } },
     },
   },
 } as const;
@@ -54,10 +54,11 @@ export function toCoverageExpectationView(row: {
     roleKey: string;
     roleLabel: string;
     requiredCount: number;
-    applicableOperationalTypeKeys: string[];
     applicableOperationalCycleStableKeys: string[];
     unitId: string | null;
     unit: { name: string } | null;
+    spaceId: string | null;
+    space: { name: string } | null;
   }>;
 }): CoverageExpectationView {
   return {
@@ -75,10 +76,11 @@ export function toCoverageExpectationView(row: {
       roleKey: item.roleKey,
       roleLabel: item.roleLabel,
       requiredCount: item.requiredCount,
-      applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       unitId: item.unitId,
       unitName: item.unit?.name ?? null,
+      spaceId: item.spaceId,
+      spaceName: item.space?.name ?? null,
     })),
   };
 }
@@ -120,13 +122,21 @@ export async function loadCoverageCatalog(input: {
   departmentId: string;
   departmentKey: string;
 }): Promise<CoverageCatalog> {
-  const [operationalTypes, cycleRows] = await Promise.all([
-    loadDepartmentOperationalTypeOptions({
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      perspective: "working",
-    }),
+  const [cycleRows, spaces] = await Promise.all([
     loadCoverageCycleOptions(input),
+    prisma.unitSpace.findMany({
+      where: {
+        facilityId: input.facilityId,
+        isActive: true,
+        responsibilities: { some: { departmentId: input.departmentId } },
+      },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        facilityRoomType: { select: { displayName: true } },
+      },
+    }),
   ]);
 
   return {
@@ -134,7 +144,11 @@ export async function loadCoverageCatalog(input: {
       key: role.key,
       label: role.label,
     })),
-    operationalTypes,
+    locations: spaces.map((space) => ({
+      id: space.id,
+      name: space.name,
+      roomTypeLabel: space.facilityRoomType?.displayName ?? null,
+    })),
     cycles: cycleRows,
   };
 }

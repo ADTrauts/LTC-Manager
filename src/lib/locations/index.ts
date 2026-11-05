@@ -7,9 +7,7 @@
  */
 
 export type {
-  LocationsAreaRef,
   LocationsDepartmentSnapshot,
-  LocationsExperienceRef,
   LocationsLensMode,
   LocationsTreeNode,
   LocationsViewModel,

@@ -17,7 +17,7 @@ import type { EmployeeCsvPreview, EmployeeCsvPreviewRow, EmployeeCsvResult, Empl
 type Db = PrismaClient | Prisma.TransactionClient;
 type Source = { text: string; fileName: string; contractVersion?: string };
 const employeeInclude = {
-  workStations: true, employeeDepartments: true, teamMemberships: true, departmentJobRoles: true,
+  employeeDepartments: true, teamMemberships: true,
   unitAccesses: true, primaryUnit: { select: { id: true, name: true, facilityId: true, isActive: true } },
 } satisfies Prisma.EmployeeInclude;
 type Employee = Prisma.EmployeeGetPayload<{ include: typeof employeeInclude }>;
@@ -43,7 +43,7 @@ function display(value: unknown): string | null {
 function employeeDigest(employee: Employee, credentialRole: string | null): string {
   // @updatedAt alone cannot detect direct membership writes; fingerprint their actual facts too.
   const facts = { ...employee, updatedAt: undefined };
-  return digest({ facts: { ...facts, workStations: employee.workStations.map((item) => item.station) }, credentialRole });
+  return digest({ facts, credentialRole });
 }
 
 export function requireEmployeeCsvAuthority(session: FacilitySession): void {
@@ -69,7 +69,7 @@ function blocked(row: EmployeeUpdateRow, message: string): EmployeeCsvPreviewRow
   return { row: row.row, employeeId: null, employee: "Unresolved", match: "None", status: "blocked", changes: [], message };
 }
 
-type Planned = { view: EmployeeCsvPreviewRow; employee?: Employee; after?: Employee; beforeHash: string; afterHash: string; patch: Prisma.EmployeeUncheckedUpdateInput; stations?: Employee["workStations"][number]["station"][] };
+type Planned = { view: EmployeeCsvPreviewRow; employee?: Employee; after?: Employee; beforeHash: string; afterHash: string; patch: Prisma.EmployeeUncheckedUpdateInput };
 async function planRow(db: Db, facilityId: string, row: EmployeeUpdateRow): Promise<Planned> {
   const deny = (message: string): Planned => ({ view: blocked(row, message), beforeHash: "", afterHash: "", patch: {} });
   if (row.errors.length) return deny(row.errors.join(" "));
@@ -104,19 +104,11 @@ async function planRow(db: Db, facilityId: string, row: EmployeeUpdateRow): Prom
   }
   const after: Employee = { ...employee };
   const patch: Prisma.EmployeeUncheckedUpdateInput = {};
-  let stations: Planned["stations"];
   for (const field of Object.keys(values) as EmployeeCsvField[]) {
     if (field === "employeeId" || (immutable as readonly string[]).includes(field)) continue;
     let beforeValue: unknown, afterValue: unknown;
     const next = values[field];
-    if (field === "workStations") {
-      beforeValue = employee.workStations.map((item) => item.station).sort(); afterValue = next;
-      if (display(beforeValue) !== display(next)) {
-        stations = values.workStations!;
-        // Membership creation timestamps are not semantic facts in the review fingerprint.
-        after.workStations = stations.map((station) => ({ employeeId: employee.id, station, createdAt: new Date(0) }));
-      }
-    } else if (field === "primaryUnit") {
+    if (field === "primaryUnit") {
       const units = next === null ? [] : await db.unit.findMany({ where: { facilityId, name: { equals: String(next), mode: "insensitive" }, isActive: true }, select: { id: true, name: true, facilityId: true, isActive: true }, take: 2 });
       if (next !== null && units.length !== 1) return denied("primaryUnit must identify exactly one active location in this Facility.");
       const unit = units[0] ?? null;
@@ -124,7 +116,7 @@ async function planRow(db: Db, facilityId: string, row: EmployeeUpdateRow): Prom
       beforeValue = employee.primaryUnit?.name ?? null; afterValue = unit?.name ?? null;
       if (employee.primaryUnitId !== (unit?.id ?? null)) { patch.primaryUnitId = unit?.id ?? null; after.primaryUnitId = unit?.id ?? null; after.primaryUnit = unit; }
     } else {
-      const key = field as Exclude<EmployeeCsvField, "employeeId" | "workStations" | "primaryUnit">;
+      const key = field as Exclude<EmployeeCsvField, "employeeId" | "primaryUnit">;
       beforeValue = employee[key]; afterValue = next;
       if (display(beforeValue) !== display(next)) { Object.assign(patch, { [key]: next }); Object.assign(after, { [key]: next }); }
     }
@@ -140,7 +132,7 @@ async function planRow(db: Db, facilityId: string, row: EmployeeUpdateRow): Prom
   if (after.status === "TERMINATED" && values.onLeave === true) return denied("A terminated employee cannot be placed on leave by an ordinary update.");
   view.status = view.changes.length ? "ready" : "unchanged";
   view.message = view.changes.length ? `${view.changes.length} field change(s) to review.` : "No changes to commit.";
-  return { view, employee, after, patch, stations, beforeHash: employeeDigest(employee, credentialRole), afterHash: employeeDigest(after, credentialRole) };
+  return { view, employee, after, patch, beforeHash: employeeDigest(employee, credentialRole), afterHash: employeeDigest(after, credentialRole) };
 }
 
 const reviewRowSchema = z.object({ row: z.number().int(), id: z.string().nullable(), status: z.enum(["ready", "unchanged", "blocked"]), beforeHash: z.string(), afterHash: z.string(), planHash: z.string() }).strict();
@@ -227,10 +219,6 @@ export async function confirmEmployeeCsv(db: PrismaClient, session: FacilitySess
         const before = planned.employee!, after = planned.after!;
         // Only supplied ordinary fields enter this patch. No identity/access/lifecycle writes.
         await tx.employee.update({ where: { id: before.id, facilityId: session.facilityId }, data: planned.patch });
-        if (planned.stations !== undefined) {
-          await tx.employeeWorkStation.deleteMany({ where: { employeeId: before.id } });
-          if (planned.stations.length) await tx.employeeWorkStation.createMany({ data: planned.stations.map((station) => ({ employeeId: before.id, station })) });
-        }
         const changes = diffProfileForAudit(snapshotFromEmployeeRow(before), snapshotFromEmployeeRow(after));
         if (before.primaryUnitId !== after.primaryUnitId) changes.push({ fieldKey: "profile.primaryUnitId", oldValue: before.primaryUnitId, newValue: after.primaryUnitId });
         const committedAt = new Date().toISOString();

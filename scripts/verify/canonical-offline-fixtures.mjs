@@ -1,5 +1,5 @@
-/** Current SPACE / Location Function / published Period fixture. Disposable only.
- * Administrative binding, customer publication and worker execution stay separate. */
+/** Canonical Space fixture. Disposable only. Responsibility and a published Cycle
+ * are the setup. Location Function and generic Work are not created. */
 import { createHmac } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { tsImport } from "tsx/esm/api";
@@ -14,12 +14,10 @@ export async function prepareCanonicalOfflineFixture(db, { facilityId, departmen
   const { syncEmployeeOrganization } = await tsImport("../../src/lib/employee-membership/organization.ts", import.meta.url);
   const structure = await tsImport("../../src/lib/bulk-import/facility-structure-execute.ts", import.meta.url);
   const { savePhysicalResponsibility } = await tsImport("../../src/lib/facility-builder/responsibility-service.ts", import.meta.url);
-  const { bindLocationFunction, publishLocationFunctionDraft } = await tsImport("../../src/lib/department-administration/profile-service.ts", import.meta.url);
   const { getFacilityServiceDate, toServiceDateKey } = await tsImport("../../src/lib/operational-time/index.ts", import.meta.url);
   const facility = await db.facility.findUniqueOrThrow({ where: { id: facilityId } });
   const effectiveFrom = toServiceDateKey(getFacilityServiceDate(facility.timezone, new Date()));
   const cycles = await tsImport("../../src/lib/operational-cycles/cycle-service.ts", import.meta.url);
-  const work = await tsImport("../../src/lib/department-work/work-plan-service.ts", import.meta.url);
   const csv = `floor,neighborhood,locationName,locationType,roomNumber\nCertification Floor,Canonical ${tag},Food Service ${tag},Servery,001\n`;
   const plan = structure.buildFacilityStructurePlanFromCsv(csv, await structure.loadFacilityStructureCatalog(db, facilityId), "canonical-offline.csv");
   if (!plan.ok || !plan.plan.canConfirm) throw Error(JSON.stringify(plan));
@@ -45,11 +43,15 @@ export async function prepareCanonicalOfflineFixture(db, { facilityId, departmen
     await db.$transaction(tx => syncEmployeeOrganization(tx, { facilityId, employeeId: employee.id, primaryDepartmentId: departmentId, additionalDepartmentIds: [], jobTitleId: null, teamMemberships: [] }));
     people[key] = { userId: user.id, employeeId: employee.id, email };
   }
+  for (const key of ["worker", "secondWorker"]) {
+    await db.employeeOperationalRoleQualification.upsert({
+      where: { employeeId_departmentId_roleKey: { employeeId: people[key].employeeId, departmentId, roleKey: "SERVER" } },
+      update: { status: "ACTIVE", revokedAt: null },
+      create: { facilityId, employeeId: people[key].employeeId, departmentId, roleKey: "SERVER", status: "ACTIVE" },
+    });
+  }
   const manager = people.manager;
   const session = { uid: manager.userId, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "GM", facilityId, primaryDepartmentId: departmentId, name: "Canonical manager", email: manager.email, sessionVersion: 0 };
-  const actor = { userId: manager.userId, role: "GM", facilityId, authMethod: "PASSWORD" };
-  await bindLocationFunction(actor, { facilityId, departmentId, unitSpaceId: room.id, functionKey: "food_service_area" });
-  const profile = await publishLocationFunctionDraft(actor, { facilityId, departmentId });
   const stableKey = `canonical_offline_${tag}`;
   let cycle = await db.departmentOperationalCycle.findFirst({ where: { departmentId, stableKey, status: "PUBLISHED" } });
   if (!cycle) {
@@ -65,11 +67,7 @@ export async function prepareCanonicalOfflineFixture(db, { facilityId, departmen
     } });
     keyPoint = await cycles.publishCycle(session, { facilityId, departmentId, cycleId: draft.id, actor: { userId: manager.userId }, allowImmediate: true, client: db });
   }
-  let published = await db.departmentWorkPlan.findFirst({ where: { departmentId, stableKey, status: "PUBLISHED" } });
-  if (!published) {
-    const draft = await work.createDraft(session, { facilityId, departmentId, client: db, actor: { userId: manager.userId }, draft: { stableKey, name: `Canonical ${tag} opening checks`, applicabilities: [{ kind: "SPECIFIC_SPACE", spaceId: room.id }], items: Array.from({ length: 1 + extraWorkItems }, (_, i) => ({ itemKey: `opening_${i}`, label: i ? `Certification Work ${i}` : "Check food service supplies", instructions: "Verify supplies for this exact Space before confirming completion.", displaySequence: 10 + i, scheduleKind: "OPERATIONAL_CYCLE", cycleStableKeys: [stableKey], completionMode: "EXPLICIT_CONFIRMATION", responsibilityMode: "UNIT_SHARED" })) } });
-    published = await work.publishWorkPlan(session, { facilityId, departmentId, workPlanId: draft.id, actor: { userId: manager.userId }, client: db });
-  }
+  void extraWorkItems;
   for (let i = 0; i < extraKeyTimes; i++) {
     const draft = await cycles.createDraft(session, { facilityId, departmentId, client: db, actor: { userId: manager.userId }, draft: {
       stableKey: `canonical_${tag}_actual_${i}`, label: `Service check ${i + 1}`, nodeKind: "KEY_TIME", parentStableKey: stableKey,
@@ -78,5 +76,5 @@ export async function prepareCanonicalOfflineFixture(db, { facilityId, departmen
     } });
     await cycles.publishCycle(session, { facilityId, departmentId, cycleId: draft.id, actor: { userId: manager.userId }, allowImmediate: true, client: db });
   }
-  return { facilityId, departmentId, unitId: room.unitId, spaceId: room.id, profileId: profile.profileId, cycleId: cycle.id, keyPointId: keyPoint.id, cycleStableKey: stableKey, workPlanId: published.id, workLabel: "Check food service supplies", people };
+  return { facilityId, departmentId, unitId: room.unitId, spaceId: room.id, spaceName: room.name, profileId: null, cycleId: cycle.id, keyPointId: keyPoint.id, cycleStableKey: stableKey, operationLabel: cycle.label, workPlanId: null, workLabel: null, people };
 }

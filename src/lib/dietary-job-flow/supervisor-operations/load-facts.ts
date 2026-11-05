@@ -4,11 +4,7 @@
  */
 
 import type { AppJwtPayload } from "@/lib/auth";
-import {
-  isDepartmentOperationalEvidenceEnabled,
-  isDepartmentWorkPlansEnabled,
-} from "@/lib/department-operations";
-import { loadSupervisorWorkExceptions } from "@/lib/department-work";
+import { isDepartmentOperationalEvidenceEnabled } from "@/lib/department-operations";
 import { loadZonesForDepartment } from "@/lib/department-zones";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
@@ -64,7 +60,6 @@ export async function loadSupervisorOperationsFacts(
   const oaEnabled = true;
   const harborLogsEnabled = isCanonicalLogsEnabled();
   const evidenceCompatEnabled = isDepartmentOperationalEvidenceEnabled(input.departmentKey);
-  const workPlansEnabled = isDepartmentWorkPlansEnabled(input.departmentKey);
   const isEvs = input.departmentKey === "EVS";
   const isPlant =
     input.departmentKey === "PLANT" &&
@@ -114,7 +109,6 @@ export async function loadSupervisorOperationsFacts(
     plan,
     board,
     historicalRecords,
-    workExceptions,
     pendingConflictRows,
     pendingOfflineReceipts,
     plantOverlay,
@@ -168,16 +162,6 @@ export async function loadSupervisorOperationsFacts(
           take: 50,
         })
       : Promise.resolve([] as SupervisorHistoricalEvidenceRecord[]),
-    workPlansEnabled
-      ? loadSupervisorWorkExceptions({
-          facilityId: input.facilityId,
-          departmentId: input.departmentId,
-          operationalDate: serviceDate,
-          operationalDateKey,
-          now,
-          facilityTimezone: timezone,
-        })
-      : Promise.resolve([]),
     // Sync models have no departmentId. Scope is unit responsibility.
     // A shared unit conflict may surface for every responsible department.
     departmentUnitIds.length > 0
@@ -331,14 +315,6 @@ export async function loadSupervisorOperationsFacts(
     coverageCounts,
     coverageGaps,
     historicalRecords,
-    workExceptions: workExceptions.map((row) => ({
-      occurrenceKey: row.occurrenceKey,
-      label: row.label,
-      unitId: row.unitId,
-      unitName: row.unitName,
-      state: row.state,
-      assignedEmployeeId: row.assignedEmployeeId,
-    })),
     sync: {
       retryRequired: pendingOfflineReceipts.length,
       pendingConflicts: pendingConflictRows.length,

@@ -1,8 +1,8 @@
 /**
- * Wave 15F — Locations Experience view model.
+ * Locations view model.
  *
- * Locations only renders this model. Eligibility, visibility, Experiences,
- * Plant policy, and permission narrowing are Projection's responsibility.
+ * Locations renders the physical hierarchy Projection marks from Facility
+ * responsibility.
  */
 
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
@@ -15,24 +15,9 @@ import type {
 
 export type LocationsLensMode = "DEPARTMENT" | "FACILITY";
 
-export type LocationsExperienceRef = {
-  experienceKey: string;
-  areaKey: string;
-  label: string;
-  order: number;
-  allowedActionKeys: readonly string[];
-};
-
-export type LocationsAreaRef = {
-  areaKey: string;
-  label: string;
-  order: number;
-  experiences: readonly LocationsExperienceRef[];
-};
-
 /**
  * Place-entry tree node:
- * Facility → Building? → Floor → Neighborhood → Room → Operational Areas → Experiences
+ * Facility → Building? → Floor → Neighborhood → Room
  *
  * Shared by Locations and Sidebar — same physical keys, ancestry, actionability.
  */
@@ -52,8 +37,6 @@ export type LocationsTreeNode = {
   unitId: string | null;
   /** Workspace entry when Projection marks ACTIONABLE. */
   href: string | null;
-  experienceKeys: readonly string[];
-  areas: readonly LocationsAreaRef[];
   children: readonly LocationsTreeNode[];
 };
 
@@ -84,8 +67,7 @@ export type LocationsViewModel = {
   departmentSnapshots: readonly LocationsDepartmentSnapshot[];
   /**
    * Physical Unit ids for the Locations page loader (deduped).
-   * Physical identity may be shared across labeled department snapshots;
-   * Experiences/Areas remain department-labeled above.
+   * Physical identity may be shared across labeled department snapshots.
    */
   projectedUnitIds: readonly string[];
   diagnostics: readonly { code: string; severity: string; message: string }[];

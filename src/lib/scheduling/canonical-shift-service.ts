@@ -4,8 +4,7 @@
  * Creates ScheduleEntry rows as clock-time presence:
  *   - departmentId required
  *   - plannedStart / plannedEnd required
- *   - unitId = null, roleType = null
- *   - shift = FULL_DAY (schema compatibility; not user-facing primary semantics)
+ *   - shift = FULL_DAY (stored meal-slot label; not where the person works)
  *
  * Does NOT create OperationalAssignment.
  */
@@ -142,8 +141,6 @@ export async function createCanonicalShift(input: {
       workShiftId,
       // Compatibility defaults — not canonical Shift semantics.
       shift: ShiftType.FULL_DAY,
-      unitId: null,
-      roleType: null,
       createdById: input.createdByUserId ?? undefined,
     },
     select: { id: true },
@@ -216,7 +213,7 @@ export async function editCanonicalShift(input: {
       plannedStart,
       plannedEnd,
       ...(workShiftId !== undefined ? { workShiftId } : {}),
-      // Do not mutate unitId / roleType / departmentId / Daily Assignment.
+      // Do not mutate departmentId or the daily Assignment.
     },
   });
 }

@@ -1,5 +1,7 @@
 # 2. Repository Structure
 
+Historical layout. `src/lib/scheduling-eligibility.ts` was removed in Phase 7B.
+
 ## Workspace layout
 
 ```

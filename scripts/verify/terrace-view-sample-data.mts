@@ -151,7 +151,7 @@ async function main() {
           status: "ACTIVE",
           primaryDepartmentId: departmentId,
           operatorPeriodId: periodId,
-          employeeDepartments: { create: { departmentId, roleType } },
+          employeeDepartments: { create: { departmentId } },
         },
       });
     };

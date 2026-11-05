@@ -59,21 +59,19 @@ function emptyState(partial: {
           facilityRoomTypeId: "type-prod",
           responsible: true,
         },
-        teams: attached ? [{ id: "culinary", name: "Culinary", spaceIds: ["kitchen-1"] }] : [],
-        teamCycles: attached
+        teams: [],
+        teamCycles: [],
+        cyclePlacements: attached
           ? [
               {
-                teamId: "culinary",
+                spaceIds: ["kitchen-1"],
                 cycleStableKey: "breakfast",
                 label: "Breakfast",
                 startLocal: "06:00",
                 endLocal: "10:00",
-                requiredCount: 5,
-                grain: "TOTAL",
               },
             ]
           : [],
-        cyclePlacements: [],
         spaceLogs: [],
         assetLogs: [],
         typeDefaults: [],
@@ -155,13 +153,13 @@ test("unprogrammed room: happening is unprogrammed, pace idle, no invented cycle
   assert.deepEqual(answers.wrong, []);
 });
 
-test("programmed room with no open cycle is none / idle", () => {
+test("responsible room with a cycle and no open window is none / idle", () => {
   const answers = deriveRuntimeLocationAnswers(emptyState({ attached: true }));
   assert.equal(answers.happening.state, "none");
   assert.equal(answers.happening.label, HAPPENING_NONE_LABEL);
   assert.equal(answers.cycle.open, null);
   assert.equal(answers.pace, "idle");
-  assert.equal(answers.responsible.teams[0]?.name, "Culinary");
+  assert.deepEqual(answers.responsible.teams, []);
 });
 
 test("open cycle + covered need + no exceptions is ready", () => {

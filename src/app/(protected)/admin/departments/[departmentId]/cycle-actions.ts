@@ -63,21 +63,6 @@ const locationModeSchema = z.enum([
 
 const milestoneSchema = z.enum(["READY", "SERVICE_STARTED"]);
 
-const unitTypeSchema = z.enum([
-  "SERVERY",
-  "KITCHEN",
-  "RETAIL",
-  "OFFICE",
-  "STORAGE",
-  "OTHER",
-  "RESIDENT_AREA",
-  "COMMON_AREA",
-  "MECHANICAL",
-  "RESTROOM_CLUSTER",
-  "EVS_ZONE",
-  "GROUND",
-]);
-
 function actorFromSession(session: {
   uid: string;
   name?: string | null;
@@ -137,17 +122,18 @@ function parseCsvEnums<T extends string>(
 
 function parseLocationMode(formData: FormData) {
   const appliesTo = String(formData.get("appliesTo") ?? "").trim();
-  if (
-    appliesTo === "department" ||
-    appliesTo === "room_type" ||
-    appliesTo === "specific" ||
-    appliesTo === "operational_types"
-  ) {
-    return locationModeFromUserScope(appliesTo as CycleUserScope);
+  if (appliesTo === "department" || appliesTo === "specific") {
+    return locationModeFromUserScope(appliesTo);
   }
-  return locationModeSchema.parse(
+  const mode = locationModeSchema.parse(
     String(formData.get("locationMode") ?? "ALL_DEPARTMENT_UNITS"),
   );
+  if (mode === "UNIT_TYPES" || mode === "ROOM_TYPE" || mode === "OPERATIONAL_TYPES") {
+    throw new Error(
+      "Choose all locations this department is responsible for, or selected locations.",
+    );
+  }
+  return mode;
 }
 
 function parseIdList(raw: FormDataEntryValue | null): string[] {
@@ -226,17 +212,6 @@ function parseDraftFromForm(formData: FormData) {
     })(),
     locationMode: locationInheritFromParent ? "EXPLICIT_UNITS" : locationMode,
     locationInheritFromParent,
-    applicableUnitTypes:
-      locationMode === "UNIT_TYPES"
-        ? parseCsvEnums(
-            formData.get("applicableUnitTypes"),
-            unitTypeSchema.options as unknown as readonly z.infer<typeof unitTypeSchema>[],
-          )
-        : [],
-    applicableOperationalTypeKeys:
-      locationMode === "OPERATIONAL_TYPES"
-        ? parseIdList(formData.get("applicableOperationalTypeKeys"))
-        : [],
     unitIds:
       locationMode === "EXPLICIT_UNITS" && !locationInheritFromParent
         ? parseIdList(formData.get("unitIds"))
@@ -246,10 +221,6 @@ function parseDraftFromForm(formData: FormData) {
         ? parseIdList(formData.get("spaceIds"))
         : [],
     keyTimeGroups: nodeKind === "KEY_TIME" ? parseKeyTimeGroups(formData.get("keyTimeGroups")) : [],
-    roomTypeKey:
-      locationMode === "ROOM_TYPE"
-        ? String(formData.get("roomTypeKey") ?? "").trim() || null
-        : null,
     expectedMilestones: parseCsvEnums(
       formData.get("expectedMilestones"),
       milestoneSchema.options as unknown as readonly z.infer<typeof milestoneSchema>[],

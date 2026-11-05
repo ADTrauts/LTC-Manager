@@ -70,7 +70,7 @@ function toCoverageTemplates(
       roleLabel: string;
       requiredCount: number;
       unitId: string | null;
-      applicableOperationalTypeKeys: string[];
+      spaceId: string | null;
       applicableOperationalCycleStableKeys: string[];
     }>;
   }>,
@@ -89,7 +89,7 @@ function toCoverageTemplates(
       roleLabel: item.roleLabel,
       requiredCount: item.requiredCount,
       unitId: item.unitId,
-      applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
+      spaceId: item.spaceId,
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
     })),
   }));
@@ -122,8 +122,6 @@ export async function prefetchRuntimeLocationInputs(
       operationalAssignmentsEnabled: oaEnabled,
       spaces: [],
       spaceRefs,
-      profilesByDepartmentId: new Map(),
-      operationalTypesBySpaceId: new Map(),
       runModelsByDepartmentId: new Map(),
       coverageTemplatesByDepartmentId: new Map(),
       coveragePlanByDepartmentId: new Map(),
@@ -138,7 +136,7 @@ export async function prefetchRuntimeLocationInputs(
   }
 
   stats.spaceIdentityQueries += 1;
-  const [facility, spaces, activeProfiles, departments] = await Promise.all([
+  const [facility, spaces, departments] = await Promise.all([
     prisma.facility.findFirst({
       where: { id: input.facilityId },
       select: { id: true, displayName: true },
@@ -162,17 +160,6 @@ export async function prefetchRuntimeLocationInputs(
         },
       },
     }),
-    departmentIds.length === 0
-      ? Promise.resolve([])
-      : prisma.departmentOperationalProfile.findMany({
-          where: {
-            facilityId: input.facilityId,
-            departmentId: { in: departmentIds },
-            status: "ACTIVE",
-          },
-          select: { id: true, departmentId: true, version: true, status: true },
-          orderBy: { version: "desc" },
-        }),
     departmentIds.length === 0
       ? Promise.resolve([])
       : prisma.department.findMany({
@@ -212,28 +199,6 @@ export async function prefetchRuntimeLocationInputs(
       facilityRoomTypeId: space.facilityRoomTypeId ?? space.facilityRoomType?.id ?? null,
     };
   });
-
-  const profilesByDepartmentId = new Map<
-    string,
-    { id: string; version: number; status: "ACTIVE" } | null
-  >();
-  for (const departmentId of departmentIds) {
-    const profile = activeProfiles.find((row) => row.departmentId === departmentId);
-    profilesByDepartmentId.set(
-      departmentId,
-      profile
-        ? { id: profile.id, version: profile.version, status: "ACTIVE" }
-        : null,
-    );
-  }
-
-  const operationalTypesBySpaceId = new Map<
-    string,
-    { key: string; name: string; id: string | null } | null
-  >();
-  for (const space of spaceRows) {
-    operationalTypesBySpaceId.set(space.spaceId, null);
-  }
 
   const runModelsByDepartmentId = new Map<string, RuntimePublishedRunModel>();
   const loadedModels = await Promise.all(
@@ -275,7 +240,7 @@ export async function prefetchRuntimeLocationInputs(
                 roleLabel: true,
                 requiredCount: true,
                 unitId: true,
-                applicableOperationalTypeKeys: true,
+                spaceId: true,
                 applicableOperationalCycleStableKeys: true,
               },
             },
@@ -517,7 +482,6 @@ export async function prefetchRuntimeLocationInputs(
       spaceId: row.spaceId,
       unitId: row.unitId,
       targetDepartmentId: row.targetDepartmentId,
-      operationalTypeKey: row.operationalTypeKey,
       dailyWindows: row.dailyWindows,
       cycleSelections: row.cycleSelections,
       catalogDefinition: {
@@ -576,8 +540,6 @@ export async function prefetchRuntimeLocationInputs(
         spaceId: space.spaceId,
         departmentId: space.departmentId,
         unitId: space.unitId,
-        operationalTypeKey: null,
-        operationalTypeName: null,
         facilityId: input.facilityId,
       })),
       operationalDateKey,
@@ -615,8 +577,6 @@ export async function prefetchRuntimeLocationInputs(
     operationalAssignmentsEnabled: oaEnabled,
     spaces: spaceRows,
     spaceRefs,
-    profilesByDepartmentId,
-    operationalTypesBySpaceId,
     runModelsByDepartmentId,
     coverageTemplatesByDepartmentId,
     coveragePlanByDepartmentId,

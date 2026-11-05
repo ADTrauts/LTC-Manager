@@ -5,7 +5,6 @@
 
 import type { JobFlowLocationSequence } from "@/lib/dietary-job-flow/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import { formatClock } from "@/lib/unit-workspace/space";
 
 import { operationSummaryLabel } from "./operation";
@@ -114,15 +113,6 @@ const IMPACT_LABEL = {
   WORKAROUND_AVAILABLE: "Workaround available",
 } as const;
 
-const WORK_STATE_LABEL: Partial<Record<WorkRequirement["state"], string>> = {
-  PAST_DUE_NOT_CONFIRMED: "Overdue",
-  DUE: "Due now",
-  CURRENT: "Due now",
-  UPCOMING: "Upcoming",
-  COMPLETED: "Completed",
-  COMPLETED_WITH_EVIDENCE: "Completed",
-};
-
 const TEMPLATE_STATE_CATEGORY: Partial<Record<EvidenceRequirement["state"], EmployeeEvidenceCategory>> = {
   NOT_CONFIRMED: "needs_attention",
   NEEDS_REVIEW: "needs_attention",
@@ -178,38 +168,6 @@ function templateHref(landingUnitId: string, item: Pick<EvidenceRequirement, "re
   return `/unit/${unitId}?evidence=${encodeURIComponent(item.requirementKey)}`;
 }
 
-function workHref(landingUnitId: string, row: WorkRequirement): string {
-  if (row.spaceId) {
-    return `/unit/${landingUnitId}?space=${encodeURIComponent(row.spaceId)}&work=${encodeURIComponent(row.occurrenceKey)}`;
-  }
-  return `/unit/${landingUnitId}?work=${encodeURIComponent(row.occurrenceKey)}`;
-}
-
-function linkedEvidenceHref(
-  flow: EmployeeRuntimeFlow,
-  landingUnitId: string,
-  row: WorkRequirement,
-): string | null {
-  const key = row.linkedTemplateStableKey?.trim();
-  if (!key || row.completionMode !== "LINKED_EVIDENCE") return null;
-  if (flow.evidenceMode === "harbor") {
-    const match = flow.evidence.find((item) => item.catalogStableKey === key);
-    if (match) return harborHref(match);
-  }
-  if (flow.evidenceMode === "template") {
-    const match = flow.templateEvidence.find(
-      (item) => item.templateStableKey === key || item.requirementKey === key,
-    );
-    if (match) return templateHref(landingUnitId, match);
-  }
-  return templateHref(landingUnitId, { requirementKey: key, spaceId: row.spaceId });
-}
-
-function workAction(row: WorkRequirement): string {
-  if (row.completionMode === "LINKED_EVIDENCE") return "Record";
-  return "Complete";
-}
-
 function evidenceAction(category: EmployeeEvidenceCategory, completedHref: boolean): string | null {
   if (category === "completed") return completedHref ? "View" : null;
   if (category === "upcoming") return "Open";
@@ -224,28 +182,8 @@ function spaceNameFor(
   return locations.find((row) => row.spaceId === spaceId)?.displayName ?? null;
 }
 
-function presentWork(
-  flow: EmployeeRuntimeFlow,
-  landingUnitId: string,
-  spaceFilter: string | null,
-): EmployeeRuntimePresentedItem[] {
-  return flow.work
-    .filter((row) => (spaceFilter ? row.spaceId === spaceFilter : true))
-    .filter((row) => WORK_STATE_LABEL[row.state])
-    .map((row) => {
-      const linked = linkedEvidenceHref(flow, landingUnitId, row);
-      const href = linked ?? workHref(landingUnitId, row);
-      return {
-        id: row.occurrenceKey,
-        kind: "work" as const,
-        label: row.label,
-        stateLabel: WORK_STATE_LABEL[row.state] ?? row.state,
-        spaceId: row.spaceId,
-        spaceName: spaceNameFor(row.spaceId, flow.locations),
-        href,
-        actionLabel: workAction(row),
-      };
-    });
+function presentWork(): EmployeeRuntimePresentedItem[] {
+  return [];
 }
 
 function presentHarborEvidence(
@@ -384,18 +322,10 @@ function spaceAttention(
   flow: EmployeeRuntimeFlow,
   spaceId: string,
 ): string | null {
-  const overdueWork = flow.work.find(
-    (row) => row.spaceId === spaceId && row.state === "PAST_DUE_NOT_CONFIRMED",
-  );
-  if (overdueWork) return `${overdueWork.label} overdue`;
   const overdueEvidence = flow.evidence.find(
     (row) => row.spaceId === spaceId && row.productState === "OVERDUE",
   );
   if (overdueEvidence) return `${overdueEvidence.displayName} overdue`;
-  const dueWork = flow.work.find(
-    (row) => row.spaceId === spaceId && (row.state === "DUE" || row.state === "CURRENT"),
-  );
-  if (dueWork) return `${dueWork.label} due now`;
   const dueEvidence = flow.evidence.find(
     (row) => row.spaceId === spaceId && row.category === "due_now",
   );
@@ -441,7 +371,7 @@ export function presentEmployeeRuntimeExperience(input: {
     flow.assignmentAvailability === "evaluated" && !flow.device.mismatch && spaceAssigned;
   const effectiveFilter = showExecution ? (grain === "space" ? spaceId : null) : "__none__";
 
-  const work = showExecution ? presentWork(flow, landingUnitId, effectiveFilter) : [];
+  const work = showExecution ? presentWork() : [];
   const evidenceItems = showExecution
     ? flow.evidenceMode === "harbor"
       ? presentHarborEvidence(flow, effectiveFilter)

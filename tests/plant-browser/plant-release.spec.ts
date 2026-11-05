@@ -78,33 +78,14 @@ async function loginPassword(page: Page, email: string, password: string) {
   await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30_000 });
 }
 
-const STARTER_WORK_KEYS = [
-  "MECHANICAL_ROOM_ROUND",
-  "BUILDING_WALKTHROUGH",
-  "EXTERIOR_GROUNDS_WALKTHROUGH",
-  "GENERATOR_VISUAL_CHECK",
-] as const;
-
-const STARTER_RECORD_KEYS = [
-  "EQUIPMENT_CONDITION_INSPECTION",
-  "MECHANICAL_ROOM_INSPECTION",
-  "GENERATOR_INSPECTION",
-  "BASIC_EQUIPMENT_READING",
-  "POST_WORK_ORDER_VERIFICATION",
-] as const;
-
 async function resetPlantStarterRows(
   db: PrismaClient,
   facilityId: string,
   departmentId: string,
 ) {
-  await db.departmentWorkPlan.deleteMany({
-    where: {
-      facilityId,
-      departmentId,
-      OR: [{ presetKey: { in: [...STARTER_WORK_KEYS] } }, { stableKey: { in: [...STARTER_WORK_KEYS] } }],
-    },
-  });
+  void db;
+  void facilityId;
+  void departmentId;
   await Promise.resolve();
 }
 
@@ -121,9 +102,9 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
       await expect(page.getByTestId("department-builder-nav")).toBeVisible({ timeout: 30_000 });
       const nav = page.getByTestId("department-builder-nav");
       await expect(nav.getByRole("link", { name: "Overview" })).toBeVisible();
-      await expect(nav.getByRole("link", { name: "Locations" })).toBeVisible();
+      await expect(nav.getByRole("link", { name: "Facility" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "Operating Rhythm" })).toBeVisible();
-      await expect(nav.getByRole("link", { name: "Work" })).toBeVisible();
+      await expect(nav.getByRole("link", { name: "Work" })).toHaveCount(0);
       await expect(nav.getByRole("link", { name: "Maintenance" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "People & Coverage" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "Records" })).toBeVisible();
@@ -135,15 +116,13 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
       await page.goto(`/build/departments/${fx.plantDepartmentId}?starter=1`);
       await expect(page.getByTestId("plant-starter-panel")).toBeVisible({ timeout: 20_000 });
       await expect(page.getByText("Plant Operations starter configuration")).toBeVisible();
-      await page.getByTestId("starter-work-EXTERIOR_GROUNDS_WALKTHROUGH").uncheck();
-      await page.getByTestId("starter-work-GENERATOR_VISUAL_CHECK").uncheck();
       await page.getByTestId("starter-record-MECHANICAL_ROOM_INSPECTION").uncheck();
       await page.getByTestId("starter-record-GENERATOR_INSPECTION").uncheck();
       await page.getByTestId("starter-record-BASIC_EQUIPMENT_READING").uncheck();
       await page.getByTestId("starter-record-POST_WORK_ORDER_VERIFICATION").uncheck();
       await page.getByTestId("plant-starter-install").click();
       await expect(page.getByTestId("plant-starter-result")).toContainText(
-        "2 recurring Work presets added",
+        "1 Record template added",
         { timeout: 20_000 },
       );
 

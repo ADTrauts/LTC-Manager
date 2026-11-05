@@ -301,8 +301,9 @@ test("review shows scope and changed meal times only", () => {
       label: "Breakfast Service",
       status: "DRAFT",
       version: 2,
-      locationMode: "ROOM_TYPE",
-      roomTypeKey: "servery",
+      locationMode: "EXPLICIT_UNITS",
+      roomTypeKey: null,
+      spaceIds: ["np-servery"],
       mealType: "BREAKFAST",
       expectedMilestones: ["READY", "SERVICE_STARTED"],
       milestoneTimes: [
@@ -315,8 +316,15 @@ test("review shows scope and changed meal times only", () => {
     drafts,
     current,
     unitNames: { np: "Naval Park", lh: "Lighthouse" },
+    locationNames: { "np-servery": "Naval Park Servery" },
   });
-  assert.ok(changes.some((c) => c.kind === "location" && c.summary.includes("Room Type: Servery")));
+  assert.ok(
+    changes.some(
+      (c) =>
+        c.kind === "location" &&
+        c.summary.includes("Naval Park Servery"),
+    ),
+  );
   const times = changes.find((c) => c.kind === "service_times");
   assert.ok(times);
   assert.match(times!.summary, /Naval Park 07:15 → 07:20/);

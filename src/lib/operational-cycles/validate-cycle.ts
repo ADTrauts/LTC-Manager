@@ -4,10 +4,8 @@ import type {
   OperationalCycleNodeKind,
   OperationalCycleType,
   ServeryMilestone,
-  UnitType,
 } from "@prisma/client";
 
-import { isStandardRoomTypeKey } from "./cycle-scope";
 import { effectiveDateRangesOverlap } from "./cycle-lifecycle";
 import {
   isStructurallyOvernight,
@@ -37,13 +35,10 @@ export type ValidateCycleInput = {
   mealType?: MealType | null;
   locationMode: OperationalCycleLocationMode;
   locationInheritFromParent?: boolean;
-  applicableUnitTypes?: UnitType[];
-  applicableOperationalTypeKeys?: string[];
   unitIds?: string[];
   spaceIds?: string[];
   keyTimeGroups?: KeyTimeGroupDefinition[];
   keyPointGrain?: KeyPointGrain;
-  roomTypeKey?: string | null;
   expectedMilestones?: ServeryMilestone[];
   /** Latest parent row. Required to enforce one-level Phase and Cycle-parented Key Points. */
   parentNode?: CanonicalParentContext | null;
@@ -60,7 +55,6 @@ export type PublishedCycleOverlapCandidate = {
   overnight: boolean;
   applicableDaysOfWeek: number[];
   locationMode: OperationalCycleLocationMode;
-  applicableUnitTypes: UnitType[];
   unitIds: string[];
   /** YYYY-MM-DD — when set with peer ranges, only overlapping effective windows conflict. */
   effectiveFrom?: string;
@@ -80,22 +74,17 @@ function normalizedNodeKind(input: ValidateCycleInput): OperationalCycleNodeKind
   return input.nodeKind ?? "PERIOD";
 }
 
-function hasLegacyRoomTypeScope(input: ValidateCycleInput): boolean {
-  return input.locationMode === "ROOM_TYPE" && Boolean(input.roomTypeKey?.trim());
+function hasLegacyRoomTypeScope(_input: ValidateCycleInput): boolean {
+  return false;
 }
 
 /** Location scopes intersect when both could apply to the same unit. */
 export function locationScopesIntersect(
-  a: Pick<PublishedCycleOverlapCandidate, "locationMode" | "applicableUnitTypes" | "unitIds">,
-  b: Pick<PublishedCycleOverlapCandidate, "locationMode" | "applicableUnitTypes" | "unitIds">,
+  a: Pick<PublishedCycleOverlapCandidate, "locationMode" | "unitIds">,
+  b: Pick<PublishedCycleOverlapCandidate, "locationMode" | "unitIds">,
 ): boolean {
   if (a.locationMode === "ALL_DEPARTMENT_UNITS" || b.locationMode === "ALL_DEPARTMENT_UNITS") {
     return true;
-  }
-
-  if (a.locationMode === "UNIT_TYPES" && b.locationMode === "UNIT_TYPES") {
-    const setB = new Set(b.applicableUnitTypes);
-    return a.applicableUnitTypes.some((t) => setB.has(t));
   }
 
   if (a.locationMode === "EXPLICIT_UNITS" && b.locationMode === "EXPLICIT_UNITS") {
@@ -267,6 +256,19 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
     errors.push(issue("label_required", "Cycle label is required.", "error"));
   }
 
+  if (
+    input.locationMode !== "ALL_DEPARTMENT_UNITS" &&
+    input.locationMode !== "EXPLICIT_UNITS"
+  ) {
+    errors.push(
+      issue(
+        "location_targeting_retired",
+        "Choose all responsible locations or selected locations.",
+        "error",
+      ),
+    );
+  }
+
   const structureError = canonicalParentRejection({
     nodeKind,
     parent: input.parentNode ?? null,
@@ -421,49 +423,6 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
     );
   }
 
-  if (input.locationMode === "UNIT_TYPES" || input.locationMode === "ROOM_TYPE") {
-    errors.push(
-      issue(
-        "physical_location_retired",
-        "Cycles apply by explicit locations and Location Functions. Unit type and room type no longer choose where a Cycle runs.",
-        "error",
-      ),
-    );
-  }
-
-  if (hasLegacyRoomTypeScope(input)) {
-    const key = input.roomTypeKey?.trim() ?? "";
-    if (!isStandardRoomTypeKey(key)) {
-      errors.push(
-        issue(
-          "room_type_required",
-          "Room Type scope requires a standard Facility Room Type.",
-          "error",
-        ),
-      );
-    }
-  }
-
-  if (input.locationMode === "UNIT_TYPES") {
-    if (!input.applicableUnitTypes || input.applicableUnitTypes.length === 0) {
-      errors.push(
-        issue("unit_types_required", "Unit-type location mode requires at least one unit type.", "error"),
-      );
-    }
-  }
-
-  if (input.locationMode === "OPERATIONAL_TYPES") {
-    const keys = (input.applicableOperationalTypeKeys ?? []).map((key) => key.trim()).filter(Boolean);
-    if (keys.length === 0) {
-      const msg = "Choose at least one Operational Type for this cycle.";
-      if (forPublish) {
-        errors.push(issue("operational_types_required", msg, "error"));
-      } else {
-        warnings.push(issue("operational_types_empty", msg, "warning"));
-      }
-    }
-  }
-
   return {
     valid: errors.length === 0,
     errors,
@@ -496,7 +455,6 @@ export function validateCycleForPublish(
         overnight: input.overnight ?? false,
         applicableDaysOfWeek: input.applicableDaysOfWeek,
         locationMode: input.locationMode,
-        applicableUnitTypes: input.applicableUnitTypes ?? [],
         unitIds: input.unitIds ?? [],
         effectiveFrom: input.effectiveFrom?.trim() || undefined,
         effectiveTo: input.effectiveTo ?? null,

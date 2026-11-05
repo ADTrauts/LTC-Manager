@@ -35,7 +35,6 @@ export default async function PreventiveMaintenanceListPage({ params, searchPara
   const view = await loadDepartmentAdminView({
     facilityId: session.facilityId,
     departmentId,
-    requestedProfileId: null,
   });
   if (!view || view.department.key !== "PLANT") notFound();
 

@@ -17,7 +17,6 @@ function tabClass(isActive: boolean) {
 
 const SUB_NAV_ITEMS: { href: string; label: string; minRole: AppRole }[] = [
   { href: "/employees", label: "Employees", minRole: "STAFF" },
-  { href: "/employees/job-roles", label: "Job Roles", minRole: "MANAGER" },
 ];
 
 export function EmployeesSubNav({ role }: EmployeesSubNavProps) {
@@ -28,15 +27,9 @@ export function EmployeesSubNav({ role }: EmployeesSubNavProps) {
     return null;
   }
 
-  const employeesActive = pathname !== null && pathname === "/employees";
-  const jobRolesActive =
-    pathname !== null &&
-    (pathname === "/employees/job-roles" || pathname.startsWith("/employees/job-roles/"));
-
   function isActiveForHref(href: string): boolean {
     if (pathname === null) return false;
-    if (href === "/employees") return employeesActive;
-    if (href === "/employees/job-roles") return jobRolesActive;
+    if (href === "/employees") return pathname === "/employees";
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 

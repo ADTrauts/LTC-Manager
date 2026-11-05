@@ -8,7 +8,7 @@ import { DEFAULT_MENU_PERIODS } from "@/lib/menu-cycle";
 import {
   evaluateMenuApplicabilityAttention,
   expandAllDepartmentLocations,
-  expandRoomsByOperationalType,
+  expandRoomsByFacilityRoomType,
   expandRoomsUnderNeighborhood,
   isEligibleMenuCycleIdentity,
   cycleAssignmentsFromPeriods,
@@ -43,17 +43,12 @@ function location(
     parentNeighborhoodName: partial.kind === "room" ? "Botanical Gardens" : null,
     parentNeighborhoodId: partial.kind === "room" ? "botanical" : null,
     isActive: true,
-    patternKey: null,
-    patternLabel: null,
-    hasPattern: false,
-    hasOverrides: false,
     status: "assigned",
     unitType: partial.kind === "neighborhood" ? "OTHER" : null,
     hierarchyRole: partial.kind === "neighborhood" ? "NEIGHBORHOOD" : null,
     spaceTypeLabel: null,
     roomTypeKey: null,
     roomTypeLabel: null,
-    recommendedPatternKey: null,
     ...partial,
   };
 }
@@ -64,18 +59,16 @@ const servery = location({
   kind: "room",
   displayName: "Botanical Gardens Servery",
   parentNeighborhoodId: "botanical",
-  patternKey: "archetype:servery",
-  patternLabel: "Servery",
-  hasPattern: true,
+  roomTypeKey: "servery",
+  roomTypeLabel: "Servery",
 });
 const cafe = location({
   id: "cafe",
   kind: "room",
   displayName: "Retail Café",
   parentNeighborhoodId: "botanical",
-  patternKey: "archetype:retail",
-  patternLabel: "Retail",
-  hasPattern: true,
+  roomTypeKey: "retail",
+  roomTypeLabel: "Retail",
 });
 const actionable = [botanical, servery, cafe];
 
@@ -353,19 +346,19 @@ test("bulk helpers write explicit current IDs and do not invent a live rule", ()
     all.map((row) => menuLocationTargetKey(row)).sort(),
     ["space:botanical-servery", "space:cafe", "unit:botanical"],
   );
-  const serveries = expandRoomsByOperationalType(actionable, "archetype:servery");
+  const serveries = expandRoomsByFacilityRoomType(actionable, "servery");
   assert.deepEqual(serveries, [{ unitId: null, spaceId: "botanical-servery" }]);
   const underNeighborhood = expandRoomsUnderNeighborhood(actionable, "botanical");
   assert.deepEqual(
     underNeighborhood.map((row) => row.spaceId).sort(),
     ["botanical-servery", "cafe"],
   );
-  const later = location({ id: "new-servery", kind: "room", displayName: "New", patternKey: "archetype:servery" });
+  const later = location({ id: "new-servery", kind: "room", displayName: "New", roomTypeKey: "servery" });
   assert.equal(
-    expandRoomsByOperationalType(actionable, "archetype:servery").some((row) => row.spaceId === "new-servery"),
+    expandRoomsByFacilityRoomType(actionable, "servery").some((row) => row.spaceId === "new-servery"),
     false,
   );
-  assert.equal(expandRoomsByOperationalType([...actionable, later], "archetype:servery").length, 2);
+  assert.equal(expandRoomsByFacilityRoomType([...actionable, later], "servery").length, 2);
 });
 
 test("first room of a type offers remaining rooms even when only the label matches", () => {

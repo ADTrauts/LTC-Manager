@@ -3,13 +3,12 @@
  *
  * Not persisted. Not a second operational truth engine.
  * OA = responsibility. RLS = place operation / Harbor evidence / impact / milestones.
- * Work Plans = work to perform. This contract reduces and prioritizes.
+ * Assignments and due Records are the work. This contract reduces and prioritizes.
  */
 
 import type { AssetOperationalImpact } from "@prisma/client";
 
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import type { LogRequirementProductState } from "@/lib/logs-architecture/types";
 import type { RuntimeMilestoneKind } from "@/lib/runtime-location-state";
@@ -41,8 +40,6 @@ export type EmployeeRuntimeLocation = {
   unitName: string | null;
   floorName: string | null;
   neighborhoodName: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
   operationLabel: string | null;
   operationState: "ACTIVE" | "NONE";
 };
@@ -79,13 +76,10 @@ export type EmployeeRuntimeIssue = {
 };
 
 export type EmployeeRuntimeNextKind =
-  | "overdue_work"
   | "overdue_evidence"
-  | "due_work"
   | "due_evidence"
   | "milestone"
   | "assignment_transition"
-  | "upcoming_work"
   | "upcoming_evidence"
   | "location_next"
   | "none";
@@ -122,7 +116,6 @@ export type EmployeeRuntimeFlow = {
   evidenceMode: EmployeeRuntimeEvidenceMode;
   evidence: EmployeeRuntimeEvidenceItem[];
   templateEvidence: EvidenceRequirement[];
-  work: WorkRequirement[];
   milestones: EmployeeRuntimeMilestone[];
   issues: EmployeeRuntimeIssue[];
   next: EmployeeRuntimeNextAction;

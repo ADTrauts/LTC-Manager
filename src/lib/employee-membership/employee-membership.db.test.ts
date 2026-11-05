@@ -120,19 +120,16 @@ test(
         facilityId: facility.id,
         departmentId: dietary.id,
         displayName: "Resident Services",
-        spaceIds: [dietaryRoom.id],
       });
       const retail = await createDepartmentTeam(mgr, {
         facilityId: facility.id,
         departmentId: dietary.id,
         displayName: "Retail",
-        spaceIds: [dietaryRoom.id],
       });
       const publicAreas = await createDepartmentTeam(mgr, {
         facilityId: facility.id,
         departmentId: evs.id,
         displayName: "Public Areas",
-        spaceIds: [evsRoom.id],
       });
 
       const sarah = await prisma.employee.create({
@@ -161,14 +158,12 @@ test(
         include: {
           employeeDepartments: true,
           teamMemberships: true,
-          workStations: true,
         },
       });
       assert.equal(afterCreate.primaryDepartmentId, dietary.id);
       assert.equal(afterCreate.employeeDepartments.length, 0);
       assert.equal(afterCreate.jobTitleId, jobTitle.id);
       assert.equal(afterCreate.roleType, "SUPERVISOR");
-      assert.equal(afterCreate.workStations.length, 0);
       const teamById = new Map(afterCreate.teamMemberships.map((row) => [row.teamId, row]));
       assert.equal(teamById.get(residentServices.id)?.isPrimary, true);
       assert.equal(teamById.get(retail.id)?.isPrimary, false);
@@ -288,9 +283,6 @@ test(
         true,
       );
 
-      await prisma.employeeWorkStation.create({
-        data: { employeeId: sarah.id, station: "SERVER" },
-      });
       await syncEmployeeOrganization(prisma, {
         employeeId: sarah.id,
         facilityId: facility.id,
@@ -302,13 +294,6 @@ test(
           { teamId: retail.id, isPrimary: false },
         ],
       });
-      const stations = await prisma.employeeWorkStation.findMany({
-        where: { employeeId: sarah.id },
-      });
-      assert.deepEqual(
-        stations.map((row) => row.station),
-        ["SERVER"],
-      );
       const roleUnchanged = await prisma.employee.findUniqueOrThrow({
         where: { id: sarah.id },
         select: { roleType: true },
@@ -392,9 +377,6 @@ test(
       });
       await prisma.departmentTeam.deleteMany({
         where: { facility: { organization: { name: { contains: suffix } } } },
-      });
-      await prisma.employeeWorkStation.deleteMany({
-        where: { employee: { facility: { organization: { name: { contains: suffix } } } } },
       });
       await prisma.unitSpaceResponsibility.deleteMany({
         where: { space: { facility: { organization: { name: { contains: suffix } } } } },

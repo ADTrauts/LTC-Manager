@@ -328,10 +328,11 @@ export async function changeOrganizationRole(
     revokeSessions?: boolean;
   },
 ): Promise<OrganizationMembershipView> {
-  const at = input.at ?? new Date();
+  let at = input.at ?? new Date();
 
   await runInTransaction(db, async (tx) => {
     await lockOrganizationForAdminMutation(tx, input.organizationId);
+    if (!input.at) at = new Date();
     const row = await loadMembershipRow(tx, {
       userId: input.userId,
       organizationId: input.organizationId,
@@ -409,10 +410,14 @@ export async function endOrganizationMembership(
     revokeSessions?: boolean;
   },
 ): Promise<OrganizationMembershipView> {
-  const endsAt = input.endsAt ?? new Date();
+  let endsAt = input.endsAt ?? new Date();
 
   await runInTransaction(db, async (tx) => {
     await lockOrganizationForAdminMutation(tx, input.organizationId);
+    // Partner assignment uses this Organization lock before its partnership lock.
+    // Read the membership instant after the wait. An earlier clock can miss an
+    // assignment that starts while this transaction is blocked and leave it current.
+    if (!input.endsAt) endsAt = new Date();
     const row = await loadMembershipRow(tx, {
       userId: input.userId,
       organizationId: input.organizationId,

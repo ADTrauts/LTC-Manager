@@ -20,16 +20,18 @@
 | **User authorization (partner)** | Not implemented in Phase 2A. Partner relationship + Department scope do **not** grant any user Facility access. |
 | **Department Product** | Vssyl-owned operational product (Food and Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
-| **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Work preset, Operating Rhythm starter or Menu template. Included or Paid. Runs on Platform engines. Today only Records forms exist as items (`CatalogLogDefinition`). |
+| **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Operating Rhythm starter, or Menu template. Included or Paid. Runs on Platform engines. Today Records forms exist as items (`CatalogLogDefinition`). Generic Work presets are retired. |
 | **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. Operational records stay facility/department-scoped even when the operator differs from the parent Organization. |
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
 | **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
-| **Location Function** | Product `functionKey` bound to an existing room on a Department profile. Stored as `DepartmentRoomArchetype.key`. Not a room name, a label slug, or a physical room type. |
+| **Location Function** | Retired November 3, 2026. A Department's locations are Facility responsibility. Each engine stores its own canonical location. Do not add `functionKey`, `DepartmentRoomArchetype`, or a Department profile. |
 | **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). Email/password authenticates the global `User`. Workspace eligibility is available contexts, not a facility-native vs organization-only identity class. |
 | **User home Facility** | Optional `User.facilityId` presentation marker. Not login authority and not the active Facility. |
 | **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
 | **Organization membership** | `UserOrganizationMembership` + `UserOrganizationRolePeriod` (`ORG_ADMIN` / `ORG_MEMBER`). Independent of Facility access. |
 | **Role** | Facility Capability ladder (RoleKey): Staff → Lead → Supervisor → Manager → GM → Facility Administrator. Not Organization membership roles. |
+| **Operational role** | A function a Department assigns and covers. Identity is `OPERATIONAL_ROLE_REGISTRY`. Not a Job Title, Team, or RoleKey. |
+| **Operational eligibility** | This Employee may perform that operational role in this Department (`EmployeeOperationalRoleQualification`). Membership is required and is not eligibility. An Assignment exception does not grant it. |
 | **Operation** | **Retired** September 25, 2026 ([RETIRED](../platform-vision/RETIRED.md)). The window is an Operational Cycle. Remaining `operationInstanceId` code is removed in LEG-05, and the tables drop at LEG-06. |
 | **Readiness** | Computed location state: Ready / In Progress / Needs Attention. Location answers come from Runtime Location State. |
 | **Task** | **Legacy.** Written only by Task Sync and legacy inspection work. Not Work. Removed in LEG-05, and the table drops at LEG-06 ([LEG-D12](../legacy-retirement/DECISIONS.md#leg-d12--dormant-systems-are-removed-not-kept-dormant--accepted-program-default-october-20-2026)). |
@@ -41,7 +43,9 @@
 | **Record** | One engine. Facility requirement segment, derived expected slot, `OperationalEvidenceRecord`, permitted waiver, correction, and follow-up. Legacy log and inspection stores are compatibility. |
 | **Asset** | Equipment / plant object that can fail or need PM. |
 | **Knowledge article** | Facility-scoped SOP/reference publishable into work context. |
-| **Shift** | Who works, for which Department, and when (`ScheduleEntry`, from a `WorkShift` pattern). Not a place. A call-off marks the shift. |
+| **Job Title** | HR position (`JobTitle`). One title on the Employee. Not eligibility and not authority. |
+| **Team** | Organizational group inside one Department (`DepartmentTeam`). Many memberships, one primary Team per Department. The lead is `managerEmployeeId`. Not eligibility and not authority. |
+| **Shift** | Who works, for which Department, and when (`ScheduleEntry`, from a `WorkShift` pattern). Identity on the schedule is the Employee, Job Title, and primary Team. Not a place and not an operational role. A call-off marks the shift. |
 | **Assignment** | Where a person works today and what they cover (`OperationalAssignment`). A move changes the Assignment. Optional: without one, a person sees the Work for the place they are signed into. |
 | **Schedule / Override / Call-down** | Older umbrella for the two rows above. `AssignmentOverride` is legacy unit movement and retires (LEG-Q04). |
 | **WorkspacePreference** | Per-user, per-facility Workspace layout prefs. |
@@ -164,8 +168,8 @@ Disruption path
 
 | Concern | Authoritative owner |
 |---------|---------------------|
-| What kind of operational location is this for a Department? | Location Function on that Department’s profile (`functionKey`) |
-| Where does published Work apply? | Published Work Plan applicability, including a Location Function key when the plan uses one |
+| Which places belong to this Department? | Facility Builder Department responsibility |
+| Where does Operating Rhythm, a Record, Coverage, or a Menu apply? | That engine's own canonical location rows |
 | What window is active (what is happening now)? | Published Operational Cycle and Phase effective now. Build uses the working profile; Run uses ACTIVE. No published Cycle means no window, never a meal-time guess (foundation round, October 20, 2026). |
 | What was expected on a past service date? | Audit / Reports, using the profile and requirement segment effective that day |
 | Where should the supervisor look first? | The Dashboard |
@@ -177,7 +181,9 @@ Disruption path
 | Which Marketplace items does this Department use? | Its added items. Today: `FacilityCatalogInstall` plus `LogAttachment` for Records forms. |
 | What Work is expected? | Published Work Plans (derived requirements). Assignment does not create Work. |
 | What is **my** work? | One "my work" view: Work Plan items for my assigned places, or for the place I'm signed into when I have no Assignment; Records due there; work orders and preventive maintenance assigned to me. Each source keeps its own store. The view is **Job Flow**, in every Department. |
-| Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks the shift. |
+| Who is this person in HR, and which Team are they on? | `JobTitle` and `EmployeeTeamMembership`. Neither grants eligibility or authority. |
+| Who may perform an operational role in this Department? | `EmployeeOperationalRoleQualification` for one `OPERATIONAL_ROLE_REGISTRY` key. Revoked is not active. |
+| Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks the shift. The shift does not store a unit or a role. |
 | Who covers this location or Work right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. |
 | Who owns this equipment? | Title on the asset: the facility, or the company operating that Department. Existing assets stay facility-titled. A partner-titled asset leaves when the contract ends, and the facility keeps a closed note. |
 | Who maintains it, and who is called to repair it? | The responsible maintainer, and a repair vendor from that maintainer's list. Title and maintainer are separate facts. |

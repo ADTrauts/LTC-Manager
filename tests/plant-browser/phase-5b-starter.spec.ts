@@ -68,13 +68,6 @@ async function loginPassword(page: Page, email: string, password: string) {
   await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30_000 });
 }
 
-const STARTER_WORK_KEYS = [
-  "MECHANICAL_ROOM_ROUND",
-  "BUILDING_WALKTHROUGH",
-  "EXTERIOR_GROUNDS_WALKTHROUGH",
-  "GENERATOR_VISUAL_CHECK",
-] as const;
-
 const STARTER_RECORD_KEYS = [
   "EQUIPMENT_CONDITION_INSPECTION",
   "MECHANICAL_ROOM_INSPECTION",
@@ -88,13 +81,9 @@ async function resetPlantStarterRows(
   facilityId: string,
   departmentId: string,
 ) {
-  await db.departmentWorkPlan.deleteMany({
-    where: {
-      facilityId,
-      departmentId,
-      OR: [{ presetKey: { in: [...STARTER_WORK_KEYS] } }, { stableKey: { in: [...STARTER_WORK_KEYS] } }],
-    },
-  });
+  void db;
+  void facilityId;
+  void departmentId;
   await Promise.resolve();
 }
 
@@ -115,46 +104,21 @@ test.describe("Phase 5B starter configuration @phase-5b @ci-gate", () => {
       await expect(page.getByText("Plant Operations starter configuration")).toBeVisible();
       const review = page.getByTestId("plant-starter-review");
       await expect(review).toBeVisible();
-      await expect(page.getByTestId("starter-work-MECHANICAL_ROOM_ROUND")).toBeVisible();
-      await expect(page.getByTestId("starter-work-BUILDING_WALKTHROUGH")).toBeVisible();
-      await expect(page.getByTestId("starter-work-EXTERIOR_GROUNDS_WALKTHROUGH")).toBeVisible();
-      await expect(page.getByTestId("starter-work-GENERATOR_VISUAL_CHECK")).toBeVisible();
-      await expect(page.getByTestId("starter-record-EQUIPMENT_CONDITION_INSPECTION")).toBeVisible();
-      await expect(page.getByTestId("starter-record-MECHANICAL_ROOM_INSPECTION")).toBeVisible();
-      await expect(page.getByTestId("starter-record-GENERATOR_INSPECTION")).toBeVisible();
-      await expect(page.getByTestId("starter-record-BASIC_EQUIPMENT_READING")).toBeVisible();
-      await expect(page.getByTestId("starter-record-POST_WORK_ORDER_VERIFICATION")).toBeVisible();
+      await expect(page.getByTestId("starter-work-MECHANICAL_ROOM_ROUND")).toHaveCount(0);
+      for (const key of STARTER_RECORD_KEYS) {
+        await expect(page.getByTestId(`starter-record-${key}`)).toBeVisible();
+      }
 
-      await page.getByTestId("starter-work-EXTERIOR_GROUNDS_WALKTHROUGH").uncheck();
-      await page.getByTestId("starter-work-GENERATOR_VISUAL_CHECK").uncheck();
-      await page.getByTestId("starter-record-MECHANICAL_ROOM_INSPECTION").uncheck();
-      await page.getByTestId("starter-record-GENERATOR_INSPECTION").uncheck();
-      await page.getByTestId("starter-record-BASIC_EQUIPMENT_READING").uncheck();
-      await page.getByTestId("starter-record-POST_WORK_ORDER_VERIFICATION").uncheck();
+      for (const key of STARTER_RECORD_KEYS) {
+        if (key === "EQUIPMENT_CONDITION_INSPECTION") continue;
+        await page.getByTestId(`starter-record-${key}`).uncheck();
+      }
       await page.getByTestId("plant-starter-install").click();
       const result = page.getByTestId("plant-starter-result");
       await expect(result).toBeVisible({ timeout: 20_000 });
-      await expect(result).toContainText("2 recurring Work presets added");
       await expect(result).toContainText("1 Record template added");
+      await expect(result).not.toContainText("Work preset");
 
-      const workAfterFirst = await db.departmentWorkPlan.findMany({
-        where: {
-          facilityId: fx.facilityId,
-          departmentId: fx.plantDepartmentId,
-          presetKey: { in: [...STARTER_WORK_KEYS] },
-        },
-        select: { presetKey: true, status: true },
-      });
-      const recordsAfterFirst = await Promise.resolve([] as Array<{ presetKey: string | null; status: string; id: string }>);
-      expect(workAfterFirst.map((row) => row.presetKey).sort()).toEqual([
-        "BUILDING_WALKTHROUGH",
-        "MECHANICAL_ROOM_ROUND",
-      ]);
-      expect(workAfterFirst.every((row) => row.status === "DRAFT")).toBeTruthy();
-      expect(recordsAfterFirst.map((row) => row.presetKey)).toEqual([
-        "EQUIPMENT_CONDITION_INSPECTION",
-      ]);
-      expect(recordsAfterFirst.every((row) => row.status === "DRAFT")).toBeTruthy();
       expect(
         await db.preventiveMaintenancePlan.count({
           where: { facilityId: fx.facilityId, departmentId: fx.plantDepartmentId },
@@ -163,39 +127,14 @@ test.describe("Phase 5B starter configuration @phase-5b @ci-gate", () => {
 
       await page.goto(`/build/departments/${fx.plantDepartmentId}?starter=1`);
       await expect(page.getByTestId("plant-starter-review")).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText("Already added")).toHaveCount(3);
-      await page.getByTestId("starter-work-GENERATOR_VISUAL_CHECK").check();
+      await expect(page.getByText("Already added")).toHaveCount(1);
       await page.getByTestId("starter-record-GENERATOR_INSPECTION").check();
-      await page.getByTestId("starter-work-EXTERIOR_GROUNDS_WALKTHROUGH").uncheck();
       await page.getByTestId("starter-record-MECHANICAL_ROOM_INSPECTION").uncheck();
       await page.getByTestId("starter-record-BASIC_EQUIPMENT_READING").uncheck();
       await page.getByTestId("starter-record-POST_WORK_ORDER_VERIFICATION").uncheck();
       await page.getByTestId("plant-starter-install").click();
-      await expect(page.getByTestId("plant-starter-result")).toContainText(
-        "1 recurring Work preset added",
-      );
       await expect(page.getByTestId("plant-starter-result")).toContainText("1 Record template added");
-
-      const workFinal = await db.departmentWorkPlan.count({
-        where: {
-          facilityId: fx.facilityId,
-          departmentId: fx.plantDepartmentId,
-          presetKey: { in: ["MECHANICAL_ROOM_ROUND", "BUILDING_WALKTHROUGH", "GENERATOR_VISUAL_CHECK"] },
-        },
-      });
-      const recordFinal = await Promise.resolve(0);
-      expect(workFinal).toBe(3);
-      expect(recordFinal).toBe(2);
-
-      await page.goto(`/staffing/work-plans`);
-      await expect(page.getByTestId("work-plan-preset-MECHANICAL_ROOM_ROUND")).toBeVisible({
-        timeout: 20_000,
-      });
-      await expect(page.getByText("Mechanical Room Round").nth(1)).toBeVisible();
-      await page.goto(`/staffing/templates`);
-      await expect(page.getByText("Equipment Condition Inspection").first()).toBeVisible({
-        timeout: 20_000,
-      });
+      await expect(page.getByTestId("plant-starter-result")).not.toContainText("Work preset");
     } finally {
       await db.$disconnect();
       await context.close();

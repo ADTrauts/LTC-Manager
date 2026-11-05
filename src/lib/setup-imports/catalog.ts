@@ -7,7 +7,7 @@ import { resolveAssetOperationsAuthority } from "@/lib/asset-operations/authorit
 import type { Db } from "./authority";
 import type { ImportSource } from "./contract";
 
-export const employeeInclude = { employeeDepartments: true, teamMemberships: true, departmentJobRoles: true, user: { select: { id: true, email: true, isActive: true, sessionVersion: true, passwordHash: true, emailVerifiedAt: true, facilityAccesses: { include: { rolePeriods: true } } } } } satisfies Prisma.EmployeeInclude;
+export const employeeInclude = { employeeDepartments: true, teamMemberships: true, user: { select: { id: true, email: true, isActive: true, sessionVersion: true, passwordHash: true, emailVerifiedAt: true, facilityAccesses: { include: { rolePeriods: true } } } } } satisfies Prisma.EmployeeInclude;
 export async function loadCatalog(db: Db, session: FacilitySession, source: ImportSource) {
   const facilityId = session.facilityId;
   const emails = source.rows.map(r => r.values.email?.toLowerCase()).filter((x): x is string => Boolean(x));
@@ -21,13 +21,12 @@ export async function loadCatalog(db: Db, session: FacilitySession, source: Impo
     SELECT "id" FROM "Employee" WHERE "facilityId"=${facilityId} AND lower("email") = ANY(${emails}::text[])
   `) : [];
   const accountIds = accountMatches.map(row => row.id);
-  const [facility, departments, employees, users, teams, jobRoles, jobTitles, units, spaces, unitResponsibilities, spaceResponsibilities, roles] = await Promise.all([
+  const [facility, departments, employees, users, teams, jobTitles, units, spaces, unitResponsibilities, spaceResponsibilities, roles] = await Promise.all([
     db.facility.findUniqueOrThrow({ where: { id: facilityId }, select: { id: true, organizationId: true } }),
     loadCustomerOperableDepartments(db,facilityId),
     db.employee.findMany({ where: { facilityId, OR: [{ id: { in: [...ids,...emailMatches.map(row => row.id)] } }, { userId: { in: accountIds } }] }, include: employeeInclude }),
     db.user.findMany({ where: { id: { in: accountIds } }, select: { id: true, email: true, displayName: true, isActive: true, sessionVersion: true, passwordHash: true, emailVerifiedAt: true, facility: { select: { organizationId: true } }, facilityAccesses: { include: { facility: { select: { organizationId: true } }, rolePeriods: true } } } }),
     db.departmentTeam.findMany({ where: { facilityId }, select: { id: true, departmentId: true, status: true } }),
-    db.departmentJobRole.findMany({ where: { facilityId }, select: { id: true, departmentId: true, status: true } }),
     db.jobTitle.findMany({ where: { facilityId }, select: { id: true, isActive: true } }),
     db.unit.findMany({ where: { facilityId }, select: { id: true, name: true, isActive: true, hierarchyRole: true } }),
     db.unitSpace.findMany({ where: { facilityId }, select: { id: true, unitId: true, name: true, isActive: true } }),
@@ -48,6 +47,6 @@ export async function loadCatalog(db: Db, session: FacilitySession, source: Impo
   }
   const structure = source.dataset === "locations" ? await loadFacilityStructureCatalog(db,facilityId) : null;
   if (structure) structure.departments = departments;
-  return { structure, facility, departments, employees: employees.map(e => ({ ...e, pinDigest: undefined, hasPin: Boolean(e.pinDigest), user: e.user ? accountFacts(e.user) : null })), users: users.map(accountFacts), teams, jobRoles, jobTitles, units, spaces, unitResponsibilities, spaceResponsibilities, roles, assets, assetAuthority };
+  return { structure, facility, departments, employees: employees.map(e => ({ ...e, pinDigest: undefined, hasPin: Boolean(e.pinDigest), user: e.user ? accountFacts(e.user) : null })), users: users.map(accountFacts), teams, jobTitles, units, spaces, unitResponsibilities, spaceResponsibilities, roles, assets, assetAuthority };
 }
 export type Catalog = Awaited<ReturnType<typeof loadCatalog>>;

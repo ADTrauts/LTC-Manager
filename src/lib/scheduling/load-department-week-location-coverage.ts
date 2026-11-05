@@ -12,7 +12,7 @@ import { prisma } from "@/lib/prisma";
 import {
   resolveViewerTeamScopes,
   type ViewerTeamScope,
-} from "@/lib/dashboard/viewer/viewer-team-scope";
+} from "@/lib/dashboard/viewer/operational-placement";
 
 import {
   buildDepartmentWeekLocationCoverageProjection,
@@ -107,11 +107,10 @@ function allowedRoomsFromTeamScope(scope: ViewerTeamScope | null): {
   if (!scope || scope.mode === "DEPARTMENT_WIDE") {
     return { allowedRoomIds: null, locationScopeNote: null };
   }
-  if (scope.mode === "TEAM_WITHOUT_LOCATIONS") {
+  if (scope.mode === "ASSIGNMENT_WITHOUT_PLACEMENT") {
     return {
       allowedRoomIds: new Set(),
-      locationScopeNote:
-        "Your Team does not have configured Rooms yet, so location coverage is hidden.",
+      locationScopeNote: "No assignment places you in a room today, so location coverage is hidden.",
     };
   }
   return {

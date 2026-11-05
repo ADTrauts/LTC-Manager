@@ -26,8 +26,6 @@ import type {
   ReviewAttachmentSegmentFact,
   ReviewAssignmentFact,
   ReviewEvidenceRecordFact,
-  ReviewOtBindingFact,
-  ReviewProfileFact,
 } from "./types";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -92,7 +90,6 @@ export async function loadOperationalReviewDayFacts(input: {
   const departmentIds = departments.map((row) => row.id);
 
   const [
-    profiles,
     attachments,
     evidence,
     templates,
@@ -105,23 +102,6 @@ export async function loadOperationalReviewDayFacts(input: {
     assetIssues,
     legacyCount,
   ] = await Promise.all([
-    departmentIds.length === 0
-      ? Promise.resolve([])
-      : input.client.departmentOperationalProfile.findMany({
-          where: {
-            facilityId: input.facilityId,
-            departmentId: { in: departmentIds },
-            status: { in: ["ACTIVE", "RETIRED", "CERTIFIED"] },
-          },
-          select: {
-            id: true,
-            departmentId: true,
-            version: true,
-            status: true,
-            activatedAt: true,
-            retiredAt: true,
-          },
-        }),
     input.client.logAttachment.findMany({
       where: {
         facilityId: input.facilityId,
@@ -180,7 +160,7 @@ export async function loadOperationalReviewDayFacts(input: {
                 roleLabel: true,
                 requiredCount: true,
                 unitId: true,
-                applicableOperationalTypeKeys: true,
+                spaceId: true,
                 applicableOperationalCycleStableKeys: true,
               },
             },
@@ -224,7 +204,6 @@ export async function loadOperationalReviewDayFacts(input: {
       select: {
         id: true,
         employeeId: true,
-        unitId: true,
         departmentId: true,
         shift: true,
         calledOffAt: true,
@@ -321,35 +300,6 @@ export async function loadOperationalReviewDayFacts(input: {
       .filter((id): id is string => Boolean(id)),
   );
 
-  const profileFacts: ReviewProfileFact[] = profiles.map((row) => ({
-    id: row.id,
-    departmentId: row.departmentId,
-    version: row.version,
-    status: row.status,
-    activatedAt: row.activatedAt,
-    retiredAt: row.retiredAt,
-  }));
-
-  const bindings: ReviewOtBindingFact[] =
-    profileFacts.length === 0
-      ? []
-      : (
-          await input.client.departmentRoomArchetypeBinding.findMany({
-            where: { profileId: { in: profileFacts.map((row) => row.id) } },
-            select: {
-              profileId: true,
-              unitSpaceId: true,
-              archetype: { select: { key: true, name: true, isActive: true } },
-            },
-          })
-        ).map((row) => ({
-          profileId: row.profileId,
-          spaceId: row.unitSpaceId,
-          operationalTypeKey: row.archetype.key,
-          operationalTypeName: row.archetype.name,
-          archetypeIsActive: row.archetype.isActive,
-        }));
-
   const attachmentSegments: ReviewAttachmentSegmentFact[] = attachments.map((row) => ({
     id: row.id,
     stableKey: row.stableKey,
@@ -373,7 +323,6 @@ export async function loadOperationalReviewDayFacts(input: {
     spaceId: row.spaceId,
     unitId: row.unitId,
     targetDepartmentId: row.targetDepartmentId,
-    operationalTypeKey: row.operationalTypeKey,
     dailyWindows: row.dailyWindows.map((window) => ({
       label: window.label,
       startLocal: window.startLocal,
@@ -545,8 +494,6 @@ export async function loadOperationalReviewDayFacts(input: {
       parentUnitId: space.unitId,
       parentUnitLabel: space.unit?.name ?? null,
     })),
-    profiles: profileFacts,
-    otBindings: bindings,
     attachmentSegments,
     evidenceRecords,
     waivers: waiverRows.map((row) => ({
@@ -568,7 +515,7 @@ export async function loadOperationalReviewDayFacts(input: {
         roleLabel: item.roleLabel,
         requiredCount: item.requiredCount,
         unitId: item.unitId,
-        applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
+        spaceId: item.spaceId,
         applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       })),
     })),
@@ -582,7 +529,7 @@ export async function loadOperationalReviewDayFacts(input: {
       id: row.id,
       employeeId: row.employeeId,
       employeeDisplayName: `${row.employee.firstName} ${row.employee.lastName}`.trim(),
-      unitId: row.unitId,
+      unitId: null,
       departmentId: row.departmentId,
       shift: row.shift,
     })),
@@ -594,7 +541,7 @@ export async function loadOperationalReviewDayFacts(input: {
         employeeDisplayName: `${row.employee.firstName} ${row.employee.lastName}`.trim(),
         reason: row.callOffReason ?? "Call-off",
         oldUnitId: null,
-        newUnitId: row.unitId ?? "",
+        newUnitId: "",
       })),
     assetImpacts: assetIssues
       .filter(

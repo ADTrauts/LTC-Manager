@@ -21,7 +21,6 @@ const KIND_ORDER: CatalogAssignKind[] = [
   "ASSET",
   "UNIT",
   "DEPARTMENT",
-  "OPERATIONAL_TYPE",
 ];
 
 export function CatalogAddToTarget({ view }: Props) {
@@ -29,6 +28,11 @@ export function CatalogAddToTarget({ view }: Props) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<CatalogAssignKind>("SPACE");
   const [search, setSearch] = useState("");
+  const [floor, setFloor] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [roomType, setRoomType] = useState("");
+  const [department, setDepartment] = useState("");
+  const [selectedOnly, setSelectedOnly] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => initialSelected(view));
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,17 +64,25 @@ export function CatalogAddToTarget({ view }: Props) {
   const category = view.categories.find((c) => c.kind === kind) ?? view.categories[0]!;
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const rows = q
-      ? category.targets.filter((t) =>
-          `${t.label} ${t.groupLabel ?? ""} ${t.departmentName ?? ""}`.toLowerCase().includes(q),
-        )
-      : category.targets;
+    const rows = category.targets.filter((t) => {
+      if (kind === "SPACE") {
+        if (floor && t.floorLabel !== floor) return false;
+        if (neighborhood && t.neighborhoodLabel !== neighborhood) return false;
+        if (roomType && t.roomTypeLabel !== roomType) return false;
+        if (department && t.departmentName !== department) return false;
+        if (selectedOnly && !selected.has(t.key)) return false;
+      }
+      if (!q) return true;
+      return `${t.label} ${t.groupLabel ?? ""} ${t.departmentName ?? ""} ${t.roomTypeLabel ?? ""}`
+        .toLowerCase()
+        .includes(q);
+    });
     return [...rows].sort((a, b) => {
       if (a.suggested !== b.suggested) return a.suggested ? -1 : 1;
       if (a.assigned !== b.assigned) return a.assigned ? -1 : 1;
       return a.label.localeCompare(b.label);
     });
-  }, [category.targets, search]);
+  }, [category.targets, department, floor, kind, neighborhood, roomType, search, selected, selectedOnly]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, CatalogAssignTargetRow[]>();
@@ -193,9 +205,9 @@ export function CatalogAddToTarget({ view }: Props) {
                 {view.recommendedCadenceLabel}
                 {view.timingSummary ? ` · ${view.timingSummary}` : ""}
               </p>
-              {kind === "OPERATIONAL_TYPE" ? (
+              {kind === "SPACE" ? (
                 <p className="mt-1 text-xs text-zinc-500">
-                  Operational Types are department program classes. This is not Physical Room Type.
+                  Filters only narrow this list. Saving stores the selected rooms.
                 </p>
               ) : null}
               {view.usingRecommendedSchedule ? (
@@ -242,6 +254,21 @@ export function CatalogAddToTarget({ view }: Props) {
                     className="min-h-9 min-w-[12rem] flex-1 rounded-md border border-zinc-300 px-3 text-sm"
                     aria-label={`Search ${category.label}`}
                   />
+                  {kind === "SPACE" ? (
+                    <SpaceAssignFilters
+                      targets={category.targets}
+                      floor={floor}
+                      neighborhood={neighborhood}
+                      roomType={roomType}
+                      department={department}
+                      selectedOnly={selectedOnly}
+                      onFloor={setFloor}
+                      onNeighborhood={setNeighborhood}
+                      onRoomType={setRoomType}
+                      onDepartment={setDepartment}
+                      onSelectedOnly={setSelectedOnly}
+                    />
+                  ) : null}
                   <button
                     type="button"
                     onClick={selectSuggested}
@@ -353,5 +380,92 @@ export function CatalogAddToTarget({ view }: Props) {
 function initialSelected(view: CatalogAssignView): Set<string> {
   return new Set(
     view.categories.flatMap((c) => c.targets.filter((t) => t.assigned).map((t) => t.key)),
+  );
+}
+
+function uniqueLabels(
+  targets: readonly CatalogAssignTargetRow[],
+  read: (row: CatalogAssignTargetRow) => string | null | undefined,
+): string[] {
+  return [...new Set(targets.map(read).filter((value): value is string => Boolean(value)))].sort();
+}
+
+function SpaceAssignFilters(props: {
+  targets: readonly CatalogAssignTargetRow[];
+  floor: string;
+  neighborhood: string;
+  roomType: string;
+  department: string;
+  selectedOnly: boolean;
+  onFloor: (value: string) => void;
+  onNeighborhood: (value: string) => void;
+  onRoomType: (value: string) => void;
+  onDepartment: (value: string) => void;
+  onSelectedOnly: (value: boolean) => void;
+}) {
+  const selectClass = "min-h-9 rounded-md border border-zinc-300 px-2 text-sm";
+  return (
+    <>
+      <FilterSelect
+        label="Floor"
+        value={props.floor}
+        options={uniqueLabels(props.targets, (row) => row.floorLabel)}
+        onChange={props.onFloor}
+        className={selectClass}
+      />
+      <FilterSelect
+        label="Neighborhood"
+        value={props.neighborhood}
+        options={uniqueLabels(props.targets, (row) => row.neighborhoodLabel)}
+        onChange={props.onNeighborhood}
+        className={selectClass}
+      />
+      <FilterSelect
+        label="Room type"
+        value={props.roomType}
+        options={uniqueLabels(props.targets, (row) => row.roomTypeLabel)}
+        onChange={props.onRoomType}
+        className={selectClass}
+      />
+      <FilterSelect
+        label="Department"
+        value={props.department}
+        options={uniqueLabels(props.targets, (row) => row.departmentName)}
+        onChange={props.onDepartment}
+        className={selectClass}
+      />
+      <label className="inline-flex min-h-9 items-center gap-2 text-xs text-zinc-700">
+        <input
+          type="checkbox"
+          checked={props.selectedOnly}
+          onChange={(event) => props.onSelectedOnly(event.target.checked)}
+        />
+        Selected rooms
+      </label>
+    </>
+  );
+}
+
+function FilterSelect(props: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+  className: string;
+}) {
+  return (
+    <select
+      aria-label={props.label}
+      value={props.value}
+      onChange={(event) => props.onChange(event.target.value)}
+      className={props.className}
+    >
+      <option value="">{props.label}</option>
+      {props.options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
   );
 }

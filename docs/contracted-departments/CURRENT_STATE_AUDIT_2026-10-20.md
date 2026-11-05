@@ -48,7 +48,7 @@ October 20, 2026. Read-only review of the working tree. Counts are approximate a
 | Location Functions, room types, profiles | `assertProfileWriteAccess` (`src/lib/department-administration/profile-access.ts`) | Manager+ check only | Can change Departments they do not head |
 | Teams and team cycles | `resolveTeamAuthority` (`src/lib/department-teams/authority.ts`) | Manager+ | Can change Departments they do not head |
 | Coverage expectations | `resolveCoverageAuthority` (`src/lib/scheduling/coverage-expectations/authority.ts`) | Manager+ | Can change Departments they do not head |
-| Job roles | `decideJobRoleAuthority` (`src/lib/department-job-roles/authority.ts`) | Manager+ | Can change Departments they do not head |
+| Job roles | Retired in Phase 7B. There is no Department Job Role authority path. | — | Operational eligibility does not grant Manager. |
 | Menus | `requireAtLeastRole(SUPERVISOR)` plus product check (`src/app/(protected)/menus/actions.ts`) | Supervisor+ | Can change Departments they do not head |
 | Operational Assignments | `resolveAssignmentAuthority` | Manage only in Food & Nutrition-type Departments | Can change Food & Nutrition-type Departments they do not head |
 | Work Plans and Work | `resolveWorkAuthority` (`src/lib/department-work/authority.ts`) | **Denied, including view**, unless primary Department matches | Cannot view self-operated Departments |
@@ -115,7 +115,7 @@ Each area lists who can write today and how the owning Department is determined.
 |---|---|---|---|
 | Create, edit profile, role, organization, status, separation, default assignment, discipline | `employees/actions.ts` (12 actions) | Manager+ (PIN set/clear GM+), facility check only | Employee memberships |
 | CSV update, bulk setup, workbook | `employees/import`, `employees/bulk-setup` | Manager+ or Facility Administrator with password | Import rows |
-| Job roles | `employees/job-roles/actions.ts` | Manager+ | Role's Department |
+| Job roles | Retired in Phase 7B with `/employees/job-roles` | — | — |
 | Revoke sessions | `revokeEmployeeSessionsAction` | GM+ facility-wide; Manager must share a Department | Memberships |
 
 **People facts.**

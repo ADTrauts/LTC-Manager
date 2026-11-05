@@ -97,7 +97,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Department** | Facility-installed instance / operational ownership | Line of business |
 | **Enabled** | `Department.isActive` — admitted to shared operations | Operationally active, configured, ready, healthy |
 | **Operating rhythm** | Recurring Operational Cycles the department runs | Shift, schedule ceremony, setup steps |
-| **Location Function** | Product-owned `functionKey` bound by the facility to an existing room. Persistence is `DepartmentRoomArchetype.key` on the Department profile. | Operational Type, Archetype, room name, physical room type, label slug |
+| **Location Function** | Retired. A room is a Facility place plus Department responsibility. Do not bind a function key, Operational Type, or archetype onto it. | Operational Type, Archetype, Experience, Operational Area |
 | **Operational Cycle** | Root recurring window (persisted as root PERIOD) | Peer “Breakfast Cleanup” as a top-level operation, meal milestone engine |
 | **Phase** | One interval inside an Operational Cycle (persisted as nested PERIOD) | Sub-operation, peer cycle |
 | **Key Point** | Instant on a Cycle (persisted as `KEY_TIME`) | Key Time in current product language, Work, a Record |
@@ -105,9 +105,10 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Logs** (due work) | `/staffing/logs` when canonical Logs are on — what must be recorded now | Using Log Book as the due-work queue; treating legacy `/logs` as the forward Record surface |
 | **Log Book** | `/staffing/log-book` — projection over submitted `OperationalEvidenceRecord` rows | A second evidence store; merging Log Book with due Logs |
 | **Audit / Reports** | Expected versus actual for a service date or range. Route may remain `/reports`. | Review as a workspace |
-| **People & Coverage** | Department Builder section for teams and coverage | Teams as a peer top-level product, a second people system |
+| **People & Coverage** | Department Builder section for teams and coverage | Teams as a peer top-level product, a second people system, an operational-eligibility editor |
+| **Operational eligibility** | Employee Builder fact: this person may perform this operational role in this Department | Inferring it from job title, Team, RoleKey, a past Assignment, or a Department Job Role capability |
 | **Participating location** | Room explicitly attached to a cycle | Department-responsible room *(responsibility ≠ participation)* |
-| **Work applicability** | Where a Work Plan’s expected Work may exist | Assignment, cycle participation, department responsibility *(each is separate)* |
+| **Work applicability** | Retired with generic Work. Each engine stores its own location. | A second applicability model |
 | **Menu** | Department-owned food offering identity plus its content | Facility singleton, Operational Cycle, recipe catalog |
 | **Menu applicability** | Explicit Department locations and canonical Operational Cycles where a Menu may be used, including the Menu period mapped to each Cycle | Live “all locations” rules, neighborhood inheritance, binding a published cycle row id |
 | **Menu Runtime resolution** | Exact location + date-effective root Operational Cycle occurrence + facility service date + ACTIVE applicability + stored `menuPeriodKey` + rotation | Winner/priority, location inheritance, MealType matching, wall-clock “current meal”, historical snapshots, temperature/log integration |
@@ -117,11 +118,11 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Room / Space** | Area within a unit; model is `UnitSpace` | Location *(reserve for section level; see `docs/location-architecture/`)* |
 | **Location / Unit** | Place of work — UI “Location”, model often `Unit` | Room *(unless truly a resident room entity)* |
 | **Operation** | Time-bound service commitment | Shift *(shifts are coverage; operations are service windows)* |
-| **Expected Work** | What the operation needs doing today, derived from published Work Plans | Tasks due, inbox, job list |
-| **Work Plan** | Recurring expected Work configuration | Job, checklist catalog |
-| **Recurring Work** | Shared Work Plans / rounds and walkthroughs | Treating rounds as Preventive Maintenance; treating Work Orders as shared Work |
-| **My Work** | Person-scoped Work | Today's Work *(Today is the operation; My Work is mine)* |
-| **Task** | Work Engine projection | Ticket *(unless issue context)* |
+| **Expected Work** | Retired. Due documentation is a Record. Timing is Operating Rhythm. Staffing is Coverage. | A generic work list |
+| **Work Plan** | Retired. Do not configure recurring generic Work. | Job, checklist catalog, Task, Activity, Duty, Routine |
+| **Recurring Work** | Retired. Plant rounds that are maintenance are Preventive Maintenance. | A shared Work Plan |
+| **My Work** | Today's Assignment, due Records, and product-specific actions for one person | A Work Plan |
+| **Task** | Retired as a platform noun | Ticket *(unless issue context)* |
 | **Request** | Intake: someone is asking for maintenance attention | Treating a Request as the problem itself or as a Work Order |
 | **Issue** | A known undesirable condition. May exist without an Asset or a Work Order | Ticket, Incident *(unless safety-legal context)*; collapsing Issue into Request or Repair |
 | **Work Order** | Facility Plant Operations accepted maintenance work with a persistent lifecycle | Generic shared Work; Repair as the manager-facing noun |

@@ -48,9 +48,8 @@ export type DepartmentDaySchedule = {
     id: string;
     firstName: string;
     lastName: string;
-    jobRoleDisplayName: string | null;
+    jobTitleName: string | null;
     teamDisplayName: string | null;
-    jobTitleDisplayName: string | null;
   }>;
   workShifts: WorkShiftOption[];
 };
@@ -92,11 +91,6 @@ export async function loadDepartmentDaySchedule(input: {
         firstName: true,
         lastName: true,
         jobTitle: { select: { name: true } },
-        departmentJobRoles: {
-          where: { departmentId, jobRole: { status: "ACTIVE" } },
-          select: { jobRole: { select: { displayName: true } } },
-          take: 1,
-        },
         teamMemberships: {
           where: { team: { departmentId, status: "ACTIVE" } },
           select: { isPrimary: true, team: { select: { displayName: true } } },
@@ -128,7 +122,6 @@ export async function loadDepartmentDaySchedule(input: {
         plannedEnd: true,
         shift: true,
         departmentId: true,
-        unitId: true,
         workShiftId: true,
       },
       orderBy: [{ plannedStart: "asc" }, { createdAt: "asc" }],
@@ -213,11 +206,6 @@ export async function loadDepartmentDaySchedule(input: {
             firstName: true,
             lastName: true,
             jobTitle: { select: { name: true } },
-            departmentJobRoles: {
-              where: { departmentId, jobRole: { status: "ACTIVE" } },
-              select: { jobRole: { select: { displayName: true } } },
-              take: 1,
-            },
             teamMemberships: {
               where: { team: { departmentId } },
               select: { isPrimary: true, team: { select: { displayName: true } } },
@@ -245,7 +233,7 @@ export async function loadDepartmentDaySchedule(input: {
       employeeId: emp.id,
       employeeFirstName: emp.firstName,
       employeeLastName: emp.lastName,
-      jobRoleDisplayName: emp.departmentJobRoles[0]?.jobRole.displayName ?? null,
+      jobTitleName: emp.jobTitle?.name ?? null,
       teamDisplayName: emp.teamMemberships[0]?.team.displayName ?? null,
       serviceDate,
       scheduleEntries: empShifts.map((s) => ({
@@ -254,7 +242,6 @@ export async function loadDepartmentDaySchedule(input: {
         plannedEnd: s.plannedEnd,
         shift: s.shift,
         departmentId: s.departmentId,
-        unitId: s.unitId,
         workShiftId: s.workShiftId,
       })),
       operationalAssignments: empAssignments.map((a) => ({
@@ -312,9 +299,8 @@ export async function loadDepartmentDaySchedule(input: {
       id: e.id,
       firstName: e.firstName,
       lastName: e.lastName,
-      jobRoleDisplayName: e.departmentJobRoles[0]?.jobRole.displayName ?? null,
+      jobTitleName: e.jobTitle?.name ?? null,
       teamDisplayName: e.teamMemberships[0]?.team.displayName ?? null,
-      jobTitleDisplayName: e.jobTitle?.name ?? null,
     }));
 
   return {

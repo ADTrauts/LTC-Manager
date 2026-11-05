@@ -36,6 +36,7 @@ import {
   confirmAssignmentPlanAction,
   reopenAssignmentPlanAction,
 } from "./actions";
+import { AssignmentEligibilityFields } from "./assignment-eligibility-fields";
 
 void editAssignmentAction;
 import {
@@ -405,20 +406,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             <form action={createAssignmentAction} className="mt-3 space-y-2">
               <input type="hidden" name="departmentId" value={deptNav.activeDepartmentId} />
               <input type="hidden" name="serviceDate" value={selectedDateIso} />
-              <div className="grid gap-2 sm:grid-cols-2">
-                <select name="employeeId" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Employee…</option>
-                  {formOptions.employees.map((e) => (
-                    <option key={e.id} value={e.id}>{e.lastName}, {e.firstName}</option>
-                  ))}
-                </select>
-                <select name="roleKey" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Auto (Job Role)</option>
-                  {formOptions.roles.map((r) => (
-                    <option key={r.key} value={r.key}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
+              <AssignmentEligibilityFields employees={formOptions.employees} roles={formOptions.roles} />
               <select name="unitId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
                 <option value="">Unit (optional)…</option>
                 {formOptions.units.map((u) => (
@@ -462,20 +450,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             <form action={reassignAction} className="mt-3 space-y-2">
               <input type="hidden" name="departmentId" value={deptNav.activeDepartmentId} />
               <input type="hidden" name="serviceDate" value={selectedDateIso} />
-              <div className="grid gap-2 sm:grid-cols-2">
-                <select name="employeeId" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Covering employee…</option>
-                  {formOptions.employees.map((e) => (
-                    <option key={e.id} value={e.id}>{e.lastName}, {e.firstName}</option>
-                  ))}
-                </select>
-                <select name="roleKey" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Auto (Job Role)</option>
-                  {formOptions.roles.map((r) => (
-                    <option key={r.key} value={r.key}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
+              <AssignmentEligibilityFields employees={formOptions.employees} roles={formOptions.roles} />
               <div className="grid gap-2 sm:grid-cols-2">
                 <select name="unitId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
                   <option value="">Unit (optional)…</option>

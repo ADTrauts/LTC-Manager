@@ -8,7 +8,6 @@ import {
   type CycleLifecycleRow,
 } from "@/lib/operational-cycles/cycle-lifecycle";
 import { mapCycleRow } from "@/lib/operational-cycles/load-published-cycles";
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -41,11 +40,7 @@ export type DepartmentBuilderContextSummary = {
   scheduledEffectiveFrom: string | null;
   /** null = no drafts; changes = drafts differ from current; no_changes = drafts match current. */
   draftState: null | "changes" | "no_changes";
-  publishedWorkPlanCount: number;
-  draftWorkPlanCount: number;
   placedLogCount: number;
-  publishedWorkOperationalTypeKeys: string[];
-  classifiedOperationalTypeKeys: string[];
   mealTimingUpgradeRequired: boolean;
 };
 
@@ -74,11 +69,7 @@ export async function loadDepartmentBuilderContextSummary(
     cycleRows,
     canEditHead,
     activeTeamCount,
-    publishedWorkPlanCount,
-    draftWorkPlanCount,
     placedLogCount,
-    publishedOtRows,
-    operationalTypeAssignments,
   ] = await Promise.all([
     prisma.employee.findMany({
       where: { facilityId },
@@ -110,28 +101,8 @@ export async function loadDepartmentBuilderContextSummary(
     prisma.departmentTeam.count({
       where: { facilityId, departmentId, status: "ACTIVE" },
     }),
-    prisma.departmentWorkPlan.count({
-      where: { facilityId, departmentId, status: "PUBLISHED" },
-    }),
-    prisma.departmentWorkPlan.count({
-      where: { facilityId, departmentId, status: "DRAFT" },
-    }),
     prisma.logAttachment.count({
       where: { facilityId, departmentId, status: "ACTIVE" },
-    }),
-    prisma.departmentWorkPlanApplicability.findMany({
-      where: {
-        kind: "OPERATIONAL_TYPE",
-        operationalTypeKey: { not: null },
-        workPlan: { facilityId, departmentId, status: "PUBLISHED" },
-      },
-      select: { operationalTypeKey: true },
-      distinct: ["operationalTypeKey"],
-    }),
-    loadSpaceOperationalTypeAssignments({
-      facilityId,
-      departmentId,
-      perspective: "runtime",
     }),
   ]);
 
@@ -197,19 +168,7 @@ export async function loadDepartmentBuilderContextSummary(
     scheduledCount,
     scheduledEffectiveFrom,
     draftState,
-    publishedWorkPlanCount,
-    draftWorkPlanCount,
     placedLogCount,
-    publishedWorkOperationalTypeKeys: [
-      ...new Set(
-        publishedOtRows
-          .map((row) => row.operationalTypeKey)
-          .filter((key): key is string => Boolean(key)),
-      ),
-    ],
-    classifiedOperationalTypeKeys: [
-      ...new Set([...operationalTypeAssignments.values()].map((row) => row.key)),
-    ],
     mealTimingUpgradeRequired:
       department.key === "DIETARY" && dietaryMealTimingUpgradeRequired(current),
   };

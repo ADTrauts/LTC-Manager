@@ -9,7 +9,6 @@ import type {
   OperationalCycleNodeKind,
   OperationalCycleType,
   ServeryMilestone,
-  UnitType,
 } from "@prisma/client";
 
 export type DietaryDefaultCyclePlan = {
@@ -26,16 +25,8 @@ export type DietaryDefaultCyclePlan = {
   applicableDaysOfWeek: number[];
   mealType: MealType | null;
   expectedMilestones: ServeryMilestone[];
-  locationMode:
-    | "ALL_DEPARTMENT_UNITS"
-    | "UNIT_TYPES"
-    | "EXPLICIT_UNITS"
-    | "ROOM_TYPE"
-    | "OPERATIONAL_TYPES";
+  locationMode: "ALL_DEPARTMENT_UNITS" | "EXPLICIT_UNITS";
   locationInheritFromParent?: boolean;
-  applicableUnitTypes: UnitType[];
-  applicableOperationalTypeKeys?: string[];
-  roomTypeKey: string | null;
   occurrenceTracking?: "NONE" | "OPTIONAL" | "REQUIRED";
   keyPointGrain?: "DEPARTMENT" | "LOCATION";
   dueLocals?: string[];
@@ -56,10 +47,8 @@ export type EvsDefaultCyclePlan = {
   applicableDaysOfWeek: number[];
   mealType: null;
   expectedMilestones: [];
-  locationMode: "ALL_DEPARTMENT_UNITS" | "UNIT_TYPES" | "EXPLICIT_UNITS" | "ROOM_TYPE";
+  locationMode: "ALL_DEPARTMENT_UNITS" | "EXPLICIT_UNITS";
   locationInheritFromParent?: boolean;
-  applicableUnitTypes: UnitType[];
-  roomTypeKey: string | null;
 };
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -97,8 +86,6 @@ function mealChildren(
       expectedMilestones: [] as ServeryMilestone[],
       locationMode: "EXPLICIT_UNITS" as const,
       locationInheritFromParent: true,
-      applicableUnitTypes: [] as UnitType[],
-      roomTypeKey: null,
     },
     {
       stableKey: `${mealKey}_service`,
@@ -116,8 +103,6 @@ function mealChildren(
       expectedMilestones: [] as ServeryMilestone[],
       locationMode: "EXPLICIT_UNITS" as const,
       locationInheritFromParent: true,
-      applicableUnitTypes: [] as UnitType[],
-      roomTypeKey: null,
     },
     {
       stableKey: `${mealKey}_due`,
@@ -134,8 +119,6 @@ function mealChildren(
       mealType: null,
       expectedMilestones: [] as ServeryMilestone[],
       locationMode: "ALL_DEPARTMENT_UNITS" as const,
-      applicableUnitTypes: [] as UnitType[],
-      roomTypeKey: null,
       occurrenceTracking: "NONE" as const,
       keyPointGrain: "DEPARTMENT" as const,
       dueLocals: [dueLocal],
@@ -145,7 +128,7 @@ function mealChildren(
       parentStableKey: mealKey,
       nodeKind: "KEY_TIME" as const,
       label: `${mealLabel} Ready`,
-      description: `${mealLabel} readiness at each Food Service Area.`,
+      description: `${mealLabel} readiness at each selected location.`,
       cycleType: "CUSTOM" as const,
       displaySequence: 13,
       startLocal: null,
@@ -155,9 +138,6 @@ function mealChildren(
       mealType: null,
       expectedMilestones: [] as ServeryMilestone[],
       locationMode: "EXPLICIT_UNITS" as const,
-      applicableUnitTypes: [] as UnitType[],
-      applicableOperationalTypeKeys: ["food_service_area"],
-      roomTypeKey: null,
       occurrenceTracking: "REQUIRED" as const,
       keyPointGrain: "LOCATION" as const,
       dueLocals: [readyLocal],
@@ -167,7 +147,7 @@ function mealChildren(
       parentStableKey: mealKey,
       nodeKind: "KEY_TIME" as const,
       label: `${mealLabel} Service Started`,
-      description: `${mealLabel} service start at each Food Service Area.`,
+      description: `${mealLabel} service start at each selected location.`,
       cycleType: "CUSTOM" as const,
       displaySequence: 13,
       startLocal: null,
@@ -177,9 +157,6 @@ function mealChildren(
       mealType: null,
       expectedMilestones: [] as ServeryMilestone[],
       locationMode: "EXPLICIT_UNITS" as const,
-      applicableUnitTypes: [] as UnitType[],
-      applicableOperationalTypeKeys: ["food_service_area"],
-      roomTypeKey: null,
       occurrenceTracking: "REQUIRED" as const,
       keyPointGrain: "LOCATION" as const,
       dueLocals: [serviceStartedLocal],
@@ -200,8 +177,6 @@ function mealChildren(
       expectedMilestones: [] as ServeryMilestone[],
       locationMode: "EXPLICIT_UNITS" as const,
       locationInheritFromParent: true,
-      applicableUnitTypes: [] as UnitType[],
-      roomTypeKey: null,
     },
   ];
 }
@@ -209,7 +184,8 @@ function mealChildren(
 /**
  * Example Dietary operating day: Breakfast / Lunch / Dinner Operational Cycles
  * with Prep, Service, Cleanup Phases (inherit) and Due Key Points.
- * Top-level locations use EXPLICIT_UNITS with empty spaces — assign rooms in Build.
+ * Meal Cycles are created without locations. The facility selects rooms in Build.
+ * Key Points do not carry a Location Function. Room groups are explicit space ids.
  * Future starter application only — never rewrites published facility rhythms.
  */
 export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
@@ -236,8 +212,6 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
       mealType: "BREAKFAST",
       expectedMilestones: [],
       locationMode: "EXPLICIT_UNITS",
-      applicableUnitTypes: [],
-      roomTypeKey: null,
     },
     ...mealChildren("breakfast", "Breakfast", "05:30", "07:10", "09:00", "10:00", "08:00", "07:05", "07:10"),
     {
@@ -255,8 +229,6 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
       mealType: "LUNCH",
       expectedMilestones: [],
       locationMode: "EXPLICIT_UNITS",
-      applicableUnitTypes: [],
-      roomTypeKey: null,
     },
     ...mealChildren("lunch", "Lunch", "10:00", "11:30", "13:30", "14:00", "12:00", "11:25", "11:30"),
     {
@@ -274,8 +246,6 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
       mealType: "DINNER",
       expectedMilestones: [],
       locationMode: "EXPLICIT_UNITS",
-      applicableUnitTypes: [],
-      roomTypeKey: null,
     },
     ...mealChildren("dinner", "Dinner", "15:30", "17:00", "19:00", "20:00", "17:30", "16:55", "17:00"),
   ];
@@ -283,6 +253,8 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
 
 /**
  * Example EVS operating day — shallow top-level periods.
+ * Each period is department-wide: every place Facility Builder assigns to EVS,
+ * including places assigned later. It is not “all rooms of a type.”
  */
 export function buildEvsDefaultCyclePlans(): EvsDefaultCyclePlan[] {
   return [
@@ -301,8 +273,6 @@ export function buildEvsDefaultCyclePlans(): EvsDefaultCyclePlan[] {
       mealType: null,
       expectedMilestones: [],
       locationMode: "ALL_DEPARTMENT_UNITS",
-      applicableUnitTypes: [],
-      roomTypeKey: null,
     },
     {
       stableKey: "day_cleaning",
@@ -319,8 +289,6 @@ export function buildEvsDefaultCyclePlans(): EvsDefaultCyclePlan[] {
       mealType: null,
       expectedMilestones: [],
       locationMode: "ALL_DEPARTMENT_UNITS",
-      applicableUnitTypes: [],
-      roomTypeKey: null,
     },
     {
       stableKey: "evening_closeout",
@@ -337,8 +305,6 @@ export function buildEvsDefaultCyclePlans(): EvsDefaultCyclePlan[] {
       mealType: null,
       expectedMilestones: [],
       locationMode: "ALL_DEPARTMENT_UNITS",
-      applicableUnitTypes: [],
-      roomTypeKey: null,
     },
   ];
 }

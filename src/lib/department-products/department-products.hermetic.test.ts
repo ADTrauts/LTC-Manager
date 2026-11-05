@@ -14,9 +14,7 @@ import {
 import {
   isDepartmentAssetOperationsEnabled,
   isDepartmentOperationalCyclesEnabled,
-  isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
-import { listWorkPlanPresetSummaries } from "@/lib/department-work/work-presets";
 import { getRolesForDepartment } from "@/lib/scheduling/assignment-roles";
 
 import {
@@ -180,7 +178,6 @@ describe("Department Product registry", () => {
     assert.equal(evs.releasedOn, null);
     assert.equal(evs.domainCapability, "evs");
     assert.equal(evs.starters.cycleStarter, "evs");
-    assert.equal(evs.starters.workPresets, true);
 
     const plant = getDepartmentProduct("PLANT");
     assert.ok(plant);
@@ -192,7 +189,6 @@ describe("Department Product registry", () => {
     assert.equal(plant.versionLabel, "1.0");
     assert.equal(plant.releasedOn, "2026-10-07");
     assert.equal(plant.domainCapability, "plant");
-    assert.equal(plant.starters.workPresets, true);
     assert.equal(plant.starters.assignmentRoles, true);
   });
 
@@ -215,9 +211,6 @@ describe("Department Product registry", () => {
   it("references existing starters instead of copying them", () => {
     const registry = source("src/lib/department-products/registry.ts");
     assert.doesNotMatch(registry, /Breakfast|SERVERY_OPENING_CHECKS|COOK/);
-    assert.ok(listWorkPlanPresetSummaries("DIETARY").length > 0);
-    assert.ok(listWorkPlanPresetSummaries("EVS").length > 0);
-    assert.equal(listWorkPlanPresetSummaries("PLANT").length, 4);
     assert.ok(getRolesForDepartment("DIETARY").some((role) => role.key === "COOK"));
     assert.ok(getRolesForDepartment("EVS").some((role) => role.key === "CLEANING_ROUND"));
     assert.ok(getRolesForDepartment("PLANT").some((role) => role.key === "WORK_ORDER_RESPONSE"));
@@ -445,7 +438,6 @@ describe("Department Product installation", () => {
     assert.equal(hasPlantDomainCapabilities("TEST_SHARED"), false);
     assert.equal(isDepartmentAdmittedToSharedOperations({ isActive: true }), true);
     assert.equal(isDepartmentOperationalCyclesEnabled("TEST_SHARED"), true);
-    assert.equal(isDepartmentWorkPlansEnabled("TEST_SHARED"), true);
     assert.equal(isDepartmentAssetOperationsEnabled("TEST_SHARED"), true);
     assert.equal(getDepartmentProduct("TEST_SHARED"), null);
   });

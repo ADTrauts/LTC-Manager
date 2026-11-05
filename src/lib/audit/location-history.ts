@@ -179,25 +179,17 @@ export async function loadLocationHistory(
         placeLabelSnapshot: true,
       },
     }),
-    prisma.departmentWorkOccurrence.findMany({
-      where: {
-        facilityId: input.facilityId,
-        unitId: unit.id,
-        ...(spaceId ? { spaceId } : {}),
-        ...(cursorFilter ? { createdAt: cursorFilter } : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: fetchTake,
-      select: {
-        id: true,
-        workItemLabelSnapshot: true,
-        status: true,
-        createdAt: true,
-        completedAt: true,
-        unitId: true,
-        spaceId: true,
-      },
-    }),
+    Promise.resolve(
+      [] as {
+        id: string;
+        workItemLabelSnapshot: string;
+        status: string;
+        createdAt: Date;
+        completedAt: Date | null;
+        unitId: string | null;
+        spaceId: string | null;
+      }[],
+    ),
     spaceIds.length
       ? prisma.operationalCycleKeyPointActual.findMany({
           where: {

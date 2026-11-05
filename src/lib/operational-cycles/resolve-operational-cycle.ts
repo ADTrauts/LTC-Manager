@@ -4,7 +4,7 @@ import {
   effectiveMealType,
   projectCycleHierarchy,
 } from "./cycle-hierarchy";
-import { effectiveOperationalTypeKeys } from "./cycle-applicability";
+import { resolvedCycleLocationMode } from "./cycle-applicability";
 import {
   buildCyclesByStableKey,
   effectiveCycleSpaceIds,
@@ -62,11 +62,8 @@ export function cycleAppliesToUnit(
   cycle: Pick<
     OperationalCycleDefinition,
     | "locationMode"
-    | "applicableUnitTypes"
-    | "applicableOperationalTypeKeys"
     | "unitIds"
     | "spaceIds"
-    | "roomTypeKey"
     | "locationInheritFromParent"
     | "parentStableKey"
     | "nodeKind"
@@ -76,61 +73,46 @@ export function cycleAppliesToUnit(
   unit: CycleUnitScope,
   allCyclesByStableKey?: ReadonlyMap<string, OperationalCycleDefinition>,
 ): boolean {
-  // Prefer explicit effective Room membership when the published set is available.
+  const byKey = allCyclesByStableKey ?? new Map<string, OperationalCycleDefinition>();
+  const mode = resolvedCycleLocationMode(cycle, byKey);
+  if (unit.responsible === false && mode === "ALL_DEPARTMENT_UNITS") return false;
+
   if (allCyclesByStableKey) {
     const effectiveSpaces = effectiveCycleSpaceIds(cycle, allCyclesByStableKey);
-    if (effectiveSpaces.length > 0) {
-      const unitSpaces = unit.spaceIds ?? [];
-      if (unitSpaces.some((id) => effectiveSpaces.includes(id))) return true;
-      if (cycle.unitIds.includes(unit.id)) return true;
-      return false;
+    const unitSpaces = unit.spaceIds ?? [];
+    if (effectiveSpaces.length > 0 && unitSpaces.some((id) => effectiveSpaces.includes(id))) {
+      return true;
     }
-    if (cycle.locationInheritFromParent || cycle.locationMode === "EXPLICIT_UNITS") {
-      // Explicit/inherited with empty rooms → not applicable to this unit.
-      if (cycle.locationMode === "EXPLICIT_UNITS" || cycle.locationInheritFromParent) {
-        return cycle.unitIds.includes(unit.id);
-      }
+    if (cycle.unitIds.includes(unit.id)) return true;
+    if (effectiveSpaces.length > 0 || cycle.locationMode === "EXPLICIT_UNITS") {
+      if (mode === "ALL_DEPARTMENT_UNITS") return unit.responsible !== false;
+      return false;
     }
   }
 
-  switch (cycle.locationMode) {
-    case "ALL_DEPARTMENT_UNITS":
-      return true;
-    case "UNIT_TYPES":
-      return cycle.applicableUnitTypes.includes(unit.unitType);
-    case "EXPLICIT_UNITS": {
-      if (cycle.unitIds.includes(unit.id)) return true;
-      const unitSpaces = unit.spaceIds ?? [];
-      if (unitSpaces.length > 0 && cycle.spaceIds.some((id) => unitSpaces.includes(id))) {
-        return true;
-      }
-      return false;
-    }
-    case "ROOM_TYPE":
-      if (!cycle.roomTypeKey) return false;
-      // Legacy fail-open: missing child room-type keys match every ROOM_TYPE cycle.
-      // Registered for retirement. Location Functions do not use this branch.
-      if (!unit.childRoomTypeKeys) return true;
-      return unit.childRoomTypeKeys.includes(cycle.roomTypeKey);
-    case "OPERATIONAL_TYPES": {
-      const otKeys = allCyclesByStableKey
-        ? effectiveOperationalTypeKeys(cycle, allCyclesByStableKey)
-        : cycle.applicableOperationalTypeKeys ?? [];
-      if (otKeys.length === 0) return false;
-      const childKeys = unit.childOperationalTypeKeys ?? [];
-      return childKeys.some((key) => otKeys.includes(key));
-    }
-    default:
-      return false;
+  if (mode === "ALL_DEPARTMENT_UNITS") return unit.responsible !== false;
+  if (mode === "EXPLICIT_UNITS") {
+    if (cycle.unitIds.includes(unit.id)) return true;
+    const unitSpaces = unit.spaceIds ?? [];
+    return unitSpaces.length > 0 && cycle.spaceIds.some((id) => unitSpaces.includes(id));
   }
+  return false;
 }
 
 export type CycleSpaceApplicabilityContext = {
-  /** Current Operational Type key for this room. Unassigned rooms do not match OT cycles. */
-  operationalTypeKey?: string | null;
+  /**
+   * False when this room is outside the Department's Facility responsibility.
+   * Omitted means the caller already limited the question to responsible places.
+   */
+  responsible?: boolean;
 };
 
-/** Room-level applicability using the canonical PERIOD/KEY_TIME effective Room set. */
+/**
+ * Room-level applicability.
+ * Explicit UnitSpace ids and Key Point room groups match by id.
+ * Department-wide matches when the room is this Department's responsibility.
+ * A Unit id on the Cycle is that Unit, not every room under it.
+ */
 export function cycleAppliesToSpace(
   cycle: OperationalCycleDefinition,
   spaceId: string,
@@ -138,20 +120,10 @@ export function cycleAppliesToSpace(
   context?: CycleSpaceApplicabilityContext,
 ): boolean {
   const spaces = effectiveCycleSpaceIds(cycle, allCyclesByStableKey);
-  if (spaces.length > 0) return spaces.includes(spaceId);
+  if (spaces.includes(spaceId)) return true;
   if (cycle.nodeKind === "KEY_TIME") return false;
-  const otKeys = effectiveOperationalTypeKeys(cycle, allCyclesByStableKey);
-  if (otKeys.length > 0) {
-    const key = context?.operationalTypeKey?.trim() ?? "";
-    return Boolean(key && otKeys.includes(key));
-  }
-  if (cycle.locationMode === "ALL_DEPARTMENT_UNITS") return true;
-  if (cycle.locationInheritFromParent) {
-    const parent = cycle.parentStableKey
-      ? allCyclesByStableKey.get(cycle.parentStableKey)
-      : undefined;
-    if (parent?.locationMode === "ALL_DEPARTMENT_UNITS") return true;
-  }
+  const mode = resolvedCycleLocationMode(cycle, allCyclesByStableKey);
+  if (mode === "ALL_DEPARTMENT_UNITS") return context?.responsible !== false;
   return false;
 }
 
@@ -271,8 +243,8 @@ export function resolveOperationalCycle(input: {
   unit?: CycleUnitScope | null;
   /** When set, Room grain is authoritative — parents do not expand the set. */
   spaceId?: string | null;
-  /** Current Operational Type for spaceId — required for OPERATIONAL_TYPES targeting. */
-  operationalTypeKey?: string | null;
+  /** False when spaceId is outside this Department's Facility responsibility. */
+  responsible?: boolean;
   /** When false, department has no cycle applicability (e.g. wrong department). */
   departmentApplicable?: boolean;
   /** UnitMealTime targets — never copied from cycle rows. */
@@ -301,7 +273,7 @@ export function resolveOperationalCycle(input: {
   if (input.spaceId) {
     scoped = scoped.filter((c) =>
       cycleAppliesToSpace(c, input.spaceId!, defsByKey, {
-        operationalTypeKey: input.operationalTypeKey,
+        responsible: input.responsible,
       }),
     );
     if (scoped.length === 0) {

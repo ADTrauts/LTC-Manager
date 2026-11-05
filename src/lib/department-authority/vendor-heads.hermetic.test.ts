@@ -13,18 +13,17 @@ test("acceptance counts only for the operator period in force", () => {
 
 test("the vendor head's navigation stays off until they run the Department", () => {
   assert.deepEqual(
-    vendorHeadNavItems({ people: false, coverage: false, rhythm: false, work: false, menus: false }),
+    vendorHeadNavItems({ people: false, coverage: false, rhythm: false, menus: false }),
     [],
   );
   assert.deepEqual(
-    vendorHeadNavItems({ people: true, coverage: true, rhythm: true, work: true, menus: true }).map(
+    vendorHeadNavItems({ people: true, coverage: true, rhythm: true, menus: true }).map(
       (item) => item.href,
     ),
     [
       "/partner/people",
       "/partner/coverage",
       "/partner/rhythm",
-      "/partner/work",
       "/partner/menus",
       "/partner/department",
     ],

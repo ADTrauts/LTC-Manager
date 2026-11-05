@@ -49,10 +49,8 @@ import {
   resolveDepartmentRoomUnitSpaceIdsFromNeighborhoodSelection,
 } from "@/lib/scheduling/operational-assignments/location-scope/department-room-selection";
 import { loadZoneSpaceIds } from "@/lib/department-zones";
-import {
-  deriveDefaultRoleKeyForDepartmentJobRole,
-  deriveRoleLabelSnapshot,
-} from "@/lib/scheduling/operational-assignments/department-job-role-derivation";
+import { decideOperationalStaffing } from "@/lib/employee-operational-qualifications/eligibility";
+import { employeeBelongsToDepartment } from "@/lib/employee-membership";
 
 function parseUnitSpaceIds(raw: string | undefined): string[] {
   if (!raw) return [];
@@ -81,7 +79,7 @@ const sourceValues = [
 const createSchema = z.object({
   employeeId: z.string().min(1),
   departmentId: z.string().min(1),
-  roleKey: z.string().min(1).optional(),
+  roleKey: z.string().min(1),
   serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   unitId: z.string().min(1).optional(),
   startsAt: z.string().optional(),
@@ -89,6 +87,7 @@ const createSchema = z.object({
   source: z.enum(sourceValues).optional(),
   notes: z.string().max(500).optional(),
   changeReason: z.string().max(500).optional(),
+  eligibilityExceptionReason: z.string().max(500).optional(),
   clientCommandId: z.string().max(120).optional(),
   /** Comma-separated UnitSpace ids for EVS Room/Space scope. Empty = unit-wide. */
   unitSpaceIds: z.string().optional(),
@@ -103,6 +102,7 @@ const editSchema = z.object({
   endsAt: z.string().optional(),
   notes: z.string().max(500).optional(),
   changeReason: z.string().min(1).max(500).optional(),
+  eligibilityExceptionReason: z.string().max(500).optional(),
   unitSpaceIds: z.string().optional(),
   sourceZoneId: z.string().optional(),
 });
@@ -158,12 +158,13 @@ export async function createAssignmentAction(formData: FormData) {
     source: opt(formData.get("source")) as OperationalAssignmentSource | undefined,
     notes: opt(formData.get("notes")),
     changeReason: opt(formData.get("changeReason")),
+    eligibilityExceptionReason: opt(formData.get("eligibilityExceptionReason")),
     clientCommandId: opt(formData.get("clientCommandId")),
     unitSpaceIds: opt(formData.get("unitSpaceIds")),
     sourceZoneId: opt(formData.get("sourceZoneId")),
   });
 
-  await requireManageForDepartment(session, parsed.departmentId);
+  const authority = await requireManageForDepartment(session, parsed.departmentId);
 
   const source = parsed.source ?? OperationalAssignmentSource.MANUAL_ADDITION;
   if (
@@ -174,68 +175,54 @@ export async function createAssignmentAction(formData: FormData) {
     throw new Error("Unscheduled coverage and overrides require a reason.");
   }
 
-  const [employee, department, employeeJobRole, timezone] = await Promise.all([
+  const [employee, department, qualifications, timezone] = await Promise.all([
     prisma.employee.findFirst({
       where: {
         id: parsed.employeeId,
         facilityId: session.facilityId,
         status: { not: "TERMINATED" },
       },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        primaryDepartmentId: true,
+        employeeDepartments: { select: { departmentId: true } },
+      },
     }),
     prisma.department.findFirst({
       where: { id: parsed.departmentId, facilityId: session.facilityId },
       select: { id: true, key: true },
     }),
-    prisma.employeeDepartmentJobRole.findFirst({
+    prisma.employeeOperationalRoleQualification.findMany({
       where: {
         employeeId: parsed.employeeId,
         departmentId: parsed.departmentId,
-        jobRole: { status: "ACTIVE" },
+        status: "ACTIVE",
       },
-      select: { jobRole: { select: { displayName: true, tier: true, status: true } } },
+      select: { roleKey: true },
     }),
     loadFacilityTimezone(prisma, session.facilityId),
   ]);
 
   if (!employee) throw new Error("Employee not found or inactive.");
   if (!department) throw new Error("Department not found.");
-
-  const formRoleKey = parsed.roleKey;
-  let effectiveRoleKey: string;
-  let roleDef:
-    | ReturnType<typeof getRoleDefinition>
-    | {
-        // Keeps type widening predictable without importing prisma enums.
-        key: string;
-        label: string;
-        departmentKeys: string[];
-      };
-
-  if (formRoleKey) {
-    const found = getRoleDefinition(formRoleKey);
-    if (!found || !isRoleValidForDepartment(formRoleKey, department.key)) {
-      throw new Error(`Role "${formRoleKey}" is not valid for this department.`);
-    }
-    roleDef = found;
-    effectiveRoleKey = formRoleKey;
-  } else {
-    const derivedKey = deriveDefaultRoleKeyForDepartmentJobRole({
-      departmentKey: department.key,
-      tier: employeeJobRole?.jobRole.tier ?? null,
-    });
-    const found = getRoleDefinition(derivedKey);
-    if (!found || !isRoleValidForDepartment(derivedKey, department.key)) {
-      throw new Error(`Derived role "${derivedKey}" is not valid for this department.`);
-    }
-    roleDef = found;
-    effectiveRoleKey = derivedKey;
+  if (!employeeBelongsToDepartment(employee, department.id)) {
+    throw new Error("Assignment requires Department membership.");
   }
 
-  const roleLabel = deriveRoleLabelSnapshot({
-    jobRoleDisplayName: employeeJobRole?.jobRole.displayName,
-    roleDefLabel: roleDef.label,
+  const found = getRoleDefinition(parsed.roleKey);
+  if (!found || !isRoleValidForDepartment(parsed.roleKey, department.key)) {
+    throw new Error(`Role "${parsed.roleKey}" is not valid for this department.`);
+  }
+  const roleDef = found;
+  const effectiveRoleKey = parsed.roleKey;
+  const roleLabel = roleDef.label;
+  const staffing = decideOperationalStaffing({
+    qualified: qualifications.some((row) => row.roleKey === effectiveRoleKey),
+    exceptionReason: parsed.eligibilityExceptionReason,
+    canOverride: authority.canOverride,
   });
+  if (!staffing.allow) throw new Error(staffing.message);
 
   const references = await resolveAssignmentReferences(prisma, {
     facilityId: session.facilityId,
@@ -388,6 +375,20 @@ export async function createAssignmentAction(formData: FormData) {
       },
     });
 
+    if (staffing.recordExceptionReason) {
+      await tx.operationalAssignmentEligibilityException.create({
+        data: {
+          assignmentId: created.id,
+          facilityId: session.facilityId,
+          departmentId: parsed.departmentId,
+          employeeId: parsed.employeeId,
+          roleKey: effectiveRoleKey,
+          reason: staffing.recordExceptionReason,
+          actorUserId,
+        },
+      });
+    }
+
     if (locationWrites.length > 0) {
       await replaceAssignmentLocations(tx, created.id, locationWrites);
     }
@@ -438,6 +439,7 @@ export async function editAssignmentAction(formData: FormData) {
     endsAt: opt(formData.get("endsAt")),
     notes: opt(formData.get("notes")),
     changeReason: opt(formData.get("changeReason")),
+    eligibilityExceptionReason: opt(formData.get("eligibilityExceptionReason")),
     unitSpaceIds: opt(formData.get("unitSpaceIds")),
     sourceZoneId: opt(formData.get("sourceZoneId")),
   });
@@ -451,6 +453,7 @@ export async function editAssignmentAction(formData: FormData) {
       serviceDate: true,
       unitId: true,
       employeeId: true,
+      roleKey: true,
       startsAt: true,
       endsAt: true,
       sourceZoneId: true,
@@ -460,7 +463,7 @@ export async function editAssignmentAction(formData: FormData) {
     },
   });
   if (!assignment) throw new Error("Assignment not found.");
-  await requireManageForDepartment(session, assignment.departmentId);
+  const editAuthority = await requireManageForDepartment(session, assignment.departmentId);
 
   if (assignment.status === "COMPLETED" || assignment.status === "CANCELLED") {
     throw new Error("Cannot edit a completed or cancelled assignment.");
@@ -484,11 +487,30 @@ export async function editAssignmentAction(formData: FormData) {
     sourceZoneId: assignment.sourceZoneId,
   };
 
-  if (parsed.roleKey) {
-    if (!isRoleValidForDepartment(parsed.roleKey, assignment.department.key)) {
+  let editExceptionReason: string | null = null;
+  if (parsed.roleKey && parsed.roleKey !== assignment.roleKey) {
+    const nextRole = getRoleDefinition(parsed.roleKey);
+    if (!nextRole || !isRoleValidForDepartment(parsed.roleKey, assignment.department.key)) {
       throw new Error(`Role "${parsed.roleKey}" is not valid for this department.`);
     }
+    const qualified = await prisma.employeeOperationalRoleQualification.findFirst({
+      where: {
+        employeeId: assignment.employeeId,
+        departmentId: assignment.departmentId,
+        roleKey: parsed.roleKey,
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+    const staffing = decideOperationalStaffing({
+      qualified: Boolean(qualified),
+      exceptionReason: parsed.eligibilityExceptionReason,
+      canOverride: editAuthority.canOverride,
+    });
+    if (!staffing.allow) throw new Error(staffing.message);
+    editExceptionReason = staffing.recordExceptionReason;
     data.roleKey = parsed.roleKey;
+    data.roleLabel = nextRole.label;
   }
 
   const nextUnitId = parsed.unitId !== undefined ? parsed.unitId || null : assignment.unitId;
@@ -564,6 +586,19 @@ export async function editAssignmentAction(formData: FormData) {
     }
 
     await tx.operationalAssignment.update({ where: { id: assignment.id }, data });
+    if (editExceptionReason && parsed.roleKey) {
+      await tx.operationalAssignmentEligibilityException.create({
+        data: {
+          assignmentId: assignment.id,
+          facilityId: session.facilityId,
+          departmentId: assignment.departmentId,
+          employeeId: assignment.employeeId,
+          roleKey: parsed.roleKey,
+          reason: editExceptionReason,
+          actorUserId,
+        },
+      });
+    }
     if (locationWrites) {
       await replaceAssignmentLocations(tx, assignment.id, locationWrites);
     }

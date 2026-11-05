@@ -11,12 +11,6 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { facilityIndustryLabel, facilityTypeLabel } from "@/lib/facility-classification";
 import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
 import {
-  buildWorkPlanPresetDraft,
-  DEPARTMENT_WORK_PRESET_KEYS,
-  workPresetOwningProductKey,
-  type DepartmentWorkPresetKey,
-} from "@/lib/department-work/work-presets";
-import {
   departmentProductLineageKeys,
   getDepartmentProduct,
   matchDepartmentRecordForProduct,
@@ -31,8 +25,6 @@ import {
   billingStatusFor,
   departmentInstallIsCustomerOperable,
   productFacilityAccessIdentities,
-  summarizeWorkPresetAdoption,
-  workPlanMatchesPreset,
   type ProductAccessRole,
 } from "@/lib/harbor-console/console-catalog";
 
@@ -148,37 +140,9 @@ export type ConsoleDepartmentProductDetail = {
   facilities: ConsoleDepartmentProductFacilityRow[];
 };
 
-export type ConsoleWorkPresetPlanRow = {
-  id: string;
-  facilityId: string;
-  facilityName: string;
-  organizationName: string;
-  departmentName: string;
-  planName: string;
-  status: "DRAFT" | "PUBLISHED" | "RETIRED";
-  version: number;
-};
-
-export type ConsoleWorkPresetDetail = {
-  presetKey: DepartmentWorkPresetKey;
-  name: string;
-  description: string | null;
-  owningProductKey: string;
-  owningProductName: string;
-  versionLabel: string;
-  statusLabel: string;
-  facilityInstallCount: number;
-  publishedPlanCount: number;
-  plans: ConsoleWorkPresetPlanRow[];
-};
-
 function emptyOrganization(name: string | null | undefined): string {
   const trimmed = name?.trim() ?? "";
   return trimmed || CONSOLE_CATALOG_EMPTY;
-}
-
-function isWorkPresetKey(value: string): value is DepartmentWorkPresetKey {
-  return (DEPARTMENT_WORK_PRESET_KEYS as readonly string[]).includes(value);
 }
 
 function addRoleCounts(target: ProductAccessRoleCounts, role: ProductAccessRole | null, times = 1) {
@@ -388,68 +352,6 @@ async function loadDepartmentProductDetail(
     usersWithAccess,
     roleCounts,
     facilities,
-  };
-}
-
-export async function loadConsoleWorkPresetDetail(
-  client: Db,
-  presetKey: string,
-): Promise<ConsoleWorkPresetDetail | null> {
-  if (!isWorkPresetKey(presetKey)) return null;
-  const ownerKey = workPresetOwningProductKey(presetKey);
-  const owner = getDepartmentProduct(ownerKey);
-  if (!owner) return null;
-  const draft = buildWorkPlanPresetDraft(presetKey);
-  const plans = await client.departmentWorkPlan.findMany({
-    where: { OR: [{ presetKey }, { stableKey: presetKey }] },
-    select: {
-      id: true,
-      presetKey: true,
-      stableKey: true,
-      facilityId: true,
-      departmentId: true,
-      name: true,
-      status: true,
-      version: true,
-      facility: {
-        select: {
-          displayName: true,
-          organization: { select: { name: true } },
-        },
-      },
-      department: { select: { name: true } },
-    },
-  });
-  const matched = plans.filter((plan) => workPlanMatchesPreset(plan, presetKey));
-  const adoption = summarizeWorkPresetAdoption(matched, presetKey);
-  return {
-    presetKey,
-    name: draft.name,
-    description: draft.description?.trim() || null,
-    owningProductKey: owner.productKey,
-    owningProductName: owner.name,
-    versionLabel: CONSOLE_CATALOG_EMPTY,
-    statusLabel: CONSOLE_CATALOG_EMPTY,
-    facilityInstallCount: adoption.facilityInstallCount,
-    publishedPlanCount: adoption.usageCount,
-    plans: matched
-      .map((plan) => ({
-        id: plan.id,
-        facilityId: plan.facilityId,
-        facilityName: plan.facility.displayName,
-        organizationName: emptyOrganization(plan.facility.organization.name),
-        departmentName: plan.department.name,
-        planName: plan.name,
-        status: plan.status,
-        version: plan.version,
-      }))
-      .sort(
-        (a, b) =>
-          a.facilityName.localeCompare(b.facilityName, "en", { sensitivity: "base" }) ||
-          a.departmentName.localeCompare(b.departmentName, "en", { sensitivity: "base" }) ||
-          a.planName.localeCompare(b.planName, "en", { sensitivity: "base" }) ||
-          a.version - b.version,
-      ),
   };
 }
 

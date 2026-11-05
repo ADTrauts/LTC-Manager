@@ -4,7 +4,6 @@
  */
 
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import type {
   RuntimeLocationSpaceRef,
@@ -12,7 +11,7 @@ import type {
 } from "@/lib/runtime-location-state";
 import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
 
-import { assignmentScopeKind, assignedSpaceIdSet, filterWorkToAssignedSpaces } from "./assigned-spaces";
+import { assignmentScopeKind, assignedSpaceIdSet } from "./assigned-spaces";
 import {
   collectHarborEvidence,
   filterTemplateEvidenceToAssignedSpaces,
@@ -39,7 +38,6 @@ export type ComposeEmployeeRuntimeFlowInput = {
   spaceRefs: readonly RuntimeLocationSpaceRef[];
   states: readonly RuntimeLocationState[];
   templateEvidence: readonly EvidenceRequirement[];
-  workRequirements: readonly WorkRequirement[];
   deviceBoundUnitId?: string | null;
   offline?: {
     bundleRevision?: string | null;
@@ -75,7 +73,6 @@ function emptyFlow(
     evidenceMode: "none",
     evidence: [],
     templateEvidence: [],
-    work: [],
     milestones: [],
     issues: [],
     next: { kind: "none", label: "", spaceId: null, sourceId: "" },
@@ -111,8 +108,6 @@ function presentLocations(
       unitName: state?.identity.hierarchy.unitName ?? null,
       floorName: state?.identity.hierarchy.floorName ?? ref.floorName ?? null,
       neighborhoodName: state?.identity.hierarchy.neighborhoodName ?? ref.neighborhoodName ?? null,
-      operationalTypeKey: state?.program.operationalType.key ?? null,
-      operationalTypeName: state?.program.operationalType.name ?? null,
       operationLabel:
         state?.operation.state === "ACTIVE"
           ? (state.operation.current?.hierarchyLabel ?? state.operation.current?.label ?? null)
@@ -212,7 +207,6 @@ export function composeEmployeeRuntimeFlow(
         ...signedIn.responsibility,
         unitId: input.deviceBoundUnitId ?? null,
       },
-      work: filterWorkToAssignedSpaces(input.workRequirements, null),
     };
   }
 
@@ -232,12 +226,10 @@ export function composeEmployeeRuntimeFlow(
     evidenceMode === "template"
       ? filterTemplateEvidenceToAssignedSpaces(input.templateEvidence, spaceFilter)
       : [];
-  const work = filterWorkToAssignedSpaces(input.workRequirements, spaceFilter);
   const milestones = collectMilestones(states);
   const issues = collectIssues(states);
   const locationNext = earliestLocationNext(states);
   const next = resolveEmployeeNextAction({
-    work,
     evidence: harborEvidence,
     milestones,
     currentAssignment: input.currentAssignment,
@@ -264,7 +256,6 @@ export function composeEmployeeRuntimeFlow(
     evidenceMode,
     evidence: harborEvidence,
     templateEvidence,
-    work,
     milestones,
     issues,
     next,

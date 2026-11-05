@@ -25,7 +25,7 @@ test('scenario-03/30 @ci-gate: genuine offline shell with no prepared context ex
     await expect(page.getByTestId('space-offline-status')).toContainText('No unlocked');
     await expect(page.getByTestId('space-work-complete')).toHaveCount(0);
     await expect(page.getByTestId('space-key-time-actual')).toHaveCount(0);
-    await expect(page.locator('body')).not.toContainText(fx.canonical.workLabel);
+    await expect(page.locator('body')).not.toContainText(fx.canonical.spaceName);
 });
 test('scenario-05 @ci-gate: exact Space encrypts IndexedDB; a new tab cannot retrieve its key', async ({ page, context }) => {
     await prepare(page);
@@ -34,7 +34,7 @@ test('scenario-05 @ci-gate: exact Space encrypts IndexedDB; a new tab cannot ret
     const denied = await page.request.post('/api/offline/runtime-bundle', { headers: { origin: 'https://unapproved.example.test', cookie: (await context.cookies()).map(c => `${c.name}=${c.value}`).join('; ') }, data: {protocol:'space/1', action:'prepare', scope:data.bundle.scope} }); expect(denied.status()).toBe(403);
     const raw = await page.evaluate(async () => { const s = await import(String('/space-offline-store.js')); return JSON.stringify(await s.envelopes()); });
     expect(raw).not.toContain(data.bundle.label);
-    expect(raw).not.toContain(loadFixtures().canonical.workLabel);
+    expect(raw).not.toContain(loadFixtures().canonical.spaceName);
     expect(raw).not.toContain('password');
     // Ciphertext is random Base64 and may contain the letters "jwt". Check
     // credential fields and JWT structure, never a three-character substring.
@@ -53,9 +53,10 @@ test('scenario-07/08/09/11/12/13 @ci-gate: real offline reload, Work/actual queu
         await setNetworkOffline(context, true, page);
         await page.reload();
         await expect(page.getByTestId('space-offline-status')).toContainText('Offline — prepared');
-        await expect(page.getByTestId('space-work-instructions').first()).toHaveText('Verify supplies for this exact Space before confirming completion.');
-        await page.locator(`[data-testid="space-work-complete"][data-target-order="${i}"]`).click();
+        await expect(page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`)).toBeVisible();
+        await expect(page.locator(`[data-testid="space-key-time-actual"][data-target-order="${14 + i}"]`)).toBeVisible();
         await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`).click();
+        await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${14 + i}"]`).click();
         await expect(page.getByTestId('space-command-result')).toHaveCount(2);
         await page.reload();
         const queued = await cached(page);
@@ -80,12 +81,9 @@ test('scenario-07/08/09/11/12/13 @ci-gate: real offline reload, Work/actual queu
         expect(receipts.every(r => r.intentDigest && r.authoritativeRecordId && r.outcome)).toBe(true);
         for (const c of queued.commands) {
             expect(receipts.filter(r => r.clientCommandId === c.id)).toHaveLength(1);
-            if (c.kind === 'WORK')
-                expect(await db.departmentWorkEvent.count({ where: { occurrenceId: receipts.find(r => r.clientCommandId === c.id)!.authoritativeRecordId!, eventType: 'COMPLETED' } })).toBe(1);
-            else {
-                const k = await db.operationalCycleKeyTimeDayExpectation.findUniqueOrThrow({ where: { id: c.target } });
-                expect(await db.operationalCycleKeyPointActual.count({ where: { cycleId: k.cycleId, spaceId: k.spaceId, serviceDate: k.serviceDate } })).toBe(1);
-            }
+            expect(c.kind).toBe('KEY_TIME_ACTUAL');
+            const k = await db.operationalCycleKeyTimeDayExpectation.findUniqueOrThrow({ where: { id: c.target } });
+            expect(await db.operationalCycleKeyPointActual.count({ where: { cycleId: k.cycleId, spaceId: k.spaceId, serviceDate: k.serviceDate } })).toBe(1);
         }
         await expect(page.getByTestId('space-online-only')).toContainText('corrections and expected-time adjustments are unavailable offline');
     }
@@ -98,7 +96,7 @@ test('scenario-conflict @ci-gate: another authorized actor records the actual; r
     await setNetworkOffline(context, true, page);
     await page.reload();
     await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`).click();
-    await page.locator(`[data-testid="space-work-complete"][data-target-order="${10 + index(info.project.name)}"]`).click();
+    await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${10 + index(info.project.name)}"]`).click();
     const other = await browser.newContext({ baseURL: process.env.OFFLINE_BROWSER_BASE_URL, serviceWorkers: 'allow' });
     try {
         const p = await other.newPage();
@@ -118,7 +116,11 @@ test('scenario-conflict @ci-gate: another authorized actor records the actual; r
             expect(await db.offlineConflict.count({ where: { clientCommandId: data.commands.find((c:{kind:string})=>c.kind==='KEY_TIME_ACTUAL').id } })).toBe(1);
             const receipts=await db.offlineSyncReceipt.findMany({where:{issuanceId:data.id}}); expect(receipts).toHaveLength(2);
             await sync(page); expect(await db.offlineSyncReceipt.count({where:{issuanceId:data.id}})).toBe(2);
-            const work=receipts.find(r=>r.commandType==='space/1:WORK')!;expect(await db.departmentWorkEvent.count({where:{occurrenceId:work.authoritativeRecordId!,eventType:'COMPLETED'}})).toBe(1);
+            expect(receipts.some(r => r.commandType === 'space/1:WORK')).toBe(false);
+            const committed = receipts.find(r => r.resultCategory === 'ACCEPTED');
+            expect(committed?.commandType).toBe('space/1:KEY_TIME_ACTUAL');
+            expect(committed?.authoritativeRecordId).toBeTruthy();
+            expect(receipts.some(r => r.resultCategory === 'CONFLICT_REVIEW_REQUIRED')).toBe(true);
         }
         finally {
             await db.$disconnect();
@@ -130,7 +132,7 @@ test('scenario-conflict @ci-gate: another authorized actor records the actual; r
 });
 test('scenario-27 @ci-gate: sign-out seals pending intent; other actor denied; fresh same-actor review recovers', async ({ page, context }, info) => {
     const fx = await prepare(page);
-    await page.locator(`[data-testid="space-work-complete"][data-target-order="${4 + index(info.project.name)}"]`).click();
+    await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${4 + index(info.project.name)}"]`).click();
     const before = await cached(page);
     await signOut(page);
     expect(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith('vssyl-space/1/') && k !== 'vssyl-space/1/identity'))).toEqual([]);
@@ -150,7 +152,7 @@ test('scenario-27 @ci-gate: sign-out seals pending intent; other actor denied; f
 });
 test('scenario-expiry/scope @ci-gate: expiry hides data and preserves ciphertext; wrong Space cannot reopen it', async ({ page, context }, info) => {
     const fx = await prepare(page);
-    await page.locator(`[data-testid="space-work-complete"][data-target-order="${6 + index(info.project.name)}"]`).click();
+    await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${6 + index(info.project.name)}"]`).click();
     const before = await cached(page);
     await page.clock.install({ time: Date.now() });
     await page.clock.setSystemTime(Date.now() + 13 * 3600000);
@@ -170,14 +172,14 @@ test('scenario-capacity @ci-gate: preparation bound refuses overflow and explici
  await prepare(page);
  for(let i=1;i<8;i++)await expectCanonicalOfflinePreparation(page);
  await page.getByTestId('space-offline-prepare').click();await expect(page.getByTestId('space-offline-status')).toContainText('storage limit reached');
- await page.locator(`[data-testid="space-work-complete"][data-target-order="${8}"]`).click();const before=await cached(page);
+ await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${8}"]`).click();const before=await cached(page);
  await page.getByTestId('space-offline-prune').click();
  const remaining=await page.evaluate(async()=>{const s=await import(String('/space-offline-store.js'));return(await s.envelopes()).map((r:{id:string;commands:unknown[]})=>({id:r.id,commands:r.commands.length}));});
  expect(remaining).toEqual([{id:before.id,commands:1}]);
 });
 
 test('scenario-unbind @ci-gate: full unbind discloses sealed pending loss; cancel preserves intent',async({page})=>{
- const fx=await prepare(page);await page.locator('[data-testid="space-work-complete"][data-target-order="9"]').click();const before=await cached(page);
+ const fx=await prepare(page);await page.locator('[data-testid="space-key-time-actual"][data-target-order="9"]').click();const before=await cached(page);
  await loginPassword(page,fx.adminEmail);await page.getByTestId('account-menu-trigger').click();
  const dialog=page.waitForEvent('dialog');await page.getByTestId('account-menu-unbind').click({noWaitAfter:true});const confirm=await dialog;
  expect(confirm.type()).toBe('confirm');expect(confirm.message()).toContain('1 pending offline actions');await confirm.dismiss();

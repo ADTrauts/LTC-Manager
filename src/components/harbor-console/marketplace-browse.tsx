@@ -57,7 +57,7 @@ export function MarketplaceBrowse({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Marketplace</h1>
           <p className="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">
-            Manage Vssyl Department Products, catalog Records, and Work presets from one place.
+            Manage Vssyl Department Products and catalog Records from one place.
           </p>
         </div>
         {create ? (

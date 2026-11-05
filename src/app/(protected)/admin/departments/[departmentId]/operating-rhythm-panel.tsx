@@ -166,7 +166,6 @@ export function OperatingRhythmPanel({
                     catalog={{
                       locations: catalog.locations,
                       roomTypes: catalog.roomTypes,
-                      operationalTypes: catalog.operationalTypes,
                     }}
                     defaults={{
                       label: root.label,

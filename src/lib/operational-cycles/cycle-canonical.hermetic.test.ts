@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveWorkRequirements } from "@/lib/department-work/resolve-requirements";
-
 import {
   appendKeyPointActual,
   applyCanonicalKeyPointOccurrence,
@@ -376,94 +374,6 @@ test("Dietary and EVS starters obey one Phase level and Cycle-parented Key Point
   assert.deepEqual(validateStarterStructure(buildEvsDefaultCyclePlans()), []);
 });
 
-test("Key Points are not Work schedule targets", () => {
-  const requirements = resolveWorkRequirements({
-    facilityId: "f1",
-    departmentId: "dietary",
-    operationalDateKey: "2026-10-01",
-    now: new Date("2026-10-01T12:00:00.000Z"),
-    facilityTimezone: "UTC",
-    candidateUnitIds: ["unit-a"],
-    spaces: [{ id: "room-a", spaceType: "SERVICE_AREA", unitId: "unit-a" }],
-    publishedPlans: [
-      {
-        id: "plan",
-        stableKey: "plan",
-        version: 1,
-        name: "Due work",
-        status: "PUBLISHED",
-        effectiveStartDate: null,
-        effectiveEndDate: null,
-        weekdays: [],
-        applicabilities: [
-          {
-            kind: "DEPARTMENT_UNIT",
-            unitId: null,
-            spaceId: null,
-            spaceType: null,
-            assetId: null,
-            assetType: null,
-          },
-        ],
-        items: [
-          {
-            id: "item",
-            itemKey: "item",
-            label: "Marker",
-            instructions: null,
-            displaySequence: 1,
-            priority: "ROUTINE",
-            completionMode: "EXPLICIT_CONFIRMATION",
-            responsibilityMode: "UNIT_SHARED",
-            scheduleKind: "OPERATIONAL_CYCLE",
-            cycleStableKeys: ["breakfast_due", "breakfast"],
-            windowStartLocal: null,
-            windowEndLocal: null,
-            dueOffsetKind: null,
-            dueOffsetMinutes: null,
-            roleKeys: [],
-            unitId: null,
-            spaceId: null,
-            assetId: null,
-            knowledgeArticleId: null,
-            procedureTitleSnapshot: null,
-            linkedTemplateStableKey: null,
-            linkedTemplateId: null,
-            supervisorVisible: true,
-          },
-        ],
-      },
-    ],
-    publishedCycles: [
-      {
-        stableKey: "breakfast",
-        label: "Breakfast",
-        nodeKind: "PERIOD",
-        startLocal: "05:00",
-        endLocal: "10:00",
-        startsAt: new Date("2026-10-01T05:00:00.000Z"),
-        endsAt: new Date("2026-10-01T10:00:00.000Z"),
-        departmentWide: true,
-        participatingSpaceIds: ["room-a"],
-      },
-      {
-        stableKey: "breakfast_due",
-        label: "Breakfast Due",
-        nodeKind: "KEY_TIME",
-        startLocal: "08:00",
-        endLocal: "08:00",
-        startsAt: new Date("2026-10-01T08:00:00.000Z"),
-        endsAt: new Date("2026-10-01T08:00:00.000Z"),
-        departmentWide: true,
-        participatingSpaceIds: ["room-a"],
-      },
-    ],
-    confirmedAssignments: [],
-    existingOccurrences: [],
-  });
-  assert.ok(requirements.every((row) => row.cycleStableKey !== "breakfast_due"));
-  assert.ok(requirements.some((row) => row.cycleStableKey === "breakfast"));
-});
 
 test("a Key Time expectation pointer does not prove the occurrence", () => {
   const recordedAt = new Date("2026-10-05T11:17:00.000Z");

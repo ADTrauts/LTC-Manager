@@ -43,21 +43,18 @@ test("buildCoverageItems orders gaps before thin before covered", () => {
     schedules: [
       {
         employeeId: "e1",
-        unitId: "covered",
         shift: ShiftType.FULL_DAY,
         employeeFirstName: "Casey",
         employeeLastName: "Cook",
       },
       {
         employeeId: "e2",
-        unitId: "covered",
         shift: ShiftType.FULL_DAY,
         employeeFirstName: "Alex",
         employeeLastName: "Prep",
       },
       {
         employeeId: "e3",
-        unitId: "thin",
         shift: ShiftType.LUNCH,
         employeeFirstName: "Sam",
         employeeLastName: "Server",
@@ -97,7 +94,7 @@ test("resolveCoverageLevel treats partial servery slots as thin", () => {
   );
 });
 
-test("buildCoverageItems applies overrides when grouping assignments", () => {
+test("buildCoverageItems does not place a shift onto a unit", () => {
   const items = buildCoverageItems({
     unitCards: [
       card({ id: "a", name: "Servery A", unitType: UnitType.SERVERY, staffingCount: 1 }),
@@ -106,7 +103,6 @@ test("buildCoverageItems applies overrides when grouping assignments", () => {
     schedules: [
       {
         employeeId: "e1",
-        unitId: "a",
         shift: ShiftType.LUNCH,
         employeeFirstName: "Flo",
         employeeLastName: "Float",
@@ -126,8 +122,7 @@ test("buildCoverageItems applies overrides when grouping assignments", () => {
   const serveryA = items.find((item) => item.unitId === "a");
   const serveryB = items.find((item) => item.unitId === "b");
   assert.equal(serveryA?.assignments.length, 0);
-  assert.equal(serveryB?.assignments.length, 1);
-  assert.equal(serveryB?.assignments[0]?.employeeName, "Flo Float");
+  assert.equal(serveryB?.assignments.length, 0);
 });
 
 test("resolveCoverageReason describes missing servery slots", () => {
@@ -210,7 +205,6 @@ test("buildCoverageItems evaluates only scoped servery meal when mealScope is se
     schedules: [
       {
         employeeId: "e1",
-        unitId: "servery",
         shift: ShiftType.LUNCH,
         employeeFirstName: "Alex",
         employeeLastName: "Lee",
@@ -222,7 +216,7 @@ test("buildCoverageItems evaluates only scoped servery meal when mealScope is se
   });
 
   const servery = items[0];
-  assert.equal(servery?.level, "covered");
+  assert.equal(servery?.level, "thin");
   assert.equal(servery?.expectedSlots, 1);
-  assert.deepEqual(servery?.missingShifts, []);
+  assert.deepEqual(servery?.missingShifts, [ShiftType.LUNCH]);
 });

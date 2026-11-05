@@ -60,6 +60,5 @@ export type {
   CoverageCycleOption,
   CoverageExpectationItemView,
   CoverageExpectationView,
-  CoverageOperationalTypeOption,
   CoverageRoleOption,
 } from "./views";

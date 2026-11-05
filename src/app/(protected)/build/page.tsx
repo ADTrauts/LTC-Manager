@@ -49,7 +49,6 @@ export default async function BuildHubPage() {
 
   const rawNavItems = platformNavItemsForRole(session.role, {
     dietaryOperationalEvidenceEnabled: true,
-    dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled: isCanonicalLogsEnabled(),
   });
   const navItems = filterNavItemsForDepartmentScope(rawNavItems, {

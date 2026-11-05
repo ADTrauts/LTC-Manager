@@ -120,8 +120,6 @@ export const NON_REVOKING_CHANGES = [
   "unionMember",
   "onLeave",
   "primaryUnitId",
-  "workStations",
-  "defaultAssignment",
   "disciplinePoints",
   // `OFF` and returns from `OFF` continue to mean off-shift rather than deactivated.
   "status:OFF",

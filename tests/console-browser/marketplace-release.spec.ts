@@ -128,7 +128,7 @@ test.describe("@console-marketplace-release @ci-gate Console Marketplace V1", ()
     );
     await expect(row(page, "PLANT")).toBeVisible();
     await expect(row(page, "cooler_temperature_log")).toBeVisible();
-    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toBeVisible();
+    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toHaveCount(0);
     await expect(page.getByTestId("marketplace-create")).toHaveText("New catalog record");
 
     const plantBrowse = row(page, "PLANT");
@@ -151,11 +151,9 @@ test.describe("@console-marketplace-release @ci-gate Console Marketplace V1", ()
     await expect(row(page, "cooler_temperature_log")).toBeVisible();
     await expect(row(page, "PLANT")).toHaveCount(0);
 
-    await page.getByRole("navigation", { name: "Marketplace families" }).getByRole("link", { name: "Work" }).click();
-    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toBeVisible();
-    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toContainText("Facility Plant Operations");
-    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toContainText("—");
-    await expect(page.getByLabel("Status")).toHaveCount(0);
+    await expect(
+      page.getByRole("navigation", { name: "Marketplace families" }).getByRole("link", { name: "Work" }),
+    ).toHaveCount(0);
 
     await page.goto("/console/catalog");
     await page.getByLabel("Search Marketplace").fill("plant");
@@ -168,7 +166,7 @@ test.describe("@console-marketplace-release @ci-gate Console Marketplace V1", ()
     await page.goto("/console/catalog");
     await page.getByLabel("Search Marketplace").fill("mechanical");
     await page.getByRole("button", { name: "Apply" }).click();
-    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toBeVisible();
+    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toHaveCount(0);
 
     await page.goto("/console/catalog?family=departments");
     await page.getByLabel("Status").selectOption("AVAILABLE");
@@ -241,29 +239,12 @@ test.describe("@console-marketplace-release @ci-gate Console Marketplace V1", ()
     await expect(page.getByRole("heading", { name: "New catalog record" })).toBeVisible();
   });
 
-  test("Work preset detail matches browse counts", async ({ page }) => {
+  test("generic Work presets are not a Marketplace family", async ({ page }) => {
     await page.goto("/console/catalog?family=work");
-    const browseInstall = (
-      await row(page, "MECHANICAL_ROOM_ROUND").locator("td").nth(5).innerText()
-    ).trim();
-    const browseUsage = (
-      await row(page, "MECHANICAL_ROOM_ROUND").locator("td").nth(6).innerText()
-    ).trim();
-    await row(page, "MECHANICAL_ROOM_ROUND").locator("a").click();
-    await expect(page).toHaveURL(/\/console\/catalog\/work\/MECHANICAL_ROOM_ROUND$/);
-    await expect(page.getByRole("heading", { name: "Mechanical Room Round" })).toBeVisible();
-    await expect(page.getByTestId("work-version")).toHaveText("—");
-    await expect(page.getByTestId("work-status")).toHaveText("—");
-    await expect(page.getByRole("link", { name: "Facility Plant Operations" })).toBeVisible();
-    const detailInstall = Number(await page.getByTestId("work-install-count").innerText());
-    const detailPublished = Number(await page.getByTestId("work-published-count").innerText());
-    if (browseInstall === "None yet") expect(detailInstall).toBe(0);
-    else expect(browseInstall).toContain(String(detailInstall));
-    expect(browseUsage).toContain(String(detailPublished));
-    if (detailInstall > 0) {
-      await expect(page.getByTestId("work-plan-row").first()).toBeVisible();
-    }
-    await expect(page.getByRole("button", { name: /new work preset/i })).toHaveCount(0);
+    await expect(row(page, "PLANT")).toBeVisible();
+    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toHaveCount(0);
+    const missing = await page.goto("/console/catalog/work/MECHANICAL_ROOM_ROUND");
+    expect(missing?.status()).toBe(404);
   });
 
   test("Harbor MEMBER can open Marketplace and routes coexist", async ({ page }) => {
@@ -273,8 +254,8 @@ test.describe("@console-marketplace-release @ci-gate Console Marketplace V1", ()
     await expect(page.getByRole("heading", { name: "Marketplace" })).toBeVisible();
     await page.goto("/console/catalog/products/PLANT");
     await expect(page.getByRole("heading", { name: "Facility Plant Operations" })).toBeVisible();
-    await page.goto("/console/catalog/work/MECHANICAL_ROOM_ROUND");
-    await expect(page.getByRole("heading", { name: "Mechanical Room Round" })).toBeVisible();
+    const retiredWork = await page.goto("/console/catalog/work/MECHANICAL_ROOM_ROUND");
+    expect(retiredWork?.status()).toBe(404);
     await page.goto("/console/catalog/cooler_temperature_log");
     await expect(page.getByRole("heading", { name: "Cooler Temperature Log" })).toBeVisible();
     await page.goto("/console/catalog/new");

@@ -69,7 +69,6 @@ function targetFromRow(row: {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
-  operationalTypeKey?: string | null;
 }): LogAttachmentTarget {
   switch (row.targetKind) {
     case "ASSET":
@@ -82,8 +81,6 @@ function targetFromRow(row: {
       return { kind: "DEPARTMENT", departmentId: row.targetDepartmentId! };
     case "FACILITY":
       return { kind: "FACILITY" };
-    case "OPERATIONAL_TYPE":
-      return { kind: "OPERATIONAL_TYPE", operationalTypeKey: row.operationalTypeKey! };
   }
 }
 
@@ -129,10 +126,6 @@ export function attachmentTargetBuildHref(input: {
       return input.unitId ? `/build/logs/targets/unit/${input.unitId}` : null;
     case "DEPARTMENT":
       return input.targetDepartmentId ? `/admin/departments/${input.targetDepartmentId}` : null;
-    case "OPERATIONAL_TYPE":
-      return input.departmentId
-        ? `/admin/departments/${input.departmentId}?tab=locations`
-        : "/build/logs";
     default:
       return null;
   }
@@ -156,8 +149,6 @@ export function attachmentTargetRunHref(input: {
       return input.targetDepartmentId
         ? `/staffing/logs/targets/department/${input.targetDepartmentId}`
         : null;
-    case "OPERATIONAL_TYPE":
-      return "/staffing/logs";
     default:
       return null;
   }

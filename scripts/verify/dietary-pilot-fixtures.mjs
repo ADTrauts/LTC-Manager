@@ -97,7 +97,7 @@ async function ensureDeptMembership(db, employeeId, departmentId) {
   await db.employeeDepartment.upsert({
     where: { employeeId_departmentId: { employeeId, departmentId } },
     update: {},
-    create: { employeeId, departmentId, roleType: "STAFF" },
+    create: { employeeId, departmentId },
   });
 }
 
@@ -193,6 +193,11 @@ async function main() {
     });
     await linkFixtureAccount(db, staff, staffEmp, { facilityId: facility.id, roleKey: "STAFF" });
     await ensureDeptMembership(db, staffEmp.id, dietary.id);
+    await db.employeeOperationalRoleQualification.upsert({
+      where: { employeeId_departmentId_roleKey: { employeeId: staffEmp.id, departmentId: dietary.id, roleKey: "SERVER" } },
+      update: { status: "ACTIVE", revokedAt: null },
+      create: { facilityId: facility.id, employeeId: staffEmp.id, departmentId: dietary.id, roleKey: "SERVER", status: "ACTIVE" },
+    });
     await db.employeeUnitAccess.upsert({
       where: { employeeId_unitId: { employeeId: staffEmp.id, unitId: primaryServery.id } },
       update: {},
@@ -241,8 +246,7 @@ async function main() {
             employeeId,
             date: serviceDate,
             shift: "FULL_DAY",
-            roleType: "STAFF",
-            unitId: primaryServery.id,
+            departmentId: dietary.id,
             plannedStart: "05:30",
             plannedEnd: "19:30",
           },
@@ -293,7 +297,7 @@ async function main() {
       });
     }
 
-    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "dietary", pin: "864205", extraWorkItems: 3, extraKeyTimes: 1 });
+    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "dietary", pin: "864205", extraKeyTimes: 4 });
     mkdirSync(ARTIFACT_DIR, { recursive: true });
     writeFileSync(
       FIXTURE_PATH,

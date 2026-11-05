@@ -297,7 +297,7 @@ test("cycle version for Sept 1 uses v1 timing, not v2", () => {
   assert.equal(v2.version, 2);
 });
 
-test("OT version for Sept 2 uses v1 bindings, not current ACTIVE v2", () => {
+test("a historical room label comes from Facility identity, not a profile", () => {
   const model = composeOperationalReviewDay(
     facts({
       serviceDate: "2026-09-02",
@@ -337,7 +337,9 @@ test("OT version for Sept 2 uses v1 bindings, not current ACTIVE v2", () => {
       ],
     }),
   );
-  assert.equal(model.locations[0]?.operationalTypeKey, "servery");
+  assert.equal("operationalTypeKey" in (model.locations[0] ?? {}), false);
+  assert.equal(model.locations[0]?.displayLabel, "Main Kitchen");
+  assert.equal(model.locations[0]?.displayLabelIsHistorical, false);
 });
 
 test("coverage v1 remains historical expectation after isActive=false", () => {
@@ -360,6 +362,7 @@ test("coverage v1 remains historical expectation after isActive=false", () => {
               roleLabel: "Server",
               requiredCount: 2,
               unitId: null,
+              spaceId: "space-1",
               applicableOperationalTypeKeys: ["servery"],
               applicableOperationalCycleStableKeys: [],
             },
@@ -380,6 +383,7 @@ test("coverage v1 remains historical expectation after isActive=false", () => {
               roleLabel: "Server",
               requiredCount: 1,
               unitId: null,
+              spaceId: "space-1",
               applicableOperationalTypeKeys: ["servery"],
               applicableOperationalCycleStableKeys: [],
             },
@@ -412,6 +416,7 @@ test("OA actual of 1 against required 2 is at risk; schedule count does not cove
               roleLabel: "Server",
               requiredCount: 2,
               unitId: null,
+              spaceId: "space-1",
               applicableOperationalTypeKeys: ["servery"],
               applicableOperationalCycleStableKeys: [],
             },

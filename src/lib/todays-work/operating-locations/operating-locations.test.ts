@@ -24,7 +24,7 @@ import type {
   OperatingLocationIssueFacts,
   SupervisorOperatingLocation,
 } from "@/lib/todays-work/operating-locations/types";
-import type { ViewerTeamScope } from "@/lib/todays-work/viewer-team-scope";
+import type { ViewerTeamScope } from "@/lib/todays-work/operational-placement";
 
 function locationNode(
   partial: Partial<LocationsTreeNode> & Pick<LocationsTreeNode, "kind" | "label" | "physicalId">,
@@ -753,7 +753,7 @@ test("Team scope: Resident Services neighborhoods only; standalone Kitchen/Retai
       [
         "dept-dietary",
         teamScope({
-          mode: "TEAM_SCOPED",
+          mode: "ASSIGNMENT_SCOPED",
           reason: "ACTIVE_TEAM_MEMBERSHIP",
           roomIds: [
             "unit-1a-servery",
@@ -780,7 +780,7 @@ test("multi-Team union includes Retail without duplicating rows", () => {
       [
         "dept-dietary",
         teamScope({
-          mode: "TEAM_SCOPED",
+          mode: "ASSIGNMENT_SCOPED",
           reason: "ACTIVE_TEAM_MEMBERSHIP",
           activeTeams: [
             { id: "t-rs", name: "Resident Services" },
@@ -870,7 +870,7 @@ test("Neighborhood row keeps only the scoped Room; sibling Key Times do not affe
       [
         "dept-dietary",
         teamScope({
-          mode: "TEAM_SCOPED",
+          mode: "ASSIGNMENT_SCOPED",
           reason: "ACTIVE_TEAM_MEMBERSHIP",
           roomIds: ["servery"],
         }),
@@ -923,7 +923,7 @@ test("EmployeeUnitAccess-projected rooms intersect Team rooms", () => {
       [
         "dept-dietary",
         teamScope({
-          mode: "TEAM_SCOPED",
+          mode: "ASSIGNMENT_SCOPED",
           reason: "ACTIVE_TEAM_MEMBERSHIP",
           roomIds: ["unit-1a-servery", "unit-1b-servery"],
         }),
@@ -945,7 +945,7 @@ test("Team-scoped counts and Walk List reuse the same operating rows", () => {
       [
         "dept-dietary",
         teamScope({
-          mode: "TEAM_SCOPED",
+          mode: "ASSIGNMENT_SCOPED",
           reason: "ACTIVE_TEAM_MEMBERSHIP",
           roomIds: [
             "unit-1a-servery",

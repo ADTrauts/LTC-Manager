@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Employee Builder — proposed wireframe</title>
+  <style>
+    body { margin: 0; font: 15px/1.4 system-ui, sans-serif; color: #1c1917; background: #fafaf9; }
+    header { padding: 20px 28px 8px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    p.note { margin: 0; color: #57534e; max-width: 720px; }
+    main { display: grid; grid-template-columns: 280px 1fr; gap: 16px; padding: 16px 28px 32px; }
+    section { background: #fff; border: 1px solid #e7e5e4; border-radius: 10px; padding: 14px 16px; }
+    h2 { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: #78716c; margin: 0 0 10px; }
+    .team { margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; }
+    .team strong { display: block; }
+    .team span { color: #57534e; font-size: 13px; }
+    .on { background: #e7f0e8; }
+    .off { background: #f5f5f4; }
+    .person { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .meta { color: #57534e; font-size: 13px; margin: 2px 0; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip { border: 1px solid #d6d3d1; border-radius: 999px; padding: 2px 8px; font-size: 13px; }
+    .edit { background: #ecfccb; border-color: #65a30d; }
+    .read { background: #f5f5f4; }
+    aside ul { margin: 8px 0 0; padding-left: 18px; color: #44403c; }
+    footer { padding: 0 28px 28px; color: #78716c; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Employee Builder — Food and Nutrition</h1>
+    <p class="note">Proposed screen, not a built page. Green chips are edited here. Gray chips are read from Schedule, Coverage, and today's Assignment.</p>
+  </header>
+  <main>
+    <section>
+      <h2>Teams</h2>
+      <div class="team on"><strong>Resident Services</strong><span>Lead: Maria Alvarez</span></div>
+      <div class="team off"><strong>Culinary</strong><span>Lead: none</span></div>
+      <div class="team off"><strong>Utility</strong><span>Lead: none</span></div>
+      <div class="team off"><strong>Retail</strong><span>Lead: none</span></div>
+    </section>
+    <section>
+      <div class="person">
+        <div>
+          <h2>Employee</h2>
+          <strong>John Smith</strong>
+          <p class="meta">Job title: Dietary Aide</p>
+          <p class="meta">Platform authority: Staff</p>
+          <p class="meta">Primary team: Resident Services</p>
+          <div class="chips">
+            <span class="chip edit">Qualified: Server</span>
+            <span class="chip edit">Qualified: Dishwashing</span>
+          </div>
+        </div>
+        <div>
+          <h2>Today, read only</h2>
+          <p class="meta">Shift: 10:30–19:00</p>
+          <p class="meta">Assignment: Server</p>
+          <p class="meta">1A Servery · Lunch</p>
+          <div class="chips">
+            <span class="chip read">Coverage need: 2 Servers</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer>
+    Team lead, job title, membership, and qualifications are Employee Builder facts.
+    The shift, the assignment, and the coverage count are not edited on this screen.
+    Server is a platform operational role, not a child record of Resident Services.
+  </footer>
+</body>
+</html>

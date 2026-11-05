@@ -3,7 +3,7 @@
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -11,19 +11,22 @@ function source(rel: string) {
   return readFileSync(join(process.cwd(), rel), "utf8");
 }
 
-test("Run loaders read Location Functions from the shared runtime resolver", () => {
-  const files = [
+test("Records Run loaders and Operating Rhythm do not read Location Functions", () => {
+  const cycleFiles = [
     "src/lib/operational-cycles/load-supervisor-cycle-overview.ts",
     "src/lib/operational-cycles/load-employee-cycle-context.ts",
     "src/lib/operational-cycles/load-run-operation-presentation.ts",
     "src/lib/offline/build-runtime-bundle.ts",
+  ];
+  const recordFiles = [
     "src/lib/canonical-logs/load-run-requirements.ts",
     "src/lib/canonical-logs/load-target-run-logs.ts",
+    "src/lib/audit/audit-records.ts",
   ];
-  for (const file of files) {
+  for (const file of [...cycleFiles, ...recordFiles]) {
     const text = source(file);
-    assert.equal(text.includes("loadSpaceOperationalTypeAssignments"), true, file);
-    assert.match(text, /perspective:\s*"runtime"/, file);
+    assert.equal(text.includes("loadSpaceOperationalTypeAssignments"), false, file);
+    assert.equal(text.includes("expandOperationalTypeSpaces"), false, file);
   }
   assert.equal(
     source("src/lib/scheduling/operational-assignments/build-coverage-summary.ts").includes(
@@ -43,7 +46,7 @@ test("Today's Work and workspace adapters do not require the Experience catalog"
     false,
   );
   assert.equal(
-    source("src/lib/department-administration/certification.ts").includes("isExperienceKey"),
+    existsSync(join(process.cwd(), "src/lib/department-administration/certification.ts")),
     false,
   );
 });

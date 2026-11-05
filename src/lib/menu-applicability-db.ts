@@ -1,14 +1,11 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import {
-  collectDepartmentActionableLocations,
-  groupLocationsByPhysicalHierarchy,
-  type DepartmentActionableLocation,
-  type DepartmentLocationFloorGroup,
+import type {
+  DepartmentActionableLocation,
+  DepartmentLocationFloorGroup,
 } from "@/lib/department-administration";
 import { loadDepartmentLocationsView } from "@/lib/department-administration/load-department-admin";
 import type { FacilityVocabulary } from "@/lib/facility-builder/facility-vocabulary";
-import { loadFacilityHierarchy } from "@/lib/facility-builder/load-facility-hierarchy";
 import {
   normalizeMenuLocationTarget,
   selectEligibleMenuCycleIdentities,
@@ -24,56 +21,6 @@ import { prisma } from "@/lib/prisma";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
-async function loadRoomPatternBySpaceId(input: {
-  client: DbClient;
-  facilityId: string;
-  departmentId: string;
-}) {
-  const active = await input.client.departmentOperationalProfile.findFirst({
-    where: { facilityId: input.facilityId, departmentId: input.departmentId, status: "ACTIVE" },
-    select: { id: true },
-  });
-  const profile =
-    active ??
-    (await input.client.departmentOperationalProfile.findFirst({
-      where: { facilityId: input.facilityId, departmentId: input.departmentId, status: "DRAFT" },
-      orderBy: { version: "desc" },
-      select: { id: true },
-    }));
-  const map = new Map<
-    string,
-    {
-      archetypeKey: string;
-      archetypeName: string;
-      exceptionCount: number;
-      recommendedPatternKey: string | null;
-      spaceTypeLabel: string;
-      displayName: string;
-    }
-  >();
-  if (!profile) return map;
-
-  const bindings = await input.client.departmentRoomArchetypeBinding.findMany({
-    where: { profileId: profile.id },
-    select: {
-      unitSpaceId: true,
-      unitSpace: { select: { name: true } },
-      archetype: { select: { key: true, name: true } },
-    },
-  });
-  for (const binding of bindings) {
-    map.set(binding.unitSpaceId, {
-      archetypeKey: binding.archetype.key,
-      archetypeName: binding.archetype.name,
-      exceptionCount: 0,
-      recommendedPatternKey: null,
-      spaceTypeLabel: "",
-      displayName: binding.unitSpace.name,
-    });
-  }
-  return map;
-}
-
 export async function loadDepartmentMenuLocations(input: {
   facilityId: string;
   departmentId: string;
@@ -83,27 +30,15 @@ export async function loadDepartmentMenuLocations(input: {
   locationHierarchy: DepartmentLocationFloorGroup[];
   vocabulary: FacilityVocabulary;
 } | null> {
-  const client = input.client ?? prisma;
   const view = await loadDepartmentLocationsView({
     facilityId: input.facilityId,
     departmentId: input.departmentId,
   });
   if (!view) return null;
 
-  const roomPatternBySpaceId = await loadRoomPatternBySpaceId({
-    client,
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-  });
-  const hierarchy = await loadFacilityHierarchy(input.facilityId);
-  const locations = collectDepartmentActionableLocations({
-    departmentId: input.departmentId,
-    units: hierarchy.units,
-    roomPatternBySpaceId,
-  });
   return {
-    locations,
-    locationHierarchy: groupLocationsByPhysicalHierarchy(locations),
+    locations: view.locations,
+    locationHierarchy: view.locationHierarchy,
     vocabulary: view.vocabulary,
   };
 }
