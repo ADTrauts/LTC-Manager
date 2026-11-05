@@ -8,6 +8,7 @@ import { onboardFacilityEmployee } from "@/lib/employee-identity/onboard";
 import { employeeBelongsToDepartment, syncEmployeeDepartmentMembership } from "@/lib/employee-membership";
 import { validateSessionAuthority } from "@/lib/session-revocation";
 import { isEmailConfigured, sendAccountInviteEmail } from "@/lib/email";
+import { confirmedRollback } from "@/lib/setup-imports/transaction";
 import { trackEvent } from "@/lib/telemetry";
 
 type Tx = Prisma.TransactionClient;
@@ -139,7 +140,7 @@ export async function findSetupManagerInvitation(db: PrismaClient, rawToken: str
  * owner, executed only after explicit recipient acceptance. Never a bulk adapter.
  */
 export async function acceptSetupManagerInvitation(db: PrismaClient, input: { rawToken: string; authenticatedUserId?: string | null; firstName: string; lastName: string; employmentType: EmploymentType; passwordHash?: string | null }) {
-  const accepted = await db.$transaction(async (tx) => {
+  const acceptOnce = () => db.$transaction(async (tx) => {
     const hash = tokenHash(input.rawToken);
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "OnboardingManagerInvite" WHERE "tokenHash" = ${hash} FOR UPDATE`);
     const row = await tx.onboardingManagerInvite.findUnique({ where: { tokenHash: hash } });
@@ -169,6 +170,16 @@ export async function acceptSetupManagerInvitation(db: PrismaClient, input: { ra
     await tx.onboardingManagerInvite.update({ where: { id: row.id }, data: { grantAcceptedAt: now, acceptedAt: row.acceptedAt ?? now, acceptedByUserId: result.userId } });
     return { userId: result.userId, employeeId: result.employeeId, facilityId: row.facilityId, invitationId: row.id };
   }, { isolationLevel: "Serializable", timeout: 20_000 });
+  let accepted: Awaited<ReturnType<typeof acceptOnce>> | undefined;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      accepted = await acceptOnce();
+      break;
+    } catch (error) {
+      if (!confirmedRollback(error) || attempt >= 4) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50 * 3 ** attempt));
+    }
+  }
   await trackEvent("onboarding.manager.accepted", { facilityId: accepted.facilityId, invitationId: accepted.invitationId, userId: accepted.userId });
   return accepted;
 }

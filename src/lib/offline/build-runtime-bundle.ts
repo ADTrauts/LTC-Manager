@@ -226,7 +226,7 @@ export async function buildRuntimeBundle(
   const serviceDateKey = toServiceDateKey(serviceDate);
 
   {
-    const { materializeKeyTimeDayExpectations, timingsForOwnerUnits } = await import(
+    const { prepareCurrentKeyTimeDayExpectations, timingsForOwnerUnits } = await import(
       "@/lib/operational-cycles/materialize-key-time-day-expectations"
     );
     const { timingOwnerUnitIds } = await import(
@@ -237,7 +237,7 @@ export async function buildRuntimeBundle(
     );
     const { hasAtLeastRole } = await import("@/lib/access");
     try {
-      const keyMaterialized = await materializeKeyTimeDayExpectations(
+      const keyMaterialized = await prepareCurrentKeyTimeDayExpectations(
         {
           facilityId: input.session.facilityId,
           departmentId: dietary.id,

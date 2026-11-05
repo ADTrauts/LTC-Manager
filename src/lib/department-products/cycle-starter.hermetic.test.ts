@@ -82,6 +82,9 @@ describe("Department Product cycle starters", () => {
     assert.doesNotMatch(workspace, /Dietary|EVS|Plant/);
     assert.match(panel, /applyProductCycleStarterAction/);
     assert.match(panel, /makeOperatingRhythmLiveAction/);
+    assert.match(panel, /Edit locations/);
+    assert.match(panel, /KeyTimeGroupsEditor/);
+    assert.doesNotMatch(panel, /CyclesPanel/);
     assert.match(resolver, /They will not be used in Run until you make them live/);
     assert.match(actions, /resolveCycleStarterForDepartmentProduct/);
     assert.doesNotMatch(panel, /if \(departmentKey === ["']EVS["']\)/);

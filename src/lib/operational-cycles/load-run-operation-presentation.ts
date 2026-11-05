@@ -14,7 +14,10 @@ import { prisma } from "@/lib/prisma";
 
 import { localHhMmFromInstant } from "./key-time-day-expectation";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
-import { materializeKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
+import {
+  materializeKeyTimeDayExpectations,
+  prepareCurrentKeyTimeDayExpectations,
+} from "./materialize-key-time-day-expectations";
 import {
   detectRunModelProvenance,
   presentDepartmentRunOperation,
@@ -53,7 +56,7 @@ export async function loadPublishedRunModel(input: {
       input.departmentId,
       operationalDateKey,
     ),
-    materializeKeyTimeDayExpectations({
+    prepareCurrentKeyTimeDayExpectations({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       operationalDateKey,
@@ -74,8 +77,8 @@ export async function loadPublishedRunModel(input: {
 }
 
 /**
- * Test-only same-day refresh: materialize missing Key Time rows for today's
- * newly published configuration. Does not delete existing actuals.
+ * Prepare the current operational day's missing Key Point rows after a publish
+ * that is already effective. Does not delete existing actuals or rewrite a past day.
  */
 export async function refreshTodayKeyTimesAfterImmediatePublish(input: {
   facilityId: string;

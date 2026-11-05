@@ -24,7 +24,7 @@ import {
   timingsForOwnerUnits,
 } from "./materialize-day-expectations";
 import {
-  materializeKeyTimeDayExpectations,
+  prepareCurrentKeyTimeDayExpectations,
   timingsForOwnerUnits as keyTimeTimingsForOwnerUnits,
   timingsForSpaces,
 } from "./materialize-key-time-day-expectations";
@@ -100,7 +100,7 @@ export async function loadEmployeeCycleContext(input: {
       operationalDateKey,
       now,
     }),
-    materializeKeyTimeDayExpectations({
+    prepareCurrentKeyTimeDayExpectations({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       operationalDateKey,

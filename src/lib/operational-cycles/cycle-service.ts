@@ -27,6 +27,7 @@ import {
 } from "./cycle-lifecycle";
 import { buildEvsDefaultCyclePlans } from "./defaults";
 import { dietaryStarterPlansToCreate } from "./dietary-starter";
+import { prepareCurrentKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
 import type { PublishedCycleOverlapCandidate } from "./validate-cycle";
 import { roomTypeIdentity } from "@/lib/facility-builder/space-type-presets";
 
@@ -362,6 +363,7 @@ async function assertDraftScope(
     locationMode: input.locationMode,
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
+    keyTimeSpaceIds: (input.draft.keyTimeGroups ?? []).flatMap((group) => group.spaceIds ?? []),
     milestoneTimes: input.draft.milestoneTimes,
     cycleType: input.draft.cycleType,
     mealType: input.draft.mealType,
@@ -1147,6 +1149,17 @@ export async function publishCycle(
             : "immediate_first_setup",
     },
   });
+
+  if (effectiveFromKey <= todayKey) {
+    await prepareCurrentKeyTimeDayExpectations(
+      {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        operationalDateKey: todayKey,
+      },
+      client,
+    );
+  }
 
   return published;
 }

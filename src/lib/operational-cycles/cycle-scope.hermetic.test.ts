@@ -269,6 +269,14 @@ test("catalog validation rejects floors, foreign locations, and custom Room Type
   });
   assert.ok(foreign.some((e) => /department/.test(e)));
 
+  const foreignKeyPoint = validateCycleScopeAgainstCatalog({
+    locationMode: "EXPLICIT_UNITS",
+    keyTimeSpaceIds: ["not-this-department"],
+    cycleType: "CUSTOM",
+    locations,
+  });
+  assert.ok(foreignKeyPoint.some((e) => /Key Point locations/.test(e)));
+
   const custom = validateCycleScopeAgainstCatalog({
     locationMode: "EXPLICIT_UNITS",
     spaceIds: ["missing-room"],
