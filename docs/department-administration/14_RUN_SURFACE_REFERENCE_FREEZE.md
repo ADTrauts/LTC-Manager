@@ -96,7 +96,7 @@ Flag off (`PROJECTION_LOCATIONS`) still falls back to legacy `UnitsManager`. Kee
 - evidence due  
 - assets / issues  
 - exceptions  
-- Key Point milestones for a room, from that room's published Key Point group. A Draft group is not a milestone. A room that was not selected does not receive one. The ordinary Run read uses expectation rows that already exist.
+- Key Point milestones for a room, from that room's published Key Point group. A Draft group is not a milestone. A room that was not selected does not receive one. The current operational day prepares missing expectation rows. A past day stays as stored.
 
 `RuntimeLocationState.program` now carries the composed Location Program (teams, team × cycle need, Facility type, logs, assets). Operational Type remains a legacy sidecar for cycle / evidence engines that still key off it.
 

@@ -31,7 +31,7 @@ import {
   materializeMealServiceDayExpectations,
   mealTargetsFromTimings,
 } from "./materialize-day-expectations";
-import { materializeKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
+import { prepareCurrentKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
 import {
   cycleMilestoneStatusLabel,
   resolveCycleMilestoneStatus,
@@ -180,7 +180,7 @@ export async function loadSupervisorCycleOverview(input: {
           now,
         })
       : Promise.resolve({ operationalDateKey, created: 0, timings: [] as DayMealTiming[] }),
-    materializeKeyTimeDayExpectations({
+    prepareCurrentKeyTimeDayExpectations({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       operationalDateKey,

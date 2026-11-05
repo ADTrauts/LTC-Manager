@@ -62,6 +62,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/offline/runtime-api.test.ts",
   "src/lib/scheduling/operational-assignments/phase-7a-assignment.test.ts",
   "src/lib/operational-cycles/phase-9a-cycles.test.ts",
+  "src/lib/operational-cycles/key-time-day-preparation.db.test.ts",
   "src/lib/dietary-job-flow/phase-9b-job-flow.test.ts",
   "src/lib/operational-evidence/phase-9c1-template-builder.test.ts",
   "src/lib/canonical-logs/phase-3-canonical-logs.test.ts",

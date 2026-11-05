@@ -120,6 +120,39 @@ test("planKeyTimeDayExpectations materializes one row per room/group", () => {
   assert.ok(planned.every((row) => row.displayPath.includes("Breakfast")));
 });
 
+test("a later Key Point version plans its own rooms and an earlier plan stays put", () => {
+  const earlier = cycle({
+    id: "ready-v1",
+    stableKey: "breakfast_ready",
+    version: 1,
+    nodeKind: "KEY_TIME",
+    status: "RETIRED",
+    startLocal: null,
+    endLocal: null,
+    keyTimeGroups: [{ id: "g1", dueLocal: "07:05", spaceIds: ["1a", "1b"] }],
+  });
+  const later = cycle({
+    id: "ready-v2",
+    stableKey: "breakfast_ready",
+    version: 2,
+    nodeKind: "KEY_TIME",
+    status: "PUBLISHED",
+    startLocal: null,
+    endLocal: null,
+    keyTimeGroups: [{ id: "g2", dueLocal: "07:05", spaceIds: ["1a", "1c"] }],
+  });
+  const firstDay = planKeyTimeDayExpectations({ cycles: [earlier] });
+  assert.deepEqual(firstDay.map((row) => row.spaceId).sort(), ["1a", "1b"]);
+  const secondDay = planKeyTimeDayExpectations({ cycles: [later] });
+  assert.deepEqual(secondDay.map((row) => row.spaceId).sort(), ["1a", "1c"]);
+  const replay = planKeyTimeDayExpectations({
+    cycles: [earlier],
+    existing: firstDay.map((row) => ({ cycleId: row.cycleId, spaceId: row.spaceId })),
+  });
+  assert.equal(replay.length, 0);
+  assert.ok(secondDay.every((row) => row.cycleId === "ready-v2"));
+});
+
 test("planKeyTimeDayExpectations is idempotent against existing rows", () => {
   const due = cycle({
     id: "due-id",
