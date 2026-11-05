@@ -43,6 +43,13 @@ export async function prepareCanonicalOfflineFixture(db, { facilityId, departmen
     await db.$transaction(tx => syncEmployeeOrganization(tx, { facilityId, employeeId: employee.id, primaryDepartmentId: departmentId, additionalDepartmentIds: [], jobTitleId: null, teamMemberships: [] }));
     people[key] = { userId: user.id, employeeId: employee.id, email };
   }
+  for (const key of ["worker", "secondWorker"]) {
+    await db.employeeOperationalRoleQualification.upsert({
+      where: { employeeId_departmentId_roleKey: { employeeId: people[key].employeeId, departmentId, roleKey: "SERVER" } },
+      update: { status: "ACTIVE", revokedAt: null },
+      create: { facilityId, employeeId: people[key].employeeId, departmentId, roleKey: "SERVER", status: "ACTIVE" },
+    });
+  }
   const manager = people.manager;
   const session = { uid: manager.userId, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "GM", facilityId, primaryDepartmentId: departmentId, name: "Canonical manager", email: manager.email, sessionVersion: 0 };
   const stableKey = `canonical_offline_${tag}`;
@@ -69,5 +76,5 @@ export async function prepareCanonicalOfflineFixture(db, { facilityId, departmen
     } });
     await cycles.publishCycle(session, { facilityId, departmentId, cycleId: draft.id, actor: { userId: manager.userId }, allowImmediate: true, client: db });
   }
-  return { facilityId, departmentId, unitId: room.unitId, spaceId: room.id, profileId: null, cycleId: cycle.id, keyPointId: keyPoint.id, cycleStableKey: stableKey, workPlanId: null, workLabel: null, people };
+  return { facilityId, departmentId, unitId: room.unitId, spaceId: room.id, spaceName: room.name, profileId: null, cycleId: cycle.id, keyPointId: keyPoint.id, cycleStableKey: stableKey, operationLabel: cycle.label, workPlanId: null, workLabel: null, people };
 }
