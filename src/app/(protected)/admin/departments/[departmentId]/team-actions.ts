@@ -34,10 +34,11 @@ function fail(error: unknown): TeamActionResult {
 }
 
 const createSchema = z.object({
-  departmentId: z.string().cuid(),
+  departmentId: z.string().min(1),
   displayName: z.string().min(1).max(80),
   description: z.string().max(500).optional(),
-  managerEmployeeId: z.string().cuid().nullable(),
+  // Seed and imported employees may use stable string ids, not only CUIDs.
+  managerEmployeeId: z.string().min(1).nullable(),
 });
 
 export async function createDepartmentTeamAction(formData: FormData): Promise<TeamActionResult> {
@@ -64,10 +65,10 @@ export async function createDepartmentTeamAction(formData: FormData): Promise<Te
 }
 
 const updateSchema = z.object({
-  teamId: z.string().cuid(),
+  teamId: z.string().min(1),
   displayName: z.string().min(1).max(80),
   description: z.string().max(500).optional(),
-  managerEmployeeId: z.string().cuid().nullable(),
+  managerEmployeeId: z.string().min(1).nullable(),
 });
 
 export async function updateDepartmentTeamAction(formData: FormData): Promise<TeamActionResult> {
@@ -96,8 +97,8 @@ export async function updateDepartmentTeamAction(formData: FormData): Promise<Te
 export async function archiveDepartmentTeamAction(formData: FormData): Promise<TeamActionResult> {
   try {
     const session = await requireFacilitySession();
-    const teamId = z.string().cuid().parse(formData.get("teamId"));
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const teamId = z.string().min(1).parse(formData.get("teamId"));
+    const departmentId = z.string().min(1).parse(formData.get("departmentId"));
     await archiveDepartmentTeam(session, {
       facilityId: session.facilityId,
       teamId,
