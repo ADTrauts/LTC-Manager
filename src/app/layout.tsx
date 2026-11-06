@@ -48,7 +48,7 @@ export default function RootLayout({
       >
         <PwaRegister />
         <PushTransportReconcile />
-        <Script type="module" src="/space-offline.js" strategy="afterInteractive" />
+        <Script type="module" src="/space-offline.js" strategy="afterInteractive" crossOrigin="anonymous" />
         {children}
       </body>
     </html>
