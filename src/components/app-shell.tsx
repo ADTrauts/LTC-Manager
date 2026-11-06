@@ -55,7 +55,6 @@ import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import { groupNavItemsByMode } from "@/lib/product-mode";
 import { platformNavItemsForRole } from "@/lib/route-registry";
 import type { SidebarUnit } from "@/lib/units";
-import { shellClasses } from "@/lib/design-system";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -292,9 +291,7 @@ export async function AppShell({ children }: AppShellProps) {
 
       {kioskBannerUnitName ? <KioskUnitAccessBanner unitName={kioskBannerUnitName} /> : null}
 
-      <div
-        className={`mx-auto flex min-h-0 w-full min-w-0 ${shellClasses.maxWidth} flex-1 overflow-hidden`}
-      >
+      <div className="flex min-h-0 w-full min-w-0 flex-1 overflow-hidden">
         <WorkspaceShellRail
           department={departmentSwitcherNode()}
           destinations={

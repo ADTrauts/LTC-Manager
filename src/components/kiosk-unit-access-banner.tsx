@@ -11,7 +11,7 @@ export function KioskUnitAccessBanner({ unitName }: { unitName: string }) {
       className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950 lg:px-6"
       role="status"
     >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p>
           <span className="font-medium">Unit tablet:</span> you are not usually assigned to{" "}
           <span className="font-medium">{unitName}</span>. You can continue working here; this sign-in was recorded for
