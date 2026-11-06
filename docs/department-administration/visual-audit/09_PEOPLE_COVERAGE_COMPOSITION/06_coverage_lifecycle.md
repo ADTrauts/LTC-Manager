@@ -25,4 +25,4 @@ Details that are already true:
 
 A requirement item stores `spaceId`, `roleKey`, `applicableOperationalCycleStableKeys`, and `requiredCount` of at least 1. Empty cycle keys are rejected on this write path. A legacy row with empty keys still means every period when read.
 
-The staffing Assignment Templates screen writes these same tables and can Apply an active row that was never published. That path is outside this lifecycle. The audit recommends removing it as an editor.
+The staffing board no longer creates or edits these rows. Apply is allowed only when the row is published, active, and effective on the service date. A draft cannot become today's assignments from that action.

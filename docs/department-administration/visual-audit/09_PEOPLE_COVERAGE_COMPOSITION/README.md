@@ -1,8 +1,12 @@
 # Phase 9A — People & Coverage composition audit
 
+Phase 9B implemented this proposal on `department-builder/people-coverage-composition`. Employee Builder authors Teams. Department Builder authors Coverage requirements and shows Today, Requirements, and Organization. The staffing board applies only a published, effective requirement.
+
 **Verdict: AUDIT COMPLETE**
 
-Read-only audit of Department Builder → People & Coverage at `5f8683d`. No interface was implemented. The browser session aborted before the page loaded, so Visual 1 is a reconstruction of the mounted components, not a screenshot.
+Read-only audit of Department Builder → People & Coverage at `5f8683d`. No interface was implemented in that audit. The browser session aborted before the page loaded, so Visual 1 is a reconstruction of the mounted components, not a screenshot.
+
+The sections below record that pre-composition screen. Phase 9B changed it: Employee Builder authors Teams, this page reads them, Coverage requirements stay here, and the staffing board applies only a published effective requirement.
 
 People & Coverage is already the right Department Builder section. It is not yet a composition surface. It authors Teams, authors Coverage requirements, and does not show the Department roster, qualifications, or today's fill.
 
