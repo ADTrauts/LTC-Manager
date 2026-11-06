@@ -70,3 +70,12 @@ test("Employee Builder keeps the requested Department on the directory", () => {
   assert.doesNotMatch(workspace, /createDepartmentTeamAction|archiveDepartmentTeamAction/);
   assert.match(workspace, /Manage teams in Employee Builder/);
 });
+
+test("partner Coverage may create a Team for a vendor-run Department and does not author Coverage requirements", () => {
+  const actions = source("src/app/partner/coverage/actions.ts");
+  assert.match(actions, /createPartnerTeamAction/);
+  assert.match(actions, /partnerMaySetUpDepartment/);
+  assert.match(actions, /prisma\.departmentTeam\.create/);
+  assert.doesNotMatch(actions, /OperationalAssignmentTemplate|ensureWorkingCoverageDraft|publishCoverageExpectation/);
+  assert.doesNotMatch(actions, /createDepartmentTeam\(/);
+});

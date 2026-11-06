@@ -49,7 +49,7 @@ Route: `/build/departments/{departmentId}?tab=people`.
 
 ## Duplicated
 
-`/staffing/assignments` has an Assignment Templates section on the same two tables. It can store a Unit, clock times, and notes, deactivate `isActive`, and Apply a template into today's `OperationalAssignment` rows. Apply requires `isActive` and does not require `PUBLISHED`, so a draft can place people. Those actions check a Manager role and do not call `resolveCoverageAuthority`.
+`/staffing/assignments` may Apply a published, effective Coverage requirement into today's `OperationalAssignment` rows. Apply is gated by `isCoverageTemplateEffectiveOnDate` (PUBLISHED + active + date interval). Draft and unpublished rows never become operational from the assignment board. Authoring (create/edit/item mutations) is rejected there and stays on Department Builder People & Coverage.
 
 ## Missing on this screen
 
@@ -64,7 +64,7 @@ Route: `/build/departments/{departmentId}?tab=people`.
 - The People heading still talks about roles as if this screen authors them. Department Job Role is already gone.
 - `TodaysWorkCoverageList` and `SupervisorDailyCoveragePanel` are not mounted.
 - `/today/coverage` redirects to `/staffing`. It is not a second Coverage engine.
-- Partner `/partner/coverage` can insert a Team with no lead and can move an assignment. It does not publish Coverage requirements.
+- Partner `/partner/coverage` (`createPartnerTeamAction`) is the CDA vendor-run Team path: it may create a `DepartmentTeam` when `partnerMaySetUpDepartment` allows, and may move Assignments. It is not facility Employee Builder Team authoring and does not create, edit, or publish Coverage requirements (`OperationalAssignmentTemplate`).
 
 ## Workforce data flow
 
@@ -189,9 +189,20 @@ One decision should be confirmed before Phase 9B removes a screen someone may st
 
 Team ownership does not need a new decision. Department Builder architecture already places Teams in Employee Builder. Phase 9B should follow that, after Employee Builder can create the Team.
 
+## Phase 9C — Integration Closure
+
+Phase 9C closed the remaining integration gaps after the Phase 9B composition baseline (`c34c014`):
+
+- Disposable SQL failures from the Phase 9B `verify:db` run were compared to clean `origin/main` under `--test-concurrency=1`. Both trees: **71 tests / 70 pass / 0 fail / 1 skip**. No branch regression; no tests weakened.
+- Richer disposable browser fixtures (`scripts/verify/people-coverage-browser-fixtures.mjs`) certified scenarios **A, C, D, E, F**, plus draft-cannot-apply on the staffing board.
+- Partner `/partner/coverage` Team create is classified as the CDA vendor-run path, not a second facility Team authoring surface, and does not author Coverage requirements.
+
+See [PHASE_9C_CERTIFICATION.md](./PHASE_9C_CERTIFICATION.md).
+
 ## Git
 
 - Branch: `department-builder/people-coverage-composition`
 - Baseline: `5f8683d38a35eb68fe03a3ce2f7804cb7b203bc8`
+- Phase 9B baseline commit: `c34c014`
 - Worktree: `/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager-people-coverage`
 - Not pushed
