@@ -4,6 +4,7 @@ import {
   EmploymentType,
   JobClassification,
   RoleKey,
+  WorkStation,
 } from "@prisma/client";
 
 export const AUTHORITY_LABEL: Record<RoleKey, string> = {
@@ -54,6 +55,17 @@ export const JOB_CLASSIFICATION_LABEL: Record<JobClassification, string> = {
   DIET_CLERK: "Diet Clerk",
   DIETITIAN: "Dietitian",
   OTHER: "Other",
+};
+
+export const WORK_STATION_LABEL: Record<WorkStation, string> = {
+  COOK: "Cook",
+  SERVER: "Server",
+  DISHWASHER: "Dishwasher",
+  RETAIL: "Retail",
+  DIET: "Diet",
+  OFFICE: "Office",
+  PORTER: "Porter",
+  UTILITY: "Utility",
 };
 
 export const CHRC_STATUS_LABEL: Record<ChrcStatus, string> = {

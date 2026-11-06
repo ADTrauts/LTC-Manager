@@ -20,7 +20,7 @@ export default async function BulkSetupPage({ searchParams }: { searchParams: Pr
   const employeeWhere = visibility
     ? { AND: [{ facilityId: session.facilityId }, employeeVisibleWhere(visibility)] }
     : { facilityId: session.facilityId };
-  const [facility, loadedDepartments, employees, units, rooms, teams, jobTitles] = await Promise.all([
+  const [facility, loadedDepartments, employees, units, rooms, teams, jobRoles, jobTitles] = await Promise.all([
     prisma.facility.findUniqueOrThrow({ where: { id: session.facilityId }, select: { displayName: true } }),
     loadCustomerOperableDepartments(prisma,session.facilityId),
     prisma.employee.findMany({ where: employeeWhere, select: { id: true, firstName: true, lastName: true, email: true }, take: 5000 }),
@@ -49,6 +49,12 @@ export default async function BulkSetupPage({ searchParams }: { searchParams: Pr
         : { facilityId: session.facilityId, status: "ACTIVE" },
       select: { id: true, displayName: true, departmentId: true },
     }),
+    prisma.departmentJobRole.findMany({
+      where: visibleIds
+        ? { facilityId: session.facilityId, status: "ACTIVE", departmentId: { in: [...visibleIds] } }
+        : { facilityId: session.facilityId, status: "ACTIVE" },
+      select: { id: true, displayName: true, departmentId: true },
+    }),
     prisma.jobTitle.findMany({ where: { facilityId: session.facilityId, isActive: true }, select: { id: true, name: true } }),
   ]);
   const departments = loadedDepartments.filter((department) => !visibility || visibility.pageDepartmentIds.has(department.id));
@@ -68,6 +74,7 @@ export default async function BulkSetupPage({ searchParams }: { searchParams: Pr
         {units.map(u => <tr key={u.id}><td>UNIT</td><td>{u.id}</td><td>{u.name}</td></tr>)}
         {rooms.map(u => <tr key={u.id}><td>ROOM</td><td>{u.id}</td><td>{u.name}</td></tr>)}
         {teams.map(t => <tr key={t.id}><td>TEAM</td><td>{t.id}</td><td>{t.displayName} / {t.departmentId}</td></tr>)}
+        {jobRoles.map(t => <tr key={t.id}><td>JOB_ROLE</td><td>{t.id}</td><td>{t.displayName} / {t.departmentId}</td></tr>)}
         {jobTitles.map(t => <tr key={t.id}><td>JOB_TITLE</td><td>{t.id}</td><td>{t.name}</td></tr>)}
       </tbody></table></div>
     </details>

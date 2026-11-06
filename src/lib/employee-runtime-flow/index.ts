@@ -27,6 +27,7 @@ export { aggregateAssignedOperation, operationSummaryLabel } from "./operation";
 export {
   assignmentScopeKind,
   assignedSpaceIdSet,
+  filterWorkToAssignedSpaces,
   spaceRefsFromAssignmentLocations,
 } from "./assigned-spaces";
 export {
@@ -36,6 +37,7 @@ export {
 export {
   serializeEmployeeRuntimeEvidenceContext,
   serializeEmployeeRuntimeJobFlowContext,
+  serializeEmployeeRuntimeWorkContext,
 } from "./serialize-offline";
 export { loadFrontlineEmployeeAssignments } from "./load-assignments";
 export { loadAssignedEmployeeSpaceRefs } from "./load-assigned-space-refs";

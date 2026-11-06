@@ -13,6 +13,11 @@ import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windo
 import { loadPublishedRunModel } from "@/lib/operational-cycles/load-run-operation-presentation";
 import type { PublishedCycleForLogs } from "@/lib/canonical-logs/resolve-log-requirements";
 import { prisma } from "@/lib/prisma";
+import {
+  calledOffShiftExcludesAssignment,
+  previousServiceDateKey,
+  type CalledOffShift,
+} from "@/lib/scheduling/call-off-window";
 import type { CoverageAssignmentActual, CoverageTemplateVersionRow } from "@/lib/scheduling/coverage-expectations";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
@@ -70,7 +75,7 @@ function toCoverageTemplates(
       roleLabel: string;
       requiredCount: number;
       unitId: string | null;
-      spaceId: string | null;
+      applicableOperationalTypeKeys: string[];
       applicableOperationalCycleStableKeys: string[];
     }>;
   }>,
@@ -89,7 +94,7 @@ function toCoverageTemplates(
       roleLabel: item.roleLabel,
       requiredCount: item.requiredCount,
       unitId: item.unitId,
-      spaceId: item.spaceId,
+      applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
     })),
   }));
@@ -122,6 +127,8 @@ export async function prefetchRuntimeLocationInputs(
       operationalAssignmentsEnabled: oaEnabled,
       spaces: [],
       spaceRefs,
+      profilesByDepartmentId: new Map(),
+      operationalTypesBySpaceId: new Map(),
       runModelsByDepartmentId: new Map(),
       coverageTemplatesByDepartmentId: new Map(),
       coveragePlanByDepartmentId: new Map(),
@@ -136,7 +143,7 @@ export async function prefetchRuntimeLocationInputs(
   }
 
   stats.spaceIdentityQueries += 1;
-  const [facility, spaces, departments] = await Promise.all([
+  const [facility, spaces, activeProfiles, departments] = await Promise.all([
     prisma.facility.findFirst({
       where: { id: input.facilityId },
       select: { id: true, displayName: true },
@@ -160,6 +167,17 @@ export async function prefetchRuntimeLocationInputs(
         },
       },
     }),
+    departmentIds.length === 0
+      ? Promise.resolve([])
+      : prisma.departmentOperationalProfile.findMany({
+          where: {
+            facilityId: input.facilityId,
+            departmentId: { in: departmentIds },
+            status: "ACTIVE",
+          },
+          select: { id: true, departmentId: true, version: true, status: true },
+          orderBy: { version: "desc" },
+        }),
     departmentIds.length === 0
       ? Promise.resolve([])
       : prisma.department.findMany({
@@ -200,6 +218,28 @@ export async function prefetchRuntimeLocationInputs(
     };
   });
 
+  const profilesByDepartmentId = new Map<
+    string,
+    { id: string; version: number; status: "ACTIVE" } | null
+  >();
+  for (const departmentId of departmentIds) {
+    const profile = activeProfiles.find((row) => row.departmentId === departmentId);
+    profilesByDepartmentId.set(
+      departmentId,
+      profile
+        ? { id: profile.id, version: profile.version, status: "ACTIVE" }
+        : null,
+    );
+  }
+
+  const operationalTypesBySpaceId = new Map<
+    string,
+    { key: string; name: string; id: string | null } | null
+  >();
+  for (const space of spaceRows) {
+    operationalTypesBySpaceId.set(space.spaceId, null);
+  }
+
   const runModelsByDepartmentId = new Map<string, RuntimePublishedRunModel>();
   const loadedModels = await Promise.all(
     departmentIds.map(async (departmentId) => {
@@ -225,7 +265,8 @@ export async function prefetchRuntimeLocationInputs(
   }
 
   stats.coveragePrefetchSets += 1;
-  const [templateRows, planRows, assignmentRows] = oaEnabled
+  const previousServiceDate = facilityLocalDateToServiceDate(previousServiceDateKey(operationalDateKey));
+  const [templateRows, planRows, assignmentRows, callOffRows] = oaEnabled
     ? await Promise.all([
         prisma.operationalAssignmentTemplate.findMany({
           where: {
@@ -240,7 +281,7 @@ export async function prefetchRuntimeLocationInputs(
                 roleLabel: true,
                 requiredCount: true,
                 unitId: true,
-                spaceId: true,
+                applicableOperationalTypeKeys: true,
                 applicableOperationalCycleStableKeys: true,
               },
             },
@@ -274,8 +315,23 @@ export async function prefetchRuntimeLocationInputs(
             locations: { select: { unitSpaceId: true } },
           },
         }),
+        prisma.scheduleEntry.findMany({
+          where: {
+            calledOffAt: { not: null },
+            departmentId: { in: departmentIds },
+            date: { in: [previousServiceDate, serviceDate] },
+            employee: { facilityId: input.facilityId },
+          },
+          select: {
+            employeeId: true,
+            departmentId: true,
+            date: true,
+            plannedStart: true,
+            plannedEnd: true,
+          },
+        }),
       ])
-    : [[], [], []];
+    : [[], [], [], []];
 
   const coverageTemplatesByDepartmentId = new Map<string, CoverageTemplateVersionRow[]>();
   const coveragePlanByDepartmentId = new Map<string, string | null>();
@@ -295,10 +351,33 @@ export async function prefetchRuntimeLocationInputs(
         departmentId,
         planRows.find((row) => row.departmentId === departmentId)?.status ?? null,
       );
+      const callOffs: CalledOffShift[] = callOffRows.map((row) => ({
+        employeeId: row.employeeId,
+        departmentId: row.departmentId,
+        serviceDateKey: toServiceDateKey(row.date),
+        plannedStart: row.plannedStart,
+        plannedEnd: row.plannedEnd,
+      }));
       assignmentsByDepartmentId.set(
         departmentId,
         assignmentRows
           .filter((row) => row.departmentId === departmentId)
+          .filter(
+            (row) =>
+              !callOffs.some((shift) =>
+                calledOffShiftExcludesAssignment({
+                  shift,
+                  assignment: {
+                    employeeId: row.employeeId,
+                    departmentId,
+                    startsAt: row.startsAt,
+                    endsAt: row.endsAt,
+                    serviceDateKey: operationalDateKey,
+                  },
+                  timeZone: timezone,
+                }),
+              ),
+          )
           .map((row) => ({
             id: row.id,
             roleKey: row.roleKey,
@@ -482,6 +561,7 @@ export async function prefetchRuntimeLocationInputs(
       spaceId: row.spaceId,
       unitId: row.unitId,
       targetDepartmentId: row.targetDepartmentId,
+      operationalTypeKey: row.operationalTypeKey,
       dailyWindows: row.dailyWindows,
       cycleSelections: row.cycleSelections,
       catalogDefinition: {
@@ -540,6 +620,8 @@ export async function prefetchRuntimeLocationInputs(
         spaceId: space.spaceId,
         departmentId: space.departmentId,
         unitId: space.unitId,
+        operationalTypeKey: null,
+        operationalTypeName: null,
         facilityId: input.facilityId,
       })),
       operationalDateKey,
@@ -577,6 +659,8 @@ export async function prefetchRuntimeLocationInputs(
     operationalAssignmentsEnabled: oaEnabled,
     spaces: spaceRows,
     spaceRefs,
+    profilesByDepartmentId,
+    operationalTypesBySpaceId,
     runModelsByDepartmentId,
     coverageTemplatesByDepartmentId,
     coveragePlanByDepartmentId,

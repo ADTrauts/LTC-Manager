@@ -34,10 +34,15 @@ test("standard Room Type keys include servery and exclude custom", () => {
   );
 });
 
-test("user-facing scope maps to department-wide or selected locations", () => {
+test("user-facing scope maps to persistence modes without Unit.unitType", () => {
   assert.equal(userFacingScopeFromMode("ALL_DEPARTMENT_UNITS"), "department");
+  assert.equal(userFacingScopeFromMode("OPERATIONAL_TYPES"), "operational_types");
+  assert.equal(userFacingScopeFromMode("ROOM_TYPE"), "room_type");
   assert.equal(userFacingScopeFromMode("EXPLICIT_UNITS"), "specific");
+  assert.equal(userFacingScopeFromMode("UNIT_TYPES"), "department");
   assert.equal(locationModeFromUserScope("department"), "ALL_DEPARTMENT_UNITS");
+  assert.equal(locationModeFromUserScope("operational_types"), "OPERATIONAL_TYPES");
+  assert.equal(locationModeFromUserScope("room_type"), "ROOM_TYPE");
   assert.equal(locationModeFromUserScope("specific"), "EXPLICIT_UNITS");
 });
 
@@ -125,27 +130,19 @@ test("service start times only when SERVICE + mealType + SERVICE_STARTED", () =>
 
 test("scope labels and review diffs stay human", () => {
   assert.equal(
-    scopeGroupLabel({ locationMode: "ALL_DEPARTMENT_UNITS" }),
-    "All department locations",
+    scopeGroupLabel({ locationMode: "ROOM_TYPE", roomTypeKey: "servery" }),
+    "Serveries",
   );
   assert.equal(
-    describeUserFacingScope({
-      locationMode: "EXPLICIT_UNITS",
-      spaceIds: ["s1"],
-      locationNames: { s1: "Naval Park Servery" },
-    }),
-    "Naval Park Servery",
+    describeUserFacingScope({ locationMode: "ROOM_TYPE", roomTypeKey: "servery" }),
+    "Room Type: Servery",
   );
   assert.equal(
     summarizeScopeChange({
       from: { locationMode: "ALL_DEPARTMENT_UNITS" },
-      to: {
-        locationMode: "EXPLICIT_UNITS",
-        spaceIds: ["s1"],
-      },
-      locationNames: { s1: "Naval Park Servery" },
+      to: { locationMode: "ROOM_TYPE", roomTypeKey: "servery" },
     }),
-    "All locations this department is responsible for → Naval Park Servery",
+    "Entire department → Room Type: Servery",
   );
   const diff = diffMilestoneTimes({
     prior: [
@@ -212,8 +209,8 @@ test("Room Type Servery candidates are unique Neighborhoods; floors skipped", ()
     },
   ];
   const rows = mealTimeNeighborhoodCandidates({
-    locationMode: "EXPLICIT_UNITS",
-    spaceIds: ["s1", "s2", "s3"],
+    locationMode: "ROOM_TYPE",
+    roomTypeKey: "servery",
     locations,
   });
   assert.deepEqual(
@@ -269,41 +266,35 @@ test("catalog validation rejects floors, foreign locations, and custom Room Type
   });
   assert.ok(foreign.some((e) => /department/.test(e)));
 
-  const foreignKeyPoint = validateCycleScopeAgainstCatalog({
-    locationMode: "EXPLICIT_UNITS",
-    keyTimeSpaceIds: ["not-this-department"],
-    cycleType: "CUSTOM",
-    locations,
-  });
-  assert.ok(foreignKeyPoint.some((e) => /Key Point locations/.test(e)));
-
   const custom = validateCycleScopeAgainstCatalog({
-    locationMode: "EXPLICIT_UNITS",
-    spaceIds: ["missing-room"],
+    locationMode: "ROOM_TYPE",
+    roomTypeKey: "custom:banquet",
     cycleType: "SERVICE",
     mealType: "BREAKFAST",
     expectedMilestones: ["SERVICE_STARTED"],
     locations,
   });
-  assert.ok(custom.some((e) => /department/.test(e)));
+  assert.ok(custom.some((e) => /standard Facility Room Type/.test(e)));
 });
 
 test("group headings are projections from scope", () => {
   const groups = groupCyclesForList(
     [
+      { id: "a", locationMode: "ROOM_TYPE" as const, roomTypeKey: "servery" },
       { id: "b", locationMode: "EXPLICIT_UNITS" as const, spaceIds: ["k"] },
-      { id: "c", locationMode: "ALL_DEPARTMENT_UNITS" as const, spaceIds: [] as string[] },
+      { id: "c", locationMode: "ALL_DEPARTMENT_UNITS" as const },
     ],
     (row) =>
       scopeGroupLabel({
         locationMode: row.locationMode,
-        spaceIds: row.spaceIds,
+        roomTypeKey: "roomTypeKey" in row ? row.roomTypeKey : null,
+        spaceIds: "spaceIds" in row ? row.spaceIds : [],
         locationNames: { k: "Main Kitchen" },
       }),
   );
   assert.deepEqual(
     groups.map((g) => g.heading),
-    ["Main Kitchen", "All department locations"],
+    ["Serveries", "Main Kitchen", "Entire department"],
   );
 });
 

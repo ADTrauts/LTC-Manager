@@ -44,6 +44,22 @@ export async function resolveInitialActiveUnitIdForPinLogin(employee: {
 
   if (pool.length === 0) return undefined;
 
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  const scheduledUnitRows = await prisma.scheduleEntry.findMany({
+    where: {
+      employeeId: employee.id,
+      date: { gte: start, lt: end },
+      unit: { facilityId: employee.facilityId, isActive: true },
+    },
+    orderBy: [{ createdAt: "desc" }],
+    select: { unitId: true },
+  });
+  const scheduledUnitId = scheduledUnitRows.find((row) => row.unitId && pool.includes(row.unitId))?.unitId ?? null;
+  if (scheduledUnitId) return scheduledUnitId;
+
   if (employee.primaryUnitId && pool.includes(employee.primaryUnitId)) {
     return employee.primaryUnitId;
   }

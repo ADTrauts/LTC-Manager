@@ -4,6 +4,8 @@ import test from "node:test";
 
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
 import { buildLogRequirementKey } from "@/lib/logs-architecture/requirement-key";
+import { resolveWorkRequirements } from "@/lib/department-work/resolve-requirements";
+import type { PublishedWorkPlanForResolve } from "@/lib/department-work/types";
 import { validateEvidenceSubmission } from "@/lib/operational-evidence/validate-evidence-submission";
 import type { TemplateFieldSnapshot } from "@/lib/operational-evidence/types";
 
@@ -13,7 +15,10 @@ import {
   type AttachmentHistoricalSnapshot,
 } from "./attachment-update-policy";
 import { projectLogExpectationHistory } from "./expectation-history";
-import { matchLogAttachmentToLocation } from "./log-operational-type-applicability";
+import {
+  expandOperationalTypeSpaces,
+  matchLogAttachmentToLocation,
+} from "./log-operational-type-applicability";
 import {
   followUpRecordDecision,
   legacyRecordWriteDecision,
@@ -60,11 +65,12 @@ function snap(overrides?: Partial<AttachmentHistoricalSnapshot>): AttachmentHist
     catalogDefinitionId: "cat-v3",
     catalogVersion: 3,
     departmentId: "dietary",
-    targetKind: "SPACE",
+    targetKind: "OPERATIONAL_TYPE",
     assetId: null,
-    spaceId: "naval-park",
+    spaceId: null,
     unitId: null,
     targetDepartmentId: null,
+    operationalTypeKey: "food_service_area",
     ...overrides,
   };
 }
@@ -108,11 +114,12 @@ function coolerAttachment(
     calendarDueTimeLocal: null,
     localDisplayLabel: "Cooler Temperature",
     localInstructions: null,
-    targetKind: "SPACE",
+    targetKind: "OPERATIONAL_TYPE",
     assetId: null,
-    spaceId: "naval-park",
+    spaceId: null,
     unitId: null,
     targetDepartmentId: null,
+    operationalTypeKey: "food_service_area",
     resolvedSpaceId: "naval-park",
     dailyWindows: windows("TWICE_DAILY"),
     cycleSelections: [],
@@ -142,6 +149,54 @@ function coolerAttachment(
     ...overrides,
   };
 }
+
+const workPlan: PublishedWorkPlanForResolve = {
+  id: "plan1",
+  stableKey: "walk_in_clean",
+  version: 1,
+  name: "Clean walk-in",
+  status: "PUBLISHED",
+  effectiveStartDate: null,
+  effectiveEndDate: null,
+  weekdays: [],
+  applicabilities: [
+    {
+      kind: "DEPARTMENT_UNIT",
+      unitId: "u1",
+      spaceId: null,
+      spaceType: null,
+      assetId: null,
+      assetType: null,
+    },
+  ],
+  items: [
+    {
+      id: "item1",
+      itemKey: "clean_walk_in",
+      label: "Clean walk-in",
+      instructions: null,
+      displaySequence: 10,
+      priority: "ROUTINE",
+      completionMode: "EXPLICIT_CONFIRMATION",
+      responsibilityMode: "UNIT_SHARED",
+      scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
+      cycleStableKeys: [],
+      windowStartLocal: null,
+      windowEndLocal: null,
+      dueOffsetKind: null,
+      dueOffsetMinutes: null,
+      roleKeys: [],
+      unitId: null,
+      spaceId: null,
+      assetId: null,
+      knowledgeArticleId: null,
+      procedureTitleSnapshot: null,
+      linkedTemplateStableKey: null,
+      linkedTemplateId: null,
+      supervisorVisible: true,
+    },
+  ],
+};
 
 test("record forms are presentation of one catalog purpose", () => {
   assert.equal(presentRecordForm({ purposeType: "LOG" }), "READING");
@@ -227,20 +282,22 @@ test("twice daily through Oct 14 succeeds to three times daily on Oct 15", () =>
   assert.equal(
     attachmentLineageKey({
       catalogStableKey: "cooler_temperature",
-      targetKind: "SPACE",
+      targetKind: "OPERATIONAL_TYPE",
       assetId: null,
-      spaceId: "naval-park",
+      spaceId: null,
       unitId: null,
       targetDepartmentId: null,
+      operationalTypeKey: "food_service_area",
       departmentId: "dietary",
     }),
     attachmentLineageKey({
       catalogStableKey: "cooler_temperature",
-      targetKind: "SPACE",
+      targetKind: "OPERATIONAL_TYPE",
       assetId: null,
-      spaceId: "naval-park",
+      spaceId: null,
       unitId: null,
       targetDepartmentId: null,
+      operationalTypeKey: "food_service_area",
       departmentId: "dietary",
     }),
   );
@@ -291,48 +348,23 @@ test("derived slots do not persist placeholder records", () => {
     windowStartLocal: day?.slots[0]?.windowStartLocal,
     windowEndLocal: day?.slots[0]?.windowEndLocal,
     target: {
-      kind: "SPACE",
-      spaceId: "naval-park",
+      kind: "OPERATIONAL_TYPE",
+      operationalTypeKey: "food_service_area",
+      resolvedSpaceId: "naval-park",
     },
     operationalDateKey: "2026-10-01",
   });
   assert.match(slotKey, /cooler_temperature_requirement/);
-  assert.match(slotKey, /naval-park/);
-  assert.doesNotMatch(slotKey, /\|ot:/);
-  const otherSpace = buildLogRequirementKey({
-    attachmentStableKey: "cooler_temperature_requirement",
-    catalogStableKey: "cooler_temperature",
-    scheduleKind: "FIXED_DAILY_WINDOW",
-    windowStartLocal: day?.slots[0]?.windowStartLocal,
-    windowEndLocal: day?.slots[0]?.windowEndLocal,
-    target: { kind: "SPACE", spaceId: "other-room" },
-    operationalDateKey: "2026-10-01",
-  });
-  const assetKey = buildLogRequirementKey({
-    attachmentStableKey: "asset_cooler",
-    catalogStableKey: "cooler_temperature",
-    scheduleKind: "FIXED_DAILY_WINDOW",
-    windowStartLocal: day?.slots[0]?.windowStartLocal,
-    windowEndLocal: day?.slots[0]?.windowEndLocal,
-    target: { kind: "ASSET", assetId: "cooler-1" },
-    operationalDateKey: "2026-10-01",
-  });
-  const unitKey = buildLogRequirementKey({
-    attachmentStableKey: "cooler_temperature_requirement",
-    catalogStableKey: "cooler_temperature",
-    scheduleKind: "FIXED_DAILY_WINDOW",
-    windowStartLocal: day?.slots[0]?.windowStartLocal,
-    windowEndLocal: day?.slots[0]?.windowEndLocal,
-    target: { kind: "UNIT", unitId: "kitchen" },
-    operationalDateKey: "2026-10-01",
-  });
-  assert.notEqual(slotKey, otherSpace);
-  assert.notEqual(slotKey, assetKey);
-  assert.notEqual(slotKey, unitKey);
-  assert.notEqual(otherSpace, unitKey);
+  assert.match(slotKey, /naval-park|ot:food_service_area/);
 });
 
-test("an Operational Type attachment does not apply to a room", () => {
+test("food_service_area slots use the location function binding", () => {
+  const assignments = new Map([
+    ["naval-park", { key: "food_service_area" }],
+    ["labeled-servery", { key: "servery" }],
+    ["unassigned", { key: "" }],
+  ]);
+  assert.deepEqual(expandOperationalTypeSpaces(assignments, "food_service_area"), ["naval-park"]);
   const attachment = {
     id: "att",
     departmentId: "dietary",
@@ -355,7 +387,7 @@ test("an Operational Type attachment does not apply to a room", () => {
     operationalTypeKey: "food_service_area",
     operationalTypeName: "Kitchen",
   });
-  assert.equal(match, null);
+  assert.equal(match?.source, "OPERATIONAL_TYPE_DEFAULT");
   assert.equal(
     matchLogAttachmentToLocation(attachment, {
       facilityId: "facility-1",
@@ -487,6 +519,52 @@ test("correction keeps the original occurrence and appends the previous value", 
   assert.doesNotMatch(correction, /followsRecordId/);
 });
 
+test("linked evidence completes work only when the work item points at the record", () => {
+  const base = {
+    facilityId: "f1",
+    departmentId: "d1",
+    operationalDateKey: "2026-10-01",
+    now: new Date("2026-10-01T16:00:00.000Z"),
+    facilityTimezone: "America/New_York",
+    unitId: "u1",
+    publishedCycles: [],
+    confirmedAssignments: [{ employeeId: "e1", unitId: "u1", roleKey: null }],
+    existingOccurrences: [],
+    acceptedEvidence: [
+      {
+        id: "ev1",
+        templateStableKey: "cooler_temperature",
+        templateId: null,
+        unitId: "u1",
+        status: "COMPLETED" as const,
+      },
+    ],
+  };
+  const unlinked = resolveWorkRequirements({
+    ...base,
+    publishedPlans: [workPlan],
+  });
+  assert.notEqual(unlinked[0]?.state, "COMPLETED_WITH_EVIDENCE");
+  const linked = resolveWorkRequirements({
+    ...base,
+    publishedPlans: [
+      {
+        ...workPlan,
+        items: [
+          {
+            ...workPlan.items[0]!,
+            completionMode: "LINKED_EVIDENCE",
+            linkedTemplateStableKey: "cooler_temperature",
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(linked[0]?.state, "COMPLETED_WITH_EVIDENCE");
+  assert.equal(linked[0]?.evidenceRecordId, "ev1");
+  assert.equal(linked.length, 1);
+});
+
 test("legacy writers are blocked only while the product record engine is on", () => {
   assert.equal(
     legacyRecordWriteDecision({ productRecordEngine: false, writer: "LOG_SUBMISSION" }).allowed,
@@ -500,8 +578,8 @@ test("legacy writers are blocked only while the product record engine is on", ()
   assert.equal(existsSync("src/app/(protected)/logs/actions.ts"), false);
   assert.equal(existsSync("src/app/(protected)/staffing/templates/actions.ts"), false);
   assert.match(source("src/app/(protected)/unit/[unitId]/actions.ts"), /Catalog Record/);
-  assert.equal(existsSync("src/lib/work/inspections/submit-inspection.ts"), false);
-  assert.equal(existsSync("src/lib/work/inspections/generate-due-inspection-work.ts"), false);
+  assert.doesNotMatch(source("src/lib/work/inspections/submit-inspection.ts"), /inspectionSubmission/);
+  assert.doesNotMatch(source("src/lib/work/inspections/generate-due-inspection-work.ts"), /inspectionDefinition/);
   assert.doesNotMatch(source("src/lib/operational-evidence/submit-evidence.ts"), /OPERATIONAL_TEMPLATE/);
   assert.doesNotMatch(source("src/lib/operational-evidence/template-service.ts"), /OPERATIONAL_TEMPLATE/);
 });

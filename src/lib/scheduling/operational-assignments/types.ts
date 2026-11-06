@@ -61,6 +61,12 @@ export type DailyAssignmentBoardData = {
   employees: AssignmentBoardEmployee[];
   assignments: AssignmentBoardEntry[];
   warnings: AssignmentWarning[];
+  callOffs: Array<{
+    employeeId: string;
+    departmentId: string | null;
+    plannedStart: string | null;
+    plannedEnd: string | null;
+  }>;
 };
 
 export type ValidateAssignmentInput = {

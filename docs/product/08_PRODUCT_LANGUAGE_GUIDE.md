@@ -2,7 +2,7 @@
 
 **Status:** Canonical terminology for UI, docs, and AI prompts  
 **Rule:** Prefer one term. Avoid synonym drift.  
-**Plug-in contract:** [Current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026). Words that must stay apart are defined there and repeated in the domain table below.
+**Plug-in contract:** [Current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), including the [October 29, 2026 amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-29-2026). Words that must stay apart are defined there and repeated in the domain table below.
 
 ---
 
@@ -70,7 +70,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Portfolio visibility** | Organization-level relationship visibility. Not personal Facility authority. | Synthesizing Open or Path A/B from membership or ownership |
 | **My Account** | Who I am and how I sign in — global User profile at `/account` and password/security at `/account/security`. | Facility Admin; Employee HR; Home Facility as identity; PIN management |
 | **Display name** | Global User presentation field `User.displayName`. A change remints the current session and does not increment `sessionVersion`. | Employee first/last name; Home Facility; treating name as authority |
-| **Sign out** | Clears this browser's `ltc_session`. | Sign out everywhere |
+| **Sign out** | Revokes this browser's User credential (`jti`) and clears its `ltc_session`. Other User sessions stay. Personal push subscriptions for the User are revoked. A User token with no `jti` cannot be used; signing one out increments `User.sessionVersion`. | Sign out everywhere |
 | **Sign out everywhere** | Increments `User.sessionVersion` and clears this cookie. All User JWTs die. PIN and Harbor stay. | Sign out other sessions; a device/session inventory |
 | **PIN / PIN access** | Workplace authentication for one Employee context (`Employee.sessionVersion`). Not a separate human identity. | Treating PIN-only as a person without a Vssyl account; signing PIN out by changing User password or Sign out everywhere |
 | **Vssyl account** | Persistent global person identity (`User`) used to sign in and hold contexts. The account stays with no facility, after leaving a facility, or with only partner access. `User.email` identifies that person and is not issued again. | Global User in customer copy; “full account” vs “PIN-only user”; a second User for an email already in use |
@@ -97,18 +97,18 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Department** | Facility-installed instance / operational ownership | Line of business |
 | **Enabled** | `Department.isActive` — admitted to shared operations | Operationally active, configured, ready, healthy |
 | **Operating rhythm** | Recurring Operational Cycles the department runs | Shift, schedule ceremony, setup steps |
-| **Location Function** | Retired. A room is a Facility place plus Department responsibility. Do not bind a function key, Operational Type, or archetype onto it. | Operational Type, Archetype, Experience, Operational Area |
+| **Location Function** | Product-owned `functionKey` bound by the facility to an existing room. Persistence is `DepartmentRoomArchetype.key` on the Department profile. | Operational Type, Archetype, room name, physical room type, label slug |
 | **Operational Cycle** | Root recurring window (persisted as root PERIOD) | Peer “Breakfast Cleanup” as a top-level operation, meal milestone engine |
 | **Phase** | One interval inside an Operational Cycle (persisted as nested PERIOD) | Sub-operation, peer cycle |
-| **Key Point** | Instant on a Cycle (persisted as `KEY_TIME`) | Key Time in current product language, Work, a Record |
+| **Key Point** | Instant on a Cycle (persisted as `KEY_TIME`). Overdue means REQUIRED, past the expected facility-local minute, with no actual. The attention event id is `milestone.overdue` | Key Time in current product language, Work, a Record, calling an untracked planned time overdue |
 | **Records** | Manager umbrella for Reading, Checklist, Inspection, Acknowledgement, and On-demand Record. One engine. Definition is `CatalogLogDefinition`. Facility requirement is `LogAttachment`. The fact is `OperationalEvidenceRecord`. | Logs and Inspections as separate canonical engines; treating `OperationalTemplate` as the next layer after Catalog; Evidence in manager language |
+| **Corrective action** | The text on a Record describing what was done when the reading was out of standard. It is history, written at submission. Later work is a recheck Record, an Issue, or a Work Order. The out-of-standard submission can inform the on-duty supervisor as an Update. That Update is not an assigned review | A due task, a second workflow, or a rewrite of the original Record into a pass |
 | **Logs** (due work) | `/staffing/logs` when canonical Logs are on — what must be recorded now | Using Log Book as the due-work queue; treating legacy `/logs` as the forward Record surface |
 | **Log Book** | `/staffing/log-book` — projection over submitted `OperationalEvidenceRecord` rows | A second evidence store; merging Log Book with due Logs |
 | **Audit / Reports** | Expected versus actual for a service date or range. Route may remain `/reports`. | Review as a workspace |
-| **People & Coverage** | Department Builder section for teams and coverage | Teams as a peer top-level product, a second people system, an operational-eligibility editor |
-| **Operational eligibility** | Employee Builder fact: this person may perform this operational role in this Department | Inferring it from job title, Team, RoleKey, a past Assignment, or a Department Job Role capability |
+| **People & Coverage** | Department Builder section for teams and coverage | Teams as a peer top-level product, a second people system |
 | **Participating location** | Room explicitly attached to a cycle | Department-responsible room *(responsibility ≠ participation)* |
-| **Work applicability** | Retired with generic Work. Each engine stores its own location. | A second applicability model |
+| **Work applicability** | Where a Work Plan’s expected Work may exist | Assignment, cycle participation, department responsibility *(each is separate)* |
 | **Menu** | Department-owned food offering identity plus its content | Facility singleton, Operational Cycle, recipe catalog |
 | **Menu applicability** | Explicit Department locations and canonical Operational Cycles where a Menu may be used, including the Menu period mapped to each Cycle | Live “all locations” rules, neighborhood inheritance, binding a published cycle row id |
 | **Menu Runtime resolution** | Exact location + date-effective root Operational Cycle occurrence + facility service date + ACTIVE applicability + stored `menuPeriodKey` + rotation | Winner/priority, location inheritance, MealType matching, wall-clock “current meal”, historical snapshots, temperature/log integration |
@@ -118,27 +118,59 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Room / Space** | Area within a unit; model is `UnitSpace` | Location *(reserve for section level; see `docs/location-architecture/`)* |
 | **Location / Unit** | Place of work — UI “Location”, model often `Unit` | Room *(unless truly a resident room entity)* |
 | **Operation** | Time-bound service commitment | Shift *(shifts are coverage; operations are service windows)* |
-| **Expected Work** | Retired. Due documentation is a Record. Timing is Operating Rhythm. Staffing is Coverage. | A generic work list |
-| **Work Plan** | Retired. Do not configure recurring generic Work. | Job, checklist catalog, Task, Activity, Duty, Routine |
-| **Recurring Work** | Retired. Plant rounds that are maintenance are Preventive Maintenance. | A shared Work Plan |
-| **My Work** | Today's Assignment, due Records, and product-specific actions for one person | A Work Plan |
-| **Task** | Retired as a platform noun | Ticket *(unless issue context)* |
+| **Expected Work** | What the operation needs doing today, derived from published Work Plans | Tasks due, inbox, job list |
+| **Work Plan** | Recurring expected Work configuration | Job, checklist catalog |
+| **Recurring Work** | Shared Work Plans / rounds and walkthroughs | Treating rounds as Preventive Maintenance; treating Work Orders as shared Work |
+| **My Work** | Person-scoped Work | Today's Work *(Today is the operation; My Work is mine)* |
+| **Task** | Work Engine projection | Ticket *(unless issue context)* |
 | **Request** | Intake: someone is asking for maintenance attention | Treating a Request as the problem itself or as a Work Order |
-| **Issue** | A known undesirable condition. May exist without an Asset or a Work Order | Ticket, Incident *(unless safety-legal context)*; collapsing Issue into Request or Repair |
-| **Work Order** | Facility Plant Operations accepted maintenance work with a persistent lifecycle | Generic shared Work; Repair as the manager-facing noun |
+| **Issue** | A known undesirable condition. May exist without an Asset or a Work Order. Creating one can inform the on-duty supervisor as an Update. That Update is not an assignment, and the Issue's priority is not the notification's priority | Ticket, Incident *(unless safety-legal context)*; collapsing Issue into Request or Repair |
+| **Work Order** | Facility Plant Operations accepted maintenance work with a persistent lifecycle. Priority, response requirement, deadline, and assignee are separate facts on this Work Order | Generic shared Work; Repair as the manager-facing noun |
+| **Work Order priority** | Queue ordering: Routine, High, Urgent, Emergency. Stored `LOW` and `MEDIUM` present as Routine. Emergency is a queue class | Treating Emergency as immediate response, or copying the queue class onto a notification |
+| **Response requirement** | Whether this Work Order requires immediate operational response: Standard or Immediate. The Work Order screen uses those words. Immediate is the active condition while the Work Order is open. That opening tells On-Call Coverage with Urgent attention. It does not make the notice Critical or protected | A second Emergency word, a safety flag stored as notification priority, or a Department-specific emergency type |
+| **Work Order deadline** | When the work should be completed. `dueAt` is that instant. The planning date is not the deadline | Using the deadline as the response requirement |
 | **Repair** | Persistence name for the Work Order row (`Repair`, `/repairs`) | Using Repair as the Product name for Issue or for Facility Plant Operations |
 | **Preventive Maintenance Plan** | Published maintenance rule for a specified target and fixed cadence | Operational Cycle; rolling next-due as the Product definition of PM; recurring facility rounds |
 | **Finding** | Inspection item outcome needing follow-up | Defect *(unless manufacturing)* |
 | **Inspection** | A Record form inside the one Record engine | A second inspection engine; Audit / Reports |
 | **Knowledge** | Operational SOP/reference | Wiki, CMS |
-| **Asset** | Shared Platform equipment / built-environment object | Device *(reserve for PIN tablets)*; PlantAsset / MaintenanceAsset |
+| **Asset** | Shared Platform equipment / built-environment object. Out of service means the Asset cannot perform its function. Returned to service means it can participate again, including when the status is degraded. That is an Asset status, not an Issue impact and not a failed Record. The responsible organization is not a person | Device *(reserve for PIN tablets)*; PlantAsset / MaintenanceAsset |
 | **Asset lifecycle** | Registry status such as operational, out of service, retired | Treating lifecycle as the same fact as observed condition |
 | **Asset condition** | Observed operating condition, updated from work and inspection facts | Treating condition restore as an automatic Work Order closeout |
 | **Facility Plant Operations** | Department Product for maintaining the built facility environment | Generic Maintenance as the Product name; treating manufacturing/fleet/biomedical maintenance as this Product; using the local Department name as the Product name |
 | **Plant Operations** | Default local Department name for an installed Facility Plant Operations Product | Official Product name |
 | **Employee** | Facility-specific workforce/employment record. One Vssyl account may have many Employees; at most one Employee per account per Facility. New Employees are always account-backed. | Treating Employee as the global person identity; inferring identity from email; PIN-only as a permanent person type |
 | **User.role** | Compatibility / home-default Facility RoleKey only. Active internal authority is the current `UserFacilityRolePeriod` for the selected Facility grant. | Treating `User.roleId` as the RoleKey at every Facility; Employee.roleType; job title |
-| **Call-off** | A mark on the shift: that person is not working it. The day's Assignment is a separate move. | Call-down as the name of the shift mark |
+| **Call-off** | A mark on the shift: that person is not working that whole shift. Coverage stops counting the overlapping Assignment. The Assignment row stays. Coverage, not a separate call-off notice, tells the supervisor the staffing consequence | Call-down as the name of the shift mark, or a second alert for the same gap |
+| **Supervisory responsibility** | The Assignment that says who is supervising this Department and location during a service window. A called-off shift removes that person. A later Assignment replaces them | The Supervisor role, the Department head, or a Dietary-only supervisor id |
+| **On-call coverage** | The Assignment that says who must respond to an operational incident for this Department during a time window. An Asset taken out of service is one such incident. A called-off shift removes that person while the call-off covers that instant | A job role, the Department head, the Work Order assignee, the Asset owner, or a separate on-call roster |
+| **Coverage episode** | One continuous coverage deficiency for one slot. Coverage owns when it opens, worsens, and closes. The Coverage answer itself stays derived | A stored Covered flag, or a notification deciding that a new incident began |
+| **Scheduled Evaluation** | The platform clock that asks a domain whether time passing changed an operational fact | A rules engine, or a notification deciding that Coverage became uncovered |
+| **Notification** | An attention-delivery record for one condition or communication. It does not own the operational fact | A second Coverage, Readiness, Record, Asset, or Work Order row |
+| **Attention** | The platform's request that a person be aware or act. Operational attention is the bell. Dashboard Attention is the supervisor home's current list | Using the bell as a raw unread counter of chat plus risk |
+| **Communication** | Human messages. Future Chat. Unread and read | Operational acknowledgement as the meaning of reading a message |
+| **Priority** | How much attention a notification requests: Update, Needs Attention, Urgent, Critical | Inferring priority from message wording; using role as the severity |
+| **Update** | Notification priority for useful information that does not require immediate action | A readiness state |
+| **Urgent** | Notification priority for time-sensitive operational intervention | A Work Order priority copied across without the attention policy |
+| **Critical** | Rare notification priority for safety, regulatory exposure, or major service continuity | Calling every severe-looking event Critical |
+| **Protected notification** | Attention the person cannot turn off in the app. It cannot be snoozed, quieted, or digested. External channels may still be configurable when it is not protected | A user setting that hides active uncovered coverage or a critical safety failure |
+| **Response Policy** | What may happen after an attention thread exists: escalation eligibility, duty reconciliation eligibility, snooze, quiet, and digest. It does not choose the priority, the first recipient, or the deadline | A settings screen, or a second reading of Work Order priority or Asset criticality |
+| **Responsibility Reconciliation** | Adding the person who holds an open thread's primary operational responsibility now. Duty is read at the evaluator's current time. Earlier recipients stay | Escalation, removing the person who received it when it opened, or changing the notification's priority |
+| **Recipient reason** | Why this person received this notification | A department-specific notify function as the explanation |
+| **Read** | The recipient has viewed the notification | Acknowledgement; resolution |
+| **Acknowledged** | The recipient has accepted responsibility. Escalation can stop. The condition can still be open | The condition being fixed |
+| **Snooze** | Suppressing later external interruption for one recipient until a bounded time. The Center item and the bell stay | Acknowledgement, hiding the item, or stopping escalation |
+| **Quiet Hours** | A personal Facility-local window during which informational Updates do not interrupt this browser. The Center item stays | Hiding Needs Attention or higher, muting every alert, or changing who is responsible |
+| **Informational Updates** | Update-priority attention. Quiet Hours can apply to it. Needs Attention and higher are not informational | A readiness state, or a label for Urgent and Critical attention |
+| **Pause browser alerts** | Snooze for this person on this notification. Browser interruption pauses. The Center item and the bell stay | Dismiss, hide, acknowledge, or resolve |
+| **Resume browser alerts** | Clear this person's Snooze. The item stays. It does not mark read, acknowledge, or resolve | Turning the operational condition back on |
+| **Digest Eligibility** | An Update may later be batched instead of sent alone. Needs Attention and higher are not eligible in V1 | An email that is sent today, or a dismissal |
+| **Browser alerts** | Operational attention shown by this personal browser. The Notification Center still holds the item | A shared-tablet channel, or a replacement for the Center |
+| **Enable alerts on this device** | The person's choice to allow browser alerts on the browser they are using | A prompt at sign-in, or a setting that covers every Facility tablet |
+| **Disable alerts on this device** | Stopping browser alerts on this browser. The Center item stays | Hiding attention, or acknowledgement |
+| **Escalation** | Adding the Department head to an active operational thread because no primary-responsibility recipient acknowledged by the deadline. One tier. It does not raise priority | Raising Needs Attention to Urgent or Critical, a second tier, or a facility setting |
+| **Escalated** | That Department head was added. The deadline passing, by itself, is not Escalated | A new unrelated notification, or a higher priority |
+| **Resolved** | The owning domain confirmed the condition ended | Read, acknowledgement, or task completion by themselves |
 
 ---
 
@@ -151,6 +183,24 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Needs Attention** | `blocked` |
 
 Never show **Blocked** to end users. Never say **Complete** for readiness green.
+
+---
+
+## Notification and attention language
+
+Three scales stay apart. The canonical engine is [16 — Notifications & Attention](./16_NOTIFICATIONS_AND_ATTENTION.md).
+
+| Scale | Words | Owner |
+|-------|-------|-------|
+| Operational condition | Coverage: Covered, At Risk, Uncovered, and the other coverage words. Readiness: Ready, In Progress, Needs Attention. Asset, Record, and Work Order words stay with those domains | The domain that owns the fact |
+| Notification priority | Update, Needs Attention, Urgent, Critical | Attention policy |
+| Delivery interruption | Notification Center, attention badge, push, email | Delivery policy |
+
+**Needs Attention** is both a readiness word and a notification priority. Name which one: "Readiness is Needs Attention" is the place. "Priority is Needs Attention" is the notification.
+
+The policy events `readiness.became_at_risk` and `readiness.became_degraded` are internal names. They do not add readiness states called At Risk or Degraded. **Degraded** remains an asset-condition word when the speaker means the asset.
+
+**Dashboard Attention** is the supervisor home's composed list (`act_now`, `due_soon`, `watch`). It is not a Notification, and it is not the bell count.
 
 ---
 

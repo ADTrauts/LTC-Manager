@@ -241,9 +241,9 @@ export function MenuApplicabilityForm({
                                   onChange={() => toggleLocation(room)}
                                 />
                                 {room.displayName}
-                                {room.roomTypeLabel ? (
+                                {room.patternLabel || room.roomTypeLabel ? (
                                   <span className="text-xs text-zinc-500">
-                                    {room.roomTypeLabel}
+                                    {room.patternLabel ?? room.roomTypeLabel}
                                   </span>
                                 ) : null}
                               </label>

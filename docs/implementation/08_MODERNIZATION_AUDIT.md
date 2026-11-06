@@ -1,6 +1,6 @@
 # Modernization Audit
 
-**Status:** Historical engineering reconnaissance. `scheduling-eligibility.ts`, `WorkStation`, and Department Job Role are removed.  
+**Status:** Engineering implementation reconnaissance  
 **Date:** 2026-07-07  
 **Application root:** `ltc-manager/`  
 **Authority:** [01_MODERNIZATION_ROADMAP.md](./01_MODERNIZATION_ROADMAP.md) (unchanged)

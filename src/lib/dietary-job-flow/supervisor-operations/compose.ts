@@ -15,6 +15,7 @@ import type {
   SupervisorOperationsViewModel,
   SupervisorPresenceEmployee,
   SupervisorSyncItem,
+  SupervisorWorkFact,
 } from "./types";
 import type { SupervisorOperationsFacts } from "./facts";
 
@@ -234,6 +235,30 @@ function unitsFromStates(
   return [...byUnit.values()].sort((a, b) => a.unitName.localeCompare(b.unitName));
 }
 
+function workAttention(rows: readonly SupervisorWorkFact[]): SupervisorAttentionItem[] {
+  return rows.map((row) => {
+    const temporal: SupervisorExceptionTemporal =
+      row.state === "PAST_DUE_NOT_CONFIRMED"
+        ? "NotConfirmed"
+        : row.state === "DUE" || row.state === "CURRENT" || row.state === "CONFLICT_REVIEW"
+          ? "Current"
+          : "Upcoming";
+    return {
+      status:
+        row.state === "PAST_DUE_NOT_CONFIRMED"
+          ? `${row.label} — past due not confirmed`
+          : `${row.label} — ${row.state.replaceAll("_", " ").toLowerCase()}`,
+      temporal,
+      unitId: row.unitId,
+      unitName: row.unitName,
+      sourceHref: row.unitId
+        ? `/staffing/operations?work=${encodeURIComponent(row.occurrenceKey)}&unit=${row.unitId}`
+        : `/staffing/operations?work=${encodeURIComponent(row.occurrenceKey)}`,
+      availableActions: ["Open Work", "Create one-off"],
+    };
+  });
+}
+
 function syncAttention(items: readonly SupervisorSyncItem[]): SupervisorAttentionItem[] {
   return items.map((item) => ({
     status: item.kind === "retry_required" ? "Pending offline sync" : "Conflict review required",
@@ -374,6 +399,7 @@ export function composeSupervisorOperations(
       milestones: milestoneAttention(facts.states),
       evidence: currentEvidence,
       assets: assetAttention(facts.states),
+      work: workAttention(facts.workExceptions),
       sync: syncAttention(facts.sync.items),
       configuration: [],
     },

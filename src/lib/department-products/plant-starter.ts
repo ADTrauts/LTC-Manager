@@ -8,6 +8,11 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { FacilitySession } from "@/lib/auth";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
+import {
+  createDraftFromPreset as createWorkDraftFromPreset,
+  PLANT_WORK_PRESET_KEYS,
+  type WorkActor,
+} from "@/lib/department-work";
 import { upsertPublishedCatalogSeeds } from "@/lib/canonical-logs/catalog-seed";
 import { installPublishedCatalog } from "@/lib/canonical-logs/facility-catalog-install";
 import type { EvidenceActor } from "@/lib/operational-evidence";
@@ -55,17 +60,31 @@ function starterIdForCatalogKey(stableKey: string): string | null {
 
 export async function loadPlantStarterInstalledKeys(
   input: { facilityId: string; departmentId: string; client?: DbClient },
-): Promise<{ recordPresetKeys: string[] }> {
+): Promise<{ workPresetKeys: string[]; recordPresetKeys: string[] }> {
   const client = input.client ?? prisma;
-  const records = await client.facilityCatalogInstall.findMany({
+  const [work, records] = await Promise.all([
+    client.departmentWorkPlan.findMany({
+      where: {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        OR: [
+          { presetKey: { in: [...PLANT_WORK_PRESET_KEYS] } },
+          { stableKey: { in: [...PLANT_WORK_PRESET_KEYS] } },
+        ],
+      },
+      select: { presetKey: true, stableKey: true },
+    }),
+    client.facilityCatalogInstall.findMany({
       where: {
         facilityId: input.facilityId,
         catalogStableKey: { in: Object.values(PLANT_STARTER_CATALOG_KEYS) },
       },
       select: { catalogStableKey: true },
-    });
+    }),
+  ]);
 
   return {
+    workPresetKeys: uniqueKeys(work),
     recordPresetKeys: records
       .map((row) => starterIdForCatalogKey(row.catalogStableKey))
       .filter((id): id is string => id != null),
@@ -98,7 +117,7 @@ export async function installPlantStarterConfiguration(
     facilityId: string;
     departmentId: string;
     selectedIds: readonly string[];
-    actor: EvidenceActor;
+    actor: WorkActor & EvidenceActor;
     client?: DbClient;
   },
 ): Promise<PlantStarterInstallResult> {
@@ -107,8 +126,9 @@ export async function installPlantStarterConfiguration(
     catalog.has(id as PlantStarterItemId),
   );
   const existing = await loadPlantStarterInstalledKeys(input);
-  const already = new Set(existing.recordPresetKeys);
+  const already = new Set([...existing.workPresetKeys, ...existing.recordPresetKeys]);
 
+  let workAdded = 0;
   let recordAdded = 0;
   let alreadyExisted = 0;
 
@@ -117,6 +137,18 @@ export async function installPlantStarterConfiguration(
     if (!item) continue;
     if (already.has(id)) {
       alreadyExisted += 1;
+      continue;
+    }
+    if (item.kind === "work") {
+      await createWorkDraftFromPreset(session, {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        presetKey: id,
+        actor: input.actor,
+        client: input.client,
+      });
+      already.add(id);
+      workAdded += 1;
       continue;
     }
     const catalogStableKey = PLANT_STARTER_CATALOG_KEYS[id];
@@ -132,9 +164,20 @@ export async function installPlantStarterConfiguration(
   }
 
   return {
+    workAdded,
     recordAdded,
     alreadyExisted,
     selectedCount: selected.length,
+    workHref: departmentAdminHref(input.departmentId, "work"),
     recordsHref: departmentAdminHref(input.departmentId, "records"),
   };
+}
+
+function uniqueKeys(rows: Array<{ presetKey: string | null; stableKey: string }>): string[] {
+  const keys = new Set<string>();
+  for (const row of rows) {
+    if (row.presetKey) keys.add(row.presetKey);
+    if (row.stableKey) keys.add(row.stableKey);
+  }
+  return [...keys];
 }

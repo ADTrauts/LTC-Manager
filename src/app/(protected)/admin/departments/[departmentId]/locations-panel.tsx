@@ -1,10 +1,19 @@
 import Link from "next/link";
 
+import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
+import {
+  bindLocationFunctionAction,
+  publishLocationFunctionsAction,
+} from "@/app/(protected)/admin/departments/[departmentId]/actions";
 import { LocationsProgrammingClient } from "@/app/(protected)/admin/departments/[departmentId]/locations-programming-client";
+import { addRemainingRoomsOfTypeToTeamAction } from "@/app/(protected)/admin/departments/[departmentId]/team-actions";
 import { EmptyState } from "@/components/design-system/EmptyState";
 import { Button } from "@/components/design-system/Button";
 import type { DepartmentAdminView } from "@/lib/department-administration";
+import { presentLocationProgramExpansion } from "@/lib/department-administration/location-program-expansion";
 import type { LocationRoomInspectView } from "@/lib/department-administration/location-room-inspect";
+import { getLocationFunction, listLocationFunctionsForProduct } from "@/lib/department-products/location-functions";
+import { isDepartmentProductKey } from "@/lib/department-products/registry";
 
 type Props = {
   view: DepartmentAdminView;
@@ -13,10 +22,12 @@ type Props = {
 };
 
 /**
- * Department Facility — a composed read of rooms Facility Builder assigned
- * to this department. This screen does not author a room classification.
+ * Department Locations — rooms Facility Builder already assigned to this
+ * department. Inspect place, Facility type, and current overlays.
  */
 export function LocationsPanel({ view, inspects, canManage }: Props) {
+  const expansion = presentLocationProgramExpansion(Object.values(inspects));
+
   return (
     <div className="max-w-5xl space-y-3" data-testid="department-locations-panel">
       <div
@@ -26,8 +37,8 @@ export function LocationsPanel({ view, inspects, canManage }: Props) {
         <div className="min-w-0 space-y-2">
           <h2 className="text-base font-semibold text-zinc-900">Locations</h2>
           <p className="text-sm text-zinc-600">
-            Facility Builder owns the place and who is responsible. Operating Rhythm, Coverage,
-            Records, Assets, and Menus stay with their owners.
+            Physical places stay in Facility Builder. {view.department.name} binds each place to a
+            Location Function from the Department Product.
           </p>
         </div>
         <Link
@@ -38,6 +49,8 @@ export function LocationsPanel({ view, inspects, canManage }: Props) {
           Manage responsibility →
         </Link>
       </div>
+
+      <LocationFunctionsSection view={view} canManage={canManage} />
 
       {view.locations.length === 0 ? (
         <EmptyState
@@ -53,8 +66,146 @@ export function LocationsPanel({ view, inspects, canManage }: Props) {
           data-testid="department-locations-empty"
         />
       ) : (
-        <LocationsProgrammingClient view={view} inspects={inspects} canManage={canManage} />
+        <>
+          {expansion.remainingCount > 0 ? (
+            <section
+              className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3"
+              data-testid="location-program-expansion"
+            >
+              <p className="text-sm font-semibold text-zinc-900">
+                {expansion.remainingCount === 1
+                  ? "1 room is not on a team yet"
+                  : `${expansion.remainingCount} rooms are not on a team yet`}
+              </p>
+              <ul className="mt-2 space-y-2">
+                {expansion.groups.map((group) => (
+                  <li key={group.facilityRoomTypeId ?? group.facilityTypeLabel}>
+                    <p className="text-sm text-zinc-700">
+                      {group.facilityTypeLabel}: {group.remaining.map((room) => room.name).join(", ")}
+                    </p>
+                    {canManage && group.suggestedTeamId ? (
+                      <form
+                        action={async (formData) => {
+                          await addRemainingRoomsOfTypeToTeamAction(formData);
+                        }}
+                        className="mt-1"
+                      >
+                        <input type="hidden" name="departmentId" value={view.department.id} />
+                        <input type="hidden" name="teamId" value={group.suggestedTeamId} />
+                        <input
+                          type="hidden"
+                          name="spaceIds"
+                          value={group.remaining.map((room) => room.spaceId).join(",")}
+                        />
+                        <Button type="submit" size="compact">
+                          Add remaining to {group.suggestedTeamName}
+                        </Button>
+                      </form>
+                    ) : (
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Open People & Coverage to put these rooms on a team.
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          <LocationsProgrammingClient view={view} inspects={inspects} canManage={canManage} />
+        </>
       )}
     </div>
+  );
+}
+
+function LocationFunctionsSection({
+  view,
+  canManage,
+}: {
+  view: DepartmentAdminView;
+  canManage: boolean;
+}) {
+  const productKey = isDepartmentProductKey(view.department.key) ? view.department.key : null;
+  const functions = listLocationFunctionsForProduct(productKey);
+  const rooms = view.locations.filter((location) => location.kind === "room");
+  const draft = view.workingProfileMeta?.status === "DRAFT";
+
+  return (
+    <section className="space-y-3 rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="location-functions">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-900">Location Functions</h3>
+          <p className="mt-1 text-xs text-zinc-600">
+            Choose a function the Department Product already defines. The room name does not create one.
+          </p>
+          {draft ? (
+            <p className="mt-1 text-xs text-zinc-600" data-testid="location-function-draft-note">
+              This is the working draft. Run keeps the published functions until you publish.
+            </p>
+          ) : null}
+        </div>
+        {canManage && draft ? (
+          <DepartmentAdminActionForm action={publishLocationFunctionsAction}>
+            <input type="hidden" name="departmentId" value={view.department.id} />
+            <Button type="submit" size="compact" data-testid="location-function-publish">
+              Publish
+            </Button>
+          </DepartmentAdminActionForm>
+        ) : null}
+      </div>
+      {rooms.length > 0 ? (
+        <ul className="divide-y divide-zinc-100">
+          {rooms.map((location) => {
+            const key = location.patternKey?.startsWith("archetype:")
+              ? location.patternKey.slice("archetype:".length)
+              : null;
+            const known = getLocationFunction(productKey, key);
+            const label = known?.label ?? "Not bound";
+            return (
+              <li key={location.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-zinc-900">{location.displayName}</p>
+                  <p className="text-xs text-zinc-500">
+                    {view.department.name} is responsible
+                    {location.roomTypeLabel ? ` · ${location.roomTypeLabel}` : ""}
+                  </p>
+                </div>
+                {canManage && productKey && functions.length > 0 ? (
+                  <DepartmentAdminActionForm
+                    action={bindLocationFunctionAction}
+                    className="flex flex-wrap items-end gap-2"
+                  >
+                    <input type="hidden" name="departmentId" value={view.department.id} />
+                    <input type="hidden" name="unitSpaceId" value={location.id} />
+                    <label className="text-xs font-medium text-zinc-700">
+                      Location Function
+                      <select
+                        name="functionKey"
+                        className="mt-1 block min-h-10 min-w-44 rounded-md border border-zinc-300 bg-white px-2 text-sm"
+                        defaultValue={known?.functionKey ?? ""}
+                      >
+                        <option value="">Not bound</option>
+                        {functions.map((fn) => (
+                          <option key={fn.functionKey} value={fn.functionKey}>
+                            {fn.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Button type="submit" size="compact">
+                      Save
+                    </Button>
+                  </DepartmentAdminActionForm>
+                ) : (
+                  <p className="text-sm text-zinc-700">Location Function: {label}</p>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-sm text-zinc-600">Assign rooms in Facility Builder before binding a function.</p>
+      )}
+    </section>
   );
 }

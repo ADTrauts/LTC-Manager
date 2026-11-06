@@ -1,8 +1,7 @@
 # Codebase Mapping
 
-**Status:** Historical implementation map — per-wave affected artifacts  
+**Status:** Implementation map — per-wave affected artifacts  
 **Date:** 2026-07-07  
-`scheduling-eligibility.ts` and Department Job Role authoring were removed in Phase 7B.  
 **Application root:** `ltc-manager/`
 
 This document maps each modernization wave to **existing features**, **files**, **routes**, **models**, and **services** in the current codebase. Use it when scoping a wave prompt and when estimating blast radius.

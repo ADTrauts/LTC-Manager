@@ -44,6 +44,7 @@ function facts(departmentKey: string, overrides: Partial<DepartmentCapabilityFac
     plantRuntimeEnabled: false,
     hasRuntimeLocations: true,
     hasPublishedCycles: true,
+    hasPublishedWorkPlans: true,
     hasCoveragePlan: true,
     hasRoster: true,
     recordEngine: "CANONICAL",
@@ -56,6 +57,7 @@ function facts(departmentKey: string, overrides: Partial<DepartmentCapabilityFac
 const allMissing = {
   hasRuntimeLocations: false,
   hasPublishedCycles: false,
+  hasPublishedWorkPlans: false,
   hasCoveragePlan: false,
   hasRoster: false,
   recordEngine: "LEGACY",
@@ -74,6 +76,7 @@ test("Food & Nutrition: configured capabilities and no setup reasons", () => {
       sorted([
         "locations.runtime",
         "cycles.published",
+        "work.expected",
         "coverage.planned",
         "people.roster",
         "records.canonical",
@@ -93,6 +96,7 @@ test("Food & Nutrition: every declared setup step reports the contract wording",
     assert.deepEqual(result.notConfigured, [
       { capability: "locations.runtime", message: "No locations are assigned to this Department." },
       { capability: "cycles.published", message: "No Operating Rhythm is published." },
+      { capability: "work.expected", message: "No Work Plans are published." },
       { capability: "coverage.planned", message: "No coverage plan is set." },
       { capability: "menus", message: "No Menu is assigned to this Department's locations." },
       { capability: "records.legacy", message: "This Department still uses legacy Records." },
@@ -106,9 +110,11 @@ test("retired env switches cannot hide an admitted engine", () => {
   withEnv({ DIETARY_OPERATIONAL_CYCLES_ENABLED: "false", DIETARY_WORK_PLANS_ENABLED: "false" }, () => {
     const configured = deriveDepartmentDashboardCapabilities(facts("DIETARY"));
     assert.equal(configured.has.has("cycles.published"), true);
+    assert.equal(configured.has.has("work.expected"), true);
     const missing = deriveDepartmentDashboardCapabilities(facts("DIETARY", allMissing));
     const reasons = missing.notConfigured.map((row) => row.capability);
     assert.equal(reasons.includes("cycles.published"), true);
+    assert.equal(reasons.includes("work.expected"), true);
   });
 });
 
@@ -118,6 +124,7 @@ test("fail closed: a failed source contributes no capability and no reason", () 
       facts("DIETARY", {
         hasRuntimeLocations: null,
         hasPublishedCycles: null,
+        hasPublishedWorkPlans: null,
         hasCoveragePlan: null,
         hasRoster: null,
         recordEngine: null,
@@ -143,7 +150,7 @@ test("Plant: maintenance follows Plant runtime; a disabled Plant says so", () =>
     ]);
 
     const on = deriveDepartmentDashboardCapabilities(facts("PLANT", { plantRuntimeEnabled: true }));
-    for (const capability of ["plant.maintenance", "maintenance.shared", "cycles.published"]) {
+    for (const capability of ["plant.maintenance", "maintenance.shared", "cycles.published", "work.expected"]) {
       assert.ok(on.has.has(capability as never), capability);
     }
     assert.equal(on.has.has("menus"), false, "Plant offers no Menus");
@@ -152,11 +159,11 @@ test("Plant: maintenance follows Plant runtime; a disabled Plant says so", () =>
   });
 });
 
-test("custom Department: shared engines admitted, people and coverage setup steps only", () => {
+test("custom Department: shared engines admitted, people and Work setup steps only", () => {
   withEnv({}, () => {
     const configured = deriveDepartmentDashboardCapabilities(facts("ACTIVITIES"));
     assert.equal(configured.productKey, null);
-    for (const capability of ["locations.runtime", "cycles.published", "maintenance.shared"]) {
+    for (const capability of ["locations.runtime", "cycles.published", "work.expected", "maintenance.shared"]) {
       assert.ok(configured.has.has(capability as never), capability);
     }
     assert.equal(configured.has.has("menus"), false);
@@ -166,7 +173,7 @@ test("custom Department: shared engines admitted, people and coverage setup step
     const missing = deriveDepartmentDashboardCapabilities(facts("ACTIVITIES", allMissing));
     assert.deepEqual(
       missing.notConfigured.map((row) => row.capability),
-      ["coverage.planned", "people.roster", "records.legacy"],
+      ["work.expected", "coverage.planned", "people.roster", "records.legacy"],
     );
   });
 });
@@ -192,7 +199,7 @@ test("engine admission matches isDepartmentEngineEnabledForFacility for every ke
   ];
   for (const values of settings) {
     for (const key of ["DIETARY", "EVS", "ACTIVITIES"]) {
-      for (const feature of ["cycles", "asset"] as const) {
+      for (const feature of ["cycles", "workPlans", "asset"] as const) {
         const expected = await withEnv(values, () => isDepartmentEngineEnabledForFacility("fac-1", feature, key));
         assert.equal(
           withEnv(values, () => isDashboardEngineAdmitted(feature, key, false)),
@@ -203,7 +210,7 @@ test("engine admission matches isDepartmentEngineEnabledForFacility for every ke
     }
   }
   for (const plantRuntimeEnabled of [true, false]) {
-    for (const feature of ["cycles", "asset"] as const) {
+    for (const feature of ["cycles", "workPlans", "asset"] as const) {
       assert.equal(isDashboardEngineAdmitted(feature, "PLANT", plantRuntimeEnabled), plantRuntimeEnabled);
     }
   }
@@ -227,6 +234,10 @@ function fakeCapabilityDb(options: { failing?: string } = {}) {
     departmentOperationalCycle: model("departmentOperationalCycle", [
       { departmentId: "dept-fn", applicableDaysOfWeek: [2] },
       { departmentId: "dept-act", applicableDaysOfWeek: [0, 6] },
+    ]),
+    departmentWorkPlan: model("departmentWorkPlan", [
+      { departmentId: "dept-act", weekdays: [] },
+      { departmentId: "dept-fn", weekdays: [3] },
     ]),
     operationalAssignmentTemplate: model("operationalAssignmentTemplate", [{ departmentId: "dept-fn" }]),
     operationalAssignment: model("operationalAssignment", [{ departmentId: "dept-act" }]),
@@ -274,12 +285,14 @@ test("resolver: one query per source for every Department, derived per service d
 
   const fn = result.get("dept-fn")!;
   assert.ok(fn.has.has("cycles.published"), "Tuesday cycle applies");
+  assert.equal(fn.has.has("work.expected"), false, "Wednesday-only Work Plan does not");
   assert.ok(fn.has.has("records.canonical"));
   assert.ok(fn.has.has("plant.requests.filed"));
   assert.ok(fn.has.has("menus"));
 
   const activities = result.get("dept-act")!;
   assert.equal(activities.has.has("cycles.published"), false, "weekend cycle");
+  assert.ok(activities.has.has("work.expected"), "every-day Work Plan");
   assert.ok(activities.has.has("coverage.planned"), "today's assignment counts as a coverage plan");
   assert.ok(activities.has.has("records.canonical"), "a Department with no rollout row uses the forward engine");
   assert.deepEqual(
@@ -293,7 +306,7 @@ test("resolver: one query per source for every Department, derived per service d
 });
 
 test("resolver: a failing source fails closed for that capability only", async () => {
-  const { db } = fakeCapabilityDb({ failing: "departmentOperationalCycle" });
+  const { db } = fakeCapabilityDb({ failing: "departmentWorkPlan" });
   const result = await withEnv({}, () =>
     resolveDepartmentDashboardCapabilities(viewer, {
       db,
@@ -303,8 +316,8 @@ test("resolver: a failing source fails closed for that capability only", async (
     }),
   );
   const activities = result.get("dept-act")!;
-  assert.equal(activities.has.has("cycles.published"), false);
-  assert.equal(activities.notConfigured.some((row) => row.capability === "cycles.published"), false);
+  assert.equal(activities.has.has("work.expected"), false);
+  assert.equal(activities.notConfigured.some((row) => row.capability === "work.expected"), false);
   assert.ok(activities.has.has("locations.runtime"));
   assert.equal(activities.has.has("coverage.planned"), false, "assignments are not read when that flag is off");
   assert.equal(result.get("dept-fn")!.has.has("plant.requests.filed"), false, "Plant runtime off");

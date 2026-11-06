@@ -11,29 +11,10 @@ import {
 } from "@/lib/operational-cycles/cycle-lifecycle";
 import { toServiceDateKey } from "@/lib/operational-time";
 
-export type OperatingRhythmKeyTimeGroupView = {
-  dueLocal: string;
-  spaceIds: string[];
-};
-
 export type OperatingRhythmChildView = {
-  stableKey: string;
-  cycleId: string;
-  nodeKind: "PERIOD" | "KEY_TIME";
   label: string;
   window: string;
   status: "DRAFT" | "PUBLISHED";
-  description: string | null;
-  cycleType: string;
-  applicableDaysOfWeek: number[];
-  effectiveFrom: string | null;
-  parentStableKey: string | null;
-  startLocal: string | null;
-  endLocal: string | null;
-  mealType: string | null;
-  locationInheritFromParent: boolean;
-  /** Explicit room groups. Empty space ids are not a saved location. */
-  keyTimeGroups: OperatingRhythmKeyTimeGroupView[];
 };
 
 export type OperatingRhythmRootView = {
@@ -74,51 +55,18 @@ export function presentOperatingRhythmRoots(
     const draft = rootDrafts.find((row) => row.stableKey === stableKey) ?? null;
     const live = rootCurrent.find((row) => row.stableKey === stableKey) ?? null;
     const upcoming = rootScheduled.find((row) => row.stableKey === stableKey) ?? null;
-    const childCandidates = rows.filter(
-      (row) =>
-        row.parentStableKey === stableKey &&
-        (row.status === "DRAFT" ||
-          (row.status === "PUBLISHED" && isCycleEffectiveOnDate(row, todayKey))),
-    );
-    const childrenByKey = new Map<string, CycleLifecycleRow>();
-    for (const row of childCandidates) {
-      const current = childrenByKey.get(row.stableKey);
-      if (!current) {
-        childrenByKey.set(row.stableKey, row);
-        continue;
-      }
-      const rowIsDraft = row.status === "DRAFT";
-      const currentIsDraft = current.status === "DRAFT";
-      if (rowIsDraft && !currentIsDraft) {
-        childrenByKey.set(row.stableKey, row);
-        continue;
-      }
-      if (rowIsDraft === currentIsDraft && row.version > current.version) {
-        childrenByKey.set(row.stableKey, row);
-      }
-    }
-    const children = [...childrenByKey.values()]
+    const children = rows
+      .filter(
+        (row) =>
+          row.parentStableKey === stableKey &&
+          (row.status === "DRAFT" ||
+            (row.status === "PUBLISHED" && isCycleEffectiveOnDate(row, todayKey))),
+      )
       .sort((a, b) => a.displaySequence - b.displaySequence || a.label.localeCompare(b.label))
       .map((row) => ({
-        stableKey: row.stableKey,
-        cycleId: row.id,
-        nodeKind: row.nodeKind === "KEY_TIME" ? ("KEY_TIME" as const) : ("PERIOD" as const),
         label: row.label,
         window: formatCycleWindow(row.startLocal, row.endLocal),
         status: row.status === "DRAFT" ? ("DRAFT" as const) : ("PUBLISHED" as const),
-        description: row.description,
-        cycleType: row.cycleType,
-        applicableDaysOfWeek: row.applicableDaysOfWeek,
-        effectiveFrom: toServiceDateKey(row.effectiveFrom),
-        parentStableKey: row.parentStableKey,
-        startLocal: row.startLocal,
-        endLocal: row.endLocal,
-        mealType: row.mealType,
-        locationInheritFromParent: row.locationInheritFromParent,
-        keyTimeGroups: (row.keyTimeGroups ?? []).map((group) => ({
-          dueLocal: group.dueLocal,
-          spaceIds: [...group.spaceIds],
-        })),
       }));
 
     return {

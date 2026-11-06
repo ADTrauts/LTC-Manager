@@ -26,7 +26,7 @@ export default async function EmployeesImportPage() {
         <h2 className="font-semibold">File rules</h2>
         <p>Omitted columns and blank cells preserve data. Use <code>__CLEAR__</code> for a deliberate clear in these fields only: {[...EMPLOYEE_CLEARABLE_FIELDS].join(", ")}. Domain restrictions still apply; email required by a leadership role cannot be cleared.</p>
         <p>Match by an exported Employee ID, otherwise a unique email. Without either, both names must uniquely match one employee in this Facility. Use Employee ID when changing email or names. An email matching another person blocks the row; an unmatched email never falls back to names.</p>
-        <p>Headers are case-insensitive. Dates use YYYY-MM-DD. Booleans use true/false (yes/no and 1/0 also work). Birth month/day must form a valid pair, or both be explicitly cleared. The template has a header only.</p>
+        <p>Headers are case-insensitive. Dates use YYYY-MM-DD. Booleans use true/false (yes/no and 1/0 also work). Workstations use names separated by |. Birth month/day must form a valid pair, or both be explicitly cleared. The template has a header only.</p>
         <p>Duplicate target employees, malformed rows, unsupported columns, authority and lifecycle changes are blocked. Publication, access grants, global accounts and employment history are outside this update.</p>
       </div>
     </section>

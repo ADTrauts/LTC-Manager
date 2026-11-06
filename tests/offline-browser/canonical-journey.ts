@@ -2,9 +2,8 @@ import { expect, type Page } from "@playwright/test";
 import { loginPassword, prisma, ensureDeviceBoundAsAdmin } from "./helpers";
 
 export type CanonicalOfflineFixture = {
-  facilityId: string; departmentId: string; unitId: string; spaceId: string; spaceName: string;
-  profileId: string | null; cycleId: string; keyPointId: string; operationLabel: string;
-  workPlanId: string | null; workLabel: string | null;
+  facilityId: string; departmentId: string; unitId: string; spaceId: string;
+  profileId: string; cycleId: string; keyPointId: string; workPlanId: string; workLabel: string;
   people: Record<"manager" | "worker" | "secondWorker", { userId: string; employeeId: string; email: string }>;
 };
 
@@ -18,9 +17,8 @@ export async function prepareCanonicalResponsibility(page: Page, fx: CanonicalOf
     for (const person of [fx.people.worker, fx.people.secondWorker]) {
       if (!await db.operationalAssignment.count({ where: { facilityId: fx.facilityId, employeeId: person.employeeId, serviceDate: new Date(`${serviceDate}T00:00:00Z`), unitId: fx.unitId, status: { in: ["PLANNED","ACTIVE"] } } })) {
         const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Create Assignment", exact: true }) });
-        await form.locator('select[name="roleKey"]').selectOption("SERVER");
-        await expect(form.locator(`select[name="employeeId"] option[value="${person.employeeId}"]`)).toHaveCount(1);
         await form.locator('select[name="employeeId"]').selectOption(person.employeeId);
+        await form.locator('select[name="roleKey"]').selectOption("SERVER");
         await form.locator('select[name="unitId"]').selectOption(fx.unitId);
         await form.locator('input[name="startsAt"]').fill("");
         await form.locator('input[name="endsAt"]').fill("");
@@ -37,6 +35,7 @@ export async function prepareCanonicalResponsibility(page: Page, fx: CanonicalOf
       await form.getByRole("button", { name: "Confirm plan", exact: true }).click();
       await expect.poll(async () => (await db.operationalAssignmentPlan.findUniqueOrThrow({ where: { id: plan.id } })).status).toBe("CONFIRMED");
     }
+    expect((await db.departmentOperationalProfile.findUniqueOrThrow({ where: { id: fx.profileId } })).status).toBe("ACTIVE");
     expect((await db.departmentOperationalCycle.findUniqueOrThrow({ where: { id: fx.cycleId } })).status).toBe("PUBLISHED");
     expect((await db.departmentOperationalCycle.findUniqueOrThrow({ where: { id: fx.keyPointId } })).status).toBe("PUBLISHED");
   } finally { await db.$disconnect(); }
@@ -48,10 +47,11 @@ export async function openCanonicalSpaceWork(page: Page, fx: CanonicalOfflineFix
   const runtime = page.getByTestId("employee-runtime-experience");
   await expect(runtime).toHaveAttribute("data-grain", "space");
   await expect(page.getByTestId("employee-runtime-assignment")).not.toContainText("No confirmed assignment");
-  const operation = page.getByTestId("employee-runtime-operation");
-  await expect(operation).not.toContainText("No active");
-  await expect(operation).toContainText(new RegExp(`${fx.operationLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|\\d+ active operations`));
-  await expect(page.getByTestId("employee-runtime-work-item")).toHaveCount(0);
+  await expect(page.getByTestId("employee-runtime-operation")).not.toContainText("No active");
+  const work = page.getByTestId("employee-runtime-work-item").filter({ hasText: fx.workLabel });
+  await expect(work).toBeVisible();
+  await work.getByRole("link").click();
+  await expect(page.getByTestId("work-completion-panel")).toContainText(fx.workLabel);
 }
 
 export async function prepareCanonicalOfflineEntry(page: Page, fx: CanonicalOfflineFixture, adminEmail: string, serviceDate: string) {

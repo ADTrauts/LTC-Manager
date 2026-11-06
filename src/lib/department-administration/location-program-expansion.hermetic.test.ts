@@ -30,7 +30,6 @@ function inspect(partial: {
         ]
       : [],
     cycles: [],
-    coverage: [],
     logs: [],
     assets: [],
     addLogHref: null,

@@ -13,11 +13,9 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import { localHhMmFromInstant } from "./key-time-day-expectation";
+import { loadSpaceOperationalTypeAssignments } from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
-import {
-  materializeKeyTimeDayExpectations,
-  prepareCurrentKeyTimeDayExpectations,
-} from "./materialize-key-time-day-expectations";
+import { materializeKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
 import {
   detectRunModelProvenance,
   presentDepartmentRunOperation,
@@ -56,7 +54,7 @@ export async function loadPublishedRunModel(input: {
       input.departmentId,
       operationalDateKey,
     ),
-    prepareCurrentKeyTimeDayExpectations({
+    materializeKeyTimeDayExpectations({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       operationalDateKey,
@@ -77,8 +75,8 @@ export async function loadPublishedRunModel(input: {
 }
 
 /**
- * Prepare the current operational day's missing Key Point rows after a publish
- * that is already effective. Does not delete existing actuals or rewrite a past day.
+ * Test-only same-day refresh: materialize missing Key Time rows for today's
+ * newly published configuration. Does not delete existing actuals.
  */
 export async function refreshTodayKeyTimesAfterImmediatePublish(input: {
   facilityId: string;
@@ -240,7 +238,7 @@ export async function loadLocationRunPresentation(input: {
 }): Promise<RunLocationOperationPresentation | null> {
   if (input.session.facilityId !== input.facilityId) return null;
 
-  const [model, location] = await Promise.all([
+  const [model, location, assignments] = await Promise.all([
     loadPublishedRunModel({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
@@ -249,6 +247,12 @@ export async function loadLocationRunPresentation(input: {
     input.location
       ? Promise.resolve(input.location)
       : loadRoomRunIdentity({ facilityId: input.facilityId, spaceId: input.spaceId }),
+    loadSpaceOperationalTypeAssignments({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      spaceIds: [input.spaceId],
+      perspective: "runtime",
+    }),
   ]);
   if (!location) return null;
 
@@ -260,6 +264,7 @@ export async function loadLocationRunPresentation(input: {
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: input.spaceId,
+    operationalTypeKey: assignments.get(input.spaceId)?.key ?? null,
     location,
     nowLocalHhMm: model.nowLocalHhMm,
     canAdjust: hasAtLeastRole(role, "SUPERVISOR"),
@@ -276,19 +281,16 @@ export async function loadDepartmentRunPresentation(input: {
 }): Promise<RunDepartmentOperationPresentation | null> {
   if (input.session.facilityId !== input.facilityId) return null;
 
-  const [model, responsibleSpaces] = await Promise.all([
+  const [model, assignments] = await Promise.all([
     loadPublishedRunModel({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       now: input.now,
     }),
-    prisma.unitSpace.findMany({
-      where: {
-        facilityId: input.facilityId,
-        isActive: true,
-        responsibilities: { some: { departmentId: input.departmentId } },
-      },
-      select: { id: true },
+    loadSpaceOperationalTypeAssignments({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      perspective: "runtime",
     }),
   ]);
   return presentDepartmentRunOperation({
@@ -299,6 +301,9 @@ export async function loadDepartmentRunPresentation(input: {
     operationalDateKey: model.operationalDateKey,
     nowLocalHhMm: model.nowLocalHhMm,
     spaceIdFilter: input.spaceIdFilter,
-    functionSpaces: responsibleSpaces.map((space) => ({ id: space.id })),
+    functionSpaces: [...assignments.entries()].map(([id, assignment]) => ({
+      id,
+      operationalTypeKey: assignment.key,
+    })),
   });
 }

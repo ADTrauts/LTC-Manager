@@ -17,7 +17,7 @@ BUILD should feel like configuring one product. It intentionally has a **small**
 |------|-------|-----|------|
 | **Facility Builder** | `/admin/facility/builder` | Facility Administrator | Physical structure & identity only: floors, neighborhoods/units, rooms/spaces, space types, location hierarchy. |
 | **Department Builder** | `/admin/departments` | Manager+ | The operational-programming center — capability-aware per department. |
-| **Employee Builder** | `/employees` | Manager+ | Workforce configuration: person, Job Title, Department membership, Teams, operational eligibility, employment settings, HR. |
+| **Employee Builder** | `/employees` | Manager+ | Workforce configuration: person/employment, department membership, job role, employment settings, HR. |
 | **Logs** | `/build/logs` | Manager+ | Forward Catalog / Library / Attachments configuration. Live when `CANONICAL_LOGS_ENABLED`. Not `/staffing/templates`. |
 | **Operational Templates** | `/staffing/templates` | Supervisor+ | Phase 9C compatibility. Historical / facility-private templates. Not the next layer after Catalog. |
 | **Work Plans** | `/staffing/work-plans` | Manager+ | Department Work Plan builder (Phase 11A). |
@@ -46,7 +46,7 @@ There is **one** Department Builder. It composes existing capabilities; it does 
 
 Workforce **configuration**, separate from today's staffing:
 
-- BUILD Employee Builder (`/employees`): person, Job Title, Department membership, Teams, operational eligibility, employment configuration, certified workforce settings, HR (chrc, points, separations, terminations, import).
+- BUILD Employee Builder (`/employees`): person / employment, department membership, job role, employment configuration, certified workforce settings, HR (chrc, points, separations, terminations, import).
 - RUN Employees (`/staffing`): today's schedule, attendance, assignments, coverage.
 
 These are deliberately kept distinct.

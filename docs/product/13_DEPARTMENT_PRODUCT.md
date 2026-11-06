@@ -1,8 +1,7 @@
 # 13 — Department Product
 
 **Status:** Binding product/architecture rule  
-**Plug-in contract:** [Current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), as amended by the [November 1 Department Builder foundation amendment](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md). This document is what a Department is, and the blueprint a new Department Product must fill.  
-**Department Builder contract:** [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md)  
+**Plug-in contract:** [Current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026). This document is what a Department is, and the blueprint a new Department Product must fill.  
 **Does not:** Persist a second Facility Industry column, redesign Stripe SKUs, delete Department history, start EVS product design, or change Facility Plant Operations release status  
 **Facility Plant Operations architecture:** [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md)
 
@@ -28,7 +27,7 @@ Current catalog:
 | Environmental Services | DEVELOPMENT |
 | Facility Plant Operations (`PLANT`) | AVAILABLE |
 
-Food and Nutrition is one Product. It is designed for Healthcare facilities of type Hospital and Long-Term Care. It is not `HOSPITAL_FOOD_NUTRITION` plus `LONG_TERM_CARE_FOOD_NUTRITION`, and it is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Operating Rhythm, Records, coverage needs, domain capabilities, and starter content.
+Food and Nutrition is one Product. It is designed for Healthcare facilities of type Hospital and Long-Term Care. It is not `HOSPITAL_FOOD_NUTRITION` plus `LONG_TERM_CARE_FOOD_NUTRITION`, and it is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Location Functions, Operating Rhythm, Work, Records, domain capabilities, and starter content.
 
 A Department Product and a facility Department are not the same concept.
 
@@ -73,13 +72,12 @@ Choose Department Products
 
 Do not invert this order. Selection may stay ephemeral until payment succeeds. Abandoned checkout creates no entitlement and no Department row. DEVELOPMENT products never enter this journey.
 
-**Inside a Department (foundation model, amended November 1, 2026).**
-- Configure may include adding **Marketplace items** to the Department: Records forms, Operating Rhythm starters and Department-specific templates such as future Menu templates.
-- Generic Work presets are retired and are not a forward Marketplace item kind. See [Generic Department Work Retirement](../legacy-retirement/DEPARTMENT_WORK_RETIREMENT_2026-11-01.md).
+**Inside a Department (Foundation amendment, October 20, 2026).**
+- Configure includes adding **Marketplace items** to the Department: Records forms, Work presets, Operating Rhythm starters and Menu templates.
 - The Product's starter content is the items pre-selected for it.
 - Each item is Included or Paid ([11](./11_COMMERCIAL_MODEL.md#marketplace-items)). A Paid item needs a valid purchase first.
 - Items run on Platform engines. They never add one.
-- Today only Records forms are Marketplace items. See the [Constitution amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) plus the [November 1 amendment](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md).
+- Today only Records forms are Marketplace items. See the [Constitution amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026).
 
 ---
 
@@ -98,17 +96,13 @@ Do not invert this order. Selection may stay ephemeral until payment succeeds. A
 | What Industry / Facility Type is this facility? | Derived from `Organization.organizationType` and `Facility.vocabularyProfile` (`src/lib/facility-classification.ts`) |
 | Which industries / facility types is a Product designed for? | Registry `industry` + `facilityTypes` |
 
-Installation creates the operational Department. It does not invent local facility configuration: physical places, Department responsibility, operating times, people organization, coverage, or Records.
+Installation creates the operational Department. It does not invent local facility configuration (locations, operating times, membership, work, or Records).
 
-Department Builder is the post-install configuration and information hub for one installed Department. Every Department uses the same core sections:
+Department Builder is the post-install configuration home:
 
-**Overview, Facility, Operating Rhythm, People & Coverage, Records.**
+Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
 
-Department Products may append genuine Product-specific extensions. Food and Nutrition has **Menus**. Facility Plant Operations has **Preventive Maintenance**. See [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md).
-
-The **Facility** section consumes the one physical tree and Department responsibility owned by Facility Builder. It does not create another location tree and it does not classify rooms for the Department. Location Function is retired. See [16](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md).
-
-Food and Nutrition Menus are Department-owned identity records (`Menu`) with optional rotating-cycle content (`MenuCycleSettings` + `MenuItem`). Applicability is explicit: `MenuLocationApplicability` consumes canonical Department locations, and `MenuOperationalCycleApplicability` stores a root Operational Cycle `stableKey` plus a `menuPeriodKey` mapping to existing Menu content. They are not Cycles or Records, and they are not a facility-wide singleton. Runtime Menu resolution is implemented as `resolveApplicableMenus` in `menu-runtime.ts` / `menu-runtime-db.ts`. It answers which ACTIVE Menus apply at an exact location during a canonical root Operational Cycle on a facility service date, then loads that slot's content. It does not choose a winner, inherit neighborhood rooms, match MealType, bind `DepartmentOperationalCycle.id`, or snapshot historical Menu configuration. The first Run consumer is Today's Menu on the Space workspace Overview. Temperature/log integration is not implemented. Vssyl provides product-owned operating-rhythm starters where a product has one. The customer applies those starters explicitly, edits local facts, and publishes them. Nothing is auto-published.
+Food and Nutrition also has Menus. Menus are Department-owned identity records (`Menu`) with optional rotating-cycle content (`MenuCycleSettings` + `MenuItem`). Applicability is explicit: `MenuLocationApplicability` consumes canonical Department locations, and `MenuOperationalCycleApplicability` stores a root Operational Cycle `stableKey` plus a `menuPeriodKey` mapping to existing Menu content. They are not Cycles, Records, or Work, and they are not a facility-wide singleton. Runtime Menu resolution is implemented as `resolveApplicableMenus` in `menu-runtime.ts` / `menu-runtime-db.ts`. It answers which ACTIVE Menus apply at an exact location during a canonical root Operational Cycle on a facility service date, then loads that slot's content. It does not choose a winner, inherit neighborhood rooms, match MealType, bind `DepartmentOperationalCycle.id`, or snapshot historical Menu configuration. The first Run consumer is Today's Menu on the Space workspace Overview. Temperature/log integration is not implemented. Vssyl provides product-owned operating-rhythm starters where a product has one. The customer applies those starters explicitly, edits local facts, and publishes them. Nothing is auto-published.
 
 Configuration readiness is derived from those operational facts. Do not persist `CONFIGURED` / `UNCONFIGURED` / `SETUP_COMPLETE` on Department.
 
@@ -196,35 +190,35 @@ CLI / seed / provision may still bootstrap the original trio for local developme
 
 The registry is not a shared-engine allowlist.
 
-Department capability switches are removed (LEG-D20). A Department key admits the shared mechanisms its Product uses: Facility responsibility, Operating Rhythm, Records, people/coverage, Assets, and explicit Department-specific capabilities. Assignments are part of every Department. Plant runtime follows install plus Harbor or customer-operable access. `CANONICAL_LOGS_ENABLED` remains a separate Records-path compatibility switch until its retirement phase completes. DEVELOPMENT products stay hidden from customers by release status.
-
-Generic Department Work is retired. Existing Work Plan / Expected Work machinery is migration debt and must not be used as a reason to add a new capability. See [Generic Department Work Retirement](../legacy-retirement/DEPARTMENT_WORK_RETIREMENT_2026-11-01.md).
+Department capability switches are removed (LEG-D20). A Department key admits the shared engines: cycles, Job Flow, evidence, Work Plans, and assets. Plant runtime follows install plus Harbor or customer-operable access. Assignments are part of every Department. `CANONICAL_LOGS_ENABLED` remains a separate switch. DEVELOPMENT products stay hidden from customers by release status.
 
 ---
 
 ## Local configuration after install
 
-An **Operational Cycle** is the Department’s recurring operating rhythm. Persistence may still use DRAFT / PUBLISHED / RETIRED with effective dating. The facility publishes a draft to make that cycle current.
+An **Operational Cycle** is the Department’s recurring operating rhythm. Persistence may still use DRAFT / PUBLISHED / RETIRED with effective dating. The facility publishes a draft to make it the ACTIVE profile.
 
-Published **Operational Cycles** are the current Run rhythm. **Phases** are one-level intervals. **Key Points** (persisted as `KEY_TIME`) are instants, not Records and not a second task/milestone engine. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Department responsibility does not imply cycle participation. Run may show an active Cycle with no active Phase when phases leave gaps. Legacy meal-milestone presentation must not override a current Cycle.
+Published **Operational Cycles** are the current Run rhythm. **Phases** are one-level intervals. **Key Points** (persisted as `KEY_TIME`) are instants, not Work and not Records. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Department responsibility does not imply cycle participation. Run may show an active Cycle with no active Phase when phases leave gaps. Legacy meal-milestone presentation must not override a current Cycle.
 
-**Places.** Facility Builder owns the physical place, its Facility Room Type, and Department responsibility. Engines that need a place store that place’s id. There is no Product `functionKey` and no Department room classification. Current `DepartmentRoomArchetype` and profile code is deletion debt.
+**Location Functions.** The Product owns `functionKey` and the label. The facility binds that key to existing rooms. Food and Nutrition’s function is `food_service_area`. EVS functions are `resident_care` and `service_support`. Facility Plant Operations defines none (empty is allowed). Runtime matches the key on the ACTIVE profile. Build uses the working profile. Audit uses the profile effective on the service date. The same physical room may carry different functions for different Departments.
 
-**People & Coverage.** Employee Builder owns the person, Job Title, Department membership, Teams, and operational eligibility. Department → Team → Role → Employee is a presentation, not a database tree. Department Builder consumes that workforce and presents Department-scoped people and coverage. Coverage is derived from configured need plus canonical Shift, call-off, and daily Assignment facts. Team identity must not become a shadow location model. There is no Department Job Role capability system.
+**Work.** Product Work presets copy into facility drafts when a manager applies them. They are never auto-published. A published Work Plan determines expected Work. Work may bind to a Cycle or Phase stable key. It does not bind to Key Points. An empty Cycle binding means not configured. Expected Work is derived from department-responsible locations, then applicability (including a Location Function key when used), then cycle participation when the item is cycle-bound. Assignment does not create Work. Occurrences stay sparse.
 
-**Records.** One engine. A Vssyl Catalog definition (`CatalogLogDefinition`) is installed (`FacilityCatalogInstall`) and placed as a facility requirement segment (`LogAttachment`). Expected slots are derived. The fact is `OperationalEvidenceRecord`. A permitted waiver, correction, and follow-up stay distinct from the Record. Run projects Operating Rhythm and Record applicability from the places those owners stored. Operational templates were dropped in LEG-06. They are not the next layer after the Catalog.
+**Records.** One engine. A Vssyl Catalog definition (`CatalogLogDefinition`) is installed (`FacilityCatalogInstall`) and placed as a facility requirement segment (`LogAttachment`). Expected slots are derived. The fact is `OperationalEvidenceRecord`. A permitted waiver, correction, and follow-up stay distinct from the Record. Run projects Location Function requirements through the same ACTIVE bindings Cycles and Work use. Operational templates were dropped in LEG-06. They are not the next layer after the Catalog.
 
-A frontline composition may show the current Assignment, current Cycle/Phase, Records due, and domain-specific actions such as assigned Plant Work Orders or PM. That composition stores nothing and does not revive generic Work Plans. The Dashboard is the supervisor home. Audit / Reports answers a service date. None of these is a second Run.
+Job Flow is the employee's view of the current Cycle, expected Work, and Records due. The Dashboard is the supervisor home. Audit / Reports answers a service date. None of these is a second Run.
 
 Department Products that exist today:
 
 | Product | Implemented | Not designed |
 |---------|-------------|--------------|
-| **Food and Nutrition** | `food_service_area`. Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Menus. Healthcare-scoped. | Generic Work is retired. |
-| **Environmental Services** | `resident_care`, `service_support`. Morning / Afternoon / Evening Operations. | A second location tree; generic Work. |
-| **Facility Plant Operations** | AVAILABLE V1: Request / Issue / Work Order corrective loop, Preventive Maintenance, and optional unpublished starters. Platform Assets and repairs remain shared. See [14](./14_FACILITY_PLANT_OPERATIONS.md) and the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07). | Generic Work, inventory, meter PM, IoT, predictive maintenance, and dedicated Product billing SKU. |
+| **Food and Nutrition** | `food_service_area`. Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Work presets bind Opening to Prep, Meal Service Support to Service, Leftover Handling to Cleanup. Station Reset is cycle-free. Menus. Healthcare-scoped. | — |
+| **Environmental Services** | `resident_care`, `service_support`. Morning / Afternoon / Evening Operations. | A second location tree |
+| **Facility Plant Operations** | AVAILABLE V1: Request / Issue / Work Order corrective loop, Preventive Maintenance, and optional unpublished starters. Platform Assets and repairs remain shared. See [14](./14_FACILITY_PLANT_OPERATIONS.md) and the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07). | Inventory, meter PM, IoT, predictive maintenance, and dedicated Product billing SKU. |
 
-Configure **Facility, Operating Rhythm, People & Coverage, and Records** in Department Builder. Overview composes those sections. Physical rooms and Department responsibility stay in Facility Builder. Teams/Roles are workforce-owned in Employee Builder. Department-specific extensions such as Menus and Preventive Maintenance appear only for the Product that owns them.
+When Vssyl-authored Work belongs to a Phase, the preset binds that Work to the Phase stable key. Changing a preset affects future drafts only.
+
+Configure Locations, Operating Rhythm, Work, People & Coverage, Records, and Notifications & Attention in Department Builder. The Notifications & Attention section sets event policy, thresholds, protected categories, recipients, escalation, and grouping for the shared engine. It follows draft and publication. It does not send notifications. Physical rooms stay in Facility Builder. The engine contract is [16 — Notifications & Attention](./16_NOTIFICATIONS_AND_ATTENTION.md).
 
 ---
 
@@ -236,14 +230,14 @@ Facility Plant Operations is the filled example: [14 — Facility Plant Operatio
 
 1. Write every blueprint row before implementation.
 2. Add the Product to `src/lib/department-products/registry.ts` with status **DEVELOPMENT**. Customers cannot see, buy, or install it until a separate decision marks it **AVAILABLE**.
-3. Use the Platform mechanisms that already own the need: the Facility tree and Department responsibility, Operational Cycles, Records, shared Assets and repairs, People/Shift/Assignment/Coverage, and approved domain capabilities. A second engine is allowed only when the platform-gap row names a mechanism the platform does not have. Generic Work is not an available catch-all.
+3. Use the Platform engines: Location Functions, Operational Cycles, Work, Records, Assets and repairs, shifts, Assignments, Job Flow, and Notifications & Attention. Empty starters are allowed. Notification behavior is a published policy on the shared engine, not a Department notification engine. A second engine is allowed only when the platform-gap row names a mechanism the platform does not have.
 4. Put starter forms in the existing Catalog (`CatalogLogDefinition`). Do not add a template model or a second catalog.
 5. Declare the Dashboard contribution. The Product contributes capabilities. It does not ship dashboard screens. The rules are the [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md).
-6. Classify every new Department write in `src/lib/department-authority/write-manifest.ts`. Who may run a vendor-run Department is already decided by the platform. The Product does not add a separate partner application or a second workforce identity/role system.
-7. Do not add a capability environment switch. An installed Department receives the shared mechanisms and Product capabilities it is entitled to. Release status is what keeps a DEVELOPMENT Product away from customers.
+6. Classify every new Department write in `src/lib/department-authority/write-manifest.ts`. Who may run a vendor-run Department is already decided by the platform. The Product does not add roles or a separate partner application.
+7. Do not add a capability environment switch. An installed Department receives the shared engines. Release status is what keeps a DEVELOPMENT Product away from customers.
 8. Remain DEVELOPMENT until the blueprint, the Dashboard release gate, and the write classification are complete. Becoming AVAILABLE does not change price or sellability by itself.
 
-A Department that needs its own engine, home, catalog, authority model, or new shared mechanism is a major change. Stop and decide that with the product owner before building it. After the decision, update this contract together with the Constitution and [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md).
+A Department that needs its own engine, home, catalog, or authority model is a major change. Stop and decide that with the product owner before building it. After the decision, update this contract together with the [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026).
 
 ## Department Product blueprint
 
@@ -252,21 +246,23 @@ Every new Department Product must define these before implementation.
 | Contract item | Question it answers |
 |----------------|---------------------|
 | Purpose | What operation this product runs |
-| Places | Uses the shared Facility tree and Department responsibility. A Product does not define room-classification keys. |
+| Location Functions | `functionKey` values and product labels. Empty is allowed. |
 | Operating Rhythm | Cycle, Phase, and Key Point starters, including occurrence tracking. Empty is allowed. |
-| People / coverage needs | Teams, Roles, and coverage the Product expects; workforce identity stays in Employee Builder. |
+| Work presets | Starting Work and any Cycle or Phase binding |
+| People / coverage needs | Teams and coverage the product expects |
 | Record definitions | Forms: Reading, Checklist, Inspection, Acknowledgement, On-demand Record |
 | Assets used | Which platform Assets the product relies on |
-| Issues / exception rules | What becomes an Issue, if an existing owner supports it |
+| Issues / exception rules | What becomes an Issue |
 | Domain-specific capabilities | Only mechanisms the platform does not already have |
 | Run requirements | What must be true during the current operation |
 | Historical / Audit questions | What a past service date must be able to answer |
 | Starter content | Which Marketplace items are pre-selected for the Department, what install copies, and what stays unpublished until the facility publishes |
-| Facility-configurable values | Times, which responsible places participate, people organization/coverage, local labels |
+| Facility-configurable values | Times, room bindings, people, local labels |
 | Dashboard contributions | Which Dashboard capabilities and attention sources the product produces, its drill-down homes, and its "not configured" states. Products contribute capabilities, never dashboard UI. See the [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md). |
+| Notification policy | Which platform events this product expects the shared Notifications & Attention engine to watch, the default thresholds, protected categories, recipient reasons, escalation, and grouping. Empty is allowed. The product does not ship delivery. See [16](./16_NOTIFICATIONS_AND_ATTENTION.md). |
 | Platform-gap test | Which required behavior no existing Platform mechanism can express |
 
-A Department Product does not receive a new location tree, Cycle engine, generic Work engine, Record engine, people model, or history store unless the platform-gap test first proves a missing reusable mechanism and the product owner approves that architecture change. Generic Work may not be recreated under another name merely because a new Product needs recurring activity.
+A Department Product does not receive a new location tree, Cycle engine, Work engine, Record engine, history store, or notification engine unless that platform-gap test shows a missing reusable mechanism. Notification policy is not that missing mechanism.
 
 A Department Product cannot become AVAILABLE, or ship a new operational capability, until its Dashboard contribution declaration and the [Dashboard release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate) are complete, and every new Department write is classified in the write manifest (`src/lib/department-authority/write-manifest.ts`). An unclassified write fails that test. Food and Nutrition and Facility Plant Operations were declared on October 20, 2026. The Environmental Services declaration is a draft.
 

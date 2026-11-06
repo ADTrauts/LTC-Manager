@@ -117,6 +117,8 @@ test(
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
         selectedIds: [
+          "MECHANICAL_ROOM_ROUND",
+          "BUILDING_WALKTHROUGH",
           "EQUIPMENT_CONDITION_INSPECTION",
           "MECHANICAL_ROOM_INSPECTION",
           "GENERATOR_INSPECTION",
@@ -124,8 +126,19 @@ test(
         actor: actor(fx.manager.id),
         client: prisma,
       });
+      assert.equal(result.workAdded, 2);
       assert.equal(result.recordAdded, 3);
       assert.equal(result.alreadyExisted, 0);
+
+      const work = await prisma.departmentWorkPlan.findMany({
+        where: { facilityId: fx.facility.id, departmentId: fx.plant.id },
+      });
+      assert.equal(work.length, 2);
+      assert.ok(work.every((row) => row.status === "DRAFT"));
+      assert.deepEqual(
+        work.map((row) => row.presetKey).sort(),
+        ["BUILDING_WALKTHROUGH", "MECHANICAL_ROOM_ROUND"],
+      );
       assert.equal(await prisma.asset.count({ where: { departmentId: fx.plant.id } }), 0);
       assert.equal(
         await prisma.preventiveMaintenancePlan.count({
@@ -161,29 +174,32 @@ test(
       const first = await installPlantStarterConfiguration(sess, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
-        selectedIds: ["EQUIPMENT_CONDITION_INSPECTION"],
+        selectedIds: ["MECHANICAL_ROOM_ROUND", "EQUIPMENT_CONDITION_INSPECTION"],
         actor: actor(fx.manager.id),
         client: prisma,
       });
+      assert.equal(first.workAdded, 1);
       assert.equal(first.recordAdded, 1);
 
       const secondSame = await installPlantStarterConfiguration(sess, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
-        selectedIds: ["EQUIPMENT_CONDITION_INSPECTION"],
+        selectedIds: ["MECHANICAL_ROOM_ROUND", "EQUIPMENT_CONDITION_INSPECTION"],
         actor: actor(fx.manager.id),
         client: prisma,
       });
+      assert.equal(secondSame.workAdded, 0);
       assert.equal(secondSame.recordAdded, 0);
-      assert.equal(secondSame.alreadyExisted, 1);
+      assert.equal(secondSame.alreadyExisted, 2);
 
       const remaining = await installPlantStarterConfiguration(sess, {
         facilityId: fx.facility.id,
         departmentId: fx.plant.id,
-        selectedIds: ["GENERATOR_INSPECTION"],
+        selectedIds: ["GENERATOR_VISUAL_CHECK", "GENERATOR_INSPECTION"],
         actor: actor(fx.manager.id),
         client: prisma,
       });
+      assert.equal(remaining.workAdded, 1);
       assert.equal(remaining.recordAdded, 1);
       assert.equal(remaining.alreadyExisted, 0);
 
@@ -192,6 +208,10 @@ test(
         departmentId: fx.plant.id,
         client: prisma,
       });
+      assert.deepEqual(installed.workPresetKeys.sort(), [
+        "GENERATOR_VISUAL_CHECK",
+        "MECHANICAL_ROOM_ROUND",
+      ]);
       assert.deepEqual(installed.recordPresetKeys.sort(), [
         "EQUIPMENT_CONDITION_INSPECTION",
         "GENERATOR_INSPECTION",
@@ -229,7 +249,7 @@ test(
       await installPlantStarterConfiguration(sessA, {
         facilityId: a.facility.id,
         departmentId: a.plant.id,
-        selectedIds: ["EQUIPMENT_CONDITION_INSPECTION"],
+        selectedIds: ["MECHANICAL_ROOM_ROUND", "EQUIPMENT_CONDITION_INSPECTION"],
         actor: actor(a.manager.id),
         client: prisma,
       });
@@ -238,6 +258,7 @@ test(
         departmentId: b.plant.id,
         client: prisma,
       });
+      assert.deepEqual(other.workPresetKeys, []);
       assert.deepEqual(other.recordPresetKeys, []);
 
       const quarterly = applyPmCadencePresetDefaults("quarterly");

@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { FacilityFormsSection } from "@/app/(protected)/admin/departments/[departmentId]/facility-forms-section";
 import { DepartmentMenusPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-menus-panel";
 import { RecordEnginePanel } from "@/app/(protected)/admin/departments/[departmentId]/record-engine-panel";
+import { DepartmentWorkPanel } from "@/app/(protected)/admin/departments/[departmentId]/department-work-panel";
 import { DepartmentAdminLocalNav } from "@/app/(protected)/admin/departments/[departmentId]/local-nav";
 import { LocationsPanel } from "@/app/(protected)/admin/departments/[departmentId]/locations-panel";
 import { OperatingRhythmSection } from "@/app/(protected)/admin/departments/[departmentId]/operating-rhythm-section";
@@ -12,7 +13,6 @@ import {
   OverviewPanel,
   type OverviewDepartmentSettings,
 } from "@/app/(protected)/admin/departments/[departmentId]/overview-panel";
-import { CoveragePanel } from "@/app/(protected)/admin/departments/[departmentId]/coverage-panel";
 import { TeamsPanel } from "@/app/(protected)/admin/departments/[departmentId]/teams-panel";
 import { DepartmentBuildContextBar } from "@/components/build/DepartmentBuildContextBar";
 import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
@@ -99,19 +99,17 @@ export default async function DepartmentBuilderPage({
   const requestedTab = query.tab;
   if (requestedTab && isDepartmentAdminRetiredTabId(requestedTab)) {
     const dest = DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT[requestedTab];
-    const href = departmentAdminHref(departmentId, dest, setupWorkspace);
+    const href = departmentAdminHref(departmentId, dest, null, setupWorkspace);
     const team = query.team?.trim();
-    const expectation = query.expectation?.trim();
-    const extras = [
-      team && dest === "people" ? `team=${encodeURIComponent(team)}` : null,
-      expectation && dest === "people" ? `expectation=${encodeURIComponent(expectation)}` : null,
-    ].filter(Boolean);
-    redirect(extras.length > 0 ? `${href}&${extras.join("&")}` : href);
+    redirect(
+      team && dest === "people" ? `${href}&team=${encodeURIComponent(team)}` : href,
+    );
   }
 
   const view = await loadDepartmentAdminView({
     facilityId: session.facilityId,
     departmentId,
+    requestedProfileId: query.profile ?? null,
   });
 
   if (!view) {
@@ -123,9 +121,17 @@ export default async function DepartmentBuilderPage({
     notFound();
   }
 
+  const profileId = view.workingProfileMeta?.id ?? null;
+  const product = getDepartmentProduct(view.department.key);
+  const workEnabled =
+    view.department.key === "PLANT" ||
+    Boolean(product?.starters.workPresets) ||
+    contextSummary.publishedWorkPlanCount > 0 ||
+    contextSummary.draftWorkPlanCount > 0;
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
   const availableTabs = departmentAdminTabsForFlags({
     locationsEnabled: true,
+    workEnabled,
     recordsEnabled: canonicalLogsEnabled,
     menusEnabled: departmentProductOffersMenus(view.department.key),
     maintenanceEnabled: view.department.key === "PLANT",
@@ -151,6 +157,8 @@ export default async function DepartmentBuilderPage({
             where: { unit: { facilityId: session.facilityId } },
           }),
           peopleCount: contextSummary.assignedEmployeeCount,
+          workPlanCount:
+            contextSummary.publishedWorkPlanCount + contextSummary.draftWorkPlanCount,
           recordCount: contextSummary.placedLogCount,
           publishedPmPlanCount: await prisma.preventiveMaintenancePlan.count({
             where: {
@@ -218,7 +226,11 @@ export default async function DepartmentBuilderPage({
       scheduledCount: contextSummary.scheduledCount,
       scheduledEffectiveFrom: contextSummary.scheduledEffectiveFrom,
       memberCount: contextSummary.assignedEmployeeCount,
+      publishedWorkPlanCount: contextSummary.publishedWorkPlanCount,
+      draftWorkPlanCount: contextSummary.draftWorkPlanCount,
       placedLogCount: contextSummary.placedLogCount,
+      publishedWorkOperationalTypeKeys: contextSummary.publishedWorkOperationalTypeKeys,
+      classifiedOperationalTypeKeys: contextSummary.classifiedOperationalTypeKeys,
       mealTimingUpgradeRequired: contextSummary.mealTimingUpgradeRequired,
     }),
     plantGettingStarted: plantFacts
@@ -268,11 +280,12 @@ export default async function DepartmentBuilderPage({
   return (
     <SetupBuilderFrame active={setupWorkspace}>
     <div className="space-y-3" data-testid="department-builder">
-      <SetupWorkspaceLink role={session.role} returned={setupWorkspace ? `department:${view.department.key}` : undefined} />
+      <SetupWorkspaceLink role={session.role} returned={setupWorkspace && product?.productKey ? `department:${product.productKey}` : undefined} />
       <DepartmentBuildContextBar
         departmentId={view.department.id}
         departmentName={view.department.name}
         locationCount={view.locationCoverage.total}
+        profileId={profileId}
         activeTab={tab}
         context={contextSummary}
         setupWorkspace={setupWorkspace}
@@ -281,6 +294,7 @@ export default async function DepartmentBuilderPage({
       <DepartmentAdminLocalNav
         departmentId={view.department.id}
         activeTab={tab}
+        profileId={profileId}
         tabs={availableTabs}
         setupWorkspace={setupWorkspace}
       />
@@ -319,25 +333,28 @@ export default async function DepartmentBuilderPage({
             departmentKey={view.department.key}
           />
         ) : null}
+        {tab === "work" ? (
+          <DepartmentWorkPanel
+            departmentName={view.department.name}
+            departmentKey={view.department.key}
+            publishedCount={contextSummary.publishedWorkPlanCount}
+            draftCount={contextSummary.draftWorkPlanCount}
+            unmatchedLocationFunctions={settings.guidanceRows.some(
+              (row) => row.id === "work" && row.description.includes("no bound room"),
+            )}
+            locationsHref={departmentAdminHref(view.department.id, "locations", profileId, setupWorkspace)}
+            starterHref={canInstallStarter ? `/build/departments/${view.department.id}?starter=1` : null}
+          />
+        ) : null}
         {tab === "people" ? (
-          <div className="space-y-8">
-            <TeamsPanel
-              session={session}
-              facilityId={session.facilityId}
-              departmentId={view.department.id}
-              departmentName={view.department.name}
-              departmentKey={view.department.key}
-              selectedTeamId={query.team?.trim() || null}
-            />
-            <CoveragePanel
-              session={session}
-              facilityId={session.facilityId}
-              departmentId={view.department.id}
-              departmentName={view.department.name}
-              departmentKey={view.department.key}
-              selectedExpectationId={query.expectation?.trim() || null}
-            />
-          </div>
+          <TeamsPanel
+            session={session}
+            facilityId={session.facilityId}
+            departmentId={view.department.id}
+            departmentName={view.department.name}
+            departmentKey={view.department.key}
+            selectedTeamId={query.team?.trim() || null}
+          />
         ) : null}
         {tab === "records" && departmentLogsCtx ? (
           <section className="space-y-2" data-testid="department-records-panel">

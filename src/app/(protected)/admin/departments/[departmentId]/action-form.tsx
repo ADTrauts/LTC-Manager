@@ -73,9 +73,14 @@ export function DepartmentAdminActionForm({
             if (openCycleEditorOnSuccess && result.cycleId) {
               window.location.hash = `edit-cycle-${result.cycleId}`;
             }
-            let href: string | null = profileRedirect
-              ? departmentAdminHref(profileRedirect.departmentId, profileRedirect.tab)
-              : null;
+            let href: string | null =
+              result.profileId && profileRedirect
+                ? departmentAdminHref(
+                    profileRedirect.departmentId,
+                    profileRedirect.tab,
+                    result.profileId,
+                  )
+                : null;
             if (href && profileRedirect?.roomType) {
               const sep = href.includes("?") ? "&" : "?";
               href = `${href}${sep}roomType=${encodeURIComponent(profileRedirect.roomType)}`;

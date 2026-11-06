@@ -19,43 +19,33 @@ describe("Team cycle identity", () => {
 });
 
 describe("Team cycle authoring contracts", () => {
-  it("Team authoring does not link a cycle or store a count", () => {
-    const actions = readFileSync(
+  it("Teams panel hosts create, link, and need — not a Coverage tab", () => {
+    const panel = readFileSync(
       join(
         process.cwd(),
-        "src/app/(protected)/admin/departments/[departmentId]/team-cycle-actions.ts",
+        "src/app/(protected)/admin/departments/[departmentId]/team-cycles-panel.tsx",
       ),
       "utf8",
     );
-    const workspace = readFileSync(
-      join(
-        process.cwd(),
-        "src/app/(protected)/admin/departments/[departmentId]/teams-workspace.tsx",
-      ),
-      "utf8",
-    );
-    assert.match(actions, /A Team does not run a cycle/);
-    assert.doesNotMatch(workspace, /Cycles this team runs/);
-    assert.doesNotMatch(workspace, /TeamCyclesPanel/);
-    const rhythm = readFileSync(
-      join(
-        process.cwd(),
-        "src/app/(protected)/admin/departments/[departmentId]/operating-rhythm-panel.tsx",
-      ),
-      "utf8",
-    );
-    assert.match(rhythm, /OperatingRhythmPanel|function OperatingRhythm/);
+    assert.match(panel, /Cycles this team runs/);
+    assert.match(panel, /Create cycle/);
+    assert.match(panel, /Link existing/);
+    assert.match(panel, /per room/);
+    assert.match(panel, /requiredCount/);
+    assert.match(panel, /Add phase/);
+    assert.match(panel, /Add Key Point/);
+    assert.doesNotMatch(panel, /Add expectation/);
   });
 
-  it("retired Coverage and Cycles tabs redirect, and Coverage stays its own section", () => {
+  it("Department Builder redirects Coverage and Cycles into Teams", () => {
     const page = readFileSync(
       join(process.cwd(), "src/app/(protected)/admin/departments/[departmentId]/page.tsx"),
       "utf8",
     );
     assert.match(page, /isDepartmentAdminRetiredTabId/);
     assert.match(page, /DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT/);
-    assert.match(page, /departmentAdminHref\(departmentId, dest, setupWorkspace\)/);
-    assert.match(page, /CoveragePanel/);
+    assert.match(page, /departmentAdminHref\(departmentId, dest\)/);
+    assert.doesNotMatch(page, /CoveragePanel/);
     assert.doesNotMatch(page, /CyclesPanel/);
   });
 

@@ -19,6 +19,7 @@ export function deriveRuntimeExceptions(
   const location = state.identity.location;
   const operationalContext = {
     cycleStableKey: state.operation.current?.cycleStableKey ?? null,
+    operationalTypeKey: state.program.operationalType.key,
   };
   const exceptions: RuntimeException[] = [];
 

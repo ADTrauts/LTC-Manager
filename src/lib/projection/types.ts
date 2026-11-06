@@ -5,7 +5,14 @@
  * projection pipeline, query a database, render UI, cache, or build overlays.
  */
 
+import type {
+  ExperienceActionDeclaration,
+  ExperienceContracts,
+  HomeContributionContract,
+  NavigationContributionEntry,
+} from "@/lib/experiences";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import type { ExperienceConfiguration } from "@/lib/department-administration";
 
 export type ProjectionPurpose =
   | "SIDEBAR"
@@ -70,13 +77,17 @@ export type ProjectionLocationNode = {
   label: string;
   presentation: ProjectionLocationPresentation;
   ancestry: readonly string[];
+  experienceKeys: readonly string[];
   children: readonly ProjectionLocationNode[];
 };
 
 export type ProjectionRevision = {
   hierarchyRevision: string;
   assignmentRevision: string;
+  profileRevision: string;
+  bindingRevision: string;
   policyRevision: string;
+  experienceRegistryVersion: number;
   accessClassRevision: string;
 };
 
@@ -105,17 +116,121 @@ export type ProjectionContext = {
   builtAt: string;
 };
 
+export type ProjectionExperienceReference = {
+  experienceKey: string;
+  areaKey: string;
+  departmentId: string;
+  departmentKey: OperationalDepartmentKey;
+  locationIds: readonly string[];
+  relatedExperienceKeys: readonly string[];
+  dependencyExperienceKeys: readonly string[];
+};
+
+/**
+ * Projection references Experience contracts from the registry. It never owns,
+ * clones, or redefines the contract schema.
+ */
+export type ProjectionContracts = {
+  experienceKey: string;
+  source: "EXPERIENCE_REGISTRY";
+  registryVersion: number;
+  contracts: ExperienceContracts;
+};
+
+export type ProjectionWorkspaceContribution = {
+  default: HomeContributionContract;
+  unitWorkspace: HomeContributionContract;
+  businessWorkspace: HomeContributionContract;
+  operationsCenter: HomeContributionContract;
+};
+
+export type ProjectionNavigationContribution = {
+  entries: readonly NavigationContributionEntry[];
+};
+
+export type ProjectionPermissionContribution = {
+  readKeys: readonly string[];
+  actionPermissionKeys: readonly string[];
+  allowedActionKeys: readonly string[];
+};
+
+export type ProjectionQueryScope = {
+  id: string;
+  experienceKey: string;
+  departmentId: string;
+  departmentKey: OperationalDepartmentKey;
+  domains: readonly string[];
+  grain: "ROOM" | "UNIT" | "DEPARTMENT" | "FACILITY";
+  unitIds: readonly string[];
+  spaceIds: readonly string[];
+  rules: readonly string[];
+};
+
+export type ProjectionQueryScopes = {
+  byExperience: Readonly<Record<string, ProjectionQueryScope>>;
+  byDomain: Readonly<Record<string, readonly string[]>>;
+};
+
 export type ProjectionDescriptor = {
   id: string;
-  kind: "LOCATION";
+  kind:
+    | "AREA"
+    | "EXPERIENCE"
+    | "LOCATION"
+    | "QUERY_SCOPE"
+    | "NAVIGATION"
+    | "WORKSPACE"
+    | "PERMISSION";
   sourceId: string;
   label: string;
+};
+
+export type ProjectionExperience = {
+  id: string;
+  reference: ProjectionExperienceReference;
+  label: string;
+  order: number;
+  configurationByLocation: Readonly<
+    Record<string, ExperienceConfiguration | null>
+  >;
+  archetypeByLocation: Readonly<
+    Record<
+      string,
+      { id: string; key: string; name: string } | null
+    >
+  >;
+  contracts: ProjectionContracts;
+  queryScopeId: string;
+  workspace: ProjectionWorkspaceContribution;
+  navigation: ProjectionNavigationContribution;
+  permissions: ProjectionPermissionContribution;
+  actions: readonly ExperienceActionDeclaration[];
+  descriptors: readonly ProjectionDescriptor[];
+  provenance: readonly ProjectionExperienceProvenance[];
+};
+
+export type ProjectionExperienceProvenance =
+  | "PROFILE"
+  | "ARCHETYPE"
+  | "ROOM_EXCEPTION"
+  | "PLANT_POLICY_DEFAULT";
+
+export type ProjectionArea = {
+  id: string;
+  areaKey: string;
+  departmentId: string;
+  departmentKey: OperationalDepartmentKey;
+  label: string;
+  order: number;
+  experienceIds: readonly string[];
+  descriptors: readonly ProjectionDescriptor[];
 };
 
 export type ProjectionPlantPolicy = {
   applied: boolean;
   kind?: "PLANT_FACILITY_WIDE_MAINTENANCE";
   createsRoomAssignments: false;
+  defaultArchetypeKey?: string;
   coveredLocationIds: readonly string[];
 };
 
@@ -160,6 +275,7 @@ export type ProjectionDiagnostics = {
 
 export type ProjectionMetadata = {
   architectureWave: "15B";
+  registryVersion: number;
   fixtureName?: string;
   notes?: readonly string[];
 };
@@ -167,11 +283,14 @@ export type ProjectionMetadata = {
 export type ProjectionSnapshot = {
   context: ProjectionContext;
   metadata: ProjectionMetadata;
+  areas: readonly ProjectionArea[];
+  experiences: readonly ProjectionExperience[];
   locations: {
     roots: readonly ProjectionLocationNode[];
     actionableIds: readonly string[];
     byId: Readonly<Record<string, ProjectionLocationNode>>;
   };
+  queryScopes: ProjectionQueryScopes;
   descriptors: readonly ProjectionDescriptor[];
   diagnostics: ProjectionDiagnostics;
   plantPolicy?: ProjectionPlantPolicy;

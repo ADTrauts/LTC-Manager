@@ -8,50 +8,11 @@ export async function activateFixtureAccount(db, user, { facilityId, roleKey }) 
   const { ensureUserFacilityAccessGrant } = await tsImport(
     "../../src/lib/facility-access/assert-user-facility-access.ts", import.meta.url,
   );
-  await db.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
-  try {
-    await db.$transaction((tx) =>
-      ensureUserFacilityAccessGrant(tx, { userId: user.id, facilityId, roleKey }),
-    );
-  } catch (error) {
-    if (roleKey !== "FACILITY_ADMINISTRATOR" || !administratorSeatTaken(error)) throw error;
-    await transferFixtureAdministrator(db, user, facilityId);
-  }
+  await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
+    await ensureUserFacilityAccessGrant(tx, { userId: user.id, facilityId, roleKey });
+  });
   return user;
-}
-
-function administratorSeatTaken(error) {
-  return error?.code === "FACILITY_ADMINISTRATOR_TAKEN"
-    || String(error?.message || "").includes("already has a Facility Administrator");
-}
-
-/** The seeded demo admin may already hold the one seat. A fixture administrator receives it by transfer. */
-async function transferFixtureAdministrator(db, user, facilityId) {
-  const { ensureUserFacilityAccessGrant } = await tsImport(
-    "../../src/lib/facility-access/assert-user-facility-access.ts", import.meta.url,
-  );
-  const { inviteFacilityAdministratorSuccessor, acceptFacilityAdministratorInvitation } = await tsImport(
-    "../../src/lib/facility-administrator/service.ts", import.meta.url,
-  );
-  await db.$transaction((tx) =>
-    ensureUserFacilityAccessGrant(tx, { userId: user.id, facilityId, roleKey: "SUPERVISOR" }),
-  );
-  const holder = await db.userFacilityRolePeriod.findFirst({
-    where: {
-      roleKey: "FACILITY_ADMINISTRATOR",
-      endsAt: null,
-      userFacilityAccess: { facilityId, userId: { not: user.id } },
-    },
-    select: { userFacilityAccess: { select: { userId: true } } },
-  });
-  if (!holder) return;
-  const invitation = await inviteFacilityAdministratorSuccessor(db, {
-    actorUserId: holder.userFacilityAccess.userId,
-    facilityId,
-    invitedUserId: user.id,
-    outgoingRoleKey: "MANAGER",
-  });
-  await acceptFacilityAdministratorInvitation(db, { actorUserId: user.id, invitationId: invitation.id });
 }
 
 

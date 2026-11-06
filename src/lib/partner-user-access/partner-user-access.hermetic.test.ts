@@ -831,10 +831,6 @@ function createWorld() {
     $queryRaw: async (query: { strings?: string[]; values?: unknown[] }) => {
       const text = (query.strings ?? []).join(" ");
       const id = String(query.values?.[0] ?? "");
-      if (text.includes('SELECT "organizationId"')) {
-        const partnership = partnerships.find((row) => row.id === id);
-        return partnership ? [{ organizationId: partnership.organizationId }] : [];
-      }
       if (text.includes('"Organization"')) {
         return organizations.some((row) => row.id === id) ? [{ id }] : [];
       }

@@ -30,6 +30,7 @@ const EVS = { id: "dept-evs", key: "EVS", name: "Environmental Services", sortOr
 
 const ALL_FLAGS: RouteFeatureFlags = {
   dietaryOperationalEvidenceEnabled: true,
+  dietaryWorkPlansEnabled: true,
   canonicalLogsEnabled: true,
 };
 
@@ -96,9 +97,9 @@ const facility: DashboardScope = { kind: "FACILITY" };
 
 const ids = (rows: { card: { id: DashboardCardId } }[]) => rows.map((row) => row.card.id).sort();
 
-test("registry: 22 platform cards, unique ids, sizes include the default", () => {
-    assert.equal(DASHBOARD_CARDS.length, 22);
-    assert.equal(new Set(DASHBOARD_CARDS.map((card) => card.id)).size, 22);
+test("registry: 23 platform cards, unique ids, sizes include the default", () => {
+    assert.equal(DASHBOARD_CARDS.length, 23);
+    assert.equal(new Set(DASHBOARD_CARDS.map((card) => card.id)).size, 23);
   for (const card of DASHBOARD_CARDS) {
     assert.ok(card.sizes.includes(card.defaultSize), card.id);
     assert.ok(Object.isFrozen(card), card.id);
@@ -143,6 +144,7 @@ test("scope kinds and authority: each band sees the catalog's cards", () => {
       "call_offs",
       "coverage",
       "department_setup",
+      "expected_work",
       "handoff",
       "hr_alerts",
       "maintenance_open",
@@ -279,6 +281,7 @@ test("route flags: a card whose required link is closed is not eligible", () => 
 
   const manager = (routeFlags: RouteFeatureFlags) =>
     ids(listEligibleCards(viewer({ role: "MANAGER", authority: "MANAGER", scope: department(), routeFlags }), FULL));
+  assert.equal(manager({ ...ALL_FLAGS, dietaryWorkPlansEnabled: false }).includes("expected_work"), false);
   assert.equal(
     manager({ ...ALL_FLAGS, dietaryOperationalEvidenceEnabled: false }).includes("records_due"),
     false,
@@ -400,6 +403,9 @@ test("drill-downs: every eligible card's link opens for the viewer, in every ban
 });
 
 test("drill-downs: catalog conflicts resolve toward hiding, never toward a dead link", () => {
+  const supervisor = listEligibleCards(viewer({ role: "SUPERVISOR", authority: "SUPERVISOR", scope: department() }), FULL);
+  assert.equal(ids(supervisor).includes("expected_work"), false, "Work Plans open from Manager");
+
   const supervisorHead = listEligibleCards(
     viewer({ role: "SUPERVISOR", authority: "DEPARTMENT_LEADER", scope: department() }),
     FULL,

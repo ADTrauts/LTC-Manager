@@ -41,7 +41,14 @@ export async function loadEmployeeDayShifts(input: {
       id: true,
       firstName: true,
       lastName: true,
-      jobTitle: { select: { name: true } },
+      departmentJobRoles: {
+        where: {
+          ...(departmentId ? { departmentId } : {}),
+          jobRole: { status: "ACTIVE" },
+        },
+        select: { jobRole: { select: { displayName: true } }, departmentId: true },
+        take: 1,
+      },
         teamMemberships: {
           where: departmentId
             ? { team: { departmentId, status: "ACTIVE" } }
@@ -71,6 +78,7 @@ export async function loadEmployeeDayShifts(input: {
         plannedEnd: true,
         shift: true,
         departmentId: true,
+        unitId: true,
         workShiftId: true,
       },
       orderBy: [{ plannedStart: "asc" }, { createdAt: "asc" }],
@@ -109,7 +117,7 @@ export async function loadEmployeeDayShifts(input: {
     employeeId: employee.id,
     employeeFirstName: employee.firstName,
     employeeLastName: employee.lastName,
-    jobTitleName: employee.jobTitle?.name ?? null,
+    jobRoleDisplayName: employee.departmentJobRoles[0]?.jobRole.displayName ?? null,
     teamDisplayName: employee.teamMemberships[0]?.team.displayName ?? null,
     serviceDate,
     scheduleEntries: filteredEntries.map((s) => ({
@@ -118,6 +126,7 @@ export async function loadEmployeeDayShifts(input: {
       plannedEnd: s.plannedEnd,
       shift: s.shift,
       departmentId: s.departmentId,
+      unitId: s.unitId,
       workShiftId: s.workShiftId,
     })),
     operationalAssignments: assignments.map((a) => ({

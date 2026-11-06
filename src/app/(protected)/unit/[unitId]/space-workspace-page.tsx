@@ -127,6 +127,7 @@ export async function SpaceWorkspacePage({
         serviceDateKey: loaded.asOf.operationalDateKey,
         location: { unitId: null, spaceId },
         cycleStableKey: currentOperation.cycleStableKey,
+        operationalTypeKey: loaded.program.operationalType.key,
       })
     : null;
 

@@ -63,11 +63,12 @@ export type LogAttachmentForResolve = {
   calendarDueTimeLocal: string | null;
   localDisplayLabel: string | null;
   localInstructions: string | null;
-  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY";
+  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY" | "OPERATIONAL_TYPE";
   assetId: string | null;
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
+  operationalTypeKey: string | null;
   /** Runtime expansion only — never persisted on the Attachment row. */
   resolvedSpaceId?: string | null;
   dailyWindows: Array<{
@@ -99,6 +100,12 @@ function targetFromAttachment(row: LogAttachmentForResolve): LogAttachmentTarget
       return { kind: "DEPARTMENT", departmentId: row.targetDepartmentId! };
     case "FACILITY":
       return { kind: "FACILITY" };
+    case "OPERATIONAL_TYPE":
+      return {
+        kind: "OPERATIONAL_TYPE",
+        operationalTypeKey: row.operationalTypeKey!,
+        resolvedSpaceId: row.resolvedSpaceId ?? null,
+      };
   }
 }
 

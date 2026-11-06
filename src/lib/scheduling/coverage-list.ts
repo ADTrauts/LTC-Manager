@@ -41,6 +41,8 @@ export type CoverageData = {
 
 export type CoverageScheduleEntry = {
   employeeId: string;
+  /** Nullable on new canonical Shifts; legacy rows always have a value. */
+  unitId: string | null;
   shift: ShiftType;
   employeeFirstName: string;
   employeeLastName: string;
@@ -87,10 +89,44 @@ function buildEffectiveAssignmentsByUnit(
   schedules: CoverageScheduleEntry[],
   overrides: CoverageOverrideEntry[],
 ): Map<string, CoverageAssignment[]> {
-  // A shift records when someone works. Unit placement belongs to OperationalAssignment.
-  void schedules;
-  void overrides;
-  return new Map();
+  const effectiveUnitByEmployee = new Map<
+    string,
+    { unitId: string; shift: ShiftType; employeeName: string }
+  >();
+
+  for (const entry of schedules) {
+    // Legacy rows always have a unitId; new canonical Shifts may not. Skip unit-less rows
+    // for coverage bucketing — they will appear in presence counts but not unit-specific coverage.
+    if (!entry.unitId) continue;
+    effectiveUnitByEmployee.set(entry.employeeId, {
+      unitId: entry.unitId,
+      shift: entry.shift,
+      employeeName: `${entry.employeeFirstName} ${entry.employeeLastName}`,
+    });
+  }
+
+  for (const override of overrides) {
+    const current = effectiveUnitByEmployee.get(override.employeeId);
+    if (current) {
+      effectiveUnitByEmployee.set(override.employeeId, {
+        ...current,
+        unitId: override.newUnitId,
+      });
+    }
+  }
+
+  const byUnit = new Map<string, CoverageAssignment[]>();
+  for (const assignment of effectiveUnitByEmployee.values()) {
+    const list = byUnit.get(assignment.unitId) ?? [];
+    list.push({ shift: assignment.shift, employeeName: assignment.employeeName });
+    byUnit.set(assignment.unitId, list);
+  }
+
+  for (const list of byUnit.values()) {
+    list.sort((a, b) => formatCoverageShift(a.shift).localeCompare(formatCoverageShift(b.shift)));
+  }
+
+  return byUnit;
 }
 
 function resolveMissingServeryShifts(assignments: CoverageAssignment[]): ShiftType[] {

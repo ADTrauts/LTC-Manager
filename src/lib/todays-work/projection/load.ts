@@ -21,9 +21,13 @@ import {
   loadedBoardToWalkList,
   type OperatingLocationBoard,
 } from "../operating-locations";
-import type { ViewerTeamScope } from "../operational-placement";
+import type { ViewerTeamScope } from "../viewer-team-scope";
 
-import { filterCallDownsToProjectedUnits } from "./assemble";
+import {
+  assembleExperienceWalkContributions,
+  filterCallDownsToProjectedUnits,
+  type ExperienceWalkContribution,
+} from "./assemble";
 import type { TodaysWorkProjectionView } from "./types";
 
 export type LoadTodaysWorkProjectionOptions = Omit<
@@ -48,6 +52,7 @@ export type AssembledTodaysWork = {
   walk: WalkListData;
   board: OperatingLocationBoard;
   callDowns: CallDownData;
+  experienceContributions: ExperienceWalkContribution[];
   error: string | null;
   teamScope: ViewerTeamScope | null;
 };
@@ -108,11 +113,17 @@ export async function assembleProjectedTodaysWorkHub(
     callDownsRaw,
     loaded.view.projectedUnitIds,
   );
+  const experienceContributions = assembleExperienceWalkContributions(
+    loaded.view,
+    walk.items,
+  );
+
   return {
     projection: loaded.view,
     walk,
     board: operating.board,
     callDowns,
+    experienceContributions,
     error: null,
     teamScope: operating.teamScope,
   };

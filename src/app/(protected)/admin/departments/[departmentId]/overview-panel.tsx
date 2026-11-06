@@ -49,6 +49,7 @@ type Props = {
     total: number;
     neighborhoodCount: number;
     roomCount: number;
+    withPattern: number;
   };
   settings: OverviewDepartmentSettings;
   logsSection?: ReactNode;
@@ -98,6 +99,7 @@ const ROW_ICONS: Record<OverviewGuidanceRow["id"], typeof AppIcons.locations> = 
   locations: AppIcons.locations,
   rhythm: AppIcons.todaysWork,
   people: AppIcons.employees,
+  work: AppIcons.todaysWork,
   records: AppIcons.logs,
 };
 

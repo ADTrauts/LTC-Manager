@@ -13,6 +13,7 @@ import {
   presentCallOffs,
   presentCoverage,
   presentDepartmentSetup,
+  presentExpectedWork,
   presentGlance,
   presentPm,
   presentRecords,
@@ -139,6 +140,57 @@ test("shift now reports the rhythm as on track or late", () => {
   });
   assert.equal(late.state, "ready");
   if (late.state === "ready") assert.equal(late.model.metrics[0]?.value, "Late");
+});
+
+test("expected work counts late and due items", () => {
+  const result = presentExpectedWork({
+    workCapabilityEnabled: true,
+    hasPublishedWorkPlans: true,
+    currentGroups: [
+      {
+        operationLabel: "Breakfast",
+        windowLabel: null,
+        cycleStableKeys: [],
+        locations: [
+          {
+            unitId: "u",
+            locationName: "Servery",
+            plans: [
+              {
+                workPlanId: "p",
+                workPlanName: "Open",
+                assignmentLabel: null,
+                items: [
+                  {
+                    occurrenceKey: "late",
+                    workItemKey: "w",
+                    label: "Open the line",
+                    state: "PAST_DUE_NOT_CONFIRMED",
+                    completed: false,
+                    statusLabel: null,
+                    evidenceRequired: false,
+                    canConfirm: false,
+                    facilityId: "fac",
+                    departmentId: FN,
+                    unitId: "u",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    otherWork: [],
+    upcoming: null,
+    configureHref: null,
+    configureLabel: null,
+  });
+  assert.equal(result.state, "ready");
+  if (result.state === "ready") {
+    assert.equal(result.model.metrics[0]?.value, 1);
+    assert.equal(result.model.lines[0]?.title, "Open the line");
+  }
 });
 
 test("records summary is counts, and a clear day is quiet", () => {

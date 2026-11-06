@@ -48,10 +48,14 @@ export default async function OrganizationArchivePage({ params }: PageProps) {
           <p className="mt-1 text-sm text-zinc-600">
             {dateLabel(period.effectiveFrom)} – {dateLabel(period.effectiveTo)}
           </p>
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-sm text-zinc-800 sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-2 text-sm text-zinc-800 sm:grid-cols-5">
             <div>
               <dt className="text-zinc-500">Menus</dt>
               <dd>{period._count.menus}</dd>
+            </div>
+            <div>
+              <dt className="text-zinc-500">Work Plans</dt>
+              <dd>{period._count.workPlans}</dd>
             </div>
             <div>
               <dt className="text-zinc-500">Operating Rhythm</dt>

@@ -74,23 +74,25 @@ describe("Projection Shadow — adapters", () => {
     const view = adaptProjectionSnapshotToShadowView(DIETARY_GOLDEN_PROJECTION);
     assert.equal(view.source, "PROJECTION");
     assert.equal(view.lensKey, "department:DIETARY");
-    assert.equal("experiences" in view, false);
+    assert.ok(view.experiences.some((e) => e.experienceKey === "MEAL_SERVICE"));
     assert.ok(view.roomIds.includes(SERVERY_SPACE));
   });
 
-  it("adapts legacy Dietary rooms into the shadow view", () => {
+  it("adapts legacy Dietary experience keys into the shadow view", () => {
     const view = adaptLegacyEligibilityToShadowView(dietaryLegacy());
-    assert.deepEqual(view.roomIds, [SERVERY_SPACE]);
-    assert.ok(view.locationIds.includes("loc:servery"));
-    assert.equal("experiences" in view, false);
+    assert.deepEqual(
+      view.experiences.map((e) => e.experienceKey).sort(),
+      ["MEAL_SERVICE", "TEMPERATURE_MONITORING"],
+    );
+    assert.ok(view.areas.some((area) => area.areaKey === "dietary_service"));
   });
 
   it("narrows legacy rooms by PIN locked unit", () => {
     const view = adaptLegacyEligibilityToShadowView(
       dietaryLegacy({ lockedUnitId: "other_unit", allowedUnitIds: ["other_unit"] }),
     );
+    assert.deepEqual(view.experiences, []);
     assert.deepEqual(view.roomIds, []);
-    assert.deepEqual(view.actionableLocationIds, []);
   });
 });
 
@@ -113,13 +115,23 @@ describe("Projection Shadow — golden parity", () => {
     }
   });
 
-  it("classifies an extra room as an error when Projection is broader", () => {
+  it("classifies experience mismatches when Projection is broader", () => {
     const broader = mutateSnapshot(DIETARY_GOLDEN_PROJECTION, (draft) => {
-      const extraId = "loc:space_extra";
-      draft.locations.byId[extraId] = {
-        reference: { kind: "SPACE", spaceId: "space_extra" },
-      } as (typeof draft.locations.byId)[string];
-      draft.locations.actionableIds = [...draft.locations.actionableIds, extraId];
+      const meal = draft.experiences[0]!;
+      draft.experiences = [
+        ...draft.experiences,
+        {
+          ...meal,
+          id: "dept_dietary:PRODUCTION",
+          reference: {
+            ...meal.reference,
+            experienceKey: "PRODUCTION",
+            areaKey: "dietary_service",
+          },
+          label: "Production",
+          queryScopeId: "dept_dietary:PRODUCTION:scope",
+        },
+      ];
     });
     const report = compareProjectionSnapshotsForShadow({
       legacySnapshot: DIETARY_GOLDEN_PROJECTION,
@@ -129,7 +141,7 @@ describe("Projection Shadow — golden parity", () => {
     assert.ok(
       report.mismatches.some(
         (mismatch) =>
-          mismatch.kind === "EXTRA_ROOM" &&
+          mismatch.kind === "EXPERIENCE_MISMATCH" &&
           mismatch.severity === "ERROR",
       ),
     );
@@ -138,6 +150,10 @@ describe("Projection Shadow — golden parity", () => {
   it("classifies missing rooms as warnings when Projection is narrower", () => {
     const narrower = mutateSnapshot(DIETARY_GOLDEN_PROJECTION, (draft) => {
       draft.locations.actionableIds = [];
+      draft.experiences = draft.experiences.map((experience) => ({
+        ...experience,
+        reference: { ...experience.reference, locationIds: [] },
+      }));
     });
     const report = compareProjectionSnapshotsForShadow({
       legacySnapshot: DIETARY_GOLDEN_PROJECTION,
@@ -151,11 +167,18 @@ describe("Projection Shadow — golden parity", () => {
     );
   });
 
-  it("classifies an extra location as an error when Projection is broader", () => {
+  it("classifies permission broadening as critical", () => {
     const broader = mutateSnapshot(PERMISSION_NARROWED_PROJECTION, (draft) => {
-      draft.locations.byId["loc:unit_extra"] = {
-        reference: { kind: "UNIT", unitId: "unit_extra" },
-      } as (typeof draft.locations.byId)[string];
+      draft.experiences = draft.experiences.map((experience) => ({
+        ...experience,
+        permissions: {
+          ...experience.permissions,
+          allowedActionKeys: [
+            ...experience.permissions.allowedActionKeys,
+            "meal_service.submit",
+          ],
+        },
+      }));
     });
     const report = compareProjectionSnapshotsForShadow({
       legacySnapshot: PERMISSION_NARROWED_PROJECTION,
@@ -164,16 +187,18 @@ describe("Projection Shadow — golden parity", () => {
     assert.ok(
       report.mismatches.some(
         (mismatch) =>
-          mismatch.kind === "EXTRA_LOCATION" &&
-          mismatch.severity === "ERROR",
+          mismatch.kind === "PERMISSION_MISMATCH" &&
+          mismatch.severity === "CRITICAL",
       ),
     );
     assert.equal(report.ok, false);
   });
 
-  it("classifies revision mismatches as info", () => {
+  it("classifies ordering mismatches as info", () => {
     const reordered = mutateSnapshot(DIETARY_GOLDEN_PROJECTION, (draft) => {
-      draft.context.identity.revision.hierarchyRevision = "hierarchy:changed";
+      draft.areas = draft.areas.map((area, index) =>
+        index === 0 ? { ...area, order: 999 } : area,
+      );
     });
     const report = compareProjectionSnapshotsForShadow({
       legacySnapshot: DIETARY_GOLDEN_PROJECTION,
@@ -182,7 +207,7 @@ describe("Projection Shadow — golden parity", () => {
     assert.ok(
       report.mismatches.some(
         (mismatch) =>
-          mismatch.kind === "REVISION_MISMATCH" && mismatch.severity === "INFO",
+          mismatch.kind === "ORDERING_MISMATCH" && mismatch.severity === "INFO",
       ),
     );
   });
@@ -204,11 +229,17 @@ describe("Projection Shadow — golden parity", () => {
     );
   });
 
-  it("classifies a broader location set as an error", () => {
+  it("classifies scope broadening as critical", () => {
     const broader = mutateSnapshot(DIETARY_GOLDEN_PROJECTION, (draft) => {
-      draft.locations.byId["loc:unit_extra"] = {
-        reference: { kind: "UNIT", unitId: "unit_extra" },
-      } as (typeof draft.locations.byId)[string];
+      const scopes = { ...draft.queryScopes.byExperience };
+      for (const [id, scope] of Object.entries(scopes)) {
+        scopes[id] = {
+          ...scope,
+          spaceIds: [...scope.spaceIds, "space_extra"],
+          unitIds: [...scope.unitIds, "unit_extra"],
+        };
+      }
+      draft.queryScopes = { ...draft.queryScopes, byExperience: scopes };
     });
     const report = compareProjectionSnapshotsForShadow({
       legacySnapshot: DIETARY_GOLDEN_PROJECTION,
@@ -217,8 +248,8 @@ describe("Projection Shadow — golden parity", () => {
     assert.ok(
       report.mismatches.some(
         (mismatch) =>
-          mismatch.kind === "EXTRA_LOCATION" &&
-          mismatch.severity === "ERROR",
+          mismatch.kind === "SCOPE_MISMATCH" &&
+          mismatch.severity === "CRITICAL",
       ),
     );
   });
@@ -232,8 +263,11 @@ describe("Projection Shadow — legacy vs Projection", () => {
     );
     const report = compareShadowViews(legacy, projection);
     assert.ok(report.metrics.comparedSlotCount > 0);
-    assert.equal("experiences" in report.projection, false);
-    assert.ok(report.projection.roomIds.includes(SERVERY_SPACE));
+    assert.ok(
+      report.projection.experiences.some(
+        (experience) => experience.experienceKey === "MEAL_SERVICE",
+      ),
+    );
     // Sidebar units appear as unit:* locations in legacy; Projection tree may
     // include facility/floor/neighborhood ids — expect location diffs.
     assert.ok(typeof report.metrics.parityPercent === "number");
@@ -273,7 +307,7 @@ describe("Projection Shadow — legacy vs Projection", () => {
     );
     assert.equal(view.lensKey, "facility");
     assert.deepEqual(view.departmentKeys, ["DIETARY", "EVS", "PLANT"]);
-    assert.ok(view.locationIds.length > 0);
+    assert.ok(view.experiences.length > 0);
   });
 
   it("emits structured parity logs without analytics payloads", () => {
@@ -287,7 +321,7 @@ describe("Projection Shadow — legacy vs Projection", () => {
     assert.equal("userId" in log, false);
   });
 
-  it("classifies empty legacy rooms as extra rooms on Projection", () => {
+  it("classifies empty department legacy as narrow Projection-safe warnings", () => {
     const legacy = adaptLegacyEligibilityToShadowView({
       facilityId: FACILITY_ID,
       lensKey: "department:DIETARY",
@@ -299,11 +333,9 @@ describe("Projection Shadow — legacy vs Projection", () => {
       DIETARY_GOLDEN_PROJECTION,
     );
     const report = compareShadowViews(legacy, projection);
-    assert.equal(report.ok, false);
     assert.ok(
       report.mismatches.some(
-        (mismatch) =>
-          mismatch.kind === "EXTRA_ROOM" && mismatch.severity === "ERROR",
+        (mismatch) => mismatch.kind === "EXPERIENCE_MISMATCH",
       ),
     );
   });

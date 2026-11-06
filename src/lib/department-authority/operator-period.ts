@@ -153,6 +153,10 @@ export async function retireOperatorPeriodSetup(db: Db, periodId: string): Promi
     where: { operatorPeriodId: periodId, status: "ACTIVE" },
     data: { status: "INACTIVE" },
   });
+  await db.departmentWorkPlan.updateMany({
+    where: { operatorPeriodId: periodId, status: { not: "RETIRED" } },
+    data: { status: "RETIRED", retiredAt: now },
+  });
   await db.departmentOperationalCycle.updateMany({
     where: { operatorPeriodId: periodId, status: { not: "RETIRED" } },
     data: { status: "RETIRED", retiredAt: now },
@@ -216,6 +220,7 @@ export async function listVendorArchive(db: Db, organizationId: string) {
       _count: {
         select: {
           menus: true,
+          workPlans: true,
           operationalCycles: true,
           employees: true,
           evidenceRecords: true,

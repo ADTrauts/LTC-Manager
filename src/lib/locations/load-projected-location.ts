@@ -83,7 +83,10 @@ export function emptyProjectedLocationView(
     revision: {
       hierarchyRevision: "none",
       assignmentRevision: "none",
+      profileRevision: "none",
+      bindingRevision: "none",
       policyRevision: "none",
+      experienceRegistryVersion: 0,
       accessClassRevision: "none",
     },
     departmentSnapshots: [],

@@ -106,6 +106,8 @@ export {
   type CreateWorkOrderDirectInput,
 } from "./work-order-service";
 
+export { setWorkOrderResponseRequirement } from "./work-order-response";
+
 export {
   addWorkOrderLabor,
   addWorkOrderPart,
@@ -135,9 +137,13 @@ export {
   presentWorkOrder,
   presentWorkOrderHoldReason,
   presentWorkOrderPriority,
+  presentWorkOrderResponseHistoryLine,
+  presentWorkOrderResponseRequirement,
   presentWorkOrderStatus,
   presentWorkOrderKind,
+  WORK_ORDER_RESPONSE_PRIORITY_DISTINCTION,
   workOrderPriorityAuthorityLabel,
+  workOrderRequiresImmediateResponse,
   workOrderStatusAuthorityLabel,
   type WorkOrderPriority,
   type WorkOrderStatus,

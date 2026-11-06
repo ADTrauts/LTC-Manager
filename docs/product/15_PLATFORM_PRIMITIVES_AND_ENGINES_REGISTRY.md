@@ -8,8 +8,6 @@
 
 This registry answers a narrower question: **what Vssyl already owns, and how new work must reuse or extend that owner.** If this registry conflicts with the Constitution, the Constitution wins.
 
-**November 3, 2026.** Location Function, Operational Type, Department profiles, archetypes, Experiences, Operational Areas, and generic Work are retired. A row below that still names them is history. Do not extend it. The [November 3 foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--november-3-2026) wins.
-
 | Document | What it owns |
 |----------|----------------|
 | [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md) | The platform map and the plug-in contract |
@@ -41,7 +39,7 @@ No new engine should begin life as a UI convenience.
 
 Vssyl is architecturally mature enough that the greater risk is duplicate ownership.
 
-The platform already has one physical facility tree, one people model, one Operational Cycle engine, one Records engine, one shared Asset registry, one Catalog, one "my work" composition, and one supervisor home. A feature that adds a second copy of any of those makes later work lie about what is true.
+The platform already has one physical facility tree, one people model, one Operational Cycle engine, one Records engine, one shared Asset registry, one Catalog, one "my work" composition, one supervisor home, one accepted Notifications & Attention engine, and one Scheduled Evaluation clock. N0 is complete. N1 foundation is certified. N2 shows the in-app Attention Center. N3A publishes Assignment changes into that center. Coverage state transitions are live. The Coverage time evaluator and the Key Point overdue evaluator are implemented. The production scheduler is blocked until the host accepts a sub-hour cron. `work_order.assigned` is live. The `work_order.overdue` evaluator is implemented. The production clock is inactive. The other trigger-matrix rows are not live. Web Push registration and durable delivery exist. Production Web Push sending stays off. A personal subscription is not authorized merely because its User still exists. `notifications.external-delivery` belongs to this engine and to the shared Scheduled Evaluation clock. It is not a new engine, and registering it does not start the production clock. Email is not implemented. A feature that adds a second copy of any of those makes later work lie about what is true. Coverage episodes are Coverage history, not a new engine. A domain does not get its own cron for operational time.
 
 This registry exists so an engineer or agent can answer, before designing storage:
 
@@ -53,7 +51,7 @@ This registry exists so an engineer or agent can answer, before designing storag
 - What must stay singular?
 - What stays invisible as implementation detail?
 
-Duplicate ownership looks like another location tree, another employee identity, another assignment concept, another log engine, another inspection engine, another asset registry, another readiness calculation, another history store, another "my work" store, another Catalog, or another resolver for what is happening now.
+Duplicate ownership looks like another location tree, another employee identity, another assignment concept, another log engine, another inspection engine, another asset registry, another readiness calculation, another history store, another "my work" store, another Catalog, another resolver for what is happening now, or a Dietary, EVS, or Plant notification engine beside the platform one.
 
 ---
 
@@ -87,11 +85,11 @@ A screen may show several canonical sources together. It does not create a shado
 
 ### Rule 4 — Department Products consume Platform mechanisms
 
-Food and Nutrition, Environmental Services, Facility Plant Operations, and future Department Products use the shared mechanisms: the building, Department responsibility, Operating Rhythm, Records, Coverage, Assets and repairs, Plant Work Orders and Preventive Maintenance, shifts, daily Assignments, and Job Flow.
+Food and Nutrition, Environmental Services, Facility Plant Operations, and future Department Products use the shared mechanisms: the building, Location Functions, Operational Cycles, Work, Records, Assets and repairs, shifts, daily Assignments, Job Flow, and Notifications & Attention.
 
-A Product may define its own defaults, Records forms, Operating Rhythm starters, coverage needs, Menus or Preventive Maintenance where that Product owns them, domain-specific behavior, and Dashboard contributions. It does not define Location Functions, Experiences, or generic Work presets.
+A Product may define its own defaults, Location Functions, Work presets, Records forms, Operating Rhythm starters, coverage needs, notification policy, domain-specific behavior, and Dashboard contributions.
 
-A Product does not receive its own location engine, employee engine, Cycle engine, Records engine, Assignment engine, Work engine, history store, or Catalog unless an explicit architecture decision changes the Constitution. Empty starters are allowed. A missing reusable mechanism is written down in the blueprint's platform-gap test before any new engine is discussed. The Product contributes Dashboard capabilities. It does not ship dashboard UI. See the [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md).
+A Product does not receive its own location engine, employee engine, Cycle engine, Records engine, Assignment engine, Work engine, history store, Catalog, or notification engine unless an explicit architecture decision changes the Constitution. Empty starters are allowed. A missing reusable mechanism is written down in the blueprint's platform-gap test before any new engine is discussed. The Product contributes Dashboard capabilities. It does not ship dashboard UI. See the [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md).
 
 ### Rule 5 — Composition is allowed; ownership merging is not
 
@@ -111,6 +109,7 @@ Internal names may remain in code. User-facing UI and manager documentation foll
 | `Repair` | Work Order |
 | `Unit` | Location, where the UI means the place of work |
 | internal `blocked` | Needs Attention |
+| `DepartmentRoomArchetype.key` | Location Function |
 | `/reports`, internal Review | Audit / Reports |
 | `KEY_TIME` | Key Point |
 
@@ -157,8 +156,8 @@ A Platform Domain is not a new engine, module, navigation destination, database 
         │                       │                        │
  CONTEXT / CONFIG         OPERATING MECHANISMS       GOVERNANCE
  Facility                 Cycles                    Identity
- Locations                Records                   Access
- Department responsibility People / Coverage       Authority
+ Locations                Work                      Access
+ Location Functions       Records                   Authority
  Department install       People / Coverage         Entitlement
  Catalog                  Assets / Maintenance      Publication
                           Readiness / Recovery      History rules
@@ -213,7 +212,7 @@ Facility
   → Rooms / Spaces (UnitSpace)
 ```
 
-A Department never receives a second copy of rooms. `DepartmentLocation`, `PlantLocation`, and any other physical identity created to simplify a filter are forbidden. Department responsibility selects existing rooms. It is not another room. The same physical room may be responsible to more than one Department. Each Department's Operating Rhythm, Records, Coverage, and Menus stay on that Department.
+A Department never receives a second copy of rooms. `DepartmentLocation`, `PlantLocation`, and any other physical identity created to simplify a filter are forbidden. Location Function gives a Department meaning to an existing room. It is not another room. The same physical room may carry different functions for different Departments. Food and Nutrition `food_service_area` and Environmental Services `service_support` on the same room are independent.
 
 Runtime matches `functionKey` on the ACTIVE profile. Build reads the working profile. Audit reads the profile effective on the service date. An empty binding set matches no rooms. Department responsibility does not imply Cycle participation.
 
@@ -235,9 +234,11 @@ The published Operational Cycle and Phase are the only answer to "what is happen
 
 A Key Point is not a Work item, not a Record, and not a second milestone engine. Food and Nutrition timing uses Key Points only. Meal Due is tracking NONE. Ready and Service Started are tracking REQUIRED at LOCATION grain. The canonical actual is `OperationalCycleKeyPointActual`. A service date has one authoritative timing source. Preventive Maintenance is not an Operational Cycle.
 
-**Generic Department Work is retired.** There is no Work Plan, Work preset, or Expected Work. Documentation is a Record. Recurring timing is Operating Rhythm. Staffing is Coverage. Today's person, place, and role are an Operational Assignment. Equipment maintenance is a Work Order or Preventive Maintenance.
+**Work** is: Product preset → facility Work Plan → publish → derived Expected Work → optional Assignment of a person → sparse occurrence. A published Work Plan (`DepartmentWorkPlan` and its items) defines expected shared Work. Expected Work is derived from department-responsible locations, then applicability (including a Location Function key when the plan uses one), then Cycle participation when the item is cycle-bound. An empty Cycle binding means the item is not configured. Work may bind to a Cycle or a Phase stable key. It does not bind to Key Points.
 
-**Job Flow** is the "my work" view in every installed Department. It shows the Assignment, the current window, Records due, and assigned work orders and preventive maintenance, with one next action. It stores nothing. Each source keeps its own store and lifecycle. Plant work orders stay Work Orders. Without an Assignment, a person sees the Records and maintenance for the place they are signed into. An empty Assignment plan never hides those sources.
+Assignment does not create Work. Shift does not create Work. Cycle participation does not create Work unless those applicability rules say the item applies. Occurrences stay sparse (`DepartmentWorkOccurrence`).
+
+**Job Flow** is the "my work" view in every installed Department. It shows the Assignment, the current window, what is expected now and next, Work Plan items, Records due, and assigned work orders and preventive maintenance, with one next action. It stores nothing. Each source keeps its own store and lifecycle. Plant work orders never become Work Plan items. Without an Assignment, a person sees the Work for the place they are signed into. An empty Assignment plan never hides Work.
 
 ---
 
@@ -258,13 +259,11 @@ A **User** is the global person. One identity, many places they can enter. Email
 
 An **Employee** is that person's workforce record at one facility. At most one Employee per User per facility. New Employees are account-backed. Employee first and last name are facility workforce facts. `User.displayName` is global presentation.
 
-**Operational eligibility** is `EmployeeOperationalRoleQualification`: this Employee may perform one `OPERATIONAL_ROLE_REGISTRY` key in one Department. It is not a new role catalog, not a child of Team, and not RoleKey. Coverage and Assignment both use that same registry key. Coverage does not store the qualification. Department Job Role, Default Assignment, and workstation eligibility are retired. Do not add a second permission catalog.
+A **Shift** is `ScheduleEntry`, drawn from a `WorkShift` pattern. A call-off marks that Shift (`calledOffAt` / `callOffReason`). A call-off is not a call-down, and it is not a move. Legacy `ScheduleEntry.unitId` is not where the person works today.
 
-A **Shift** is `ScheduleEntry`, drawn from a `WorkShift` pattern. A call-off marks that Shift (`calledOffAt` / `callOffReason`). A call-off is not a call-down, and it is not a move. The shift stores when the person works. It does not store a unit or a platform role. Where they work today is the Assignment.
+An **Assignment** is the daily `OperationalAssignment`. A move changes the Assignment. Shift and Assignment never create each other. Supervisory responsibility is that Assignment when its role is the Department's supervisor-rounding responsibility (`DIETARY_SUPERVISOR_ROUNDING`, `EVS_SUPERVISOR_ROUNDING`, or `PLANT_SUPERVISOR_ROUNDING`). It is not the Supervisor authority role and not the Department head. On-call coverage is that same Assignment when its role is the Department's response responsibility (`DIETARY_ON_CALL_COVERAGE`, `EVS_ON_CALL_COVERAGE`, or Plant `ON_CALL_COVERAGE`). It says who must respond to an incident for that Department at that time. It is not supervisory rounding, not a job role, and not the Work Order assignee. A domain must not add its own responder table when On-Call Coverage can say the same thing. Asset outage attention uses this Assignment. It does not add an engine. Work Order priority is queue prioritization on `Repair`. Response requirement is a separate field on that same Work Order. Opening Immediate publishes through Notifications & Attention. It is not an intervention engine and not a notification priority. There is no Work Order preset. Examples that stay out: `AssetOnCall`, `WorkOrderOnCall`, `PlantEmergencyResponder`, and `EVSAfterHoursResponder`. The person assigned to a Work Order (`Repair.assignedEmployeeId`) is a maintenance assignment on that Work Order, not this daily Assignment. **Client assignment** is Organization-governed partner Facility access. It is not `OperationalAssignment` and not a second placement engine.
 
-An **Assignment** is the daily `OperationalAssignment`. A move changes the Assignment. Shift and Assignment never create each other. The person assigned to a Work Order (`Repair.assignedEmployeeId`) is a maintenance assignment on that Work Order, not this daily Assignment. **Client assignment** is Organization-governed partner Facility access. It is not `OperationalAssignment` and not a second placement engine.
-
-**Coverage** is derived. Build holds the need the Department configured. Run answers who filled it, from Shifts, call-offs, and Assignments. Coverage does not rewrite the Shift into a placement, and it does not store a parallel attendance record.
+**Coverage** is derived. Build holds the need the Department configured. Run answers who filled it, from Assignments that still count. A called-off Shift in the same Department removes that Employee's overlapping Assignment from the answer. The Assignment row stays. Coverage does not rewrite the Shift into a placement, and it does not store a parallel attendance record. Punch and presence do not fill Coverage.
 
 ---
 
@@ -280,9 +279,9 @@ CatalogLogDefinition
   → OperationalEvidenceRecord
 ```
 
-`CatalogLogDefinition` is the product definition, Vssyl-published or owned by a facility or an operating organization under the same Catalog. `FacilityCatalogInstall` is the facility's adoption reference. It is not a field copy and not an `OperationalTemplate` clone. `LogAttachment` is the live facility requirement: canonical target (`FACILITY`, `DEPARTMENT`, `UNIT`, `SPACE`, or `ASSET`), timing, local overlay, and pinned Catalog version. Location filters are not saved as targeting rules. Expected slots are derived (`resolveLogRequirementsForAttachment`). The submitted fact is `OperationalEvidenceRecord`.
+`CatalogLogDefinition` is the product definition, Vssyl-published or owned by a facility or an operating organization under the same Catalog. `FacilityCatalogInstall` is the facility's adoption reference. It is not a field copy and not an `OperationalTemplate` clone. `LogAttachment` is the live facility requirement: target, timing, local overlay, and pinned Catalog version. Expected slots are derived (`resolveLogRequirementsForAttachment`). The submitted fact is `OperationalEvidenceRecord`.
 
-Missing expected Records are derived. A waiver is excused work, not a completed Record, unless evidence was also submitted. Evidence wins. A correction does not turn a failed audit into a pass and does not rescore an earlier submission. Follow-up evidence uses `followsRecordId`. A recheck is another canonical Record on the originating attachment. It uses the originating snapshot's Catalog version and does not satisfy another scheduled slot. Corrective action stays on the Record. There is no Finding entity: a failed question stays on the evidence record. Completed evidence stays completed when it is out of standard. Overdue means the window has passed and the service date is still open. Missed means that service date has closed with no evidence and no waiver. Presentation layers do not redefine completed, missed, overdue, or waived.
+Missing expected Records are derived. A waiver is excused work, not a completed Record, unless evidence was also submitted. Evidence wins. A correction does not turn a failed audit into a pass and does not rescore an earlier submission. Follow-up evidence uses `followsRecordId`. A recheck is another canonical Record on the originating attachment. It uses the originating snapshot's Catalog version and does not satisfy another scheduled slot. Corrective action stays on the Record as submission history. It is not an open due task. An out-of-standard submission can publish `evidence.failed` through the existing notification engine. That is not a Records engine and not an evidence-failure episode. A new Issue can publish `issue.created` through that same engine. That is not an Issue engine. An Asset taken out of service is an Asset status transition. It does not publish yet. On-call coverage can name a responder. Asset title and the responsible organization remain organizations. There is no Finding entity: a failed question stays on the evidence record. Completed evidence stays completed when it is out of standard. Overdue means the window has passed and the service date is still open. Missed means that service date has closed with no evidence and no waiver. Presentation layers do not redefine completed, missed, overdue, or waived.
 
 `CANONICAL_LOGS_ENABLED` is a code flag for whether new work uses this chain. It is not a second record store and not a Department capability switch. The rollout table was dropped in LEG-06. With the flag off, new work stays off this chain. Historical log submissions were not copied into canonical Records.
 
@@ -320,7 +319,7 @@ A **Request** (`OperationalRequest`) is intake: someone is asking for maintenanc
 
 An **Asset Issue** (`AssetIssue`) is the current store for a known undesirable condition in this maintenance loop. The schema treats the Asset as optional and the location as required; a location-only condition is allowed. The [Domain Model](./03_PRODUCT_DOMAIN_MODEL.md) still says the row is asset-required. That sentence is stale against the schema. The row is still maintenance-shaped: it carries maintenance priority, equipment impact, and the relationship to Work Orders. It is not a Request and not a Work Order. See [Domain F](#platform-domain-f--issues-readiness--recovery) before using it for a problem that is not this condition.
 
-A **Work Order** is accepted Facility Plant Operations maintenance work. Persistence is `Repair`. Kinds in the Product architecture are corrective and preventive. A Work Order may target an Asset, a location, or both. Asset is not required on the Work Order. Recurring maintenance cadence is a Preventive Maintenance Plan, not a generic Work Plan.
+A **Work Order** is accepted Facility Plant Operations maintenance work. Persistence is `Repair`. Kinds in the Product architecture are corrective and preventive. A Work Order may target an Asset, a location, or both. Asset is not required on the Work Order. Shared recurring rounds stay on the Work Plan. A Work Order does not become a Work Plan item because Job Flow shows both.
 
 Work Order priority, reported urgency, and Asset criticality are three facts. A critical Asset does not make every Work Order an emergency.
 
@@ -389,7 +388,7 @@ These states answer different questions. They stay distinct.
 | Installed | Does a `Department` row exist? |
 | Enabled | Is `Department.isActive` true, so the Department is admitted to shared operations? |
 | Configured | Have the facility's rooms, rhythm, plans, people, and Records been set? Derived. Not a status column on Department. |
-| Published | Has the facility made a draft the published Cycle, Coverage template, or Catalog version? |
+| Published | Has the facility made a draft the ACTIVE profile, Cycle, or Work Plan? |
 | Ready | Is the place operationally Ready right now? A Readiness answer. |
 | Authorized | May this principal do this in the current context? Server authority. |
 
@@ -405,7 +404,7 @@ Self-operated and vendor-run are derived from the operating Organization (`Depar
 
 Parent Organization, Operating Organization, Partner Organization, repair vendor, and vendor account stay apart. Words for them are in the [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026).
 
-Publication and effective dating belong to the domain that publishes: Cycles, Coverage templates, Catalog versions, and operator periods. A later Catalog version does not reinterpret an earlier Record. Audit reads the attachment, Cycle, and Coverage template effective on the requested service date.
+Publication and effective dating belong to the domain that publishes: Cycles, Work Plans, Catalog versions, and operator periods. A later Catalog version does not reinterpret an earlier Record. Audit reads the profile and requirement effective on the requested service date.
 
 Some maintenance rows store capture metadata (`recordedOnline`, `synchronizedAt`). The shell can show a connectivity indicator, and sign-out can clear a device cache. That cache and that metadata are not a platform sync engine, not a second Issue store, and not the history ledger. A general offline store of operational truth would be a new engine and needs the proposal template.
 
@@ -422,24 +421,27 @@ Domain in the first column is wayfinding only.
 | Platform Domain | Primitive / Engine | Type | Owns | Explicitly does not own | Primary consumers | User-facing? | Reuse / extension rule | Canonical sources |
 |-----------------|-------------------|------|------|-------------------------|-------------------|--------------|------------------------|-------------------|
 | A | Facility | Primitive | The operational site: timezone, tenancy boundary, physical tree root | Departments, people, Assets, what is happening now | Every engine, Console provisioning, onboarding | Yes | Extend Facility. Do not add a Site aggregate or a second tenancy root. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [03](./03_PRODUCT_DOMAIN_MODEL.md) |
-| A | Physical location tree | Primitive | Facility → Unit → UnitSpace identity, physical names, Facility room type | Department responsibility, Cycle participation, readiness | Facility Builder, Run locations, Assets | Partially. UI says Location for the section and Room / Space for `UnitSpace`. | Point Department responsibility at existing ids. Never copy a room per Department. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
-| A | Department location responsibility | Primitive | Which existing Units and rooms a Department is responsible for | A second room type, Team room membership, Cycle applicability stored as a type | Operating Rhythm, Records, Coverage, Runtime Location State | Yes, as the Department's locations | Assign responsibility in Facility Builder. Omitted responsible places participate in department-wide rhythm. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--november-3-2026) |
+| A | Physical location tree | Primitive | Facility → Unit → UnitSpace identity, physical names, physical room type | Department meaning, Cycle participation, readiness, Work | Facility Builder, Location Function binding, Run locations, Assets | Partially. UI says Location for the section and Room / Space for `UnitSpace`. | Bind functions and plans to existing ids. Never copy a room per Department. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
+| A | Location Function | Primitive | Product `functionKey` and label, bound by the facility to an existing room on the Department profile. Persistence: `DepartmentRoomArchetype.key`. | The room, physical type, a label slug, another Department's function on that room | Cycles, Work applicability, Records targeting, Run | Yes. The word is Location Function. | Add a Product key in the blueprint. Bind it to rooms the facility already has. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [13](./13_DEPARTMENT_PRODUCT.md) |
 | A | Department Product registry | Catalog | Vssyl-authored Product identity, release status, industry and facility-type applicability, starter declarations | Entitlement, installation, local names, customer-editable rows | Marketplace, install, Dashboard capability derivation | Yes, as the Product name | Add a DEVELOPMENT registry entry and fill the blueprint. Do not add a second product catalog. | [13](./13_DEPARTMENT_PRODUCT.md) |
 | A | Department installation | Primitive | The facility's installed instance (`Department`), including local name and `Department.key` | Product identity, license, readiness, configuration-complete | Build, Run lens, authority | Yes | Install idempotently through the Product path. Do not mint a second Food and Nutrition Department. | [13](./13_DEPARTMENT_PRODUCT.md#sources-of-truth) |
 | A | Department operator relationship | Governance | Who runs one Department for a date-effective period (`DepartmentOperatorRelationship`) | Parent Organization, partnership, repair vendor, a stored self-operated switch | Vendor-run authority, data ownership, Asset title rules | Yes, as vendor-run or the operating company | Record an operator that already exists. Derive self-operated vs vendor-run. | [01](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), [03](./03_PRODUCT_DOMAIN_MODEL.md) |
-| A | Catalog / Marketplace | Catalog | Shared definitions for Records forms today; the same Catalog is the future home for rhythm starters and Menu templates. Included or Paid. | A second catalog, engines, Department licenses, generic Work presets | Console authoring, facility install, Department-owned forms | Yes | New item kinds reuse this Catalog. Owner-scoped forms stay unsold. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) |
+| A | Catalog / Marketplace | Catalog | Shared definitions for Records forms today; the same Catalog is the future home for Work presets, rhythm starters, and Menu templates. Included or Paid. | A second catalog, engines, Department licenses | Console authoring, facility install, Department-owned forms | Yes | New item kinds reuse this Catalog. Owner-scoped forms stay unsold. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) |
 | A | Menu | Domain | Food and Nutrition offering identity, content, and explicit applicability (`Menu`, cycle settings, location and cycle applicability) | Operational Cycle timing, Records, Work, a facility-wide singleton, historical menu snapshots | Today's Menu on the space workspace | Yes | Extend Menu and `resolveApplicableMenus`. Do not infer rooms from neighborhoods or bind a cycle row id. | [01](./01_PRODUCT_CONSTITUTION.md#product-workspaces), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
-| A | Operational scope | Resolver | A read-only request view of places already in the facility tree. It persists nothing. | Which rooms exist, live Cycle / Records / Coverage, authorization | Locations, sidebar, loaders that must not invent eligibility | No | Filter through the existing scope path. Place membership stays on the tree and Facility responsibility. Do not add `DepartmentLocation`. | [LEG-D10](../legacy-retirement/DECISIONS.md#leg-d10--projection-fallbacks-are-removed--accepted-program-default-october-20-2026), [RETIRED](../platform-vision/RETIRED.md) |
+| A | Operational scope | Resolver | A read-only request view of places already in the facility tree. It persists nothing. | Which rooms exist, which Location Functions they carry, live Cycle / Work / Records, authorization, an Experience catalog | Locations, sidebar, loaders that must not invent eligibility | No | Filter through the existing scope path. Place membership stays on the tree and the Department's bindings. Do not add `DepartmentLocation`. Do not revive Experience keys. | [LEG-D10](../legacy-retirement/DECISIONS.md#leg-d10--projection-fallbacks-are-removed--accepted-program-default-october-20-2026), [RETIRED](../platform-vision/RETIRED.md) |
 | A | Service date and facility context | Resolver | Facility-local service date and timezone for Run and Audit | The Cycle window, entitlement, the User's home facility | Dashboard, Records occurrence, Audit selectors | Partially. People see "today" in facility time. | Consume operational time. Do not store a page-specific today. | [Dashboard architecture](../dashboard/ARCHITECTURE.md) |
 
 ### B — Operating Rhythm & Work
 
 | Platform Domain | Primitive / Engine | Type | Owns | Explicitly does not own | Primary consumers | User-facing? | Reuse / extension rule | Canonical sources |
 |-----------------|-------------------|------|------|-------------------------|-------------------|--------------|------------------------|-------------------|
-| B | Operational Cycle | Engine | The published root recurring window. Persistence: root PERIOD on `DepartmentOperationalCycle`. Applicability is department-wide or explicit canonical Unit / UnitSpace ids. | Phases and Key Points as peer cycles, PM cadence, Menu rotation, meal-time guesses, a persisted "current operation" row, Operational Type or Location Function targeting | Run rhythm, Menu resolution, Audit | Yes | Add a Cycle for the Department and publish it. Do not create a Department Cycle engine. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [03](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) |
-| B | Phase | Primitive | One interval inside a Cycle (nested PERIOD) | A second window engine | Run timeline | Yes | Add phases on the Cycle. Gaps and overlaps are allowed. | [08](./08_PRODUCT_LANGUAGE_GUIDE.md), [13](./13_DEPARTMENT_PRODUCT.md) |
-| B | Key Point | Primitive | An instant on a Cycle, plus the canonical actual `OperationalCycleKeyPointActual` when tracking requires it | Records, a meal-milestone engine | Food and Nutrition timing, Runtime Location State, Audit | Yes. Avoid "Key Time" in product copy. | Add a Key Point with NONE, OPTIONAL, or REQUIRED tracking. One timing source per service date. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [LEG-D07](../legacy-retirement/DECISIONS.md#leg-d07--food--nutrition-meal-timing-uses-key-points-only--accepted-program-default-october-20-2026) |
-| B | Job Flow | Composition | Nothing. It reads Assignment, Cycle, Records due, and assigned work orders and preventive maintenance. | Any canonical store, a combined work lifecycle, authorization, a generic Work Plan | Floor staff in every Department | Yes. It is the "my work" view. | Add a source beside the others. Do not merge stores. Work orders on Job Flow need Plant scope. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) |
+| B | Operational Cycle | Engine | The published root recurring window. Persistence: root PERIOD on `DepartmentOperationalCycle`. | Phases and Key Points as peer cycles, PM cadence, Menu rotation, meal-time guesses, a persisted "current operation" row | Run rhythm, Work bindings, Menu resolution, Audit | Yes | Add a Cycle on the Department profile and publish it. Do not create a Department Cycle engine. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [03](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) |
+| B | Phase | Primitive | One interval inside a Cycle (nested PERIOD) | A second window engine, Work itself | Work phase binding, Run timeline | Yes | Add phases on the Cycle. Gaps and overlaps are allowed. | [08](./08_PRODUCT_LANGUAGE_GUIDE.md), [13](./13_DEPARTMENT_PRODUCT.md) |
+| B | Key Point | Primitive | An instant on a Cycle, plus the canonical actual `OperationalCycleKeyPointActual` when tracking requires it. Overdue is REQUIRED only, after the expected facility-local minute, with no actual | Work, Records, a meal-milestone engine, a notification deciding lateness | Food and Nutrition timing, Runtime Location State, Audit, Scheduled Evaluation | Yes. Avoid "Key Time" in product copy. | Add a Key Point with NONE, OPTIONAL, or REQUIRED tracking. One timing source per service date. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [LEG-D07](../legacy-retirement/DECISIONS.md#leg-d07--food--nutrition-meal-timing-uses-key-points-only--accepted-program-default-october-20-2026) |
+| B | Work Plan | Engine | Recurring shared Work configuration after publish (`DepartmentWorkPlan`, items, applicability) | Work Orders, Records, Assignments, Key Points | Expected Work, Job Flow, Dashboard expected-work | Yes | Apply a Product preset into a facility draft. Publish explicitly. Never auto-publish. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [13](./13_DEPARTMENT_PRODUCT.md) |
+| B | Expected Work | Resolver | What shared Work applies now or on a service date, derived from the published plan | The plan definition, occurrence facts, Work Orders, Records due | Job Flow, Dashboard, Audit | Yes | Extend the applicability derivation. Do not cache a second expected-work table as truth. | [03](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) |
+| B | Work occurrence | Primitive | Sparse actuals for shared Work (`DepartmentWorkOccurrence`) | The definition of Work, Work Order execution | Job Flow completion, Audit actuals | Partially | Write an occurrence only when shared Work is actually recorded. Do not pre-materialize every slot as a Task. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms) |
+| B | Job Flow | Composition | Nothing. It reads Assignment, Cycle, Work Plans, Records, and assigned work orders. | Any canonical store, a combined work lifecycle, authorization | Floor staff in every Department | Yes. It is the "my work" view. | Add a source beside the others. Do not merge stores. Work orders on Job Flow need Plant scope. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) |
 
 ### C — People & Coverage
 
@@ -480,7 +482,7 @@ Domain in the first column is wayfinding only.
 | E | Preventive Maintenance Plan | Domain | The published rule: target Asset, cadence, procedure, required Records, lead time, priority (`PreventiveMaintenancePlan` and version) | Operational Cycles, shared Work rounds, the generated Work Order's lifecycle | PM board, preventive Work Orders, Job Flow as assigned PM | Yes | Extend the plan. Fixed cadence does not slide. One occurrence, one Work Order. | [14](./14_FACILITY_PLANT_OPERATIONS.md#preventive-maintenance-plan) |
 | E | Maintenance Request | Domain | Intake asking for maintenance attention (`OperationalRequest`), including reported urgency | The problem itself, the Work Order, authoritative priority | Plant triage, requesting Departments | Yes. Say Request. | Open a Request from any Department. Acceptance creates or links maintenance work. It does not become shared Work. | [14](./14_FACILITY_PLANT_OPERATIONS.md#request) |
 | E | Asset Issue | Domain | The current maintenance condition row (`AssetIssue`): location required, asset optional, priority, equipment impact, link to Work Orders | Staffing gaps, missed Records, late service, food-safety outcomes, policy exceptions, Request intake, Work Order execution | Plant, asset evidence escalation, Asset history | Yes, as an Issue when the speaker means this condition | Extend this row for this maintenance condition. Do not rebrand it into a universal problem store. See Domain F. | [14](./14_FACILITY_PLANT_OPERATIONS.md#issue), schema comment on `AssetIssue` |
-| E | Work Order | Domain | Accepted maintenance work (`Repair`): corrective or preventive, priority, target, technician, closeout, cost facts the Product already stores | Record submission, Asset condition, Issue resolution, daily Assignment, a generic Work Plan | Repairs queue, Job Flow for assigned orders, requester status | Yes. Say Work Order. `Repair` stays internal. | Add a Work Order field on this lifecycle. Technician assignment is `Repair.assignedEmployeeId`, not `OperationalAssignment`. | [14](./14_FACILITY_PLANT_OPERATIONS.md#work-order), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
+| E | Work Order | Domain | Accepted maintenance work (`Repair`): corrective or preventive, priority, target, technician, closeout, cost facts the Product already stores | Shared Work Plans, Record submission, Asset condition, Issue resolution, daily Assignment | Repairs queue, Job Flow for assigned orders, requester status | Yes. Say Work Order. `Repair` stays internal. | Add a Work Order field on this lifecycle. Do not fold the lifecycle into `DepartmentWorkPlan`. Technician assignment is `Repair.assignedEmployeeId`, not `OperationalAssignment`. | [14](./14_FACILITY_PLANT_OPERATIONS.md#work-order), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
 | E | Vendor | Primitive | The repair or service company called for equipment (`Vendor`) | The operating partner, a vendor account, a Partner Organization | Work Order external cost, Asset repair vendor | Yes, as repair vendor | Add a vendor on the facility list. Do not reuse it as the Department operator. | [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
 
 ### F — Issues, Readiness & Recovery
@@ -490,7 +492,7 @@ Domain in the first column is wayfinding only.
 | F | Operational problem | Domain | No cross-domain table. The name is the product idea of something wrong, which several owners already record. | `AssetIssue` rows, Work Orders, Record submission, a generic Issue engine | Dashboard attention, recovery conversation | Yes, in ordinary language | Compose the owning domain. Open an architecture decision before a universal Issue primitive. | This registry, [14 platform-gap test](./14_FACILITY_PLANT_OPERATIONS.md#platform-gap-test) |
 | F | Readiness / Runtime Location State | Composition | The composed place answer for a request, including Ready, In Progress, and Needs Attention. Persists nothing. | Issue persistence, Record submission, Work completion, the published Cycle, coverage rows, a UI-local status | Locations, location workspace, Dashboard needs-attention | Yes. Never show Blocked. Never say Complete for green. | Extend Runtime Location State. Screens consume it. They do not recompute it. | [03](./03_PRODUCT_DOMAIN_MODEL.md), [08](./08_PRODUCT_LANGUAGE_GUIDE.md#readiness-language) |
 | F | Dashboard | Composition | Nothing operational. `DashboardLayout` owns card order and size for a person or facility default. | Source facts, coverage arithmetic, Record requirements, Work Order lifecycle, authorization, Department-shipped cards | Supervisors and above, partner managers on `/partner` | Yes. It is the supervisor home. | Add a platform card that reads an existing owner through the attention contract and Fact Pack. | [Dashboard architecture](../dashboard/ARCHITECTURE.md), [contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md) |
-| F | Attention | Composition | Nothing. Mappers translate existing module outputs into `DashboardAttentionItem`. | Severity as a stored domain, a second issue queue | Dashboard needs-attention | Partially | Add a pure mapper from an owner that already computes the condition. | [Dashboard architecture §5](../dashboard/ARCHITECTURE.md#5-attention-contract) |
+| F | Dashboard Attention | Composition | Nothing. Mappers translate existing module outputs into `DashboardAttentionItem`. Severity on this list is `act_now`, `due_soon`, or `watch`. | Notification rows, notification priority, a second issue queue, delivery | Dashboard needs-attention | Partially | Add a pure mapper from an owner that already computes the condition. Do not persist the item as a Notification. | [Dashboard architecture §5](../dashboard/ARCHITECTURE.md#5-attention-contract) |
 
 ### G — Knowledge & Intelligence
 
@@ -508,7 +510,10 @@ Domain in the first column is wayfinding only.
 | H | Authorization | Governance | Whether this principal may do this here: route registry, facility role period, Department write manifest, domain checks | Navigation visibility, Dashboard scope, a Department lens | Every mutation and every sensitive read | No | Classify Department writes in the write manifest. UI may only narrow. | [01](./01_PRODUCT_CONSTITUTION.md), [CDA](../contracted-departments/README.md) |
 | H | Organization relationships | Governance | Parent, Operating, and Partner Organization, partner Department scope, portfolio visibility | Facility access from membership alone, repair vendor, Asset title | Console, Admin partners, vendor-run Departments | Yes, with the words that must stay apart | Attach a company that already exists. Console creates the company. Saving a partnership does not. | [03](./03_PRODUCT_DOMAIN_MODEL.md), [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
 | H | Release, entitlement, install, enabled | Governance | The four distinct commercial and admission facts, plus publication on the owning domain | Readiness, authorization, a capability environment switch | Marketplace, customer operability | Partially. Customers see available products and Enabled. | Keep the states apart. Capabilities come with the installed Department. | [13](./13_DEPARTMENT_PRODUCT.md), [LEG-D20](../legacy-retirement/DECISIONS.md#leg-d20--department-capabilities-come-with-the-installed-department--accepted-user-october-20-2026) |
-| H | Publication and effective dating | Governance | Which Cycle, Coverage template, Catalog version, or operator period is effective for a date | A central history ledger, a Department profile | Run (ACTIVE / published), Audit (effective that day) | Yes, as Make live / publish | Publish in the owning domain. Audit must read the effective version, not the latest draft. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms) |
+| H | Publication and effective dating | Governance | Which profile, Cycle, Work Plan, Catalog version, operator period, or notification policy is effective for a date | A central history ledger | Run (ACTIVE / published), Audit (effective that day) | Yes, as Make live / publish | Publish in the owning domain. Audit must read the effective version, not the latest draft. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms) |
+| H | Notifications & Attention | Engine | The attention thread, recipient state, and delivery attempts. Priority is Update, Needs Attention, Urgent, or Critical. N0 complete. N1 foundation certified. N2 Attention Center implemented. N3A publishes `assignment.changed`. Coverage state transitions are live. The Coverage time evaluator can reevaluate or expire a thread. Key Point overdue can open and resolve a thread. `work_order.assigned` tells the assignee of one assignment. `work_order.overdue` tells the assignee the operational deadline has passed. The production clock is inactive. N4A attaches a code-owned Response Policy to each notify result: escalation eligibility, reconciliation eligibility, snooze, quiet, and digest. It does not change priority, protected, acknowledgement, or recipient reasons. N4B responsibility reconciliation, on the shared Scheduled Evaluation clock, adds the current on-duty supervisor or on-call responder to an open eligible thread at evaluator time. Prior recipients stay. It does not escalate and it does not change priority. N4C acknowledgement escalation runs on that same clock after reconciliation and adds the Department head once when no primary-responsibility recipient has acknowledged by `escalationDueAt`. It does not raise priority. `escalatedAt` records that the head was added. N4D stores recipient snooze and a User+Facility quiet and Update-digest preference. Those preferences do not hide the Center or change the bell. N5A stores a personal browser push subscription for a full User session and extends the existing service worker. N5B adds `PushDispatch`, a delivery attempt for one subscription, inside this engine. N5C registers `notifications.external-delivery` on the shared clock for snooze expiry and the existing delivery pass. Production Web Push sending stays off. It is not a second engine. Not production-ready. | The operational condition, Dashboard Attention items, chat message bodies, Harbor support notices, the schedule that invokes domain evaluators | Shell bell, Notification Center, later push and email | Yes, as a notification. The engine name stays internal | Publish a domain event to the outbox inside the source transaction. Do not call a push or email provider from the domain. Do not add a Department notification engine. | [16](./16_NOTIFICATIONS_AND_ATTENTION.md), [October 29 amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-29-2026) |
+| H | Scheduled Evaluation | Primitive | When typed domain evaluators run, their registration, one lease per evaluator, a continuation cursor, and bounded execution. Registered evaluators are Coverage time boundaries, Key Point overdue, Work Order overdue, Notifications responsibility reconciliation, Notifications acknowledgement escalation, and `notifications.external-delivery`. Reconciliation runs before escalation. Target cadence is five minutes. One invocation keeps taking batches of 25 until the four-minute budget or until every currently eligible Facility has been visited. `lastCycleCompletedAt` records that full pass. Each evaluator resumes after the last Facility or record it finished, then wraps. The lease outlives the pass. Checkpoint and health writes are fenced to the current owner. The pass stops before the lease expires and renews only while it still owns the row. Last attempt and last success are stored on that row. Production invocation stays inactive. | Coverage state, Key Point overdue rules, Work Order overdue, corrective-action due, handoff, notification priority, and push retry timing | Coverage, location-grain REQUIRED Key Points, Work Orders, and the notification evaluators already registered | No | Add an evaluator the domain owns. Do not add a second scheduler, a second queue, a rules table, or a domain-private cron for operational time. | [16](./16_NOTIFICATIONS_AND_ATTENTION.md) |
+| H | Chat | Domain | Future conversations, participants, messages, mentions, and message read state. Not yet built | Operational truth, operational acknowledgement, a second delivery engine | Communication notifications, when built | Yes, as Chat | Reference an operational object. Do not mutate it from a message. Reuse Notifications & Attention for delivery | [16](./16_NOTIFICATIONS_AND_ATTENTION.md#chat) |
 
 ---
 
@@ -519,12 +524,13 @@ Use this before implementing a feature. The owner is the domain that already ans
 | Question | Owner |
 |----------|--------|
 | What physical place is this? | Facility physical tree |
-| Which Department is responsible for this room? | Facility responsibility for that Department |
+| What role does this room play for a Department? | Location Function binding on that Department's profile |
 | What is happening now? | Published Operational Cycle and Phase |
+| Has time passing changed an operational fact? | The owning domain, when Scheduled Evaluation invokes its evaluator. The clock does not decide the fact |
 | Who was supposed to work? | Shift |
 | Where are they covering today? | Assignment |
 | Is needed responsibility covered? | Coverage derivation |
-| What recurring documentation is expected? | Records attachment effective that day |
+| What recurring work is expected? | Published Work Plan / Expected Work |
 | What documentation is due? | Records requirement / expected slot |
 | What was actually documented? | `OperationalEvidenceRecord` |
 | What equipment is this? | Asset |
@@ -539,6 +545,9 @@ Use this before implementing a feature. The owner is the domain that already ans
 | Can this user do this? | Authorization in the current context |
 | Which company runs this Department? | Department operator relationship |
 | May this facility use this Product? | Release state, entitlement, installation, and enabled, each for its own question |
+| Should this person be notified, and at what priority? | Notifications & Attention, reading the domain fact and the published policy |
+| Did this operational condition end? | The domain that owns the condition. The notification records that confirmation. It does not invent it |
+| What is on the supervisor home's current list? | Dashboard Attention |
 
 Homes must not invent an alternate answer for these rows.
 
@@ -563,6 +572,7 @@ Older documents name mechanisms this registry does not carry forward. Where they
 | Finding entity | A failed question stays on the submitted Record | Do not add a Finding store unless an architecture decision defines one. Corrective action stays on the Record. |
 | Generic Maintenance as a Department Product | Facility Plant Operations, on shared Assets and repairs | Maintenance may be a navigation group and a capability. It is not the Product name and not one engine. |
 | `AssignmentOverride` and the legacy unit schedule grid | Shift for attendance, Assignment for the day's place | Do not write placement onto the Shift. |
+| Experience-declared notification kinds, and Harbor support notices as the facility inbox | Notifications & Attention, one engine, Department policy | Do not add a per-Department notification engine. Do not route floor operations through Console support notices. Dashboard Attention stays a composition. |
 
 ### Experience principle, without an Experience tree
 
@@ -589,7 +599,7 @@ These files contain useful history or a useful principle. Where they disagree wi
 | [07 — Product Boundaries](./07_PRODUCT_BOUNDARIES.md) | What Vssyl does not become | The smell test still lists Workspace / OC / Today / Unit as the homes to avoid duplicating. Current homes are Dashboard, Job Flow, and the unit workspace. |
 | [Dashboard architecture](../dashboard/ARCHITECTURE.md) and [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md) | Cards are platform-owned. Layout stores no operational facts. Attention is mapped from owners. | Capability prose still mentions `isDepartmentEngineEnabledForFacility` and `RecordEngineRollout`. Those switches and that table were retired. Derive capabilities from install, license when enforcement is on, and real configuration. |
 | [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md) starter pack | Shared Work presets and the rule that starters are optional and unpublished | One paragraph still calls Record starters compatibility `OperationalTemplate` drafts. Forward forms are Catalog definitions. |
-| [Location programming realignment](../department-administration/13_LOCATION_PROGRAMMING_REALIGNMENT.md) | Runtime Location State as one composed place answer | It still describes an Experience registry and a Builder of Overview, Locations, and Teams. Current Department Builder is Overview, Locations, Operating Rhythm, Work, People & Coverage, and Records. |
+| [Location programming realignment](../department-administration/13_LOCATION_PROGRAMMING_REALIGNMENT.md) | Runtime Location State as one composed place answer | It still describes an Experience registry and a Builder of Overview, Locations, and Teams. Current Department Builder is Overview, Locations, Operating Rhythm, Work, People & Coverage, Records, and Notifications & Attention. |
 | [Reference capabilities index](../reference-capabilities/00_REFERENCE_CAPABILITIES_INDEX.md) | The business ability to run, cover, recover, and learn | The stack runs through a platform-vision constitution and an Experience layer. It is not the current product tree. |
 | [04 — Persona Model](./04_PERSONA_MODEL.md) | Who starts at the Dashboard | Some workflows still name Operations Center and Workspace Focus. |
 
@@ -688,6 +698,11 @@ These are concrete ways to duplicate ownership. Do not introduce them.
 - A stored self-operated / vendor-run flag
 - A central history ledger to make a report easier to query
 - An AI path that creates Work, readiness, urgency, or eligibility
+- A Dietary, EVS, or Plant notification engine
+- A Notification row that is the Coverage, Readiness, Record, Asset, Issue, or Work Order fact
+- A Dashboard Attention item stored as a Notification, or a Notification used as the Dashboard's source of truth
+- Chat text that completes Work, restores Coverage, passes a Record, or returns an Asset to service
+- A domain module that calls push or email directly instead of the notification outbox
 
 ---
 
@@ -700,11 +715,11 @@ Environmental Services is a Department Product. It does not bring its own engine
 ```text
 Environmental Services Department Product
     ↓
-Facility responsibility on existing rooms
+Location Functions on existing rooms
     ↓
 Operational Cycle / Phase where the facility publishes them
     ↓
-Coverage for explicit staffing needs
+Work Plan for expected cleaning work
     ↓
 Records for required documentation / inspection
     ↓
@@ -779,8 +794,9 @@ If a source fact is missing, extend the source domain.
 New Department Product
     ↓
 Product-owned defaults
-Facility responsibility
+Location Functions
 Operating Rhythm starters
+Work presets
 Records forms
 Coverage needs
 Marketplace starter content

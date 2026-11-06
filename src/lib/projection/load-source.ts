@@ -5,10 +5,18 @@
  * Contains no Projection resolution logic — that belongs to Wave 15C.
  */
 
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
-import { PLANT_FACILITY_WIDE_POLICY } from "@/lib/department-administration";
+import {
+  PLANT_FACILITY_WIDE_POLICY,
+  type ExperienceConfiguration,
+  type ProfileSnapshot,
+  type RoomArchetypeBindingSnapshot,
+  type RoomExceptionSnapshot,
+} from "@/lib/department-administration";
+import { toProfileSnapshot } from "@/lib/department-administration/profile-service";
 import { hasPlantDomainCapabilities } from "@/lib/department-admission";
+import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 import { isStagedUnit, isUndesignatedSpace } from "@/lib/facility-builder/operational-visibility";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
@@ -24,6 +32,26 @@ import type {
   ProjectionRequest,
   ProjectionRevision,
 } from "./types";
+
+const ACTIVE_PROFILE_INCLUDE = {
+  department: {
+    select: { id: true, key: true, facilityId: true, isActive: true },
+  },
+  areas: {
+    orderBy: { sortOrder: "asc" as const },
+    include: { experiences: { orderBy: { sortOrder: "asc" as const } } },
+  },
+  archetypes: {
+    orderBy: { sortOrder: "asc" as const },
+    include: { experiences: { orderBy: { sortOrder: "asc" as const } } },
+  },
+  roomBindings: true,
+  roomExceptions: true,
+} satisfies Prisma.DepartmentOperationalProfileInclude;
+
+type LoadedActiveProfile = Prisma.DepartmentOperationalProfileGetPayload<{
+  include: typeof ACTIVE_PROFILE_INCLUDE;
+}>;
 
 export type ProjectionSourceLoadDb = {
   facility: {
@@ -85,6 +113,15 @@ function mapParentHierarchyRole(
   if (role === "NEIGHBORHOOD" || role === "LEGACY_LOCATION") return "NEIGHBORHOOD";
   if (role === "STAGED") return "STAGED";
   return null;
+}
+
+function asConfiguration(
+  value: Prisma.JsonValue | null,
+): ExperienceConfiguration | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as ExperienceConfiguration;
 }
 
 /**
@@ -167,6 +204,11 @@ export async function loadProjectionSource(
           name: true,
           isActive: true,
           updatedAt: true,
+          operationalProfiles: {
+            where: { status: "ACTIVE" },
+            take: 1,
+            include: ACTIVE_PROFILE_INCLUDE,
+          },
         },
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       },
@@ -201,6 +243,8 @@ export async function loadProjectionSource(
   const rooms: ProjectionSourceRoom[] = [];
   const hierarchyTimestamps = [asIso(facility.updatedAt)];
   const assignmentTimestamps: string[] = [];
+  const profileTimestamps: string[] = [];
+  const bindingTimestamps: string[] = [];
 
   locations.push({
     id: facilityLocationId(facility.id),
@@ -345,6 +389,96 @@ export async function loadProjectionSource(
   const policies: ProjectionSourcePolicy[] = [];
 
   for (const department of facility.departments) {
+    const activeRow = department.operationalProfiles[0] as
+      | LoadedActiveProfile
+      | undefined;
+    let activeProfile: ProfileSnapshot | null = null;
+    const archetypeBindings: RoomArchetypeBindingSnapshot[] = [];
+    const roomExceptions: RoomExceptionSnapshot[] = [];
+
+    if (activeRow) {
+      if (activeRow.facilityId !== facility.id) {
+        diagnostics.push(
+          diagnostic(
+            "SOURCE_INVALID",
+            `ACTIVE profile ${activeRow.id} belongs to another facility`,
+            `departments.${department.id}.activeProfile`,
+          ),
+        );
+      } else if (activeRow.departmentId !== department.id) {
+        diagnostics.push(
+          diagnostic(
+            "SOURCE_INVALID",
+            `ACTIVE profile ${activeRow.id} does not belong to department ${department.id}`,
+            `departments.${department.id}.activeProfile`,
+          ),
+        );
+      } else {
+        activeProfile = toProfileSnapshot(
+          activeRow as Parameters<typeof toProfileSnapshot>[0],
+        );
+        profileTimestamps.push(
+          `${activeRow.id}:${activeRow.version}:${asIso(activeRow.updatedAt)}`,
+        );
+
+        for (const binding of activeRow.roomBindings) {
+          bindingTimestamps.push(asIso(binding.createdAt));
+          const room = rooms.find(
+            (candidate) => candidate.context.id === binding.unitSpaceId,
+          );
+          if (!room || room.context.facilityId !== facility.id) {
+            diagnostics.push(
+              diagnostic(
+                "ORPHAN_BINDING",
+                `Binding ${binding.id} references out-of-facility or unknown room`,
+                `bindings.${binding.id}`,
+              ),
+            );
+            continue;
+          }
+          archetypeBindings.push({
+            id: binding.id,
+            unitSpaceId: binding.unitSpaceId,
+            archetypeId: binding.archetypeId,
+          });
+        }
+
+        for (const exception of activeRow.roomExceptions) {
+          bindingTimestamps.push(asIso(exception.createdAt));
+          const room = rooms.find(
+            (candidate) => candidate.context.id === exception.unitSpaceId,
+          );
+          if (!room || room.context.facilityId !== facility.id) {
+            diagnostics.push(
+              diagnostic(
+                "ROOM_EXCEPTION_INVALID",
+                `Exception ${exception.id} references out-of-facility or unknown room`,
+                `exceptions.${exception.id}`,
+              ),
+            );
+            continue;
+          }
+          roomExceptions.push({
+            id: exception.id,
+            unitSpaceId: exception.unitSpaceId,
+            areaExperienceId: exception.areaExperienceId,
+            mode: exception.mode,
+            configuration: asConfiguration(exception.configurationJson),
+            reason: exception.reason,
+          });
+        }
+      }
+    } else if (department.isActive) {
+      diagnostics.push(
+        diagnostic(
+          "MISSING_ACTIVE_PROFILE",
+          `Department ${department.key} has no ACTIVE Operational Profile`,
+          `departments.${department.id}.activeProfile`,
+          "WARNING",
+        ),
+      );
+    }
+
     const assignedRoomIds = rooms
       .filter((room) =>
         room.context.assignedDepartmentIds.includes(department.id),
@@ -367,8 +501,17 @@ export async function loadProjectionSource(
       key: department.key,
       label: department.name,
       isActive: department.isActive,
+      activeProfile,
       assignedRoomIds,
       assignedUnitIds,
+      archetypeBindings: archetypeBindings.sort((a, b) =>
+        a.unitSpaceId.localeCompare(b.unitSpaceId),
+      ),
+      roomExceptions: roomExceptions.sort(
+        (a, b) =>
+          a.unitSpaceId.localeCompare(b.unitSpaceId) ||
+          a.areaExperienceId.localeCompare(b.areaExperienceId),
+      ),
     });
 
     if (hasPlantDomainCapabilities(department.key) && department.isActive) {
@@ -376,6 +519,8 @@ export async function loadProjectionSource(
         kind: PLANT_FACILITY_WIDE_POLICY.kind,
         departmentId: department.id,
         departmentKey: department.key,
+        defaultArchetypeKey: PLANT_FACILITY_WIDE_POLICY.defaultArchetypeKey,
+        directBindingsTakePrecedence: true,
         createsRoomAssignments: false,
       });
     }
@@ -410,7 +555,10 @@ export async function loadProjectionSource(
   const revision: ProjectionRevision = {
     hierarchyRevision: `hierarchy:${maxIso(hierarchyTimestamps)}`,
     assignmentRevision: `assignments:${maxIso(assignmentTimestamps)}`,
-    policyRevision: `policy:${PLANT_FACILITY_WIDE_POLICY.kind}`,
+    profileRevision: `profiles:${profileTimestamps.sort().join("|") || "none"}`,
+    bindingRevision: `bindings:${maxIso(bindingTimestamps)}`,
+    policyRevision: `policy:${PLANT_FACILITY_WIDE_POLICY.kind}:${PLANT_FACILITY_WIDE_POLICY.defaultArchetypeKey}`,
+    experienceRegistryVersion: EXPERIENCE_REGISTRY_VERSION,
     accessClassRevision: `access:${request.accessClass.key}`,
   };
 

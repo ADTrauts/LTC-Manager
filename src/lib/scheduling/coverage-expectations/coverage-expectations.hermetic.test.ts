@@ -38,7 +38,6 @@ function item(
     roleLabel: overrides.roleKey === "SERVER" ? "Server" : overrides.roleKey,
     requiredCount: 1,
     unitId: null,
-    spaceId: null,
     applicableOperationalTypeKeys: [],
     applicableOperationalCycleStableKeys: [],
     ...overrides,
@@ -51,8 +50,7 @@ function serveryBreakfastServer(overrides: Partial<CoverageExpectationItemInput>
     roleKey: "SERVER",
     roleLabel: "Server",
     requiredCount: 1,
-    spaceId: "space-3a",
-    applicableOperationalTypeKeys: [],
+    applicableOperationalTypeKeys: ["servery"],
     applicableOperationalCycleStableKeys: ["breakfast", "lunch", "dinner"],
     ...overrides,
   });
@@ -65,8 +63,7 @@ function retailLunchServer() {
     roleLabel: "Server",
     requiredCount: 1,
     templateStableKey: "retail-lunch",
-    spaceId: "space-retail",
-    applicableOperationalTypeKeys: [],
+    applicableOperationalTypeKeys: ["retail"],
     applicableOperationalCycleStableKeys: ["lunch"],
   });
 }
@@ -78,8 +75,7 @@ function mainKitchenBreakfast() {
       roleKey: "COOK",
       roleLabel: "Cook",
       requiredCount: 2,
-      spaceId: "space-kitchen",
-      applicableOperationalTypeKeys: [],
+      applicableOperationalTypeKeys: ["main_kitchen"],
       applicableOperationalCycleStableKeys: ["breakfast_production"],
     }),
     item({
@@ -87,8 +83,7 @@ function mainKitchenBreakfast() {
       roleKey: "HOT_PREP",
       roleLabel: "Hot Prep",
       requiredCount: 1,
-      spaceId: "space-kitchen",
-      applicableOperationalTypeKeys: [],
+      applicableOperationalTypeKeys: ["main_kitchen"],
       applicableOperationalCycleStableKeys: ["breakfast_production"],
     }),
     item({
@@ -96,8 +91,7 @@ function mainKitchenBreakfast() {
       roleKey: "PORTER",
       roleLabel: "Porter",
       requiredCount: 1,
-      spaceId: "space-kitchen",
-      applicableOperationalTypeKeys: [],
+      applicableOperationalTypeKeys: ["main_kitchen"],
       applicableOperationalCycleStableKeys: ["breakfast_production"],
     }),
   ];
@@ -147,7 +141,7 @@ const lunchWindow = {
 };
 
 describe("coverage expectation applicability", () => {
-  it("applies a SERVER requirement only to the stored room", () => {
+  it("applies one Servery SERVER requirement to every Servery room without copied rows", () => {
     const items = [serveryBreakfastServer()];
     const threeA = resolveCoverageExpectationsForLocation({
       items,
@@ -162,8 +156,9 @@ describe("coverage expectation applicability", () => {
       cycleStableKey: "breakfast",
     });
     assert.deepEqual(roles(threeA), ["SERVER×1@breakfast"]);
-    assert.deepEqual(roles(threeB), []);
-    assert.equal(threeA[0]?.provenance, "EXPLICIT_LOCATION");
+    assert.deepEqual(roles(threeB), ["SERVER×1@breakfast"]);
+    assert.equal(threeA[0]?.provenance, "OPERATIONAL_TYPE_DEFAULT");
+    assert.match(threeA[0]?.detail ?? "", /Inherited from Operational Type: Servery/);
   });
 
   it("isolates Retail lunch from Servery breakfast", () => {
@@ -239,9 +234,15 @@ describe("coverage expectation applicability", () => {
     assert.deepEqual(roles(resolved), []);
   });
 
-  it("keeps the stored room when the context still carries an Operational Type label", () => {
+  it("uses the caller-supplied Operational Type so draft OT cannot leak into runtime resolution", () => {
     const items = [serveryBreakfastServer(), retailLunchServer()];
-    const labeledRetail = resolveCoverageExpectationsForLocation({
+    const runtimeServery = resolveCoverageExpectationsForLocation({
+      items,
+      context: serveryContext(),
+      cycles,
+      cycleStableKey: "breakfast",
+    });
+    const workingRetail = resolveCoverageExpectationsForLocation({
       items,
       context: {
         departmentId: "dietary",
@@ -253,12 +254,11 @@ describe("coverage expectation applicability", () => {
       cycles,
       cycleStableKey: "breakfast",
     });
-    assert.deepEqual(roles(labeledRetail), ["SERVER×1@breakfast"]);
-    assert.equal(labeledRetail[0]?.provenance, "EXPLICIT_LOCATION");
-    assert.equal("operationalTypeKey" in (labeledRetail[0] ?? {}), false);
+    assert.deepEqual(roles(runtimeServery), ["SERVER×1@breakfast"]);
+    assert.deepEqual(roles(workingRetail), []);
   });
 
-  it("does not apply a unit need to a room", () => {
+  it("retains a legacy unit-targeted item as EXPLICIT_LOCATION", () => {
     const resolved = resolveCoverageExpectationsForLocation({
       items: [
         item({
@@ -270,7 +270,7 @@ describe("coverage expectation applicability", () => {
       context: serveryContext(),
       cycles,
     });
-    assert.deepEqual(resolved, []);
+    assert.equal(resolved[0]?.provenance, "EXPLICIT_LOCATION");
   });
 });
 
@@ -290,7 +290,6 @@ describe("coverage publication boundary", () => {
         roleLabel: "Server",
         requiredCount: 1,
         unitId: null,
-        spaceId: "space-3a",
         applicableOperationalTypeKeys: ["servery"],
         applicableOperationalCycleStableKeys: ["breakfast"],
       },
@@ -392,7 +391,6 @@ describe("historical coverage selection", () => {
         roleLabel: "Server",
         requiredCount: 2,
         unitId: null,
-        spaceId: "space-3a",
         applicableOperationalTypeKeys: ["servery"],
         applicableOperationalCycleStableKeys: ["breakfast"],
       },
@@ -663,7 +661,7 @@ describe("canonical coverage states", () => {
 });
 
 describe("coverage source contracts", () => {
-  it("shows canonical coverage on the room and does not edit a team count there", () => {
+  it("keeps Locations as an inspector and team × cycle as the need editor", () => {
     const client = readFileSync(
       join(
         process.cwd(),
@@ -682,8 +680,7 @@ describe("coverage source contracts", () => {
       ),
       "utf8",
     );
-    assert.match(client, /location-program-coverage/);
-    assert.doesNotMatch(client, /Staffing need/);
+    assert.match(client, /Staffing need/);
     assert.doesNotMatch(client, /Manage Coverage/);
     assert.doesNotMatch(client, /Mary assigned/);
     assert.match(page, /isDepartmentAdminRetiredTabId/);

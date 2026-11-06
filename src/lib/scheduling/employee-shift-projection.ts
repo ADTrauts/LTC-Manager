@@ -22,8 +22,10 @@ export type ShiftPresence = {
   plannedEnd: string | null;
   /** Legacy meal-slot label. Not primary presence semantics. */
   shiftSlot: string | null;
-  /** Department owning this shift. */
+  /** Department owning this shift (explicit since migration 81; null on legacy rows). */
   departmentId: string | null;
+  /** Legacy Unit placement (demoted). */
+  legacyUnitId: string | null;
   /** Source WorkShift pattern id if created from a template. */
   workShiftId: string | null;
 };
@@ -47,8 +49,8 @@ export type EmployeeShiftProjection = {
   employeeId: string;
   employeeFirstName: string;
   employeeLastName: string;
-  /** HR Job Title for this person. */
-  jobTitleName: string | null;
+  /** Canonical Job Role display name for this service date (from BUILD). */
+  jobRoleDisplayName: string | null;
   /** Team display name (from BUILD). */
   teamDisplayName: string | null;
   /** All scheduled shifts for this employee on this service date. */
@@ -100,7 +102,7 @@ export function buildEmployeeShiftProjection(input: {
   employeeId: string;
   employeeFirstName: string;
   employeeLastName: string;
-  jobTitleName: string | null;
+  jobRoleDisplayName: string | null;
   teamDisplayName: string | null;
   serviceDate: string;
   scheduleEntries: Array<{
@@ -109,6 +111,7 @@ export function buildEmployeeShiftProjection(input: {
     plannedEnd: string | null;
     shift: string;
     departmentId: string | null;
+    unitId: string | null;
     workShiftId: string | null;
   }>;
   operationalAssignments: Array<{
@@ -127,6 +130,7 @@ export function buildEmployeeShiftProjection(input: {
     plannedEnd: e.plannedEnd,
     shiftSlot: e.shift,
     departmentId: e.departmentId,
+    legacyUnitId: e.unitId,
     workShiftId: e.workShiftId,
   }));
 
@@ -151,7 +155,7 @@ export function buildEmployeeShiftProjection(input: {
     employeeId: input.employeeId,
     employeeFirstName: input.employeeFirstName,
     employeeLastName: input.employeeLastName,
-    jobTitleName: input.jobTitleName,
+    jobRoleDisplayName: input.jobRoleDisplayName,
     teamDisplayName: input.teamDisplayName,
     shifts,
     assignments,

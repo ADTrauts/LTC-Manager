@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { AppJwtPayload } from "@/lib/auth";
-import { isAccountSession } from "@/lib/auth";
+import { isAccountSession, userSessionKey } from "@/lib/auth";
 import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
 import { resolveCurrentInternalFacilityRole } from "@/lib/facility-access/internal-facility-role";
 
@@ -11,6 +11,36 @@ import { resolveCurrentInternalFacilityRole } from "@/lib/facility-access/intern
  * accompanies, so every helper here accepts either.
  */
 export type PrismaLike = PrismaClient | Prisma.TransactionClient;
+
+type RevocationLookup = {
+  revokedUserSession?: {
+    findUnique: (args: {
+      where: { jti: string };
+      select: { userId: true };
+    }) => Promise<{ userId: string } | null>;
+  };
+};
+
+/**
+ * A full User credential must name one session. A denylist row ends that session.
+ * Partial clients used by older hermetic fakes have no table; production Prisma does.
+ * A missing table on the real client throws and the request fails closed.
+ */
+export async function findRevokedUserSession(
+  client: PrismaLike,
+  session: AppJwtPayload,
+): Promise<SessionValidation | null> {
+  if (session.authKind !== "user") return null;
+  const jti = userSessionKey(session);
+  if (!jti) return { valid: false, reason: "SESSION_UNIDENTIFIED" };
+  const table = (client as PrismaLike & RevocationLookup).revokedUserSession;
+  if (!table?.findUnique) return null;
+  const row = await table.findUnique({ where: { jti }, select: { userId: true } });
+  if (!row || row.userId !== session.uid) {
+    return row ? { valid: false, reason: "SESSION_REVOKED" } : null;
+  }
+  return { valid: false, reason: "SESSION_REVOKED" };
+}
 
 /**
  * The value every identity starts at, and the value the migration backfills onto existing rows.
@@ -29,6 +59,8 @@ export type SessionRejection =
   | "IDENTITY_INACTIVE"
   | "VERSION_CLAIM_MISSING"
   | "VERSION_STALE"
+  | "SESSION_UNIDENTIFIED"
+  | "SESSION_REVOKED"
   | "ROLE_STALE"
   | "AUTH_METHOD_NOT_ALLOWED"
   | "FACILITY_ACCESS_REVOKED";
@@ -57,6 +89,8 @@ export function classifySessionRejection(reason: SessionRejection): SessionRejec
     case "IDENTITY_INACTIVE":
     case "VERSION_CLAIM_MISSING":
     case "VERSION_STALE":
+    case "SESSION_UNIDENTIFIED":
+    case "SESSION_REVOKED":
     case "AUTH_METHOD_NOT_ALLOWED":
       return "identity";
     case "ROLE_STALE":
@@ -124,6 +158,16 @@ async function validateHarborStaffWorkSession(
 }
 
 async function validateUserSession(
+  session: AppJwtPayload,
+  client: PrismaLike,
+): Promise<SessionValidation> {
+  const result = await validateUserSessionAuthority(session, client);
+  if (!result.valid) return result;
+  const revoked = await findRevokedUserSession(client, session);
+  return revoked ?? result;
+}
+
+async function validateUserSessionAuthority(
   session: AppJwtPayload,
   client: PrismaLike,
 ): Promise<SessionValidation> {
@@ -358,6 +402,55 @@ async function validateEmployeeSession(
  * Increments rather than assigns, so two concurrent revocations both take effect and neither can
  * lower the version or restore a session the other ended.
  */
+function isUniqueConflict(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: unknown }).code === "P2002"
+  );
+}
+
+/**
+ * Record the signed-out User credential. A second sign-out of the same id is success.
+ * A User token with no id falls back to the User-wide version so it cannot stay usable.
+ */
+export async function endSignedOutUserCredential(
+  client: PrismaLike,
+  input: { userId: string; jti: string | null; expiresAt: Date },
+): Promise<"session" | "legacy_version"> {
+  if (!input.jti) {
+    await revokeUserSessions(client, input.userId);
+    return "legacy_version";
+  }
+  const table = client.revokedUserSession;
+  const existing = await table.findUnique({
+    where: { jti: input.jti },
+    select: { userId: true },
+  });
+  if (existing) {
+    if (existing.userId !== input.userId) throw new Error("session_owner_mismatch");
+    return "session";
+  }
+  try {
+    await table.create({
+      data: {
+        jti: input.jti,
+        userId: input.userId,
+        expiresAt: input.expiresAt,
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConflict(error)) throw error;
+    const raced = await table.findUnique({
+      where: { jti: input.jti },
+      select: { userId: true },
+    });
+    if (raced?.userId !== input.userId) throw new Error("session_owner_mismatch");
+  }
+  return "session";
+}
+
 export async function revokeUserSessions(client: PrismaLike, userId: string): Promise<number> {
   const updated = await client.user.update({
     where: { id: userId },

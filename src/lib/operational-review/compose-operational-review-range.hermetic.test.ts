@@ -218,7 +218,6 @@ test("coverage version change aggregates each day's published requirement", () =
           roleLabel: "Server",
           requiredCount: 2,
           unitId: null,
-          spaceId: "space-1",
           applicableOperationalTypeKeys: ["servery"],
           applicableOperationalCycleStableKeys: [],
         },
@@ -239,7 +238,6 @@ test("coverage version change aggregates each day's published requirement", () =
           roleLabel: "Server",
           requiredCount: 1,
           unitId: null,
-          spaceId: "space-1",
           applicableOperationalTypeKeys: ["servery"],
           applicableOperationalCycleStableKeys: [],
         },
@@ -262,7 +260,7 @@ test("coverage version change aggregates each day's published requirement", () =
   );
 });
 
-test("facility location labels stay stable across the range", () => {
+test("OT change is applied per day, not current profile across the range", () => {
   const range = rangeOf(
     [
       facts({
@@ -343,10 +341,8 @@ test("facility location labels stay stable across the range", () => {
     "2026-09-02",
     "2026-09-06",
   );
-  assert.equal("operationalTypeKey" in (range.days[0]?.locations[0] ?? {}), false);
-  assert.equal("operationalTypeKey" in (range.days[1]?.locations[0] ?? {}), false);
-  assert.equal(range.days[0]?.locations[0]?.displayLabel, "Main Kitchen");
-  assert.equal(range.days[0]?.locations[0]?.displayLabel, range.days[1]?.locations[0]?.displayLabel);
+  assert.equal(range.days[0]?.locations[0]?.operationalTypeKey, "servery");
+  assert.equal(range.days[1]?.locations[0]?.operationalTypeKey, "retail");
 });
 
 test("unavailable days are excluded from false denominators", () => {
@@ -394,7 +390,6 @@ test("partial-domain ranges keep independent denominators", () => {
           roleLabel: "Server",
           requiredCount: 1,
           unitId: null,
-          spaceId: "space-1",
           applicableOperationalTypeKeys: ["servery"],
           applicableOperationalCycleStableKeys: [],
         },
@@ -415,7 +410,6 @@ test("partial-domain ranges keep independent denominators", () => {
           roleLabel: "Server",
           requiredCount: 2,
           unitId: null,
-          spaceId: "space-1",
           applicableOperationalTypeKeys: ["servery"],
           applicableOperationalCycleStableKeys: [],
         },
@@ -507,7 +501,6 @@ test("schedule does not change coverage aggregation", () => {
           roleLabel: "Server",
           requiredCount: 2,
           unitId: null,
-          spaceId: "space-1",
           applicableOperationalTypeKeys: ["servery"],
           applicableOperationalCycleStableKeys: [],
         },

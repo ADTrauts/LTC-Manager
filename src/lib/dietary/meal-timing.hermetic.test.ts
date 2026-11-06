@@ -29,7 +29,7 @@ test("a new generic Key Point defaults to NONE and Service Started opts into REQ
     assert.equal(due?.keyPointGrain, "DEPARTMENT");
     assert.equal(ready?.occurrenceTracking, "REQUIRED");
     assert.equal(ready?.keyPointGrain, "LOCATION");
-    assert.equal(ready?.applicableOperationalTypeKeys, undefined);
+    assert.deepEqual(ready?.applicableOperationalTypeKeys, ["food_service_area"]);
     assert.equal(started?.occurrenceTracking, "REQUIRED");
     assert.equal(started?.keyPointGrain, "LOCATION");
     assert.equal(started?.mealType, null);

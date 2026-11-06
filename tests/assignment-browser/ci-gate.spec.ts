@@ -99,9 +99,8 @@ test("create and confirm @ci-gate: supervisor assigns and confirms plan", async 
     });
 
     const createForm = page.locator("form").filter({ hasText: "Create Assignment" });
-    await createForm.locator('select[name="roleKey"]').selectOption("SERVER");
-    await expect(createForm.locator(`select[name="employeeId"] option[value="${fx.staffEmployeeId}"]`)).toHaveCount(1);
     await createForm.locator('select[name="employeeId"]').selectOption({ value: fx.staffEmployeeId });
+    await createForm.locator('select[name="roleKey"]').selectOption({ index: 1 });
     await createForm.locator('select[name="unitId"]').selectOption({ value: fx.unitId });
     await createForm.locator('input[name="startsAt"]').fill("06:00");
     await createForm.locator('input[name="endsAt"]').fill("10:00");

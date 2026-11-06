@@ -54,7 +54,17 @@ export type RuntimeLocationIdentity = {
 };
 
 export type RuntimeEffectiveProgramRef = {
+  /** Composed Location Program. Operational Type below is a legacy sidecar for cycle engines. */
   locationProgram: LocationProgram;
+  operationalType: {
+    state: "assigned" | "unassigned";
+    key: string | null;
+    name: string | null;
+    id: string | null;
+    profileId: string | null;
+    profileVersion: number | null;
+    profileStatus: "ACTIVE" | null;
+  };
   cycleSetRef: {
     departmentId: string;
     publishedOn: string;
@@ -230,6 +240,7 @@ export type RuntimeException = {
   location: RuntimeLocationId;
   operationalContext: {
     cycleStableKey: string | null;
+    operationalTypeKey: string | null;
   };
   label: string;
   href: string | null;

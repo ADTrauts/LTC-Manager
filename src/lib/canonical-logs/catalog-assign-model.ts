@@ -12,9 +12,6 @@ export type CatalogAssignTargetRow = {
   id: string;
   label: string;
   groupLabel: string | null;
-  floorLabel?: string | null;
-  neighborhoodLabel?: string | null;
-  roomTypeLabel?: string | null;
   departmentId: string | null;
   departmentName: string | null;
   suggested: boolean;
@@ -60,7 +57,8 @@ export function parseTargetAssignKey(
     kind !== "ASSET" &&
     kind !== "SPACE" &&
     kind !== "UNIT" &&
-    kind !== "DEPARTMENT"
+    kind !== "DEPARTMENT" &&
+    kind !== "OPERATIONAL_TYPE"
   ) {
     return null;
   }

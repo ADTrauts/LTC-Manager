@@ -119,6 +119,7 @@ export type SupervisorOperationsViewModel = {
     milestones: SupervisorAttentionItem[];
     evidence: SupervisorEvidenceAttentionItem[];
     assets: SupervisorAttentionItem[];
+    work: SupervisorAttentionItem[];
     sync: SupervisorAttentionItem[];
     configuration: SupervisorAttentionItem[];
   };

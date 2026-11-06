@@ -5,6 +5,14 @@
  * homes, AI, tool rendering, or runtime engine data exists here.
  */
 
+import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
+import { buildExperienceContracts } from "@/lib/experiences/contracts";
+import {
+  resolveDepartmentRoomProfile,
+  type ProfileSnapshot,
+  type ResolvedRoomProfile,
+} from "@/lib/department-administration";
+
 import type {
   ProjectionSource,
   ProjectionSourceDepartment,
@@ -13,10 +21,15 @@ import type {
   ProjectionSourceRoom,
 } from "./source";
 import type {
+  ProjectionArea,
   ProjectionDescriptor,
   ProjectionDiagnostic,
+  ProjectionExperience,
+  ProjectionExperienceProvenance,
   ProjectionIdentity,
   ProjectionLocationNode,
+  ProjectionQueryScope,
+  ProjectionQueryScopes,
   ProjectionSnapshot,
 } from "./types";
 import { validateProjectionSnapshot } from "./validation";
@@ -46,6 +59,18 @@ export type EligibleProjectionRoom = {
   explicitAssignment: boolean;
 };
 
+export type ResolvedProjectionRoom = {
+  eligible: EligibleProjectionRoom;
+  profile: ProfileSnapshot;
+  resolved: ResolvedRoomProfile;
+  policyDefaultApplied: boolean;
+};
+
+export type PermissionedProjectionRoom = ResolvedProjectionRoom & {
+  resolved: ResolvedRoomProfile;
+  allowedActionKeysByExperience: Readonly<Record<string, readonly string[]>>;
+};
+
 function diagnostic(
   code: ProjectionDiagnostic["code"],
   message: string,
@@ -59,12 +84,30 @@ function stableUnique(values: readonly string[]): string[] {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
-function makeDescriptor(
-  kind: ProjectionDescriptor["kind"],
-  sourceId: string,
-  label: string,
-): ProjectionDescriptor {
-  return { id: `${kind}:${sourceId}`, kind, sourceId, label };
+function hasPermission(
+  granted: readonly string[],
+  required: readonly string[],
+): boolean {
+  if (granted.includes("*")) return true;
+  return required.every((permission) => granted.includes(permission));
+}
+
+function leftoverLabel(key: string): string {
+  return key
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function leftoverExperienceContracts(experienceKey: string) {
+  return buildExperienceContracts({
+    experienceKey,
+    experienceName: leftoverLabel(experienceKey),
+    tools: [],
+    domains: ["location"],
+    grain: "ROOM",
+  });
 }
 
 function locationReferenceKey(location: ProjectionSourceLocation): string {
@@ -348,6 +391,46 @@ export function resolveRoomEligibility(
   return { value: eligible, diagnostics };
 }
 
+export function resolveActiveProjectionProfile(
+  department: ProjectionSourceDepartment,
+): StageResult<ProfileSnapshot | null> {
+  if (!department.activeProfile || department.activeProfile.status !== "ACTIVE") {
+    return {
+      value: null,
+      diagnostics: [
+        diagnostic(
+          "MISSING_ACTIVE_PROFILE",
+          `Department ${department.key} has no ACTIVE Operational Profile`,
+          `source.departments.${department.id}.activeProfile`,
+          // Physical Run locations no longer require a profile. Experiences /
+          // archetype resolution still depend on one when present.
+          "WARNING",
+        ),
+      ],
+    };
+  }
+  if (
+    department.activeProfile.departmentId !== department.id ||
+    department.activeProfile.departmentKey !== department.key
+  ) {
+    return {
+      value: null,
+      diagnostics: [
+        diagnostic(
+          "SOURCE_INVALID",
+          `ACTIVE profile does not belong to department ${department.key}`,
+          `source.departments.${department.id}.activeProfile`,
+        ),
+      ],
+    };
+  }
+  return { value: department.activeProfile, diagnostics: [] };
+}
+
+/**
+ * Neighborhood / legacy Unit eligibility from UnitDepartmentResponsibility.
+ * Floors and staged units are never actionable department locations.
+ */
 export function resolveUnitEligibility(
   source: ProjectionSource,
   hierarchy: NormalizedProjectionHierarchy,
@@ -366,6 +449,7 @@ export function resolveUnitEligibility(
     if (!location.isActive || !location.isPlaced) continue;
 
     const role = location.reference.hierarchyRole;
+    // Buildings and Floors stay structural; STAGED is never placed/active in source.
     if (role === "BUILDING" || role === "FLOOR") continue;
     if (role !== "NEIGHBORHOOD" && role !== "LEGACY") continue;
 
@@ -396,13 +480,455 @@ export function resolveUnitEligibility(
   return { value: eligible, diagnostics };
 }
 
+export function resolveRoomProfiles(
+  eligibleRooms: readonly EligibleProjectionRoom[],
+  profile: ProfileSnapshot,
+  department: ProjectionSourceDepartment,
+  knownSourceRoomIds: readonly string[],
+): StageResult<readonly ResolvedProjectionRoom[]> {
+  const diagnostics: ProjectionDiagnostic[] = [];
+  const resolvedRooms: ResolvedProjectionRoom[] = [];
+  const knownRoomIds = new Set(knownSourceRoomIds);
+  const knownAreaExperienceIds = new Set(
+    profile.areas.flatMap((area) =>
+      area.experiences.map((experience) => experience.id),
+    ),
+  );
+  const bindingsByRoom = new Map<
+    string,
+    ProjectionSourceDepartment["archetypeBindings"][number][]
+  >();
+  const exceptionsByRoom = new Map<
+    string,
+    ProjectionSourceDepartment["roomExceptions"][number][]
+  >();
+
+  for (const binding of department.archetypeBindings) {
+    bindingsByRoom.set(binding.unitSpaceId, [
+      ...(bindingsByRoom.get(binding.unitSpaceId) ?? []),
+      binding,
+    ]);
+    if (!knownRoomIds.has(binding.unitSpaceId)) {
+      diagnostics.push(
+        diagnostic(
+          "ORPHAN_BINDING",
+          `Binding ${binding.id} references an ineligible or unknown room ${binding.unitSpaceId}`,
+          `bindings.${binding.id}`,
+        ),
+      );
+    }
+    if (!profile.archetypes.some((archetype) => archetype.id === binding.archetypeId)) {
+      diagnostics.push(
+        diagnostic(
+          "INVALID_ARCHETYPE_REFERENCE",
+          `Binding ${binding.id} references unknown archetype ${binding.archetypeId}`,
+          `bindings.${binding.id}`,
+        ),
+      );
+    }
+  }
+
+  for (const exception of department.roomExceptions) {
+    exceptionsByRoom.set(exception.unitSpaceId, [
+      ...(exceptionsByRoom.get(exception.unitSpaceId) ?? []),
+      exception,
+    ]);
+    if (
+      !knownRoomIds.has(exception.unitSpaceId) ||
+      !knownAreaExperienceIds.has(exception.areaExperienceId)
+    ) {
+      diagnostics.push(
+        diagnostic(
+          "ROOM_EXCEPTION_INVALID",
+          `Room exception ${exception.id} references an invalid room or Experience`,
+          `exceptions.${exception.id}`,
+        ),
+      );
+    }
+  }
+
+  for (const eligible of eligibleRooms) {
+    const bindings =
+      bindingsByRoom.get(eligible.room.context.id) ?? [];
+    if (bindings.length > 1) {
+      diagnostics.push(
+        diagnostic(
+          "ORPHAN_BINDING",
+          `Room ${eligible.room.context.id} has multiple archetype bindings`,
+          `rooms.${eligible.room.context.id}`,
+        ),
+      );
+      continue;
+    }
+    const binding = bindings[0] ?? null;
+    const policyDefaultArchetypeKey =
+      !binding && eligible.policy
+        ? eligible.policy.defaultArchetypeKey
+        : undefined;
+
+    if (!binding && !policyDefaultArchetypeKey) {
+      diagnostics.push(
+        diagnostic(
+          "ROOM_UNMAPPED",
+          `Room ${eligible.room.context.id} has no archetype mapping`,
+          `rooms.${eligible.room.context.id}`,
+          "WARNING",
+        ),
+      );
+      continue;
+    }
+
+    const resolved = resolveDepartmentRoomProfile({
+      profile,
+      room: eligible.room.context,
+      archetypeBinding: binding,
+      policyDefaultArchetypeKey,
+      exceptions: exceptionsByRoom.get(eligible.room.context.id) ?? [],
+    });
+    for (const roomIssue of resolved.diagnostics) {
+      const code =
+        roomIssue.code.includes("archetype") ||
+        roomIssue.code.includes("binding")
+          ? "INVALID_ARCHETYPE_REFERENCE"
+          : roomIssue.code.includes("exception")
+            ? "ROOM_EXCEPTION_INVALID"
+            : "SOURCE_INVALID";
+      diagnostics.push(
+        diagnostic(
+          code,
+          roomIssue.message,
+          `rooms.${eligible.room.context.id}`,
+          "WARNING",
+        ),
+      );
+    }
+    if (!resolved.archetype) continue;
+
+    resolvedRooms.push({
+      eligible,
+      profile,
+      resolved,
+      policyDefaultApplied: Boolean(policyDefaultArchetypeKey),
+    });
+  }
+
+  return { value: resolvedRooms, diagnostics };
+}
+
+export function resolveRegistryContracts(
+  rooms: readonly ResolvedProjectionRoom[],
+): StageResult<readonly ResolvedProjectionRoom[]> {
+  const diagnostics: ProjectionDiagnostic[] = [];
+  const resolved: ResolvedProjectionRoom[] = [];
+
+  for (const room of rooms) {
+    const areas = room.resolved.areas
+      .map((area) => ({
+        ...area,
+        experiences: [...area.experiences],
+      }))
+      .filter((area) => area.experiences.length > 0);
+    resolved.push({
+      ...room,
+      resolved: { ...room.resolved, areas },
+    });
+  }
+  return { value: resolved, diagnostics };
+}
+
+export function intersectProjectionPermissions(
+  source: ProjectionSource,
+  rooms: readonly ResolvedProjectionRoom[],
+): StageResult<readonly PermissionedProjectionRoom[]> {
+  const diagnostics: ProjectionDiagnostic[] = [];
+  const permissioned: PermissionedProjectionRoom[] = [];
+
+  for (const room of rooms) {
+    const allowedActionKeysByExperience: Record<string, string[]> = {};
+    const areas = room.resolved.areas
+      .map((area) => ({
+        ...area,
+        experiences: area.experiences.filter((resolvedExperience) => {
+          const contracts = leftoverExperienceContracts(
+            resolvedExperience.experienceKey,
+          );
+          if (
+            !hasPermission(
+              source.request.accessClass.permissionKeys,
+              contracts.permissions.readKeys,
+            )
+          ) {
+            diagnostics.push(
+              diagnostic(
+                "PERMISSION_DENIED",
+                `Experience omitted by principal permissions`,
+                `rooms.${room.eligible.room.context.id}`,
+                "INFO",
+              ),
+            );
+            return false;
+          }
+          allowedActionKeysByExperience[resolvedExperience.experienceKey] =
+            contracts.actions
+              .filter((action) =>
+                hasPermission(
+                  source.request.accessClass.permissionKeys,
+                  action.permissionKeys,
+                ),
+              )
+              .map((action) => action.key);
+          return true;
+        }),
+      }))
+      .filter((area) => area.experiences.length > 0);
+    if (areas.length === 0) continue;
+    permissioned.push({
+      ...room,
+      resolved: { ...room.resolved, areas },
+      allowedActionKeysByExperience,
+    });
+  }
+  return { value: permissioned, diagnostics };
+}
+
+function makeDescriptor(
+  kind: ProjectionDescriptor["kind"],
+  sourceId: string,
+  label: string,
+): ProjectionDescriptor {
+  return {
+    id: `${kind.toLowerCase()}:${sourceId}`,
+    kind,
+    sourceId,
+    label,
+  };
+}
+
+export function buildProjectionExperiences(
+  rooms: readonly PermissionedProjectionRoom[],
+): readonly ProjectionExperience[] {
+  type MutableExperience = {
+    projected: ProjectionExperience;
+    locationIds: Set<string>;
+    provenance: Set<ProjectionExperienceProvenance>;
+  };
+  const byId = new Map<string, MutableExperience>();
+  const areaOrder = new Map(rooms.flatMap((room) => room.profile.areas.map((area) => [area.key, area.sortOrder] as const)));
+
+  for (const room of rooms) {
+    for (const area of room.resolved.areas) {
+      for (const resolvedExperience of area.experiences) {
+        const definition = leftoverExperienceContracts(
+          resolvedExperience.experienceKey,
+        );
+        const experienceKey = resolvedExperience.experienceKey;
+        const id = `${room.eligible.department.id}:${experienceKey}`;
+        const locationId = room.eligible.location.id;
+        const source: ProjectionExperienceProvenance =
+          room.policyDefaultApplied
+            ? "PLANT_POLICY_DEFAULT"
+            : resolvedExperience.source;
+        const existing = byId.get(id);
+        if (existing) {
+          existing.locationIds.add(locationId);
+          existing.provenance.add(source);
+          (
+            existing.projected.configurationByLocation as Record<string, unknown>
+          )[locationId] = resolvedExperience.effectiveConfiguration;
+          (
+            existing.projected.archetypeByLocation as Record<string, unknown>
+          )[locationId] = room.resolved.archetype;
+          continue;
+        }
+        const queryScopeId = `${id}:scope`;
+        const allowedActionKeys =
+          room.allowedActionKeysByExperience[experienceKey] ?? [];
+        const allowedActions = definition.actions.filter((action) =>
+          allowedActionKeys.includes(action.key),
+        );
+        const label = leftoverLabel(experienceKey);
+        const projected: ProjectionExperience = {
+          id,
+          reference: {
+            experienceKey,
+            areaKey: area.areaKey,
+            departmentId: room.eligible.department.id,
+            departmentKey: room.eligible.department.key,
+            locationIds: [],
+            relatedExperienceKeys: definition.relationships.relatedExperienceKeys,
+            dependencyExperienceKeys: [],
+          },
+          label,
+          order: resolvedExperience.sortOrder,
+          configurationByLocation: {
+            [locationId]: resolvedExperience.effectiveConfiguration,
+          },
+          archetypeByLocation: {
+            [locationId]: room.resolved.archetype,
+          },
+          contracts: {
+            experienceKey,
+            source: "EXPERIENCE_REGISTRY",
+            registryVersion: EXPERIENCE_REGISTRY_VERSION,
+            contracts: definition,
+          },
+          queryScopeId,
+          workspace: {
+            default: definition.workspaceContribution,
+            unitWorkspace: definition.unitWorkspaceContribution,
+            businessWorkspace: definition.businessWorkspaceContribution,
+            operationsCenter: definition.operationsCenterContribution,
+          },
+          navigation: definition.navigationContribution,
+          permissions: {
+            readKeys: definition.permissions.readKeys,
+            actionPermissionKeys: definition.permissions.actionPermissionKeys,
+            allowedActionKeys,
+          },
+          actions: allowedActions,
+          descriptors: [makeDescriptor("EXPERIENCE", id, label)],
+          provenance: [],
+        };
+        byId.set(id, {
+          projected,
+          locationIds: new Set([locationId]),
+          provenance: new Set([source]),
+        });
+      }
+    }
+  }
+
+  const projectedKeys = new Set(
+    [...byId.values()].map(
+      (entry) => entry.projected.reference.experienceKey,
+    ),
+  );
+  return [...byId.values()]
+    .map(({ projected, locationIds, provenance }) => ({
+      ...projected,
+      reference: {
+        ...projected.reference,
+        locationIds: [...locationIds].sort((a, b) => a.localeCompare(b)),
+        relatedExperienceKeys:
+          projected.reference.relatedExperienceKeys.filter((key) =>
+            projectedKeys.has(key),
+          ),
+      },
+      provenance: [...provenance].sort((a, b) => a.localeCompare(b)),
+    }))
+    .sort(
+      (a, b) =>
+        (areaOrder.get(a.reference.areaKey) ?? 100) - (areaOrder.get(b.reference.areaKey) ?? 100) ||
+        a.reference.areaKey.localeCompare(b.reference.areaKey) ||
+        a.order - b.order ||
+        a.reference.experienceKey.localeCompare(b.reference.experienceKey),
+    );
+}
+
+export function buildProjectionAreas(
+  experiences: readonly ProjectionExperience[],
+  profileAreas: ProfileSnapshot["areas"] = [],
+): readonly ProjectionArea[] {
+  const grouped = new Map<string, ProjectionExperience[]>();
+  for (const experience of experiences) {
+    const list = grouped.get(experience.reference.areaKey) ?? [];
+    list.push(experience);
+    grouped.set(experience.reference.areaKey, list);
+  }
+  const areaByKey = new Map(profileAreas.map((area) => [area.key, area]));
+  return [...grouped.entries()]
+    .map(([areaKey, entries], index) => {
+      const first = entries[0]!;
+      const id = `${first.reference.departmentId}:area:${areaKey}`;
+      const profileArea = areaByKey.get(areaKey);
+      const label = profileArea?.name ?? leftoverLabel(areaKey);
+      return {
+        id,
+        areaKey,
+        departmentId: first.reference.departmentId,
+        departmentKey: first.reference.departmentKey,
+        label,
+        order: profileArea?.sortOrder ?? (index + 1) * 10,
+        experienceIds: entries
+          .sort(
+            (a, b) =>
+              a.order - b.order ||
+              a.reference.experienceKey.localeCompare(
+                b.reference.experienceKey,
+              ),
+          )
+          .map((experience) => experience.id),
+        descriptors: [makeDescriptor("AREA", id, label)],
+      };
+    })
+    .sort((a, b) => a.order - b.order || a.areaKey.localeCompare(b.areaKey));
+}
+
+export function resolveProjectionQueryScopes(
+  experiences: readonly ProjectionExperience[],
+  hierarchy: NormalizedProjectionHierarchy,
+): ProjectionQueryScopes {
+  const byExperience: Record<string, ProjectionQueryScope> = {};
+  const byDomain: Record<string, string[]> = {};
+  for (const experience of experiences) {
+    const locations = experience.reference.locationIds
+      .map((id) => hierarchy.locationsById[id])
+      .filter((location): location is ProjectionSourceLocation => Boolean(location));
+    const unitIds = stableUnique(
+      locations.flatMap((location) => {
+        if (location.reference.kind === "UNIT") return [location.reference.unitId];
+        if (location.reference.kind === "SPACE") return [location.reference.unitId];
+        return [];
+      }),
+    );
+    const spaceIds = stableUnique(
+      locations.flatMap((location) =>
+        location.reference.kind === "SPACE"
+          ? [location.reference.spaceId]
+          : [],
+      ),
+    );
+    const contract = experience.contracts.contracts.queryScope;
+    const scope: ProjectionQueryScope = {
+      id: experience.queryScopeId,
+      experienceKey: experience.reference.experienceKey,
+      departmentId: experience.reference.departmentId,
+      departmentKey: experience.reference.departmentKey,
+      domains: [...contract.domains],
+      grain: contract.grain,
+      unitIds,
+      spaceIds,
+      rules: [...contract.rules],
+    };
+    byExperience[experience.id] = scope;
+    for (const domain of scope.domains) {
+      byDomain[domain] = stableUnique([
+        ...(byDomain[domain] ?? []),
+        scope.id,
+      ]);
+    }
+  }
+  return { byExperience, byDomain };
+}
+
 export function buildAndPruneProjectionLocations(
   hierarchy: NormalizedProjectionHierarchy,
+  experiences: readonly ProjectionExperience[],
   /**
-   * Facility Builder responsibility location ids that appear as ACTIONABLE.
+   * Facility Builder responsibility location ids that must appear as ACTIONABLE
+   * even when no Operational Profile experiences have resolved yet.
    */
   responsibleLocationIds: readonly string[] = [],
 ): ProjectionSnapshot["locations"] {
+  const experienceKeysByLocation = new Map<string, Set<string>>();
+  for (const experience of experiences) {
+    for (const locationId of experience.reference.locationIds) {
+      const keys = experienceKeysByLocation.get(locationId) ?? new Set<string>();
+      keys.add(experience.reference.experienceKey);
+      experienceKeysByLocation.set(locationId, keys);
+    }
+  }
+
   const responsibleSet = new Set(responsibleLocationIds);
 
   const byId: Record<string, ProjectionLocationNode> = {};
@@ -415,6 +941,9 @@ export function buildAndPruneProjectionLocations(
       .filter((child): child is ProjectionSourceLocation => Boolean(child))
       .map((child) => buildNode(child, [...ancestry, sourceLocation.id]))
       .filter((child): child is ProjectionLocationNode => Boolean(child));
+    const keys = [...(experienceKeysByLocation.get(sourceLocation.id) ?? [])].sort(
+      (a, b) => a.localeCompare(b),
+    );
     const explicitlyResponsible = responsibleSet.has(sourceLocation.id);
     const actionable = explicitlyResponsible;
     if (!actionable && children.length === 0) return null;
@@ -424,6 +953,7 @@ export function buildAndPruneProjectionLocations(
       label: sourceLocation.label,
       presentation: actionable ? "ACTIONABLE" : "STRUCTURAL",
       ancestry,
+      experienceKeys: keys,
       children,
     };
     byId[node.id] = node;
@@ -460,7 +990,10 @@ function projectionIdentity(source: ProjectionSource): ProjectionIdentity {
         isPlaced: true,
       })}`
     : "";
-  const revision = source.revision;
+  const revision = {
+    ...source.revision,
+    experienceRegistryVersion: EXPERIENCE_REGISTRY_VERSION,
+  };
   return {
     key: [
       source.facility.id,
@@ -468,7 +1001,10 @@ function projectionIdentity(source: ProjectionSource): ProjectionIdentity {
       source.request.purpose,
       revision.hierarchyRevision,
       revision.assignmentRevision,
+      revision.profileRevision,
+      revision.bindingRevision,
       revision.policyRevision,
+      revision.experienceRegistryVersion,
       revision.accessClassRevision,
       source.request.accessClass.key,
     ].join(":") + focusKey,
@@ -492,9 +1028,13 @@ function emptySnapshot(
     },
     metadata: {
       architectureWave: "15B",
-      notes: ["Locations come from Facility responsibility."],
+      registryVersion: EXPERIENCE_REGISTRY_VERSION,
+      notes: ["Wave 15C pure Projection Resolution Pipeline."],
     },
+    areas: [],
+    experiences: [],
     locations: { roots: [], actionableIds: [], byId: {} },
+    queryScopes: { byExperience: {}, byDomain: {} },
     descriptors: [],
     diagnostics: { issues: diagnostics },
   };
@@ -523,13 +1063,48 @@ function resolveDepartmentProjection(
     ...unitEligibilityStage.value.map((location) => location.id),
   ]);
 
+  // Operational Profile is optional for Experiences / archetype resolution.
+  // It must NOT gate physical location visibility.
+  const profileStage = resolveActiveProjectionProfile(department);
+  diagnostics.push(...profileStage.diagnostics);
+
+  let permissionStageValue: readonly PermissionedProjectionRoom[] = [];
+  if (profileStage.value) {
+    const roomStage = resolveRoomProfiles(
+      eligibilityStage.value,
+      profileStage.value,
+      department,
+      Object.keys(hierarchy.roomsById),
+    );
+    diagnostics.push(...roomStage.diagnostics);
+    const contractsStage = resolveRegistryContracts(roomStage.value);
+    diagnostics.push(...contractsStage.diagnostics);
+    const permissionStage = intersectProjectionPermissions(
+      source,
+      contractsStage.value,
+    );
+    diagnostics.push(...permissionStage.diagnostics);
+    permissionStageValue = permissionStage.value;
+  }
+
+  const experiences = buildProjectionExperiences(permissionStageValue);
+  const areas = buildProjectionAreas(experiences, profileStage.value?.areas);
+  const queryScopes = resolveProjectionQueryScopes(experiences, hierarchy);
   const locations = buildAndPruneProjectionLocations(
     hierarchy,
+    experiences,
     responsibleLocationIds,
   );
-  const descriptors = Object.values(locations.byId)
-    .map((location) => makeDescriptor("LOCATION", location.id, location.label))
-    .sort((a, b) => a.id.localeCompare(b.id));
+  const descriptors = [
+    ...areas.flatMap((area) => area.descriptors),
+    ...experiences.flatMap((experience) => experience.descriptors),
+    ...Object.values(queryScopes.byExperience).map((scope) =>
+      makeDescriptor("QUERY_SCOPE", scope.id, scope.experienceKey),
+    ),
+    ...Object.values(locations.byId).map((location) =>
+      makeDescriptor("LOCATION", location.id, location.label),
+    ),
+  ].sort((a, b) => a.id.localeCompare(b.id));
 
   const matchingPolicy = source.policies.find(
     (policy) =>
@@ -544,17 +1119,28 @@ function resolveDepartmentProjection(
     },
     metadata: {
       architectureWave: "15B",
-      notes: ["Locations come from Facility responsibility."],
+      registryVersion: EXPERIENCE_REGISTRY_VERSION,
+      notes: ["Wave 15C pure Projection Resolution Pipeline."],
     },
+    areas,
+    experiences,
     locations,
+    queryScopes,
     descriptors,
     diagnostics: { issues: diagnostics },
     plantPolicy: matchingPolicy
       ? {
-          applied: false,
+          applied: permissionStageValue.some((room) =>
+            Boolean(room.eligible.policy),
+          ),
           kind: matchingPolicy.kind,
           createsRoomAssignments: false,
-          coveredLocationIds: [],
+          defaultArchetypeKey: matchingPolicy.defaultArchetypeKey,
+          coveredLocationIds: stableUnique(
+            permissionStageValue
+              .filter((room) => room.policyDefaultApplied)
+              .map((room) => room.eligible.location.id),
+          ),
         }
       : undefined,
   };
@@ -575,6 +1161,18 @@ export function resolveProjection(source: ProjectionSource): ProjectionSnapshot 
     ...hierarchyStage.diagnostics,
     ...lensStage.diagnostics,
   ];
+  if (
+    source.revision.experienceRegistryVersion !== EXPERIENCE_REGISTRY_VERSION
+  ) {
+    diagnostics.push(
+      diagnostic(
+        "SOURCE_INVALID",
+        `Source registry revision ${source.revision.experienceRegistryVersion} does not match active registry ${EXPERIENCE_REGISTRY_VERSION}`,
+        "source.revision.experienceRegistryVersion",
+      ),
+    );
+  }
+
   if (lensStage.value.facilityMode) {
     const departmentSnapshots = lensStage.value.departments.map((department) => {
       const childSource: ProjectionSource = {

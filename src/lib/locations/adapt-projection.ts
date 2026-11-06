@@ -11,12 +11,16 @@ import {
   type DepartmentPresentationAudience,
 } from "@/lib/department-products/eligibility";
 import type {
+  ProjectionArea,
+  ProjectionExperience,
   ProjectionLocationNode,
   ProjectionSnapshot,
 } from "@/lib/projection";
 
 import type {
+  LocationsAreaRef,
   LocationsDepartmentSnapshot,
+  LocationsExperienceRef,
   LocationsTreeNode,
   LocationsViewModel,
 } from "./types";
@@ -34,11 +38,55 @@ function departmentLabel(key: OperationalDepartmentKey): string {
   }
 }
 
+function areasForLocation(
+  locationId: string,
+  areas: readonly ProjectionArea[],
+  experiences: readonly ProjectionExperience[],
+): LocationsAreaRef[] {
+  const byArea = new Map<string, LocationsExperienceRef[]>();
+
+  for (const experience of experiences) {
+    if (!experience.reference.locationIds.includes(locationId)) continue;
+    const list = byArea.get(experience.reference.areaKey) ?? [];
+    list.push({
+      experienceKey: experience.reference.experienceKey,
+      areaKey: experience.reference.areaKey,
+      label: experience.label,
+      order: experience.order,
+      allowedActionKeys: experience.permissions.allowedActionKeys,
+    });
+    byArea.set(experience.reference.areaKey, list);
+  }
+
+  const result: LocationsAreaRef[] = [];
+  for (const area of [...areas].sort(
+    (a, b) => a.order - b.order || a.areaKey.localeCompare(b.areaKey),
+  )) {
+    const areaExperiences = (byArea.get(area.areaKey) ?? []).sort(
+      (a, b) =>
+        a.order - b.order || a.experienceKey.localeCompare(b.experienceKey),
+    );
+    if (areaExperiences.length === 0) continue;
+    result.push({
+      areaKey: area.areaKey,
+      label: area.label,
+      order: area.order,
+      experiences: areaExperiences,
+    });
+  }
+  return result;
+}
+
 function adaptNode(
   node: ProjectionLocationNode,
+  areas: readonly ProjectionArea[],
+  experiences: readonly ProjectionExperience[],
   parentId: string | null,
 ): LocationsTreeNode {
-  const children = node.children.map((child) => adaptNode(child, node.id));
+  const locationAreas = areasForLocation(node.id, areas, experiences);
+  const children = node.children.map((child) =>
+    adaptNode(child, areas, experiences, node.id),
+  );
 
   if (node.reference.kind === "FACILITY") {
     return {
@@ -52,6 +100,8 @@ function adaptNode(
       parentId,
       unitId: null,
       href: null,
+      experienceKeys: node.experienceKeys,
+      areas: locationAreas,
       children,
     };
   }
@@ -89,6 +139,8 @@ function adaptNode(
       parentId,
       unitId: node.reference.unitId,
       href,
+      experienceKeys: node.experienceKeys,
+      areas: locationAreas,
       children,
     };
   }
@@ -110,6 +162,8 @@ function adaptNode(
     parentId,
     unitId: node.reference.unitId,
     href: spaceHref,
+    experienceKeys: node.experienceKeys,
+    areas: locationAreas,
     children,
   };
 }
@@ -150,7 +204,7 @@ function adaptDepartmentSnapshot(
   if (lens.mode !== "DEPARTMENT") return null;
 
   const roots = snapshot.locations.roots.map((root) =>
-    adaptNode(root, null),
+    adaptNode(root, snapshot.areas, snapshot.experiences, null),
   );
 
   return {

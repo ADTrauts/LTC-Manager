@@ -155,40 +155,18 @@ test("timing upgrade drafts the missing Key Points once and leaves the published
   );
 });
 
-test("current-day Run prepares missing Key Point rows and a past day stays read-only", () => {
-  const preparing = [
+test("standard Run load does not enable createIfMissing", () => {
+  const files = [
     "src/lib/operational-cycles/load-employee-cycle-context.ts",
     "src/lib/operational-cycles/load-supervisor-cycle-overview.ts",
     "src/lib/operational-cycles/load-run-operation-presentation.ts",
     "src/lib/offline/build-runtime-bundle.ts",
+    "src/lib/servery/record-milestone.ts",
   ];
-  for (const file of preparing) {
+  for (const file of files) {
     const source = readFileSync(join(process.cwd(), file), "utf8");
-    assert.match(source, /prepareCurrentKeyTimeDayExpectations/, file);
     assert.doesNotMatch(source, /createIfMissing:\s*true/, file);
   }
-  const milestone = readFileSync(
-    join(process.cwd(), "src/lib/servery/record-milestone.ts"),
-    "utf8",
-  );
-  assert.doesNotMatch(milestone, /createIfMissing:\s*true/);
-  const prepare = readFileSync(
-    join(process.cwd(), "src/lib/operational-cycles/materialize-key-time-day-expectations.ts"),
-    "utf8",
-  );
-  assert.match(prepare, /operationalDateKey !== todayKey/);
-  assert.match(prepare, /createIfMissing: false/);
-  assert.match(prepare, /createIfMissing: true/);
-  const review = readFileSync(
-    join(process.cwd(), "src/lib/operational-review/load-operational-review-day-facts.ts"),
-    "utf8",
-  );
-  assert.doesNotMatch(review, /prepareCurrentKeyTimeDayExpectations|createIfMissing/);
-  const publish = readFileSync(
-    join(process.cwd(), "src/lib/operational-cycles/cycle-service.ts"),
-    "utf8",
-  );
-  assert.match(publish, /prepareCurrentKeyTimeDayExpectations/);
 });
 
 test("Record time cannot append a second original Key Point actual", () => {

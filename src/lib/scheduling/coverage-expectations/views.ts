@@ -5,6 +5,11 @@ export type CoverageRoleOption = {
   label: string;
 };
 
+export type CoverageOperationalTypeOption = {
+  key: string;
+  name: string;
+};
+
 export type CoverageCycleOption = {
   stableKey: string;
   label: string;
@@ -15,11 +20,10 @@ export type CoverageExpectationItemView = {
   roleKey: string;
   roleLabel: string;
   requiredCount: number;
+  applicableOperationalTypeKeys: string[];
   applicableOperationalCycleStableKeys: string[];
   unitId: string | null;
   unitName: string | null;
-  spaceId: string | null;
-  spaceName: string | null;
 };
 
 export type CoverageExpectationView = {
@@ -35,14 +39,8 @@ export type CoverageExpectationView = {
   items: CoverageExpectationItemView[];
 };
 
-export type CoverageLocationOption = {
-  id: string;
-  name: string;
-  roomTypeLabel: string | null;
-};
-
 export type CoverageCatalog = {
   roles: CoverageRoleOption[];
-  locations: CoverageLocationOption[];
+  operationalTypes: CoverageOperationalTypeOption[];
   cycles: CoverageCycleOption[];
 };

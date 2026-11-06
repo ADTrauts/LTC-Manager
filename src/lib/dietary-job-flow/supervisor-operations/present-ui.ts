@@ -34,6 +34,7 @@ export type BoardAttentionCategory =
   | "Evidence"
   | "Service Milestones"
   | "Service Timing"
+  | "Work"
   | "Equipment / Asset Impact"
   | "Configuration";
 
@@ -211,6 +212,14 @@ export function presentSupervisorOperationsBoardUi(
     actionLabel: item.availableActions[0] ?? "Open SPACE milestones",
   }));
 
+  const workRows = view.needsAttention.work.map((item) => ({
+    category: "Work" as const,
+    title: locationTitle(item),
+    detail: attentionDetail(item),
+    href: item.sourceHref,
+    actionLabel: item.availableActions[0] ?? "Open Work",
+  }));
+
   const assetRows = view.needsAttention.assets.map((item) => ({
     category: "Equipment / Asset Impact" as const,
     title: locationTitle(item),
@@ -240,6 +249,7 @@ export function presentSupervisorOperationsBoardUi(
     "Service Timing",
     milestoneRows.filter((row) => row.category === "Service Timing"),
   );
+  pushSection(sections, "Work", workRows);
   pushSection(sections, "Equipment / Asset Impact", assetRows);
   pushSection(sections, "Configuration", configurationRows);
 

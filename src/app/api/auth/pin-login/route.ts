@@ -12,7 +12,8 @@ import {
   resetAuthRateLimitBucket,
   type AuthRateLimitBucketRef,
 } from "@/lib/auth-rate-limit";
-import { createSessionToken, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
+import { createSessionToken, getAppSession, getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
+import { revokePushForDepartingUser } from "@/lib/notifications/push-subscription";
 import { mayAuthenticateWithQuickPin } from "@/lib/credential-policy";
 import {
   ACCOUNT_ACTIVATION_REQUIRED_MESSAGE,
@@ -222,6 +223,16 @@ export async function POST(request: Request) {
     activeUnitId,
     lockedUnitId: deviceUnitId,
   });
+
+  try {
+    const previous = await getAppSession();
+    await revokePushForDepartingUser(prisma, previous, null, new Date());
+  } catch {
+    return NextResponse.json(
+      { error: "Sign-in stopped. Browser alerts for the previous account are still active." },
+      { status: 503 },
+    );
+  }
 
   const response = NextResponse.json({ ok: true, redirectTo });
   response.cookies.set(SESSION_COOKIE, token, getCookieOptions());

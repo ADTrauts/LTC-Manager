@@ -1,0 +1,206 @@
+import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
+import { BuildPageHeader } from "@/components/build/build-breadcrumb";
+import { WorkPlanBuilderPanel } from "@/components/department-work/work-plan-builder-panel";
+import { publishedCatalogFormsAtFacility } from "@/lib/department-authority/catalog-forms";
+import { departmentViewOnlyNotice } from "@/lib/department-authority/view-notice";
+import { hasAtLeastRole } from "@/lib/access";
+import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
+import { getSession } from "@/lib/auth";
+import { buildPageIntro } from "@/lib/build-hub";
+import {
+  isAnyStaffingOperationalFeatureEnabled,
+  resolveStaffingOperationalDepartment,
+} from "@/lib/department-operations";
+import {
+  listWorkPlanPresetSummaries,
+  loadBuilderWorkPlans,
+  resolveWorkAuthority,
+} from "@/lib/department-work";
+import { loadDepartmentOperationalTypeOptions } from "@/lib/operational-cycles/load-operational-type-targets";
+import { prisma } from "@/lib/prisma";
+
+export default async function WorkPlanBuilderPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ plan?: string }>;
+}) {
+  noStore();
+  const params = searchParams ? await searchParams : {};
+
+  const session = await getSession();
+  if (!session?.facilityId) redirect("/login");
+
+  if (!hasAtLeastRole(session.role, "MANAGER")) {
+    redirect("/workspace");
+  }
+
+  const cookieStore = await cookies();
+  const deptNav = await resolveActiveDepartmentForShell(session, cookieStore);
+  if (!isAnyStaffingOperationalFeatureEnabled("workPlans", deptNav.activeOperationalDepartmentKey)) {
+    redirect("/staffing");
+  }
+  const department = await resolveStaffingOperationalDepartment({
+    facilityId: session.facilityId,
+    activeDepartmentId: deptNav.activeDepartmentId,
+    feature: "workPlans",
+  });
+
+  if (!department) {
+    return (
+      <section className="mx-auto max-w-5xl space-y-3">
+        <BuildPageHeader title="Work" subtitle="No operational department found." />
+      </section>
+    );
+  }
+
+  const authority = await resolveWorkAuthority(session, session.facilityId, department.id);
+  if (!authority.canViewDepartment && !authority.canManage) {
+    return (
+      <section className="mx-auto max-w-5xl space-y-3" data-testid="work-plan-builder-denied">
+        <BuildPageHeader
+          title="Work"
+          subtitle={authority.reason ?? "Insufficient authority for Work."}
+        />
+      </section>
+    );
+  }
+
+  const builder = await loadBuilderWorkPlans({
+    session,
+    facilityId: session.facilityId,
+    departmentId: department.id,
+  });
+
+  const recordOptions = publishedCatalogFormsAtFacility(prisma, {
+    facilityId: session.facilityId,
+    departmentId: department.id,
+  }).then((forms) =>
+    forms.map((form) => ({ id: form.id, stableKey: form.stableKey, name: form.name })),
+  );
+
+  const [procedures, units, cycles, templates, operationalTypeOptions] = await Promise.all([
+    prisma.knowledgeArticle.findMany({
+      where: {
+        facilityId: session.facilityId,
+        status: "PUBLISHED",
+        OR: [{ departmentId: department.id }, { departmentId: null }],
+      },
+      select: { id: true, title: true },
+      orderBy: { title: "asc" },
+      take: 200,
+    }),
+    prisma.unit.findMany({
+      where: {
+        facilityId: session.facilityId,
+        isActive: true,
+        departmentResponsibilities: { some: { departmentId: department.id } },
+      },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.departmentOperationalCycle.findMany({
+      where: {
+        facilityId: session.facilityId,
+        departmentId: department.id,
+        status: "PUBLISHED",
+        nodeKind: "PERIOD",
+      },
+      select: { stableKey: true, label: true },
+      orderBy: [{ displaySequence: "asc" }, { stableKey: "asc" }],
+      distinct: ["stableKey"],
+    }),
+    recordOptions,
+    loadDepartmentOperationalTypeOptions({
+      facilityId: session.facilityId,
+      departmentId: department.id,
+      perspective: "working",
+    }),
+  ]);
+
+  const plans = builder.plans.map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    status: plan.status,
+    version: plan.version,
+    stableKey: plan.stableKey,
+    presetKey: plan.presetKey,
+    description: plan.description,
+    weekdays: plan.weekdays,
+    effectiveStartDate: plan.effectiveStartDate
+      ? plan.effectiveStartDate.toISOString().slice(0, 10)
+      : null,
+    effectiveEndDate: plan.effectiveEndDate
+      ? plan.effectiveEndDate.toISOString().slice(0, 10)
+      : null,
+    items: plan.items.map((item) => ({
+      id: item.id,
+      itemKey: item.itemKey,
+      label: item.label,
+      instructions: item.instructions,
+      displaySequence: item.displaySequence,
+      priority: item.priority,
+      completionMode: item.completionMode,
+      responsibilityMode: item.responsibilityMode,
+      scheduleKind: item.scheduleKind,
+      cycleStableKeys: item.cycleStableKeys,
+      windowStartLocal: item.windowStartLocal,
+      windowEndLocal: item.windowEndLocal,
+      roleKeys: item.roleKeys,
+      knowledgeArticleId: item.knowledgeArticleId,
+      procedureTitleSnapshot: item.procedureTitleSnapshot,
+      linkedTemplateStableKey: item.linkedTemplateStableKey,
+      linkedTemplateId: item.linkedTemplateId,
+      supervisorVisible: item.supervisorVisible,
+    })),
+    applicabilities: plan.applicabilities.map((a) => ({
+      kind: a.kind,
+      unitId: a.unitId,
+      spaceId: a.spaceId,
+      spaceType: a.spaceType,
+      assetId: a.assetId,
+      assetType: a.assetType,
+      operationalTypeKey: a.operationalTypeKey,
+    })),
+    _count: { items: plan._count.items },
+  }));
+
+  return (
+    <section className="mx-auto max-w-6xl space-y-3" data-testid="work-plan-builder-page">
+      <BuildPageHeader
+        title="Work"
+        subtitle={`${department.name} — ${buildPageIntro("/staffing/work-plans")}`}
+        actions={
+          <div className="flex flex-wrap gap-2 text-sm">
+            <Link href="/build/logs" className="underline-offset-2 hover:underline">
+              Records
+            </Link>
+            <Link href="/staffing/cycles" className="underline-offset-2 hover:underline">
+              Cycles
+            </Link>
+          </div>
+        }
+      />
+      <WorkPlanBuilderPanel
+        key={params.plan ?? "work-plan-builder"}
+        facilityId={session.facilityId}
+        departmentId={department.id}
+        canManage={builder.canManage}
+        canPublish={builder.canPublish}
+        viewOnlyNotice={departmentViewOnlyNotice(authority.reason)}
+        initialPlanId={params.plan ?? null}
+        plans={plans}
+        presets={listWorkPlanPresetSummaries(department.key)}
+        procedures={procedures}
+        units={units}
+        cycleOptions={cycles}
+        templates={templates}
+        linkedRecordLabel="Linked Record"
+        operationalTypeOptions={operationalTypeOptions}
+      />
+    </section>
+  );
+}

@@ -80,8 +80,7 @@ export type PresentedLocationRow = {
   displayLabel: string;
   parentUnitId: string | null;
   parentUnitLabel: string | null;
-  /** Facility room type and responsible teams. */
-  contextLabel: string | null;
+  operationalTypeName: string | null;
   currentLocationHref: string | null;
   exceptionCount: number;
   exceptionSummary: string;
@@ -613,7 +612,7 @@ export function presentOperationalReviewDay(
       displayLabel: location.displayLabel,
       parentUnitId: location.parentUnitId,
       parentUnitLabel: location.parentUnitLabel,
-      contextLabel: null,
+      operationalTypeName: location.operationalTypeName,
       currentLocationHref: location.parentUnitId
         ? `/unit/${location.parentUnitId}?space=${location.spaceId}`
         : null,

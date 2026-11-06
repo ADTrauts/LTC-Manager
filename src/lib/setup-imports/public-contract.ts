@@ -5,8 +5,8 @@ export const DATASETS = ["workforce", "employee_departments", "department_locati
 export type Dataset = typeof DATASETS[number] | "locations";
 export const HEADERS: Record<Dataset, readonly string[]> = {
   locations: ["rowRef", ...FACILITY_STRUCTURE_CSV_HEADERS],
-  workforce: ["rowRef", "employeeId", "email", "firstName", "lastName", "roleType", "employmentType", "primaryDepartment", "phone", "teamId", "jobTitleId"],
-  employee_departments: ["rowRef", "employeeId", "email", "department", "membership", "teamId", "teamPrimary"],
+  workforce: ["rowRef", "employeeId", "email", "firstName", "lastName", "roleType", "employmentType", "primaryDepartment", "phone", "teamId", "jobRoleId", "jobTitleId"],
+  employee_departments: ["rowRef", "employeeId", "email", "department", "membership", "teamId", "teamPrimary", "jobRoleId"],
   department_locations: ["rowRef", "department", "locationType", "locationId", "kind"],
   assets: ["rowRef", ...ASSET_CSV_HEADERS],
 };

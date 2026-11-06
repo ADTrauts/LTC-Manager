@@ -71,6 +71,7 @@ function mapTiming(row: {
   actualDueLocal: string | null;
   completedAt: Date | null;
   adjustedAt: Date | null;
+  cycle?: { occurrenceTracking: "NONE" | "OPTIONAL" | "REQUIRED"; keyPointGrain: "DEPARTMENT" | "LOCATION" } | null;
   space?: {
     name: string;
     unitId: string | null;
@@ -103,6 +104,8 @@ function mapTiming(row: {
     actualDueLocal: row.actualDueLocal,
     completedAt: row.completedAt,
     adjustedAt: row.adjustedAt,
+    occurrenceTracking: row.cycle?.occurrenceTracking,
+    keyPointGrain: row.cycle?.keyPointGrain,
     adjustedByLabel: labels.adjustedByLabel,
     completedByLabel: labels.completedByLabel,
   };
@@ -135,6 +138,7 @@ async function loadExistingTimings(
       adjustedByEmployee: { select: { firstName: true, lastName: true } },
       completedByUser: { select: { displayName: true } },
       completedByEmployee: { select: { firstName: true, lastName: true } },
+      cycle: { select: { occurrenceTracking: true, keyPointGrain: true } },
     },
     orderBy: [{ configuredDueLocal: "asc" }, { cycleLabel: "asc" }, { spaceId: "asc" }],
   });
@@ -157,8 +161,8 @@ async function loadExistingTimings(
 
 /**
  * Materialize Key Time day expectations for one department + operational date.
- * Creating rows is explicit. The current-day preparation below is the production
- * writer. A date that is not the facility's current operational day is read-only.
+ * Forward Run loads existing rows only. Pass createIfMissing only from
+ * historical tests. Normal Run load leaves it false.
  */
 export async function materializeKeyTimeDayExpectations(
   input: MaterializeKeyTimeDayExpectationsInput,
@@ -229,31 +233,6 @@ export async function materializeKeyTimeDayExpectations(
     created: Math.max(0, timings.length - existing.length),
     timings,
   };
-}
-
-/**
- * Prepare Key Point expectation rows for the facility's current operational day.
- * Missing rows come from the published groups effective that day. Existing rows
- * are not updated. Any other date is returned as stored.
- */
-export async function prepareCurrentKeyTimeDayExpectations(
-  input: MaterializeKeyTimeDayExpectationsInput,
-  client: DbClient = prisma,
-): Promise<MaterializeKeyTimeDayExpectationsResult> {
-  const timezone = await loadFacilityTimezone(client as PrismaClient, input.facilityId);
-  const now = input.now ?? new Date();
-  const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
-  const operationalDateKey = input.operationalDateKey ?? todayKey;
-  if (operationalDateKey !== todayKey) {
-    return materializeKeyTimeDayExpectations(
-      { ...input, operationalDateKey, now, createIfMissing: false },
-      client,
-    );
-  }
-  return materializeKeyTimeDayExpectations(
-    { ...input, operationalDateKey: todayKey, now, createIfMissing: true },
-    client,
-  );
 }
 
 export function timingsForSpaces(

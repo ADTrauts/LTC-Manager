@@ -11,6 +11,7 @@ import type {
   SupervisorCoverageGap,
   SupervisorOperationsViewModel,
   SupervisorSyncItem,
+  SupervisorWorkFact,
 } from "./types";
 
 export type SupervisorPresenceFact = {
@@ -35,6 +36,7 @@ export type SupervisorOperationsFacts = {
   coverageCounts: { covered: number; atRisk: number; uncovered: number };
   coverageGaps: readonly SupervisorCoverageGap[];
   historicalRecords: readonly SupervisorHistoricalEvidenceRecord[];
+  workExceptions: readonly SupervisorWorkFact[];
   sync: {
     retryRequired: number;
     pendingConflicts: number;

@@ -5,6 +5,12 @@
  * Wave 15C performs no I/O.
  */
 
+import type {
+  ProfileSnapshot,
+  RoomArchetypeBindingSnapshot,
+  RoomContext,
+  RoomExceptionSnapshot,
+} from "@/lib/department-administration";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 
 import type {
@@ -12,22 +18,6 @@ import type {
   ProjectionRequest,
   ProjectionRevision,
 } from "./types";
-
-export type RoomContext = {
-  id: string;
-  facilityId: string;
-  isActive: boolean;
-  /** null = builder-only undesignated staging. */
-  unitId: string | null;
-  parentHierarchyRole:
-    | "BUILDING"
-    | "FLOOR"
-    | "NEIGHBORHOOD"
-    | "LEGACY_LOCATION"
-    | "STAGED"
-    | null;
-  assignedDepartmentIds: readonly string[];
-};
 
 export type ProjectionSourceFacility = {
   id: string;
@@ -59,21 +49,28 @@ export type ProjectionSourceDepartment = {
   key: OperationalDepartmentKey;
   label: string;
   isActive: boolean;
+  activeProfile: ProfileSnapshot | null;
   /**
    * Explicit Facility Builder room assignments (UnitSpaceResponsibility).
+   * Physical Run footprint — independent of Operational Profile.
    */
   assignedRoomIds: readonly string[];
   /**
    * Explicit Facility Builder neighborhood/unit assignments
-   * (UnitDepartmentResponsibility). Floors remain structural.
+   * (UnitDepartmentResponsibility). Floors remain structural and are
+   * filtered out during eligibility even if legacy rows exist.
    */
   assignedUnitIds: readonly string[];
+  archetypeBindings: readonly RoomArchetypeBindingSnapshot[];
+  roomExceptions: readonly RoomExceptionSnapshot[];
 };
 
 export type ProjectionSourcePolicy = {
   kind: "PLANT_FACILITY_WIDE_MAINTENANCE";
   departmentId: string;
   departmentKey: OperationalDepartmentKey;
+  defaultArchetypeKey: string;
+  directBindingsTakePrecedence: true;
   createsRoomAssignments: false;
   /** Empty/undefined means every active, placed room. */
   coveredRoomIds?: readonly string[];

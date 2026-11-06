@@ -12,7 +12,10 @@ import {
 test("target keys round-trip and reject floors-as-kinds", () => {
   assert.equal(targetAssignKey("SPACE", "room-1"), "SPACE:room-1");
   assert.deepEqual(parseTargetAssignKey("SPACE:room-1"), { kind: "SPACE", id: "room-1" });
-  assert.equal(parseTargetAssignKey("OPERATIONAL_TYPE:dept-1:servery"), null);
+  assert.deepEqual(parseTargetAssignKey("OPERATIONAL_TYPE:dept-1:servery"), {
+    kind: "OPERATIONAL_TYPE",
+    id: "dept-1:servery",
+  });
   assert.equal(parseTargetAssignKey("FACILITY:x"), null);
   assert.equal(parseTargetAssignKey("FLOOR:x"), null);
   assert.equal(parseTargetAssignKey("UNIT:"), null);

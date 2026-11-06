@@ -30,7 +30,7 @@ import {
 } from "./review-fact-maps";
 import { operationalReviewSpaceWhere } from "./review-space-scope";
 import { addServiceDateKey } from "./service-date-range";
-import type { OperationalReviewDayFacts } from "./types";
+import type { OperationalReviewDayFacts, ReviewOtBindingFact, ReviewProfileFact } from "./types";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -109,8 +109,25 @@ export async function loadOperationalReviewRangeFacts(input: {
     parentUnitLabel: space.unit?.name ?? null,
   }));
 
-  const [attachments, evidence, templates, plans, assignments, scheduleEntries, serveryEvents, keyTimes, keyPointActuals, assetIssues, legacyRows] =
+  const [profiles, attachments, evidence, templates, plans, assignments, scheduleEntries, serveryEvents, keyTimes, keyPointActuals, assetIssues, legacyRows] =
     await Promise.all([
+      departmentIds.length === 0
+        ? Promise.resolve([])
+        : input.client.departmentOperationalProfile.findMany({
+            where: {
+              facilityId: input.facilityId,
+              departmentId: { in: departmentIds },
+              status: { in: ["ACTIVE", "RETIRED", "CERTIFIED"] },
+            },
+            select: {
+              id: true,
+              departmentId: true,
+              version: true,
+              status: true,
+              activatedAt: true,
+              retiredAt: true,
+            },
+          }),
       input.client.logAttachment.findMany({
         where: {
           facilityId: input.facilityId,
@@ -162,7 +179,7 @@ export async function loadOperationalReviewRangeFacts(input: {
                   roleLabel: true,
                   requiredCount: true,
                   unitId: true,
-                  spaceId: true,
+                  applicableOperationalTypeKeys: true,
                   applicableOperationalCycleStableKeys: true,
                 },
               },
@@ -208,6 +225,7 @@ export async function loadOperationalReviewRangeFacts(input: {
           id: true,
           date: true,
           employeeId: true,
+          unitId: true,
           departmentId: true,
           shift: true,
           calledOffAt: true,
@@ -295,6 +313,35 @@ export async function loadOperationalReviewRangeFacts(input: {
         });
   const changedAssignmentIds = detectLocationChangedAssignmentIds(locationEvents);
 
+  const profileFacts: ReviewProfileFact[] = profiles.map((row) => ({
+    id: row.id,
+    departmentId: row.departmentId,
+    version: row.version,
+    status: row.status,
+    activatedAt: row.activatedAt,
+    retiredAt: row.retiredAt,
+  }));
+
+  const bindings: ReviewOtBindingFact[] =
+    profileFacts.length === 0
+      ? []
+      : (
+          await input.client.departmentRoomArchetypeBinding.findMany({
+            where: { profileId: { in: profileFacts.map((row) => row.id) } },
+            select: {
+              profileId: true,
+              unitSpaceId: true,
+              archetype: { select: { key: true, name: true, isActive: true } },
+            },
+          })
+        ).map((row) => ({
+          profileId: row.profileId,
+          spaceId: row.unitSpaceId,
+          operationalTypeKey: row.archetype.key,
+          operationalTypeName: row.archetype.name,
+          archetypeIsActive: row.archetype.isActive,
+        }));
+
   const attachmentSegments = mapReviewAttachmentSegments(attachments);
   const coverageTemplates = mapReviewCoverageTemplates(templates);
   const evidenceByDate = groupByDateKey(mapReviewEvidenceRecords(evidence), (row) => row.operationalDateKey);
@@ -377,6 +424,8 @@ export async function loadOperationalReviewRangeFacts(input: {
       now,
       todayKey,
       spaces: spaceFacts,
+      profiles: profileFacts,
+      otBindings: bindings,
       attachmentSegments,
       evidenceRecords: evidenceByDate.get(serviceDate) ?? [],
       waivers: waiversByDate.get(serviceDate) ?? [],
@@ -400,7 +449,7 @@ export async function loadOperationalReviewRangeFacts(input: {
         id: row.id,
         employeeId: row.employeeId,
         employeeDisplayName: employeeDisplayName(row.employee),
-        unitId: null,
+        unitId: row.unitId,
         departmentId: row.departmentId,
         shift: row.shift,
       })),
@@ -410,7 +459,7 @@ export async function loadOperationalReviewRangeFacts(input: {
         employeeDisplayName: employeeDisplayName(row.employee),
         reason: row.callOffReason ?? "Call-off",
         oldUnitId: null,
-        newUnitId: "",
+        newUnitId: row.unitId ?? "",
       })),
       assetImpacts: (assetsByDate.get(serviceDate) ?? [])
         .filter(

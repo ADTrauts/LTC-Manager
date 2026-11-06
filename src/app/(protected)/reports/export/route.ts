@@ -64,6 +64,7 @@ export async function GET(request: Request): Promise<Response> {
     select: { displayName: true },
   });
   const timezone = await loadFacilityTimezone(prisma, session.facilityId);
+  const locationFunction = url.searchParams.get("locationFunction");
   const loaded = await Promise.all(
     access.departmentIds.map((departmentId) =>
       loadAuditOperationalRecords(prisma, {
@@ -72,6 +73,7 @@ export async function GET(request: Request): Promise<Response> {
         fromDateKey: from,
         toDateKey: to,
         catalogStableKey: definition,
+        locationFunctionKey: locationFunction,
       }),
     ),
   );
@@ -105,7 +107,7 @@ export async function GET(request: Request): Promise<Response> {
       generatedAt: new Date().toISOString(),
       generatedBy: session.name || "Signed-in user",
       timezone,
-      filters: ["All locations"],
+      filters: [locationFunction ? `Location function ${locationFunction}` : "All locations"].filter(Boolean),
     },
     slots,
     attachments: attachmentRows.map((row) => ({

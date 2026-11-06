@@ -46,6 +46,12 @@ test("changeOwnUserPassword updates the User by id and increments sessionVersion
         return user;
       },
     },
+    pushSubscription: {
+      updateMany: async () => {
+        user.sessionVersion = user.sessionVersion;
+        return { count: 1 };
+      },
+    },
     $transaction: async (fn: (tx: typeof client) => Promise<unknown>) => fn(client),
   };
 
@@ -76,6 +82,11 @@ test("changeOwnUserPassword rejects a wrong current password without revoking se
         return user;
       },
     },
+    pushSubscription: {
+      updateMany: async () => {
+        throw new Error("password change must not revoke push after a rejected password");
+      },
+    },
     $transaction: async (fn: (tx: typeof client) => Promise<unknown>) => fn(client),
   };
 
@@ -97,6 +108,7 @@ test("password action is User-gated and does not remint the current session", ()
   assert.equal(action.includes("requireFacilitySession"), false);
   assert.equal(action.includes("facilityId"), false);
   assert.match(helper, /revokeUserSessions/);
+  assert.match(helper, /revokeAllPushSubscriptionsForUser/);
   assert.equal(helper.includes("createAccountSessionToken"), false);
   assert.equal(helper.includes("enterContext"), false);
   assert.equal(helper.includes("employee"), false);

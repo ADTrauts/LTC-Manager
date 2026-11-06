@@ -73,6 +73,10 @@ export const WRITE_MANIFEST: WriteManifest = {
     "addPartnerKeyPointAction",
     "publishPartnerCycleAction",
   ]),
+  [`${APP}/partner/work/actions.ts`]: {
+    addPartnerWorkPlanAction: department("department"),
+    publishPartnerWorkPlanAction: department("workPlan"),
+  },
   [`${APP}/partner/assets/actions.ts`]: each(department("department"), ["addPartnerAssetAction"]),
   [`${APP}/partner/menus/actions.ts`]: {
     addPartnerMenuAction: department("department"),
@@ -266,16 +270,13 @@ export const WRITE_MANIFEST: WriteManifest = {
     createDepartmentTeamAction: department("department"),
     ...each(department("departmentTeam"), [
       "updateDepartmentTeamAction",
+      "addRemainingRoomsOfTypeToTeamAction",
       "archiveDepartmentTeamAction",
     ]),
   },
   [`${DEPARTMENT_ADMIN}/team-cycle-actions.ts`]: {
-    ...each(department("departmentTeam"), [
-      "createTeamCycleAction",
-      "linkTeamCycleAction",
-      "unlinkTeamCycleAction",
-      "updateTeamCycleNeedAction",
-    ]),
+    ...each(department("departmentTeam"), ["createTeamCycleAction", "linkTeamCycleAction"]),
+    ...each(department("departmentTeamCycle"), ["unlinkTeamCycleAction", "updateTeamCycleNeedAction"]),
   },
   [`${PROTECTED}/admin/knowledge/actions.ts`]: each(department("knowledgeArticle"), [
     "upsertKnowledgeArticleAction",
@@ -294,13 +295,11 @@ export const WRITE_MANIFEST: WriteManifest = {
       "clearEmployeePinAction",
       "updateEmployeeStatusAction",
       "recordEmployeeSeparationAction",
+      "setDefaultAssignmentAction",
       "addDisciplinePointEntryAction",
       "deleteDisciplinePointEntryAction",
     ]),
     revokeEmployeeSessionsAction: GOVERNANCE,
-  },
-  [`${PROTECTED}/employees/qualification-actions.ts`]: {
-    setEmployeeOperationalQualificationsAction: department("department"),
   },
   // Bulk employee setup: each row names its Departments.
   [`${PROTECTED}/employees/bulk-setup/actions.ts`]: each(department("department"), [
@@ -320,6 +319,10 @@ export const WRITE_MANIFEST: WriteManifest = {
     "previewEmployeeCsvAction",
     "confirmEmployeeCsvAction",
   ]),
+  [`${PROTECTED}/employees/job-roles/actions.ts`]: {
+    createJobRoleAction: department("department"),
+    ...each(department("jobRole"), ["updateJobRoleAction", "archiveJobRoleAction"]),
+  },
   [`${PROTECTED}/staffing/schedule/actions.ts`]: {
     createCanonicalShiftAction: department("department"),
     ...each(department("scheduleEntry"), [
@@ -357,6 +360,35 @@ export const WRITE_MANIFEST: WriteManifest = {
     ...each(department("keyTimeDayExpectation"), [
       "delayKeyTimeExpectationAction",
       "completeKeyTimeExpectationAction",
+    ]),
+  },
+  [`${PROTECTED}/staffing/work-plans/actions.ts`]: {
+    ...each(department("department"), ["createWorkPlanDraftAction", "createWorkPlanPresetDraftAction"]),
+    ...each(department("workPlan"), [
+      "updateWorkPlanDraftAction",
+      "publishWorkPlanAction",
+      "retireWorkPlanAction",
+      "duplicateWorkPlanAction",
+      "createWorkPlanSuccessorAction",
+    ]),
+  },
+  [`${PROTECTED}/staffing/work-plans/work-runtime-actions.ts`]: {
+    createOneOffWorkAction: department("department"),
+    ...each(department("workOccurrence"), [
+      "completeWorkRequirementAction",
+      "markWorkNotRequiredAction",
+      "reopenWorkOccurrenceAction",
+      "cancelOneOffWorkAction",
+    ]),
+  },
+  [`${PROTECTED}/staffing/operations/work-actions.ts`]: {
+    createOneOffWorkAction: department("department"),
+    ...each(department("workOccurrence"), [
+      "completeWorkAction",
+      "markWorkNotRequiredAction",
+      "reopenWorkAction",
+      "reassignWorkAction",
+      "cancelOneOffWorkAction",
     ]),
   },
   [`${PROTECTED}/menus/actions.ts`]: {
@@ -468,6 +500,7 @@ export const WRITE_MANIFEST: WriteManifest = {
       "waiveWorkOrderRecordRequirementAction",
       "addWorkOrderNoteAction",
       "assignWorkOrderAction",
+      "setWorkOrderResponseRequirementAction",
       "linkEvidenceToWorkOrderAction",
       "addRepairUpdateAction",
       "addRepairPhotosAction",
@@ -506,6 +539,13 @@ export const WRITE_MANIFEST: WriteManifest = {
     "ensureShiftTransitionAction",
   ]),
 
+  [`${PROTECTED}/notifications/actions.ts`]: each(PERSONAL, [
+    "markNotificationReadAction",
+    "acknowledgeNotificationAction",
+    "snoozeNotificationAction",
+    "resumeBrowserAlertsAction",
+  ]),
+  [`${APP}/account/notifications/actions.ts`]: each(PERSONAL, ["saveQuietHoursAction"]),
   [`${PROTECTED}/dashboard/actions.ts`]: {
     ...each(SHARED_FACILITY, ["refreshMorningBriefAction", "ensureMorningBriefAction"]),
     ...each(PERSONAL, ["saveDashboardLayout", "resetDashboardLayout"]),
@@ -518,6 +558,11 @@ export const WRITE_MANIFEST: WriteManifest = {
     "declineFacilityAdministratorInvitationAction",
   ]),
   [`${APP}/account/security/actions.ts`]: each(PERSONAL, ["changeOwnPasswordAction", "signOutEverywhereAction"]),
+  [`${APP}/api/notifications/push-subscription/route.ts`]: { POST: PERSONAL },
+  [`${APP}/api/notifications/push-subscription/disable/route.ts`]: { POST: PERSONAL },
+  [`${APP}/api/notifications/push-subscription/status/route.ts`]: { POST: PERSONAL },
+  [`${APP}/api/notifications/push-subscription/release/route.ts`]: { POST: AUTH_SYSTEM },
+  [`${APP}/api/notifications/push-subscription/reconcile/route.ts`]: { POST: AUTH_SYSTEM },
 
   // Offline sync replays commands through the same domain modules (CDA ARCHITECTURE §5).
   [`${PROTECTED}/unit/[unitId]/offline-actions.ts`]: each(AUTH_SYSTEM, ["resolveOfflineConflictAction"]),

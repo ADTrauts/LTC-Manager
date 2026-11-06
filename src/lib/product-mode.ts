@@ -57,6 +57,7 @@ export const PRODUCT_MODE_PATH_RULES: ModePathRule[] = (
     { pathPrefix: "/menus", mode: "BUILD", label: "Menus" },
     { pathPrefix: "/build/logs", mode: "BUILD", label: "Logs" },
     { pathPrefix: "/staffing/templates", mode: "BUILD", label: "Operational Templates" },
+    { pathPrefix: "/staffing/work-plans", mode: "BUILD", label: "Work" },
 
     // ── ADMIN — governance surfaces ────────────────────────────────────────
     { pathPrefix: "/admin/organization", mode: "ADMIN", label: "Organization" },

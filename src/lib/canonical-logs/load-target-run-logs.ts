@@ -1,7 +1,8 @@
 /**
  * Canonical RUN Logs for a single Attachment target (Asset / Room / Unit / Department).
- * The requirement stays on that canonical target.
- * A room does not inherit Asset Logs, and Location Function does not add rooms.
+ * Direct target attachments stay on that target. A room also receives Record
+ * requirements whose Location Function matches its published runtime binding.
+ * Room does not mix Asset Logs from the same space.
  */
 
 import type { LogAttachmentTargetKind, PrismaClient } from "@prisma/client";
@@ -11,6 +12,7 @@ import type { FacilitySession } from "@/lib/auth";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { parseInspectionSections } from "@/lib/canonical-logs/inspection-score";
 import { dayBefore } from "@/lib/operational-cycles/cycle-lifecycle";
+import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -25,7 +27,10 @@ import {
 import { presentHistoryTable, type TargetRunLogHistoryTable } from "./history-presentation";
 import { loadPublishedCyclesForLogsDateRange } from "./load-published-cycles-for-logs";
 import { groupLogicalLogAttachments } from "./logical-attachment";
-import { dedupeLocationLogRequirements } from "./log-operational-type-applicability";
+import {
+  dedupeLocationLogRequirements,
+  expandOperationalTypeSpaces,
+} from "./log-operational-type-applicability";
 import {
   resolveLogRequirementsForAttachment,
   type LogAttachmentForResolve,
@@ -247,10 +252,17 @@ export async function loadTargetRunLogs(input: {
     buildHref: targetRunBuildHref(input.target),
   });
 
-  const rows = await input.client.logAttachment.findMany({
-    where: targetRunAttachmentWhere(input.facilityId, input.target),
-    include: attachmentInclude,
-  });
+  const rows = [
+    ...(await input.client.logAttachment.findMany({
+      where: targetRunAttachmentWhere(input.facilityId, input.target),
+      include: attachmentInclude,
+    })),
+    ...(await loadRuntimeOperationalTypeAttachmentsForTarget({
+      client: input.client,
+      facilityId: input.facilityId,
+      target: input.target,
+    })),
+  ];
   if (rows.length === 0) return emptyView();
 
   const isManager = hasAtLeastRole(input.session.role, "MANAGER");
@@ -369,7 +381,10 @@ export async function loadTargetRunLogs(input: {
     const resolved = resolveLogRequirementsForAttachment({
       attachment: {
         ...attachment,
-        resolvedSpaceId: null,
+        resolvedSpaceId:
+          attachment.targetKind === "OPERATIONAL_TYPE" && input.target.kind === "SPACE"
+            ? input.target.id
+            : null,
         catalogDefinition: catalogForResolve(attachment.catalogDefinition),
       },
       operationalDateKey: todayKey,
@@ -417,7 +432,10 @@ export async function loadTargetRunLogs(input: {
     );
     const resolveSegments: LogAttachmentForResolve[] = segments.map((attachment) => ({
       ...attachment,
-      resolvedSpaceId: null,
+      resolvedSpaceId:
+        attachment.targetKind === "OPERATIONAL_TYPE" && input.target.kind === "SPACE"
+          ? input.target.id
+          : null,
       catalogDefinition: catalogForResolve(attachment.catalogDefinition),
     }));
 
@@ -464,4 +482,44 @@ export async function loadTargetRunLogs(input: {
     history,
     buildHref: targetRunBuildHref(input.target),
   };
+}
+
+async function loadRuntimeOperationalTypeAttachmentsForTarget(input: {
+  client: PrismaClient;
+  facilityId: string;
+  target: RunTargetRef;
+}) {
+  if (input.target.kind !== "SPACE") return [];
+
+  const departments = await input.client.department.findMany({
+    where: { facilityId: input.facilityId, isActive: true },
+    select: { id: true },
+  });
+  const matched: Array<{ departmentId: string; operationalTypeKey: string }> = [];
+  for (const department of departments) {
+    const assignments = await loadSpaceOperationalTypeAssignments({
+      facilityId: input.facilityId,
+      departmentId: department.id,
+      spaceIds: [input.target.id],
+      perspective: "runtime",
+    });
+    const key = assignments.get(input.target.id)?.key ?? null;
+    const boundHere = expandOperationalTypeSpaces(assignments, key);
+    if (key && boundHere.includes(input.target.id)) {
+      matched.push({ departmentId: department.id, operationalTypeKey: key });
+    }
+  }
+  if (matched.length === 0) return [];
+
+  return input.client.logAttachment.findMany({
+    where: {
+      facilityId: input.facilityId,
+      targetKind: "OPERATIONAL_TYPE",
+      OR: matched.map((row) => ({
+        departmentId: row.departmentId,
+        operationalTypeKey: row.operationalTypeKey,
+      })),
+    },
+    include: attachmentInclude,
+  });
 }

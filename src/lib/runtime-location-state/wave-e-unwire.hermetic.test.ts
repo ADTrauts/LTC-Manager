@@ -18,9 +18,9 @@ test("RLS prefetch and compose do not key cycles or evidence off Operational Typ
   const prefetch = source("src/lib/runtime-location-state/prefetch.ts");
   const compose = source("src/lib/runtime-location-state/compose.ts");
   assert.equal(prefetch.includes("loadSpaceOperationalTypeAssignments"), false);
-  assert.equal(prefetch.includes("operationalTypeKey"), false);
+  assert.match(prefetch, /operationalTypeKey: null/);
   assert.match(compose, /locationMode: "EXPLICIT_UNITS"/);
-  assert.equal(compose.includes("operationalTypeKey"), false);
+  assert.match(compose, /operationalTypeKey: null/);
   // Superseded: meal milestones no longer match the substring "servery".
   // Admission is hasDietaryDomainCapabilities (Department.key === "DIETARY").
   assert.match(compose, /hasDietaryDomainCapabilities/);
@@ -49,10 +49,11 @@ test("Operation engine and Experience shell packages are gone", () => {
 });
 
 test("applyIndustryPack was never implemented and stays will-not-do", () => {
-  assert.equal(existsSync("src/lib/department-administration/baseline.ts"), false);
   const src = [
+    source("src/lib/department-administration/baseline.ts"),
     source("docs/platform-vision/RETIRED.md"),
     source("docs/product/10_PRODUCT_ROADMAP.md"),
   ].join("\n");
+  assert.doesNotMatch(source("src/lib/department-administration/baseline.ts"), /function applyIndustryPack/);
   assert.match(src, /applyIndustryPack/);
 });

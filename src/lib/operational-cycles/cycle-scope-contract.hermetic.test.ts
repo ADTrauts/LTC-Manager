@@ -5,10 +5,10 @@ import test from "node:test";
 
 const root = process.cwd();
 
-test("draft successor copies scope, locations, parent, and milestone times", () => {
+test("draft successor copies scope, locations, room type, parent, and milestone times", () => {
   const service = readFileSync(join(root, "src/lib/operational-cycles/cycle-service.ts"), "utf8");
   assert.match(service, /include:\s*\{[\s\S]*?locations: true,[\s\S]*?milestoneTimes: true,/);
-  assert.doesNotMatch(service, /roomTypeKey: source\.roomTypeKey/);
+  assert.match(service, /roomTypeKey: source\.roomTypeKey/);
   assert.match(service, /parentStableKey: source\.parentStableKey/);
   assert.match(service, /spaceId: l\.spaceId/);
   assert.match(service, /configuredTime: row\.configuredTime/);

@@ -41,6 +41,11 @@ export {
 } from "./present-operational-review-day";
 export { composeReviewMenuDomain, translateMenuResolutionToReviewFindings } from "./compose-menu-review";
 export {
+  historicalOtAssignmentsFromBindings,
+  profileCoversServiceDate,
+  selectHistoricalProfileForServiceDate,
+} from "./historical-operational-type";
+export {
   attachmentHistoryReliability,
   catalogDefinitionForHistory,
   groupAttachmentLineages,

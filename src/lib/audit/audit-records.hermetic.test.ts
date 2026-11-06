@@ -5,6 +5,7 @@ import test from "node:test";
 import { classifyAttachmentUpdate, type AttachmentHistoricalSnapshot } from "@/lib/canonical-logs/attachment-update-policy";
 import type { LogExpectationHistorySegment } from "@/lib/canonical-logs/expectation-history";
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
+import type { ReviewOtBindingFact, ReviewProfileFact } from "@/lib/operational-review/types";
 
 import { auditOperationalRecords, auditRecordsToCsv, type AuditRecordFact } from "./audit-records";
 import { ASSET_HISTORY_SOURCES } from "./history-boundaries";
@@ -42,11 +43,12 @@ function segment(
     calendarDueTimeLocal: null,
     localDisplayLabel: "Cooler Temperature",
     localInstructions: "Record the cooler temperature.",
-    targetKind: "SPACE",
+    targetKind: "OPERATIONAL_TYPE",
     assetId: null,
-    spaceId: "room-a",
+    spaceId: null,
     unitId: null,
     targetDepartmentId: null,
+    operationalTypeKey: "food_service_area",
     dailyWindows: windows("TWICE_DAILY"),
     cycleSelections: [],
     catalogDefinition: {
@@ -75,6 +77,47 @@ function segment(
     ...overrides,
   };
 }
+
+function profile(
+  overrides: Partial<ReviewProfileFact> & Pick<ReviewProfileFact, "id" | "version" | "activatedAt">,
+): ReviewProfileFact {
+  return {
+    departmentId: "dietary",
+    status: "RETIRED",
+    retiredAt: null,
+    ...overrides,
+  };
+}
+
+const earlyProfile = profile({
+  id: "profile-sept-1",
+  version: 1,
+  status: "RETIRED",
+  activatedAt: new Date("2026-09-01T14:00:00.000Z"),
+  retiredAt: new Date("2026-09-11T14:00:00.000Z"),
+});
+const laterProfile = profile({
+  id: "profile-sept-11",
+  version: 2,
+  status: "RETIRED",
+  activatedAt: new Date("2026-09-11T14:00:00.000Z"),
+  retiredAt: new Date("2026-10-01T14:00:00.000Z"),
+});
+const currentProfile = profile({
+  id: "profile-oct-1",
+  version: 3,
+  status: "ACTIVE",
+  activatedAt: new Date("2026-10-01T14:00:00.000Z"),
+  retiredAt: null,
+});
+
+const bindings: ReviewOtBindingFact[] = [
+  { profileId: earlyProfile.id, spaceId: "room-a", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
+  { profileId: earlyProfile.id, spaceId: "room-b", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
+  { profileId: laterProfile.id, spaceId: "room-b", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
+  { profileId: currentProfile.id, spaceId: "room-a", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
+  { profileId: currentProfile.id, spaceId: "room-b", operationalTypeKey: "food_service_area", operationalTypeName: "Food Service Area", archetypeIsActive: true },
+];
 
 const twice = segment({
   id: "seg-twice",
@@ -117,7 +160,10 @@ function audit(overrides?: Partial<Parameters<typeof auditOperationalRecords>[0]
     facilityTimezone: TZ,
     departmentId: "dietary",
     catalogStableKey: "cooler_temperature",
+    locationFunctionKey: "food_service_area",
     segments: [twice, thrice],
+    profiles: [earlyProfile, laterProfile, currentProfile],
+    bindings,
     spaces,
     placeNames: [],
     records: [],
@@ -126,21 +172,21 @@ function audit(overrides?: Partial<Parameters<typeof auditOperationalRecords>[0]
   });
 }
 
-test("September cooler audit uses each day's Record attachment, not a Department profile", () => {
+test("September cooler audit uses each day's cadence and location binding", () => {
   const result = audit();
   const sept5 = result.slots.filter((slot) => slot.serviceDate === "2026-09-05");
   const sept12 = result.slots.filter((slot) => slot.serviceDate === "2026-09-12");
   const sept20 = result.slots.filter((slot) => slot.serviceDate === "2026-09-20");
-  assert.equal(sept5.every((slot) => slot.spaceId === "room-a"), true);
-  assert.equal(sept5.length, 2);
-  assert.equal(sept12.every((slot) => slot.spaceId === "room-a"), true);
+  assert.equal(new Set(sept5.map((slot) => slot.spaceId)).size, 2);
+  assert.equal(sept5.filter((slot) => slot.spaceId === "room-a").length, 2);
+  assert.equal(sept12.every((slot) => slot.spaceId === "room-b"), true);
   assert.equal(sept12.length, 2);
   assert.equal(sept20.length, 3);
-  assert.equal(sept20.every((slot) => slot.spaceId === "room-a"), true);
+  assert.equal(sept20.some((slot) => slot.spaceId === "room-a"), false);
   assert.equal(sept5[0]?.catalogVersion, 2);
   assert.equal(sept20[0]?.catalogVersion, 3);
   assert.equal(sept20.every((slot) => slot.slotState === "NOT_COMPLETE"), true);
-  assert.equal(result.slots.length, 14 * 2 + 16 * 3);
+  assert.equal(result.slots.length, 10 * 4 + 4 * 2 + 16 * 3);
 
   const oneDay = audit({ fromDateKey: "2026-09-12", toDateKey: "2026-09-12" });
   assert.deepEqual(
@@ -153,7 +199,7 @@ test("September cooler audit uses each day's Record attachment, not a Department
 
 test("a closed slot with no Record and no waiver is not complete, and nothing is persisted", () => {
   const result = audit({ fromDateKey: "2026-09-01", toDateKey: "2026-09-01" });
-  assert.equal(result.slots.length, 2);
+  assert.equal(result.slots.length, 4);
   assert.equal(result.slots.every((slot) => slot.slotState === "NOT_COMPLETE" && slot.record == null), true);
 });
 
@@ -312,11 +358,12 @@ test("operational instructions close and succeed; display labels stay in place",
     catalogDefinitionId: "cat-v2",
     catalogVersion: 2,
     departmentId: "dietary",
-    targetKind: "SPACE",
+    targetKind: "OPERATIONAL_TYPE",
     assetId: null,
-    spaceId: "room-a",
+    spaceId: null,
     unitId: null,
     targetDepartmentId: null,
+    operationalTypeKey: "food_service_area",
   };
   const instructions = classifyAttachmentUpdate({
     effectiveFromKey: "2026-09-01",

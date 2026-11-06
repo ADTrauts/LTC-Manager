@@ -13,6 +13,7 @@ import {
   type StandardRoomTypeOption,
 } from "./cycle-scope";
 import { mapCycleRow } from "./load-published-cycles";
+import { loadDepartmentOperationalTypeOptions } from "./load-operational-type-targets";
 import {
   describeOperationalCycleContext,
   resolveOperationalCycle,
@@ -37,6 +38,8 @@ export type CycleBuilderCatalog = {
   locations: CycleScopeLocationOption[];
   /** Facility Room Types for Build room-picker filters (id + displayName). */
   roomTypes: StandardRoomTypeOption[];
+  /** Department Operational Types — preferred cycle applicability target. */
+  operationalTypes: Array<{ key: string; name: string }>;
 };
 
 /**
@@ -136,6 +139,11 @@ export async function loadCycleBuilder(input: {
     ]),
   );
   const facilityRoomTypes = await listFacilityRoomTypes(input.facilityId, prisma);
+  const operationalTypes = await loadDepartmentOperationalTypeOptions({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    perspective: "working",
+  });
 
   const catalog: CycleBuilderCatalog = {
     locations: (locationsView?.locations ?? []).map((location) => {
@@ -151,13 +159,13 @@ export async function loadCycleBuilder(input: {
         neighborhoodId: location.parentNeighborhoodId,
         neighborhoodName: location.parentNeighborhoodName,
         hierarchyRole: location.hierarchyRole,
-        floorName: location.floorName,
       };
     }),
     roomTypes: facilityRoomTypes.map((row) => ({
       key: row.id,
       label: row.displayName,
     })),
+    operationalTypes,
   };
 
   return {

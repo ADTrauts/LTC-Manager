@@ -1,10 +1,15 @@
 import { TeamsWorkspace } from "@/app/(protected)/admin/departments/[departmentId]/teams-workspace";
 import type { FacilitySession } from "@/lib/auth";
+import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 import {
+  loadDepartmentRootCycleOptions,
+  loadTeamCatalog,
   loadTeamEmployeeOptions,
   loadTeamsForDepartment,
   resolveTeamAuthority,
 } from "@/lib/department-teams";
+import { nextOperationalDayKey } from "@/lib/operational-cycles";
+import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
 type Props = {
@@ -21,12 +26,18 @@ export async function TeamsPanel({
   facilityId,
   departmentId,
   departmentName,
+  departmentKey,
   selectedTeamId,
 }: Props) {
-  const [authority, teams, employees] = await Promise.all([
+  const timezone = await loadFacilityTimezone(prisma, facilityId);
+  const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
+  const nextDayKey = nextOperationalDayKey(todayKey);
+  const [authority, teams, catalog, employees, cycleOptions] = await Promise.all([
     resolveTeamAuthority(session, facilityId, departmentId),
     loadTeamsForDepartment(prisma, { facilityId, departmentId }),
+    loadTeamCatalog({ facilityId, departmentId }),
     loadTeamEmployeeOptions(prisma, { facilityId, departmentId }),
+    loadDepartmentRootCycleOptions(prisma, { facilityId, departmentId }),
   ]);
 
   return (
@@ -34,9 +45,13 @@ export async function TeamsPanel({
       departmentId={departmentId}
       departmentName={departmentName}
       teams={teams}
+      catalog={catalog}
       employees={employees}
       canManage={authority.canManage}
       selectedTeamId={selectedTeamId}
+      cycleOptions={cycleOptions}
+      showMeal={hasDietaryDomainCapabilities(departmentKey)}
+      nextDayKey={nextDayKey}
     />
   );
 }

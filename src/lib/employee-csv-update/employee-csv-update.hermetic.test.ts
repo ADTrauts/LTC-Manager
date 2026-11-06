@@ -8,18 +8,18 @@ const session = { uid: "actor", facilityId: "facility", role: "MANAGER", authKin
 
 test("names-only and fully blank optional cells produce patches without defaults", () => {
   assert.deepEqual(parseEmployeeUpdateCsv("firstName,lastName\nJane,Doe")[0]!.values, { firstName: "Jane", lastName: "Doe" });
-  assert.deepEqual(parseEmployeeUpdateCsv("employeeId,email,roleType,status,phone\nemp_1, ,,,")[0]!.values, { employeeId: "emp_1" });
+  assert.deepEqual(parseEmployeeUpdateCsv("employeeId,email,roleType,status,workStations\nemp_1, ,,,")[0]!.values, { employeeId: "emp_1" });
   assert.equal(EMPLOYEE_CSV_TEMPLATE.trim().split("\n").length, 1);
 });
 
 test("clear is distinct from blank, and explicit false remains false", () => {
-  assert.deepEqual(parseEmployeeUpdateCsv("employeeId,phone,hrNotes,onLeave\nemp_1,__CLEAR__,__CLEAR__,false")[0]!.values, { employeeId: "emp_1", phone: null, hrNotes: null, onLeave: false });
+  assert.deepEqual(parseEmployeeUpdateCsv("employeeId,phone,workStations,onLeave\nemp_1,__CLEAR__,__CLEAR__,false")[0]!.values, { employeeId: "emp_1", phone: null, workStations: [], onLeave: false });
 });
 
 for (const [field, input] of [
   ["status", "__CLEAR__"], ["roleType", "__CLEAR__"], ["firstName", "__CLEAR__"], ["employmentType", "__CLEAR__"],
   ["terminationDate", "__CLEAR__"], ["chrcOffboardingNotes", "__CLEAR__"], ["unionMember", "perhaps"],
-  ["hireDate", "2026-02-30"], ["chrcClearedAt", "2026-13-02"], ["phone", "x".repeat(40)],
+  ["hireDate", "2026-02-30"], ["chrcClearedAt", "2026-13-02"], ["workStations", "COOK|NOT_A_STATION"],
   ["birthMonth", "13"], ["birthDay", "zero"], ["roleType", "OWNER"], ["status", "LIVE"],
 ] as const) test(`blocks invalid ${field}: ${input}`, () => {
   assert.ok(parseEmployeeUpdateCsv(`employeeId,${field}\nemp_1,${input}`)[0]!.errors.length);

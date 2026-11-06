@@ -26,12 +26,16 @@ import {
   type KeyTimeDayTiming,
   type KeyTimeGroupSummary,
 } from "./key-time-day-expectation";
+import {
+  loadSpaceOperationalTypeAssignments,
+  operationalTypeKeysForSpaces,
+} from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import {
   materializeMealServiceDayExpectations,
   mealTargetsFromTimings,
 } from "./materialize-day-expectations";
-import { prepareCurrentKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
+import { materializeKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
 import {
   cycleMilestoneStatusLabel,
   resolveCycleMilestoneStatus,
@@ -180,7 +184,7 @@ export async function loadSupervisorCycleOverview(input: {
           now,
         })
       : Promise.resolve({ operationalDateKey, created: 0, timings: [] as DayMealTiming[] }),
-    prepareCurrentKeyTimeDayExpectations({
+    materializeKeyTimeDayExpectations({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       operationalDateKey,
@@ -262,6 +266,11 @@ export async function loadSupervisorCycleOverview(input: {
   };
 
   const rows: SupervisorUnitCycleRow[] = [];
+  const runtimeFunctions = await loadSpaceOperationalTypeAssignments({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    perspective: "runtime",
+  });
 
   if (!isCurrentPeriodModel(runProvenance)) {
   for (const unit of units) {
@@ -291,6 +300,10 @@ export async function loadSupervisorCycleOverview(input: {
         unitType: unit.unitType,
         childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
+        childOperationalTypeKeys: operationalTypeKeysForSpaces(
+          runtimeFunctions,
+          unit.childSpaces.map((space) => space.id),
+        ),
       },
       mealTargets,
     });
@@ -486,6 +499,7 @@ export async function loadSupervisorCycleOverview(input: {
         adjustedDueLocal: timing.adjustedDueLocal,
         actualDueLocal: timing.actualDueLocal,
         nowLocalHhMm: nowLocal,
+        occurrenceTracking: timing.occurrenceTracking,
       });
       return {
         expectationId: timing.expectationId,
@@ -517,6 +531,7 @@ export async function loadSupervisorCycleOverview(input: {
       adjustedDueLocal: timing.adjustedDueLocal,
       actualDueLocal: timing.actualDueLocal,
       nowLocalHhMm: nowLocal,
+      occurrenceTracking: timing.occurrenceTracking,
     });
     if (status.key === "overdue") keyTimesOverdue += 1;
   }

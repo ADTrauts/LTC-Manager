@@ -30,6 +30,7 @@ import { OPEN_OPERATIONAL_REQUEST_STATUSES } from "@/lib/operational-requests/ty
 import { prisma } from "@/lib/prisma";
 
 import { resolveAssetOperationsAuthority } from "./authority";
+import { processIssueCreatedOutbox } from "./issue-created-attention";
 import {
   createIssueFromRequest,
   linkRequestToIssue,
@@ -125,7 +126,9 @@ export async function triageRequestCreateIssue(
     });
   };
   if (input.client) return run(input.client);
-  return prisma.$transaction((tx) => run(tx));
+  const created = await prisma.$transaction((tx) => run(tx));
+  await processIssueCreatedOutbox(prisma, created.issue.id);
+  return created;
 }
 
 /** Accept Request and link an existing Issue (duplicate reports). */
@@ -198,7 +201,9 @@ export async function triageRequestCreateIssueAndWorkOrder(
     return { ...created, workOrder };
   };
   if (input.client) return run(input.client);
-  return prisma.$transaction((tx) => run(tx));
+  const created = await prisma.$transaction((tx) => run(tx));
+  await processIssueCreatedOutbox(prisma, created.issue.id);
+  return created;
 }
 
 export async function declineRequest(

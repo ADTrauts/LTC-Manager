@@ -174,14 +174,14 @@ test.describe("Harbor Marketplace", () => {
   test("unified families share one table", async ({ page }) => {
     await page.goto("/console/catalog");
     await expect(page.getByRole("heading", { name: "Marketplace" })).toBeVisible();
-    await expect(page.getByText("Manage Vssyl Department Products and catalog Records from one place.")).toBeVisible();
+    await expect(page.getByText("Manage Vssyl Department Products, catalog Records, and Work presets from one place.")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Marketplace families" })).not.toContainText("Procedures");
     await expect(row(page, "PLANT")).toBeVisible();
     await expect(row(page, "HEALTHCARE_FOOD_NUTRITION")).toBeVisible();
     await expect(row(page, "EVS")).toBeVisible();
     await expect(row(page, "cooler_temperature_log")).toBeVisible();
     await expect(row(page, "opening_checklist")).toBeVisible();
-    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toHaveCount(0);
+    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toBeVisible();
     await expect(row(page, "phase6c_procedure")).toHaveCount(0);
     await expect(page.getByTestId("marketplace-create")).toHaveText("New catalog record");
 
@@ -207,9 +207,20 @@ test.describe("Harbor Marketplace", () => {
     await expect(row(page, "MECHANICAL_ROOM_ROUND")).toHaveCount(0);
     await expect(row(page, "cooler_temperature_log")).toBeVisible();
 
-    await expect(
-      page.getByRole("navigation", { name: "Marketplace families" }).getByRole("link", { name: "Work" }),
-    ).toHaveCount(0);
+    await page.getByRole("navigation", { name: "Marketplace families" }).getByRole("link", { name: "Work" }).click();
+    await expect(page).toHaveURL(/family=work/);
+    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toBeVisible();
+    await expect(row(page, "cooler_temperature_log")).toHaveCount(0);
+    await expect(row(page, "PLANT")).toHaveCount(0);
+    const round = row(page, "MECHANICAL_ROOM_ROUND");
+    await expect(round).toContainText("Work");
+    await expect(round).toContainText("Facility Plant Operations");
+    await expect(round).toContainText("—");
+    await expect(round).toContainText(/None yet|1 facility|\d+ facilities/);
+    await expect(round).toContainText(/\d+ published plans?/);
+    await expect(round.locator("a")).toHaveAttribute("href", "/console/catalog/work/MECHANICAL_ROOM_ROUND");
+    await expect(page.getByLabel("Status")).toHaveCount(0);
+    await expect(page.getByTestId("marketplace-create")).toHaveCount(0);
   });
 
   test("record subtypes, detail, and create", async ({ page }) => {
@@ -262,13 +273,13 @@ test.describe("Harbor Marketplace", () => {
     await page.getByLabel("Search Marketplace").fill("PLANT");
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(row(page, "PLANT")).toBeVisible();
-    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toHaveCount(0);
+    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toBeVisible();
     await expect(row(page, "cooler_temperature_log")).toHaveCount(0);
 
     await page.goto("/console/catalog");
     await page.getByLabel("Search Marketplace").fill("Mechanical");
     await page.getByRole("button", { name: "Apply" }).click();
-    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toHaveCount(0);
+    await expect(row(page, "MECHANICAL_ROOM_ROUND")).toBeVisible();
     await expect(row(page, "PLANT")).toHaveCount(0);
 
     await page.goto("/console/catalog?family=records&type=log");

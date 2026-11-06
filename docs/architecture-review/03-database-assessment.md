@@ -1,8 +1,6 @@
 # 3. Database Assessment
 
-Historical inventory. Phase 7B removed `DepartmentJobRole`, `EmployeeDepartmentJobRole`, `DefaultAssignment`, and `EmployeeWorkStation`. Do not treat the tables below as the current schema.
-
-**Source of truth at the time of this review:** `ltc-manager/prisma/schema.prisma`  
+**Source of truth:** `ltc-manager/prisma/schema.prisma`  
 **Migrations:** 31 folders under `prisma/migrations/`
 
 ## Tenancy and hierarchy

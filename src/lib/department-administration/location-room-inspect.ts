@@ -43,10 +43,8 @@ export type LocationRoomInspectView = {
   responsible: boolean;
   teams: LocationRoomTeamInspect[];
   cycles: LocationRoomCycleInspect[];
-  coverage: LocationProgram["coverage"];
   logs: LocationRoomLogInspect[];
   assets: LocationRoomAssetInspect[];
-  menus: readonly { id: string; name: string }[];
   addLogHref: string | null;
   catalogOptions: Array<{ stableKey: string; name: string }>;
 };
@@ -86,13 +84,11 @@ export function toLocationRoomInspect(
     responsible: program.location.responsible,
     teams: program.teams,
     cycles: program.cycles,
-    coverage: program.coverage,
     logs: program.logs.map(inspectLog),
     assets: program.assets.map((asset) => ({
       ...asset,
       href: `/assets/${asset.id}`,
     })),
-    menus: program.menus,
     addLogHref: extras.logsEnabled
       ? `/build/logs/attach?targetKind=SPACE&targetId=${encodeURIComponent(spaceId)}&departmentId=${encodeURIComponent(program.department.id)}&returnTo=${encodeURIComponent(`/admin/departments/${program.department.id}?tab=locations`)}`
       : null,

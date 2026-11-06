@@ -17,6 +17,14 @@ test("a reassignment is a move", () => {
   assert.equal(peopleChangeIsMove("emergency-coverage"), true);
 });
 
+test("a call-off changes Coverage and does not publish its own notice", () => {
+  const source = readFileSync("src/lib/scheduling/people-coverage.ts", "utf8");
+  assert.match(source, /recordCoverageEpisodeTransitions/);
+  assert.match(source, /schedule_call_off/);
+  assert.equal(source.includes("shift.called_off"), false);
+  assert.equal(source.includes("enqueueNotificationEvent"), false);
+});
+
 test("the people action does not write an assignment override", () => {
   const source = readFileSync("src/app/(protected)/staffing/actions.ts", "utf8");
   assert.equal(source.includes("assignmentOverride.create"), false);

@@ -1,11 +1,14 @@
 /**
  * Canonical Record audit.
- * Each service date uses the Record attachment effective that day and its
- * canonical target, then joins sparse Records, corrections, follow-ups, and waivers.
+ * Each service date uses the requirement segment and Location Function binding
+ * effective that day, then joins sparse Records, corrections, follow-ups, and waivers.
  * Expected slots are derived. Missing slots are not stored.
- * Department profiles and Location Function bindings are not consulted.
  */
 
+import {
+  bindOperationalTypeRequirementToSpace,
+  expandOperationalTypeSpaces,
+} from "@/lib/canonical-logs/log-operational-type-applicability";
 import { presentRecordForm } from "@/lib/canonical-logs/record-engine";
 import { attachmentLineageKey } from "@/lib/canonical-logs/attachment-update-policy";
 import { selectSegmentForDate, type LogExpectationHistorySegment } from "@/lib/canonical-logs/expectation-history";
@@ -16,6 +19,11 @@ import {
 import type { LogHistorySlotState } from "@/lib/logs-architecture/history-slot-state";
 import { classifyOperationalRequirement } from "@/lib/operational-occurrence/classify-operational-requirement";
 import { nextOperationalDayKey } from "@/lib/operational-cycles/cycle-lifecycle";
+import {
+  historicalOtAssignmentsFromBindings,
+  selectHistoricalProfileForServiceDate,
+} from "@/lib/operational-review/historical-operational-type";
+import type { ReviewOtBindingFact, ReviewProfileFact } from "@/lib/operational-review/types";
 
 import { resolvePlaceLabel, type PlaceNameChangeFact } from "./place-name";
 
@@ -70,6 +78,7 @@ export type AuditRecordSlot = {
   recordForm: string;
   requirementSegmentId: string;
   attachmentStableKey: string;
+  locationFunctionKey: string | null;
   spaceId: string | null;
   assetId: string | null;
   unitId: string | null;
@@ -151,7 +160,10 @@ export type AuditOperationalRecordsInput = {
   facilityTimezone: string;
   departmentId: string;
   catalogStableKey?: string | null;
+  locationFunctionKey?: string | null;
   segments: readonly (LogExpectationHistorySegment & { waiverAllowed?: boolean })[];
+  profiles: readonly ReviewProfileFact[];
+  bindings: readonly ReviewOtBindingFact[];
   spaces: readonly AuditSpaceFact[];
   placeNames: readonly PlaceNameChangeFact[];
   records: readonly AuditRecordFact[];
@@ -179,6 +191,7 @@ function lineageOf(segment: LogExpectationHistorySegment): string {
     spaceId: segment.spaceId,
     unitId: segment.unitId,
     targetDepartmentId: segment.targetDepartmentId,
+    operationalTypeKey: segment.operationalTypeKey,
     departmentId: segment.departmentId,
   });
 }
@@ -209,6 +222,13 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
       const segment = selectSegmentForDate(group, serviceDate);
       if (!segment) continue;
       if (input.catalogStableKey && segment.catalogStableKey !== input.catalogStableKey) continue;
+      if (
+        input.locationFunctionKey &&
+        segment.operationalTypeKey !== input.locationFunctionKey
+      ) {
+        continue;
+      }
+
       const targets = targetsForSegment(segment, serviceDate, input);
       if (targets.length === 0) continue;
       canonicalDates.add(serviceDate);
@@ -231,7 +251,9 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
         );
 
         for (const requirement of requirements) {
-          const bound = requirement;
+          const bound = target.spaceId
+            ? bindOperationalTypeRequirementToSpace(requirement, target.spaceId)
+            : requirement;
           const requirementKey = bound.requirementKey;
           const record =
             input.records.find(
@@ -271,6 +293,7 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
             recordForm: auditRecordFormLabel(segment),
             requirementSegmentId: segment.id,
             attachmentStableKey: segment.stableKey,
+            locationFunctionKey: segment.operationalTypeKey,
             spaceId: target.spaceId,
             assetId: segment.assetId,
             unitId: segment.unitId,
@@ -337,11 +360,22 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
 
 function targetsForSegment(
   segment: LogExpectationHistorySegment,
-  _serviceDate: string,
-  _input: AuditOperationalRecordsInput,
+  serviceDate: string,
+  input: AuditOperationalRecordsInput,
 ): Array<{ spaceId: string | null }> {
-  if (segment.targetKind === "SPACE") return [{ spaceId: segment.spaceId }];
-  return [{ spaceId: null }];
+  if (segment.targetKind !== "OPERATIONAL_TYPE") {
+    if (segment.targetKind === "SPACE") return [{ spaceId: segment.spaceId }];
+    return [{ spaceId: null }];
+  }
+  const selected = selectHistoricalProfileForServiceDate(input.profiles, {
+    departmentId: segment.departmentId,
+    serviceDateKey: serviceDate,
+    timezone: input.facilityTimezone,
+  });
+  if (selected.status !== "evaluated") return [];
+  const assignments = historicalOtAssignmentsFromBindings(input.bindings, selected.profile.id);
+  const spaceIds = expandOperationalTypeSpaces(assignments, segment.operationalTypeKey);
+  return spaceIds.map((spaceId) => ({ spaceId }));
 }
 
 function slotStateFor(input: {
@@ -400,6 +434,7 @@ export function auditRecordsToCsv(slots: readonly AuditRecordSlot[]): string {
     "definitionVersion",
     "requirementSegmentId",
     "location",
+    "locationFunction",
     "windowStart",
     "windowEnd",
     "cycleStableKey",
@@ -437,6 +472,7 @@ export function auditRecordsToCsv(slots: readonly AuditRecordSlot[]): string {
           String(slot.catalogVersion),
           slot.requirementSegmentId,
           csv(slot.placeLabel ?? ""),
+          slot.locationFunctionKey ?? "",
           slot.windowStartLocal ?? "",
           slot.windowEndLocal ?? "",
           slot.cycleStableKey ?? "",

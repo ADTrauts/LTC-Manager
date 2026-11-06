@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 import {
   buildDepartmentLens,
   buildProjectionRequest,
@@ -215,15 +216,21 @@ export function projectPartnerLocations(input: {
         key: input.departmentKey,
         label: input.departmentName,
         isActive: true,
+        activeProfile: null,
         assignedRoomIds: rooms.map((room) => room.id).sort(),
         assignedUnitIds: [...responsibleUnits].sort(),
+        archetypeBindings: [],
+        roomExceptions: [],
       },
     ],
     policies: [],
     revision: {
       hierarchyRevision: "partner-locations",
       assignmentRevision: "partner-locations",
+      profileRevision: "none",
+      bindingRevision: "none",
       policyRevision: "none",
+      experienceRegistryVersion: EXPERIENCE_REGISTRY_VERSION,
       accessClassRevision: "partner-locations",
     },
     resolvedAt: "1970-01-01T00:00:00.000Z",

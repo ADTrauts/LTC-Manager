@@ -24,14 +24,14 @@ function cycle(
     effectiveFrom: new Date("2026-08-01T00:00:00.000Z"),
     effectiveTo: null,
     mealType: "BREAKFAST" as MealType,
-    locationMode: "EXPLICIT_UNITS" as OperationalCycleLocationMode,
+    locationMode: "ROOM_TYPE" as OperationalCycleLocationMode,
     locationInheritFromParent: false,
     applicableUnitTypes: [],
-    roomTypeKey: null,
+    roomTypeKey: "servery",
     expectedMilestones: ["READY", "SERVICE_STARTED"] as ServeryMilestone[],
     status: "PUBLISHED",
     unitIds: [],
-    spaceIds: ["np-s", "lh-s", "ra-s"],
+    spaceIds: [],
     milestoneTimes: [],
     keyTimeGroups: [],
     ...overrides,
@@ -97,7 +97,7 @@ const locations: CycleScopeLocationOption[] = [
   },
 ];
 
-test("explicit Servery rooms resolve unique Neighborhoods and configured times", () => {
+test("ROOM_TYPE Servery resolves unique Neighborhoods and configured times", () => {
   const planned = planMealServiceDayExpectations({
     cycles: [
       cycle({
@@ -311,8 +311,8 @@ test("child with null mealType inherits parent meal for service-time planning", 
         stableKey: "servery",
         parentStableKey: "breakfast",
         mealType: null,
-        locationMode: "EXPLICIT_UNITS",
-        roomTypeKey: null,
+        locationMode: "ROOM_TYPE",
+        roomTypeKey: "servery",
         expectedMilestones: ["READY", "SERVICE_STARTED"],
         milestoneTimes: [
           { unitId: "np", milestone: "SERVICE_STARTED", configuredTime: "07:15" },
@@ -347,8 +347,8 @@ test("parent umbrella does not duplicate child meal-service expectations", () =>
         stableKey: "servery",
         parentStableKey: "breakfast",
         mealType: null,
-        locationMode: "EXPLICIT_UNITS",
-        roomTypeKey: null,
+        locationMode: "ROOM_TYPE",
+        roomTypeKey: "servery",
         expectedMilestones: ["READY", "SERVICE_STARTED"],
         milestoneTimes: [
           { unitId: "np", milestone: "SERVICE_STARTED", configuredTime: "07:15" },

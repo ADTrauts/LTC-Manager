@@ -1,7 +1,7 @@
 /**
  * Harbor-only unified Console catalog projection.
  *
- * Department Products and catalog Records stay in their own
+ * Department Products, catalog Records, and Work presets stay in their own
  * sources. This module reads them in batches and returns one list. It does
  * not persist a Marketplace item, and it does not authorize the caller.
  * Console pages keep calling requireHarborStaff() before any Harbor read,
@@ -12,6 +12,12 @@ import type { CatalogLogPurposeType, Prisma, PrismaClient } from "@prisma/client
 
 import { catalogCategoryLabel } from "@/lib/canonical-logs/catalog-browse";
 import { listFacilityCatalogInstallCounts } from "@/lib/canonical-logs/facility-catalog-install";
+import {
+  buildWorkPlanPresetDraft,
+  DEPARTMENT_WORK_PRESET_KEYS,
+  workPresetOwningProductKey,
+  type DepartmentWorkPresetKey,
+} from "@/lib/department-work/work-presets";
 import { employeeBelongsToDepartment } from "@/lib/employee-membership";
 import { facilityIndustryLabel } from "@/lib/facility-classification";
 import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
@@ -42,11 +48,12 @@ export const CONSOLE_CATALOG_EMPTY = "\u2014";
 export const CONSOLE_CATALOG_SOURCE_TYPES = [
   "DEPARTMENT_PRODUCT",
   "CATALOG_RECORD",
+  "WORK_PRESET",
 ] as const;
 
 export type ConsoleCatalogSourceType = (typeof CONSOLE_CATALOG_SOURCE_TYPES)[number];
 
-export const CONSOLE_CATALOG_FAMILIES = ["DEPARTMENTS", "RECORDS"] as const;
+export const CONSOLE_CATALOG_FAMILIES = ["DEPARTMENTS", "RECORDS", "WORK"] as const;
 
 export type ConsoleCatalogFamily = (typeof CONSOLE_CATALOG_FAMILIES)[number];
 
@@ -54,7 +61,7 @@ export const CONSOLE_CATALOG_RECORD_SUBTYPES = ["LOG", "CHECKLIST", "INSPECTION"
 
 export type ConsoleCatalogRecordSubtype = (typeof CONSOLE_CATALOG_RECORD_SUBTYPES)[number];
 
-export type ConsoleCatalogUsageLabel = "users" | "placements";
+export type ConsoleCatalogUsageLabel = "users" | "placements" | "published plans";
 
 export type ConsoleCatalogItem = {
   sourceType: ConsoleCatalogSourceType;
@@ -122,12 +129,26 @@ type CatalogDefinitionRow = {
   purposeType: CatalogLogPurposeType;
 };
 
+export type WorkPresetAdoptionPlan = {
+  presetKey: string | null;
+  stableKey: string;
+  facilityId: string;
+  departmentId: string;
+  status: "DRAFT" | "PUBLISHED" | "RETIRED";
+};
+
+type WorkPlanAdoptionRow = WorkPresetAdoptionPlan;
+
 export function consoleCatalogProductDetailHref(productKey: string): string {
   return `/console/catalog/products/${productKey}`;
 }
 
 export function consoleCatalogRecordDetailHref(stableKey: string): string {
   return `/console/catalog/${stableKey}`;
+}
+
+export function consoleCatalogWorkDetailHref(presetKey: string): string {
+  return `/console/catalog/work/${presetKey}`;
 }
 
 function isRecordSubtype(purposeType: string): purposeType is ConsoleCatalogRecordSubtype {
@@ -317,6 +338,59 @@ export function toCatalogRecordCatalogItem(input: {
     detailHref: consoleCatalogRecordDetailHref(headline.stableKey),
     actions: { view: true, author: true },
   };
+}
+
+export function toWorkPresetCatalogItem(input: {
+  presetKey: DepartmentWorkPresetKey;
+  name: string;
+  product: DepartmentProduct;
+  facilityInstallCount: number;
+  usageCount: number;
+}): ConsoleCatalogItem {
+  return {
+    sourceType: "WORK_PRESET",
+    sourceId: input.presetKey,
+    stableKey: input.presetKey,
+    name: input.name,
+    catalogFamily: "WORK",
+    catalogSubtype: null,
+    categoryKey: input.product.productKey,
+    categoryLabel: input.product.name,
+    versionDisplay: CONSOLE_CATALOG_EMPTY,
+    statusKey: null,
+    statusLabel: CONSOLE_CATALOG_EMPTY,
+    facilityInstallCount: input.facilityInstallCount,
+    usageCount: input.usageCount,
+    usageLabel: "published plans",
+    detailHref: consoleCatalogWorkDetailHref(input.presetKey),
+    actions: { view: true, author: false },
+  };
+}
+
+export function workPlanMatchesPreset(
+  plan: Pick<WorkPlanAdoptionRow, "presetKey" | "stableKey">,
+  presetKey: string,
+): boolean {
+  return plan.presetKey === presetKey || plan.stableKey === presetKey;
+}
+
+export function summarizeWorkPresetAdoption(
+  plans: readonly WorkPresetAdoptionPlan[],
+  presetKey: string,
+): {
+  facilityInstallCount: number;
+  usageCount: number;
+} {
+  const facilities = new Set<string>();
+  const publishedLineages = new Set<string>();
+  for (const plan of plans) {
+    if (!workPlanMatchesPreset(plan, presetKey)) continue;
+    facilities.add(plan.facilityId);
+    if (plan.status === "PUBLISHED") {
+      publishedLineages.add(`${plan.facilityId}\0${plan.departmentId}\0${plan.stableKey}`);
+    }
+  }
+  return { facilityInstallCount: facilities.size, usageCount: publishedLineages.size };
 }
 
 async function loadDepartmentProductItems(client: Db): Promise<ConsoleCatalogItem[]> {
@@ -515,14 +589,47 @@ async function loadCatalogRecordItems(client: Db): Promise<ConsoleCatalogItem[]>
   return items;
 }
 
+async function loadWorkPresetItems(client: Db): Promise<ConsoleCatalogItem[]> {
+  const presetKeys = [...DEPARTMENT_WORK_PRESET_KEYS];
+  const plans = await client.departmentWorkPlan.findMany({
+    where: {
+      OR: [{ presetKey: { in: presetKeys } }, { stableKey: { in: presetKeys } }],
+    },
+    select: {
+      presetKey: true,
+      stableKey: true,
+      facilityId: true,
+      departmentId: true,
+      status: true,
+    },
+  });
+
+  return presetKeys.map((presetKey) => {
+    const productKey = workPresetOwningProductKey(presetKey);
+    const product = getDepartmentProduct(productKey);
+    if (!product) {
+      throw new Error(`Work preset ${presetKey} has no Department Product owner.`);
+    }
+    const adoption = summarizeWorkPresetAdoption(plans, presetKey);
+    return toWorkPresetCatalogItem({
+      presetKey,
+      name: buildWorkPlanPresetDraft(presetKey).name,
+      product,
+      facilityInstallCount: adoption.facilityInstallCount,
+      usageCount: adoption.usageCount,
+    });
+  });
+}
+
 /**
  * Live projection. Query count is fixed per source family, not per product,
- * record, or facility. Harbor session checks stay on the Console page.
+ * record, preset, or facility. Harbor session checks stay on the Console page.
  */
 export async function listConsoleCatalogItems(client: Db): Promise<ConsoleCatalogItem[]> {
-  const [departments, records] = await Promise.all([
+  const [departments, records, work] = await Promise.all([
     loadDepartmentProductItems(client),
     loadCatalogRecordItems(client),
+    loadWorkPresetItems(client),
   ]);
-  return [...departments, ...records];
+  return [...departments, ...records, ...work];
 }

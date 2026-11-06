@@ -11,6 +11,7 @@ import { PhotoFileField } from "@/components/photos/photo-file-field";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { addRepairPhotosAction, removeRepairPhotoAction } from "@/app/(protected)/repairs/actions";
 import { WorkOrderExecutionPanel } from "@/components/work-orders/work-order-execution-panel";
+import { WorkOrderResponseRequirementControl } from "@/components/work-orders/work-order-response-requirement";
 import { WorkOrderCloseoutPanel } from "@/components/work-orders/work-order-closeout-panel";
 import { repairCompanyWhere, repairVendorExpenseVisible } from "@/lib/department-authority/asset-maintainers";
 import { publishedCatalogFormsAtFacility } from "@/lib/department-authority/catalog-forms";
@@ -22,6 +23,11 @@ import { resolveActiveDepartmentForShell } from "@/lib/active-department-context
 import {
   assetIssueStatusLabel,
   departmentDisplayLabel,
+  presentWorkOrderPriority,
+  presentWorkOrderResponseHistoryLine,
+  presentWorkOrderResponseRequirement,
+  resolveAssetOperationsAuthority,
+  workOrderPriorityAuthorityLabel,
   formatAssetLocationLabel,
   isRepairCompletedStatus,
   preferredRepairProviderDisplayLabel,
@@ -182,6 +188,12 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
           updatedBy: { select: { displayName: true } },
         },
       },
+      responseHistory: {
+        orderBy: [{ changedAt: "asc" }, { id: "asc" }],
+        include: {
+          changedByUser: { select: { displayName: true } },
+        },
+      },
     },
   });
 
@@ -226,6 +238,32 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
   const companyWhere = await repairCompanyWhere(prisma, session, session.facilityId);
   const canMutate = hasAtLeastRole(session.role, "SUPERVISOR") || isAssignedTechnician;
   const canAssign = hasAtLeastRole(session.role, "SUPERVISOR");
+  const responseAuthority = repair.responsibleDepartmentId
+    ? await resolveAssetOperationsAuthority(
+        session,
+        session.facilityId,
+        repair.responsibleDepartmentId,
+      )
+    : null;
+  const responseView = presentWorkOrderResponseRequirement({
+    responseRequirement: repair.responseRequirement,
+    status: repair.status,
+    canManageWorkOrders: responseAuthority?.canManageWorkOrders ?? false,
+    hasResponsibleDepartment: Boolean(repair.responsibleDepartmentId),
+  });
+  const priorityLabel = workOrderPriorityAuthorityLabel(presentWorkOrderPriority(repair.priority));
+  const responseHistoryItems = repair.responseHistory.flatMap((row) => {
+    const text = presentWorkOrderResponseHistoryLine(row.transition);
+    if (!text) return [];
+    return [
+      {
+        id: row.id,
+        at: row.changedAt,
+        text,
+        actor: row.changedByUser?.displayName ?? null,
+      },
+    ];
+  });
   const plantOrAssetOps = await isSharedAssetOperationsEnabled(session.facilityId, session);
   const tz = facility.timezone;
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
@@ -334,7 +372,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
               {presentPmWorkOrderKindLabel(repair.workOrderKind)}
             </StatusBadge>
             <StatusBadge variant={priorityBadgeVariant(repair.priority)}>
-              {repair.priority}
+              {priorityLabel}
             </StatusBadge>
           </div>
         }
@@ -563,6 +601,15 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
             </dt>
             <dd className="mt-0.5 text-zinc-900">{assigneeName ?? "Unassigned"}</dd>
           </div>
+          <WorkOrderResponseRequirementControl
+            repairId={repair.id}
+            departmentId={repair.responsibleDepartmentId}
+            issueId={linkedIssue?.id ?? null}
+            value={responseView.value}
+            priorityLabel={priorityLabel}
+            editable={responseView.editable}
+            readOnlyReason={responseView.readOnlyReason}
+          />
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
               Routing department
@@ -603,19 +650,41 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
               {repair.reportedBy ? ` · ${repair.reportedBy.displayName}` : ""}
             </p>
           </li>
-          {repair.updates.map((update) => (
+          {[...repair.updates.map((update) => ({
+            id: update.id,
+            at: update.updatedAt.getTime(),
+            body: (
+              <>
+                <p className="whitespace-pre-wrap text-zinc-900">{update.updateText}</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {formatIssueTimestamp(update.updatedAt, tz)}
+                  {update.updatedBy ? ` · ${update.updatedBy.displayName}` : ""}
+                  {update.statusAfterUpdate
+                    ? ` · → ${repairStatusProductLabel(update.statusAfterUpdate)}`
+                    : ""}
+                </p>
+              </>
+            ),
+          })),
+          ...responseHistoryItems.map((row) => ({
+            id: row.id,
+            at: row.at.getTime(),
+            body: (
+              <>
+                <p className="font-medium text-zinc-900">{row.text}</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {formatIssueTimestamp(row.at, tz)}
+                  {row.actor ? ` · ${row.actor}` : ""}
+                </p>
+              </>
+            ),
+          }))].sort((left, right) => left.at - right.at || left.id.localeCompare(right.id)).map((item) => (
             <li
-              key={update.id}
+              key={item.id}
               className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm"
+              data-testid="repair-history-item"
             >
-              <p className="whitespace-pre-wrap text-zinc-900">{update.updateText}</p>
-              <p className="mt-0.5 text-xs text-zinc-500">
-                {formatIssueTimestamp(update.updatedAt, tz)}
-                {update.updatedBy ? ` · ${update.updatedBy.displayName}` : ""}
-                {update.statusAfterUpdate
-                  ? ` · → ${repairStatusProductLabel(update.statusAfterUpdate)}`
-                  : ""}
-              </p>
+              {item.body}
             </li>
           ))}
         </ol>

@@ -100,7 +100,7 @@ async function ensureDeptMembership(db, employeeId, departmentId) {
   await db.employeeDepartment.upsert({
     where: { employeeId_departmentId: { employeeId, departmentId } },
     update: {},
-    create: { employeeId, departmentId },
+    create: { employeeId, departmentId, roleType: "STAFF" },
   });
 }
 
@@ -172,11 +172,6 @@ async function main() {
     });
     await linkFixtureAccount(db, staff, staffEmployee, { facilityId: facility.id, roleKey: "STAFF" });
     await ensureDeptMembership(db, staffEmployee.id, dietary.id);
-    await db.employeeOperationalRoleQualification.upsert({
-      where: { employeeId_departmentId_roleKey: { employeeId: staffEmployee.id, departmentId: dietary.id, roleKey: "SERVER" } },
-      update: { status: "ACTIVE", revokedAt: null },
-      create: { facilityId: facility.id, employeeId: staffEmployee.id, departmentId: dietary.id, roleKey: "SERVER", status: "ACTIVE" },
-    });
     await db.employeeUnitAccess.upsert({
       where: {
         employeeId_unitId: { employeeId: staffEmployee.id, unitId: servery.id },
@@ -223,7 +218,8 @@ async function main() {
             employeeId,
             date: serviceDate,
             shift: "FULL_DAY",
-            departmentId: dietary.id,
+            roleType: "STAFF",
+            unitId: servery.id,
             plannedStart: "06:00",
             plannedEnd: "14:00",
           },

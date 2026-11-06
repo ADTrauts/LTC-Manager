@@ -5,12 +5,16 @@
 export const PLANT_STARTER_PACKAGE_NAME = "Plant Operations starter configuration";
 
 export const PLANT_STARTER_INTRO =
-  "Optional examples to help your Facility get started. Record examples install Vssyl's published forms. They are not regulatory compliance.";
+  "Optional examples to help your Facility get started. Work examples stay drafts. Record examples install Vssyl's published forms. They are not regulatory compliance.";
 
-export type PlantStarterKind = "record";
+export type PlantStarterKind = "work" | "record";
 export type PlantStarterPresence = "none" | "partial" | "added";
 
 export type PlantStarterItemId =
+  | "MECHANICAL_ROOM_ROUND"
+  | "BUILDING_WALKTHROUGH"
+  | "EXTERIOR_GROUNDS_WALKTHROUGH"
+  | "GENERATOR_VISUAL_CHECK"
   | "EQUIPMENT_CONDITION_INSPECTION"
   | "MECHANICAL_ROOM_INSPECTION"
   | "GENERATOR_INSPECTION"
@@ -30,11 +34,44 @@ export type PlantStarterLoadItem = PlantStarterCatalogItem & {
 };
 
 export type PlantStarterInstallResult = {
+  workAdded: number;
   recordAdded: number;
   alreadyExisted: number;
   selectedCount: number;
+  workHref: string;
   recordsHref: string;
 };
+
+const WORK_ITEMS: PlantStarterCatalogItem[] = [
+  {
+    id: "MECHANICAL_ROOM_ROUND",
+    kind: "work",
+    title: "Mechanical Room Round",
+    description: "Routine operational walkthrough of mechanical spaces.",
+    defaultSelected: true,
+  },
+  {
+    id: "BUILDING_WALKTHROUGH",
+    kind: "work",
+    title: "Building Walkthrough",
+    description: "General Facility condition observation.",
+    defaultSelected: true,
+  },
+  {
+    id: "EXTERIOR_GROUNDS_WALKTHROUGH",
+    kind: "work",
+    title: "Exterior / Grounds Walkthrough",
+    description: "General exterior Facility condition observation.",
+    defaultSelected: true,
+  },
+  {
+    id: "GENERATOR_VISUAL_CHECK",
+    kind: "work",
+    title: "Generator Visual Check",
+    description: "Visual operational check of the assigned generator area — not manufacturer PM.",
+    defaultSelected: true,
+  },
+];
 
 const RECORD_ITEMS: PlantStarterCatalogItem[] = [
   {
@@ -75,7 +112,7 @@ const RECORD_ITEMS: PlantStarterCatalogItem[] = [
 ];
 
 export function listPlantStarterCatalog(): PlantStarterCatalogItem[] {
-  return [...RECORD_ITEMS];
+  return [...WORK_ITEMS, ...RECORD_ITEMS];
 }
 
 export function plantStarterHref(departmentId: string): string {
@@ -83,9 +120,12 @@ export function plantStarterHref(departmentId: string): string {
 }
 
 export function classifyPlantStarterPresence(input: {
+  workPresetKeys: readonly string[];
   recordPresetKeys: readonly string[];
 }): { addedIds: string[]; remainingIds: string[]; status: PlantStarterPresence } {
-  const installed = new Set(input.recordPresetKeys.filter(Boolean));
+  const installed = new Set(
+    [...input.workPresetKeys, ...input.recordPresetKeys].filter(Boolean),
+  );
   const catalog = listPlantStarterCatalog();
   const addedIds = catalog.filter((row) => installed.has(row.id)).map((row) => row.id);
   const remainingIds = catalog.filter((row) => !installed.has(row.id)).map((row) => row.id);

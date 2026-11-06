@@ -11,6 +11,7 @@ export function ReviewDateForm({
   locationOptions,
   testId,
   definition = "",
+  locationFunction = "",
 }: {
   start: string;
   end: string;
@@ -19,6 +20,7 @@ export function ReviewDateForm({
   locationOptions: readonly LocationFilterOption[];
   testId: string;
   definition?: string;
+  locationFunction?: string;
 }) {
   return (
     <form className="grid min-w-0 gap-3" method="get" action="/reports" data-testid={testId}>
@@ -29,7 +31,7 @@ export function ReviewDateForm({
       </div>
       <FilterPanel summary={[
         spaceId ? locationOptions.find((location) => location.spaceId === spaceId)?.displayLabel : null,
-        definition,
+        definition, locationFunction,
       ].filter(Boolean).join(" · ") || "All locations"}>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         {locationOptions.length > 0 ? (
@@ -43,6 +45,7 @@ export function ReviewDateForm({
           </Select>
         ) : null}
         <TextInput label="Record definition" name="definition" defaultValue={definition} placeholder="cooler_temperature" />
+        <TextInput label="Location function" name="locationFunction" defaultValue={locationFunction} placeholder="food_service_area" />
         </div>
       </FilterPanel>
     </form>

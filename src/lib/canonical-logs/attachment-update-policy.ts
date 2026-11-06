@@ -34,6 +34,7 @@ export type AttachmentHistoricalSnapshot = AttachmentTimingSnapshot & {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
+  operationalTypeKey: string | null;
 };
 
 const DISPLAY_ONLY_KEYS = ["localDisplayLabel"] as const;
@@ -45,6 +46,7 @@ export function attachmentLineageKey(input: {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
+  operationalTypeKey?: string | null;
   departmentId?: string | null;
 }): string {
   const targetId =
@@ -56,9 +58,9 @@ export function attachmentLineageKey(input: {
           ? input.unitId ?? "-"
           : input.targetKind === "DEPARTMENT"
             ? input.targetDepartmentId ?? "-"
-            : input.targetKind === "FACILITY"
-              ? "facility"
-              : input.targetKind;
+            : input.targetKind === "OPERATIONAL_TYPE"
+              ? `${input.departmentId ?? "-"}:${input.operationalTypeKey ?? "-"}`
+              : "facility";
   return `${input.catalogStableKey}|${input.targetKind}|${targetId}`;
 }
 
@@ -141,7 +143,8 @@ export function historicalSnapshotsEqual(
     a.assetId === b.assetId &&
     a.spaceId === b.spaceId &&
     a.unitId === b.unitId &&
-    a.targetDepartmentId === b.targetDepartmentId
+    a.targetDepartmentId === b.targetDepartmentId &&
+    a.operationalTypeKey === b.operationalTypeKey
   );
 }
 

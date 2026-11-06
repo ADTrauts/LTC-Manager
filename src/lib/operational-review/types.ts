@@ -53,6 +53,8 @@ export type ReviewLocationEntry = {
   /** Current SPACE display name. Not historically immutable. */
   displayLabel: string;
   displayLabelIsHistorical: false;
+  operationalTypeKey: string | null;
+  operationalTypeName: string | null;
 };
 
 export type ReviewEvidenceOccurrence = {
@@ -93,6 +95,7 @@ export type ReviewCoverageSlot = {
   templateVersion: number;
   cycleStableKey: string | null;
   cycleLabel: string | null;
+  operationalTypeKey: string | null;
   fillingAssignmentIds: string[];
 };
 
@@ -271,6 +274,23 @@ export type OperationalReviewRangeViewModel = {
   totals: OperationalReviewRangeTotals;
 };
 
+export type ReviewProfileFact = {
+  id: string;
+  departmentId: string;
+  version: number;
+  status: "DRAFT" | "CERTIFIED" | "ACTIVE" | "RETIRED";
+  activatedAt: Date | null;
+  retiredAt: Date | null;
+};
+
+export type ReviewOtBindingFact = {
+  profileId: string;
+  spaceId: string;
+  operationalTypeKey: string;
+  operationalTypeName: string;
+  archetypeIsActive: boolean;
+};
+
 export type ReviewSpaceFact = {
   spaceId: string;
   displayLabel: string;
@@ -375,6 +395,8 @@ export type OperationalReviewDayFacts = {
   now: Date;
   todayKey: string;
   spaces: ReviewSpaceFact[];
+  profiles: ReviewProfileFact[];
+  otBindings: ReviewOtBindingFact[];
   attachmentSegments: ReviewAttachmentSegmentFact[];
   evidenceRecords: ReviewEvidenceRecordFact[];
   /** Sparse administrative excuses. Evidence on the same requirement wins. */

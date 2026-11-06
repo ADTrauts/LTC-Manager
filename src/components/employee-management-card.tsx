@@ -6,6 +6,7 @@ import {
   EmployeeStatus,
   JobClassification,
   RoleKey,
+  WorkStation,
 } from "@prisma/client";
 import Link from "next/link";
 import { useState } from "react";
@@ -28,8 +29,18 @@ import {
   PEOPLE_ASSIGNABLE_AUTHORITIES,
 } from "@/lib/employee-hr-labels";
 import { requiresEmailPasswordAccount } from "@/lib/credential-policy";
-import { EmployeeOrganizationFields } from "@/components/employee-organization-fields";
-import { EmployeeOperationalEligibility } from "@/components/employee-operational-eligibility";
+import { JOB_ROLE_TIER_LABEL } from "@/lib/department-job-roles/tiers";
+import {
+  EmployeeOrganizationFields,
+  type OrganizationJobRoleAssignment,
+  type OrganizationJobRoleOption,
+} from "@/components/employee-organization-fields";
+
+export type EmployeeCardAssignment = {
+  id: string;
+  roleType: RoleKey;
+  unit: { name: string };
+};
 
 export type EmployeeForManagementCard = {
   id: string;
@@ -52,8 +63,9 @@ export type EmployeeForManagementCard = {
   additionalDepartmentIds: string[];
   jobTitleId: string | null;
   teamMemberships: { teamId: string; isPrimary: boolean }[];
-  operationalQualifications: { departmentId: string; roleKey: string }[];
+  jobRoleAssignments: OrganizationJobRoleAssignment[];
   unitAccesses: { unitId: string }[];
+  defaultAssignments: EmployeeCardAssignment[];
   unionMember: boolean;
   onLeave: boolean;
   hireDateIso: string | null;
@@ -65,6 +77,7 @@ export type EmployeeForManagementCard = {
   chrcNotes: string | null;
   shirtSize: string | null;
   hrNotes: string | null;
+  workStations: WorkStation[];
   disciplineEntries: DisciplineEntryForCard[];
   disciplineTotals: { attendance: number; performance: number; total: number };
   terminationDateIso: string | null;
@@ -73,13 +86,8 @@ export type EmployeeForManagementCard = {
 };
 
 type UnitOption = { id: string; name: string };
-type DeptJobOption = { id: string; name: string; key?: string; showInEmployeeApp?: boolean };
-type TeamOption = {
-  id: string;
-  displayName: string;
-  departmentId: string;
-  managerEmployeeId?: string | null;
-};
+type DeptJobOption = { id: string; name: string; showInEmployeeApp?: boolean };
+type TeamOption = { id: string; displayName: string; departmentId: string };
 
 type EmployeeManagementCardProps = {
   employee: EmployeeForManagementCard;
@@ -87,6 +95,7 @@ type EmployeeManagementCardProps = {
   departments?: DeptJobOption[];
   jobTitles?: DeptJobOption[];
   teams?: TeamOption[];
+  jobRoles?: OrganizationJobRoleOption[];
   showManagerTools: boolean;
   /** When false, PIN blocks are not rendered at all (only GMs). */
   showPinManagement: boolean;
@@ -98,12 +107,12 @@ function EmployeeProfileForm({
   employee,
   departments,
   teams,
-  jobTitles,
+  jobRoles,
 }: {
   employee: EmployeeForManagementCard;
   departments: DeptJobOption[];
   teams: TeamOption[];
-  jobTitles: DeptJobOption[];
+  jobRoles: OrganizationJobRoleOption[];
 }) {
   const [statusDraft, setStatusDraft] = useState(employee.status);
   const staleAdministratorRole =
@@ -165,7 +174,7 @@ function EmployeeProfileForm({
                 ? needsAppPasswordSetup
                   ? "Saving will email an invite so they can set their own password (7-day link)."
                   : "This email already has an app login for this facility."
-                : "Email should be set for this platform authority. You can still save organization; add an email before relying on app login."}
+                : "Email should be set for this platform authority. You can still save Job Roles and organization; add an email before relying on app login."}
             </p>
           ) : null}
           {employee.holdsFacilityAdministratorSeat ? (
@@ -204,7 +213,7 @@ function EmployeeProfileForm({
               <span className="text-xs text-zinc-500">
                 {staleAdministratorRole
                   ? "This person no longer holds the Facility Administrator role. Choose the platform authority to keep."
-                  : "Controls application-level access. It does not grant operational eligibility."}
+                  : "Controls application-level access. Department work permissions come from Job Roles."}
               </span>
             </label>
           )}
@@ -269,11 +278,12 @@ function EmployeeProfileForm({
             <EmployeeOrganizationFields
               departments={departments}
               teams={teams}
-              jobTitles={jobTitles}
+              jobRoles={jobRoles}
               primaryDepartmentId={employee.primaryDepartmentId}
               additionalDepartmentIds={employee.additionalDepartmentIds}
               jobTitleId={employee.jobTitleId}
               teamMemberships={employee.teamMemberships}
+              jobRoleAssignments={employee.jobRoleAssignments}
             />
           </div>
         </div>
@@ -437,8 +447,9 @@ export function EmployeeManagementCard({
   employee,
   units: _units,
   departments = [],
-  jobTitles = [],
+  jobTitles: _jobTitles = [],
   teams = [],
+  jobRoles = [],
   showManagerTools,
   showPinManagement,
   hasPinSet = false,
@@ -447,7 +458,15 @@ export function EmployeeManagementCard({
 
   const departmentName =
     departments.find((d) => d.id === employee.primaryDepartmentId)?.name ?? null;
-  const jobTitleName = jobTitles.find((title) => title.id === employee.jobTitleId)?.name ?? null;
+  const primaryJobRole = employee.jobRoleAssignments.find(
+    (assignment) => assignment.departmentId === employee.primaryDepartmentId,
+  );
+  const primaryJobRoleOption = primaryJobRole
+    ? jobRoles.find((role) => role.id === primaryJobRole.jobRoleId)
+    : null;
+  const jobRoleSummary = primaryJobRoleOption
+    ? `${primaryJobRoleOption.displayName} (${JOB_ROLE_TIER_LABEL[primaryJobRoleOption.tier]})`
+    : "No Job Role";
   const teamById = new Map(teams.map((team) => [team.id, team]));
   const primaryDeptTeams = employee.teamMemberships.filter((membership) => {
     const team = teamById.get(membership.teamId);
@@ -487,7 +506,7 @@ export function EmployeeManagementCard({
                   ? `${displayTeamName} +${extraTeamCount}`
                   : displayTeamName
                 : null,
-              jobTitleName ? `Job Title: ${jobTitleName}` : null,
+              `Job Role: ${jobRoleSummary}`,
               employeeStatusLabel(employee.status),
               employmentTypeLabel(employee.employmentType),
               showPinManagement ? (hasPinSet ? "PIN configured" : "No PIN") : null,
@@ -517,30 +536,19 @@ export function EmployeeManagementCard({
                   .map((row) => `${row.teamId}:${row.isPrimary ? "1" : "0"}`)
                   .sort()
                   .join("|"),
-                employee.jobTitleId ?? "",
+                [...employee.jobRoleAssignments]
+                  .map((row) => `${row.departmentId}:${row.jobRoleId}`)
+                  .sort()
+                  .join("|"),
               ].join("::")}
               employee={employee}
               departments={departments}
               teams={teams}
-              jobTitles={jobTitles}
+              jobRoles={jobRoles}
             />
           ) : (
             <p className="text-sm text-zinc-600">You can view employee cards; editing requires manager access.</p>
           )}
-
-          <EmployeeOperationalEligibility
-            employeeId={employee.id}
-            departments={departments ?? []}
-            membershipDepartmentIds={[
-              ...(employee.primaryDepartmentId ? [employee.primaryDepartmentId] : []),
-              ...employee.additionalDepartmentIds,
-            ]}
-            qualifications={employee.operationalQualifications}
-            jobTitleName={jobTitles.find((title) => title.id === employee.jobTitleId)?.name ?? null}
-            teams={teams ?? []}
-            teamMemberships={employee.teamMemberships}
-            canEdit={showManagerTools}
-          />
 
           {showPinManagement || showManagerTools ? (
             <section

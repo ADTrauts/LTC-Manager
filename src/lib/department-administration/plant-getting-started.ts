@@ -27,6 +27,7 @@ export type PlantOverviewFactCounts = {
   locationCount: number;
   assetCount: number;
   peopleCount: number;
+  workPlanCount: number;
   recordCount: number;
   publishedPmPlanCount: number;
 };
@@ -46,12 +47,14 @@ export function presentPlantOverviewCounts(input: PlantOverviewFactCounts): Arra
     { id: "locations", label: "Locations", value: input.locationCount },
     { id: "assets", label: "Assets", value: input.assetCount },
     { id: "people", label: "People", value: input.peopleCount },
+    { id: "work", label: "Work Plans", value: input.workPlanCount },
     { id: "records", label: "Records", value: input.recordCount },
     { id: "pm", label: "Published PM Plans", value: input.publishedPmPlanCount },
   ];
 }
 
 export function presentPlantGettingStarted(input: PlantGettingStartedInput): PlantGettingStartedItem[] {
+  const workHref = departmentAdminHref(input.departmentId, "work");
   const recordsHref = departmentAdminHref(input.departmentId, "records");
   const peopleHref = departmentAdminHref(input.departmentId, "people");
   const locationsHref = departmentAdminHref(input.departmentId, "locations");
@@ -85,7 +88,7 @@ export function presentPlantGettingStarted(input: PlantGettingStartedInput): Pla
           ? presentPlantStarterPresenceLabel("added")
           : input.starterPresence === "partial"
             ? presentPlantStarterPresenceLabel("partial")
-            : "Optional — add Record examples",
+            : "Optional — add recurring Work and Record examples",
       href: input.canInstallStarter === false ? null : plantStarterHref(input.departmentId),
       actionLabel:
         input.canInstallStarter === false
@@ -94,7 +97,8 @@ export function presentPlantGettingStarted(input: PlantGettingStartedInput): Pla
             ? "Review starter configuration"
             : "Add starter configuration",
     },
-    item(6, "records", "Confirm Records", input.recordCount > 0, recordsHref, "Open Records", true),
+    item(6, "work", "Configure recurring Work", input.workPlanCount > 0, workHref, "Open Work", true),
+    item(7, "records", "Confirm Records", input.recordCount > 0, recordsHref, "Open Records", true),
     {
       id: "procedures",
       step: 8,

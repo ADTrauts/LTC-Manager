@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 let prismaSingleton: PrismaClient | undefined;
 
 /** Bump when schema relations must force a fresh client after `prisma generate`. */
-const PRISMA_CLIENT_EPOCH = "retire-generic-work-v1";
+const PRISMA_CLIENT_EPOCH = "record-engine-rollout-v1";
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -23,9 +23,14 @@ function missingRequiredDelegates(client: PrismaClient): string[] {
     "operationalCycleDayExpectation",
     "departmentOperationalCycleMilestoneTime",
     "departmentTeam",
+    "departmentTeamCycle",
+    "departmentFacilityTypeLogDefault",
     "facilityCatalogInstall",
+    "departmentLocationLogSuppression",
+    "departmentTeamRoomMembership",
     "employeeTeamMembership",
-    "employeeOperationalRoleQualification",
+    "departmentJobRole",
+    "employeeDepartmentJobRole",
     "facilityOrganization",
     "catalogLogDefinition",
     "catalogLogField",
@@ -58,7 +63,7 @@ function modelMissingFields(
 }
 
 function employeeModelMissingJobRoles(client: PrismaClient): boolean {
-  return modelMissingFields(client, "Employee", ["operationalRoleQualifications", "teamMemberships"]);
+  return modelMissingFields(client, "Employee", ["departmentJobRoles", "teamMemberships"]);
 }
 
 /** True when this client instance cannot serve the current schema. */
@@ -80,7 +85,7 @@ function getPrismaClient(): PrismaClient {
     // (dev server started before `prisma generate`).
     const missing = missingRequiredDelegates(client);
     throw new Error(
-      `Prisma Client is stale in this Next.js process (missing: ${missing.join(", ") || "Employee.operationalRoleQualifications"}). ` +
+      `Prisma Client is stale in this Next.js process (missing: ${missing.join(", ") || "Employee.departmentJobRoles"}). ` +
         `Stop the dev server, run \`pnpm exec prisma generate\`, then start \`pnpm dev\` again.`,
     );
   }

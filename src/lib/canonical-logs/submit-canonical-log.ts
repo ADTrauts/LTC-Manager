@@ -10,6 +10,7 @@ import {
 } from "@/lib/operational-evidence/evidence-authority";
 import { validateEvidenceSubmission } from "@/lib/operational-evidence/validate-evidence-submission";
 import type { EvidenceFieldValueInput, TemplateFieldSnapshot } from "@/lib/operational-evidence/types";
+import { processNotificationOutboxRow } from "@/lib/notifications/processing";
 import { facilityLocalDateToServiceDate, toServiceDateKey } from "@/lib/operational-time";
 
 import { loadLogAttachmentForFacility } from "./attachment-service";
@@ -43,6 +44,7 @@ import {
   parseInspectionSections,
 } from "./inspection-score";
 import { parseRepeatingGroups, validateRepeatSubmission } from "./template-structure";
+import { enqueueEvidenceFailed } from "./evidence-failed-attention";
 import { followUpRecordDecision, recordPurposeRejection } from "./record-engine";
 import { partnerActingColumns, type PartnerActingContext } from "@/lib/operational-evidence/acting-context";
 
@@ -464,8 +466,10 @@ export async function performCanonicalLogSubmission(
     spaceId: attachment.spaceId,
     unitId: attachment.unitId,
     targetDepartmentId: attachment.targetDepartmentId,
+    operationalTypeKey: attachment.operationalTypeKey,
   });
-  const boundSpaceId = null;
+  const boundSpaceId =
+    target.targetKind === "OPERATIONAL_TYPE" ? input.boundSpaceId?.trim() || null : null;
 
   const scheduleKind = mapTimingModeToScheduleKind(attachment.timingMode);
   const isFollowUp = Boolean(followsRecordId);
@@ -613,7 +617,8 @@ export async function performCanonicalLogSubmission(
         })),
       );
     }
-    return await client.operationalEvidenceRecord.create({
+    const created = await persistCanonicalEvidenceRecord(client, async (tx) =>
+      tx.operationalEvidenceRecord.create({
       data: {
         id: recordId,
         facilityId: input.facilityId,
@@ -702,7 +707,9 @@ export async function performCanonicalLogSubmission(
         },
       },
       include: { values: true, corrections: true },
-    });
+    }),
+  );
+    return created;
   } catch (err) {
     if (mediaStore) {
       await Promise.all(storedKeys.map((storageKey) => mediaStore.remove(storageKey)));
@@ -720,6 +727,39 @@ export async function performCanonicalLogSubmission(
     }
     throw err;
   }
+}
+
+async function persistCanonicalEvidenceRecord<
+  T extends {
+    id: string;
+    facilityId: string;
+    departmentId: string;
+    outOfStandard: boolean;
+    occurredAt: Date;
+    operationalDate: Date;
+    unitId: string | null;
+    spaceId: string | null;
+    assetId: string | null;
+    placeLabelSnapshot: string | null;
+    templateName: string;
+  },
+>(client: Db, create: (tx: Db) => Promise<T>): Promise<T> {
+  const owns = typeof (client as PrismaClient).$transaction === "function";
+  const write = async (tx: Db) => {
+    const record = await create(tx);
+    const outboxId = await enqueueEvidenceFailed(tx as Prisma.TransactionClient, record);
+    return { record, outboxId };
+  };
+  if (!owns) return (await write(client)).record;
+  const written = await (client as PrismaClient).$transaction((tx) => write(tx));
+  if (written.outboxId) {
+    try {
+      await processNotificationOutboxRow(client as PrismaClient, { outboxId: written.outboxId });
+    } catch {
+      // The Record is committed. The outbox row stays retryable.
+    }
+  }
+  return written.record;
 }
 
 function isUniqueViolation(err: unknown): boolean {

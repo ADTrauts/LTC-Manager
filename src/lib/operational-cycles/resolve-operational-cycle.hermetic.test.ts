@@ -68,7 +68,7 @@ test("drafts are ignored for runtime", () => {
   assert.equal(ctx.state, "NOT_CONFIGURED");
 });
 
-test("explicit locations match the stored unit and not a different unit", () => {
+test("ROOM_TYPE scope uses child Room Type keys not Unit.unitType", () => {
   const ctx = resolveOperationalCycle({
     cycles: [
       cycle({
@@ -76,8 +76,8 @@ test("explicit locations match the stored unit and not a different unit", () => 
         label: "Breakfast Service",
         startLocal: "07:00",
         endLocal: "09:00",
-        locationMode: "EXPLICIT_UNITS",
-        unitIds: ["u1"],
+        locationMode: "ROOM_TYPE",
+        roomTypeKey: "servery",
       }),
     ],
     now: new Date("2026-08-06T11:30:00.000Z"),
@@ -94,14 +94,14 @@ test("explicit locations match the stored unit and not a different unit", () => 
         label: "Breakfast Service",
         startLocal: "07:00",
         endLocal: "09:00",
-        locationMode: "EXPLICIT_UNITS",
-        unitIds: ["u1"],
+        locationMode: "ROOM_TYPE",
+        roomTypeKey: "servery",
       }),
     ],
     now: new Date("2026-08-06T11:30:00.000Z"),
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "u2", unitType: "SERVERY", childRoomTypeKeys: ["servery"] },
+    unit: { id: "u2", unitType: "SERVERY", childRoomTypeKeys: ["production_area"] },
   });
   assert.equal(other.state, "NOT_APPLICABLE");
 });
@@ -114,8 +114,8 @@ test("unit not in location scope yields NOT_APPLICABLE", () => {
         label: "Breakfast",
         startLocal: "07:00",
         endLocal: "09:00",
-        locationMode: "EXPLICIT_UNITS",
-        unitIds: ["other-unit"],
+        locationMode: "UNIT_TYPES",
+        applicableUnitTypes: ["SERVERY"],
       }),
     ],
     now: new Date("2026-08-06T11:30:00.000Z"),
@@ -278,8 +278,8 @@ function breakfastHierarchy(): OperationalCycleDefinition[] {
       displaySequence: 12,
       mealType: null,
       expectedMilestones: ["READY", "SERVICE_STARTED"],
-      locationMode: "EXPLICIT_UNITS",
-      unitIds: ["naval", "u1"],
+      locationMode: "ROOM_TYPE",
+      roomTypeKey: "servery",
       parentStableKey: "breakfast",
     }),
     cycle({
@@ -453,8 +453,8 @@ test("historical parentStableKey on governing versions reconstructs path", () =>
       endLocal: "09:00",
       displaySequence: 12,
       expectedMilestones: ["SERVICE_STARTED"],
-      locationMode: "EXPLICIT_UNITS",
-      unitIds: ["u1"],
+      locationMode: "ROOM_TYPE",
+      roomTypeKey: "servery",
       parentStableKey: "breakfast",
     }),
   ];
@@ -492,8 +492,8 @@ test("historical parentStableKey on governing versions reconstructs path", () =>
       endLocal: "09:00",
       displaySequence: 12,
       expectedMilestones: ["SERVICE_STARTED"],
-      locationMode: "EXPLICIT_UNITS",
-      unitIds: ["u1"],
+      locationMode: "ROOM_TYPE",
+      roomTypeKey: "servery",
       parentStableKey: "morning_meal",
     }),
   ];
@@ -536,8 +536,8 @@ test("draft hierarchy rows are ignored by Run resolver", () => {
       displaySequence: 12,
       status: "DRAFT",
       expectedMilestones: ["READY", "SERVICE_STARTED"],
-      locationMode: "EXPLICIT_UNITS",
-      unitIds: ["u1"],
+      locationMode: "ROOM_TYPE",
+      roomTypeKey: "servery",
       parentStableKey: "lunch",
     }),
   ];

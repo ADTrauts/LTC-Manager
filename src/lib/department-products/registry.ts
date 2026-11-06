@@ -73,8 +73,12 @@ export type DepartmentProductDomainCapability = "dietary" | "evs" | "plant";
 export type DepartmentProductStarterRefs = {
   /** Configuration-time operating-rhythm starter. Plant has none. */
   cycleStarter?: "dietary" | "evs";
+  /** `listWorkPlanPresetSummaries(productKey)` — configuration-time. */
+  workPresets?: true;
   /** `OPERATIONAL_ROLE_REGISTRY` keyed by productKey — product-authoring. */
   assignmentRoles?: true;
+  /** Generic Team Member / Lead / Supervisor / Manager tiers — lazy on load. */
+  jobRoleTiers?: "generic";
   /** Facility Builder responsibility presets — configuration-time. */
   responsibilityPresets?: true;
   /** Department may own first-class Menus. Not a Menu schema hard-code. */
@@ -123,7 +127,9 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     status: "AVAILABLE",
     shortDescription: "Food and nutrition operations for hospitals and long-term care.",
     customerCapabilities: [
+      "Location Functions",
       "Operating Rhythm",
+      "Work",
       "Records",
       "Menus",
       "Audit / Reports",
@@ -132,7 +138,9 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     domainCapability: "dietary",
     starters: {
       cycleStarter: "dietary",
+      workPresets: true,
       assignmentRoles: true,
+      jobRoleTiers: "generic",
       responsibilityPresets: true,
       menus: true,
     },
@@ -151,7 +159,9 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     domainCapability: "evs",
     starters: {
       cycleStarter: "evs",
+      workPresets: true,
       assignmentRoles: true,
+      jobRoleTiers: "generic",
       responsibilityPresets: true,
     },
     versionLabel: null,
@@ -168,7 +178,7 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     sortOrder: 30,
     domainCapability: "plant",
     shortDescription:
-      "Manage facility maintenance requests, Issues, Work Orders, Assets, and Preventive Maintenance in one operational workspace.",
+      "Manage facility maintenance requests, Issues, Work Orders, Assets, recurring operational Work, and Preventive Maintenance in one operational workspace.",
     customerCapabilities: [
       "Maintenance Requests and triage",
       "Issues and Work Orders",
@@ -179,7 +189,9 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
       "Labor, parts, and vendor expense capture",
     ],
     starters: {
+      workPresets: true,
       assignmentRoles: true,
+      jobRoleTiers: "generic",
       responsibilityPresets: true,
     },
     versionLabel: "1.0",

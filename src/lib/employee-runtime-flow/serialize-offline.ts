@@ -140,3 +140,38 @@ export function serializeEmployeeRuntimeEvidenceContext(
 
   return null;
 }
+
+export function serializeEmployeeRuntimeWorkContext(
+  flow: EmployeeRuntimeFlow,
+  lastSyncedAt: string,
+): NonNullable<OfflineRuntimeBundle["workContext"]> | null {
+  if (flow.device.mismatch) return null;
+  const scoped = flow.work.filter((row) =>
+    ["DUE", "CURRENT", "UPCOMING", "PAST_DUE_NOT_CONFIRMED", "SAVED_ON_THIS_TABLET"].includes(
+      row.state,
+    ),
+  );
+  return {
+    requirements: scoped.map((row) => ({
+      occurrenceKey: row.occurrenceKey,
+      label: row.label,
+      state: row.state,
+      priority: row.priority,
+      completionMode: row.completionMode,
+      workPlanStableKey: row.workPlanStableKey,
+      workPlanVersion: row.workPlanVersion,
+      workItemKey: row.workItemKey,
+      workPlanId: row.workPlanId,
+      workItemId: row.workItemId,
+      instructions: row.instructions,
+      knowledgeArticleId: row.knowledgeArticleId,
+      procedureTitle: row.procedureTitle,
+      dueAt: row.dueAt?.toISOString() ?? null,
+      cycleStableKey: row.cycleStableKey,
+      windowStartLocal: row.windowStartLocal,
+      windowEndLocal: row.windowEndLocal,
+      assignedEmployeeId: row.assignedEmployeeId,
+    })),
+    lastSyncedAt,
+  };
+}

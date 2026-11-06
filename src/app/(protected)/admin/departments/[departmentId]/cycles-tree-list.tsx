@@ -78,18 +78,33 @@ function rowScopeLabel(
   row: Pick<
     CycleRowData,
     | "locationMode"
+    | "roomTypeKey"
     | "unitIds"
     | "spaceIds"
+    | "applicableOperationalTypeKeys"
   >,
   catalog?: CycleEditorCatalog,
+  opts?: { includeLegacy?: boolean },
 ): string | null {
+  if (row.locationMode === "UNIT_TYPES" && !opts?.includeLegacy) {
+    return null;
+  }
   const names: Record<string, string> = {};
   for (const location of catalog?.locations ?? []) names[location.id] = location.name;
+  const operationalTypeNames: Record<string, string> = {};
+  for (const type of catalog?.operationalTypes ?? []) {
+    operationalTypeNames[type.key] = type.name;
+  }
   return scopeGroupLabel({
-    locationMode:
-      row.locationMode === "ALL_DEPARTMENT_UNITS" || row.locationMode === "EXPLICIT_UNITS"
-        ? row.locationMode
-        : "EXPLICIT_UNITS",
+    locationMode: row.locationMode as
+      | "ALL_DEPARTMENT_UNITS"
+      | "UNIT_TYPES"
+      | "EXPLICIT_UNITS"
+      | "ROOM_TYPE"
+      | "OPERATIONAL_TYPES",
+    roomTypeKey: row.roomTypeKey,
+    applicableOperationalTypeKeys: row.applicableOperationalTypeKeys,
+    operationalTypeNames,
     unitIds: row.unitIds,
     spaceIds: row.spaceIds,
     locationNames: names,
@@ -116,6 +131,7 @@ function rowSecondary(
   row: CycleRowData,
   showMeal: boolean,
   catalog?: CycleEditorCatalog,
+  opts?: { includeLegacy?: boolean },
 ): string {
   if (row.nodeKind === "KEY_TIME") {
     const summary = keyTimeSummary(row);
@@ -131,7 +147,7 @@ function rowSecondary(
       daysSummary: formatDaysSummary(row.applicableDaysOfWeek),
       scopeLabel: row.locationInheritFromParent
         ? "Uses parent locations"
-        : rowScopeLabel(row, catalog),
+        : rowScopeLabel(row, catalog, opts),
       serviceTimeCount: shouldShowServiceStartTimes({
         cycleType: row.cycleType,
         mealType: row.mealType,

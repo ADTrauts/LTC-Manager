@@ -109,7 +109,7 @@ export function AuditRecordsPanel({
                     requirementKey: slot.requirementKey,
                   })}
                 >
-                  {slot.serviceDate} {slot.placeLabel ?? "Location"} {slot.windowStartLocal ?? ""}
+                  {slot.serviceDate} {slot.placeLabel ?? slot.locationFunctionKey} {slot.windowStartLocal ?? ""}
                 </option>
               ))}
             </select>

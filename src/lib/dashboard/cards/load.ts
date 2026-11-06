@@ -24,6 +24,7 @@ import {
   presentCallOffs,
   presentCoverage,
   presentDepartmentSetup,
+  presentExpectedWork,
   presentFacilitySetup,
   presentGlance,
   presentHandoff,
@@ -177,6 +178,12 @@ export async function loadTimelineSummary(input: CardLoadInput): Promise<CardRes
     input.facts.cycleSummary(departmentId),
   ]);
   return presentTimeline({ presentation, summary: cycleSummary, mode: "summary" }) as CardResult<DashboardSummaryModel>;
+}
+
+export async function loadExpectedWork(input: CardLoadInput): Promise<CardResult<DashboardReadyModel>> {
+  const departmentId = departmentIdInScope(input.viewer);
+  if (!departmentId) return quiet("Today's Work is on track.");
+  return presentExpectedWork(await input.facts.expectedWork(departmentId));
 }
 
 export async function loadRecords(input: CardLoadInput): Promise<CardResult<DashboardReadyModel>> {

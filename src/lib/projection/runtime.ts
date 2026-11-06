@@ -5,6 +5,8 @@
  * return an immutable ProjectionSnapshot. Contains no Projection logic.
  */
 
+import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
+
 import { loadProjectionSource, type ProjectionSourceLoadDb } from "./load-source";
 import {
   createProjectionRuntimeMemo,
@@ -24,6 +26,8 @@ export type ProjectionRuntimeMetrics = {
   pipelineDurationMs: number;
   validationDurationMs: number;
   totalDurationMs: number;
+  areaCount: number;
+  experienceCount: number;
   locationCount: number;
   actionableLocationCount: number;
   diagnosticsCount: number;
@@ -68,7 +72,10 @@ function emptySnapshot(
         revision: Object.freeze({
           hierarchyRevision: "hierarchy:none",
           assignmentRevision: "assignments:none",
+          profileRevision: "profiles:none",
+          bindingRevision: "bindings:none",
           policyRevision: "policy:none",
+          experienceRegistryVersion: EXPERIENCE_REGISTRY_VERSION,
           accessClassRevision: `access:${request.accessClass.key}`,
         }),
         focus: request.focus,
@@ -78,14 +85,21 @@ function emptySnapshot(
     }),
     metadata: Object.freeze({
       architectureWave: "15B",
+      registryVersion: EXPERIENCE_REGISTRY_VERSION,
       notes: Object.freeze([
-        "Runtime fail-closed empty snapshot.",
+        "Wave 15D runtime fail-closed empty snapshot.",
       ] as const),
     }),
+    areas: Object.freeze([]),
+    experiences: Object.freeze([]),
     locations: Object.freeze({
       roots: Object.freeze([]),
       actionableIds: Object.freeze([]),
       byId: Object.freeze({}),
+    }),
+    queryScopes: Object.freeze({
+      byExperience: Object.freeze({}),
+      byDomain: Object.freeze({}),
     }),
     descriptors: Object.freeze([]),
     diagnostics: Object.freeze({
@@ -172,6 +186,8 @@ function buildMetrics(input: {
     pipelineDurationMs: input.pipelineDurationMs,
     validationDurationMs: input.validationDurationMs,
     totalDurationMs: input.totalDurationMs,
+    areaCount: input.snapshot.areas.length,
+    experienceCount: input.snapshot.experiences.length,
     locationCount: Object.keys(input.snapshot.locations.byId).length,
     actionableLocationCount: input.snapshot.locations.actionableIds.length,
     diagnosticsCount: input.snapshot.diagnostics.issues.length,
@@ -196,6 +212,8 @@ export function formatProjectionRuntimeLog(
       result.metrics.validationDurationMs.toFixed(3),
     ),
     totalDurationMs: Number(result.metrics.totalDurationMs.toFixed(3)),
+    areaCount: result.metrics.areaCount,
+    experienceCount: result.metrics.experienceCount,
     locationCount: result.metrics.locationCount,
     actionableLocationCount: result.metrics.actionableLocationCount,
     diagnosticsCount: result.metrics.diagnosticsCount,

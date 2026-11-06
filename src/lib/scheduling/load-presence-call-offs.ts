@@ -89,10 +89,12 @@ export async function loadPresenceCallOffs(
     select: {
       id: true,
       employeeId: true,
+      unitId: true,
       shift: true,
       callOffReason: true,
       calledOffAt: true,
       employee: { select: { firstName: true, lastName: true } },
+      unit: { select: { name: true } },
     },
   });
 
@@ -104,8 +106,8 @@ export async function loadPresenceCallOffs(
       employeeLastName: entry.employee.lastName,
       oldUnitId: null,
       oldUnitName: null,
-      newUnitId: entry.id,
-      newUnitName: "Schedule",
+      newUnitId: entry.unitId ?? entry.id,
+      newUnitName: entry.unit?.name ?? "Schedule",
       mealType:
         entry.shift === "BREAKFAST" || entry.shift === "LUNCH" || entry.shift === "DINNER"
           ? entry.shift

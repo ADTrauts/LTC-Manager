@@ -8,6 +8,7 @@ import {
   projectLogExpectationHistory,
   type LogExpectationHistorySlot,
 } from "@/lib/canonical-logs/expectation-history";
+import { expandOperationalTypeSpaces } from "@/lib/canonical-logs/log-operational-type-applicability";
 import type { LogAttachmentForResolve } from "@/lib/canonical-logs/resolve-log-requirements";
 import {
   evaluateCoverageSlots,
@@ -25,6 +26,10 @@ import {
   groupAttachmentLineages,
 } from "./historical-attachment";
 import { composeReviewMenuDomain } from "./compose-menu-review";
+import {
+  historicalOtAssignmentsFromBindings,
+  selectHistoricalProfileForServiceDate,
+} from "./historical-operational-type";
 import { reviewEvidenceStateFromOccurrence } from "@/lib/operational-occurrence/classify-operational-requirement";
 
 import type {
@@ -75,21 +80,60 @@ function overrideKind(reason: string, oldUnitId: string | null, newUnitId: strin
   return "presence_exception";
 }
 
-function spaceIdsForAttachment(segment: LogAttachmentForResolve): string[] {
+function spaceIdsForAttachment(
+  segment: LogAttachmentForResolve,
+  otBySpace: Map<string, { key: string; name: string }>,
+  spaces: OperationalReviewDayFacts["spaces"],
+): string[] {
   if (segment.targetKind === "SPACE" && segment.spaceId) return [segment.spaceId];
+  if (segment.targetKind === "OPERATIONAL_TYPE") {
+    return expandOperationalTypeSpaces(otBySpace, segment.operationalTypeKey);
+  }
+  if (segment.targetKind === "UNIT" && segment.unitId) {
+    return spaces.filter((space) => space.parentUnitId === segment.unitId).map((space) => space.spaceId);
+  }
   return [];
 }
 
 export function composeOperationalReviewDay(
   facts: OperationalReviewDayFacts,
 ): OperationalReviewDayViewModel {
+  const otByDepartment = new Map<string, Map<string, { key: string; name: string }>>();
+  let otUnavailable = false;
+  for (const departmentId of facts.departmentIds) {
+    const selected = selectHistoricalProfileForServiceDate(facts.profiles, {
+      departmentId,
+      serviceDateKey: facts.serviceDate,
+      timezone: facts.timezone,
+    });
+    if (selected.status === "unavailable") {
+      otUnavailable = true;
+      otByDepartment.set(departmentId, new Map());
+      continue;
+    }
+    otByDepartment.set(
+      departmentId,
+      historicalOtAssignmentsFromBindings(facts.otBindings, selected.profile.id),
+    );
+  }
+
   const locations: ReviewLocationEntry[] = facts.spaces.map((space) => {
+    let ot: { key: string; name: string } | null = null;
+    for (const departmentId of facts.departmentIds) {
+      const found = otByDepartment.get(departmentId)?.get(space.spaceId);
+      if (found) {
+        ot = found;
+        break;
+      }
+    }
     return {
       spaceId: space.spaceId,
       parentUnitId: space.parentUnitId,
       parentUnitLabel: space.parentUnitLabel,
       displayLabel: space.displayLabel,
       displayLabelIsHistorical: false,
+      operationalTypeKey: ot?.key ?? null,
+      operationalTypeName: ot?.name ?? null,
     };
   });
 
@@ -134,7 +178,8 @@ export function composeOperationalReviewDay(
 
     anyReliableEvidence = true;
     const historical = catalogDefinitionForHistory(reliability.covering);
-    const targetSpaceIds = spaceIdsForAttachment(historical);
+    const otBySpace = otByDepartment.get(historical.departmentId) ?? new Map();
+    const targetSpaceIds = spaceIdsForAttachment(historical, otBySpace, facts.spaces);
     const spacesToProject = targetSpaceIds.length > 0 ? targetSpaceIds : [null];
 
     for (const spaceId of spacesToProject) {
@@ -197,6 +242,8 @@ export function composeOperationalReviewDay(
     evidenceAvailability = unavailable("legacy_only_date");
   } else if (!anyReliableEvidence && anyUnreliableEvidence) {
     evidenceAvailability = unavailable("attachment_history_not_reliable");
+  } else if (otUnavailable && facts.attachmentSegments.some((row) => row.targetKind === "OPERATIONAL_TYPE")) {
+    evidenceAvailability = unavailable("no_historical_ot_version");
   }
 
   const cycleVersions = facts.cycles.map((cycle) => ({
@@ -222,6 +269,10 @@ export function composeOperationalReviewDay(
   const coverageSlots: ReviewCoverageSlot[] = [];
   if (coverageSelection.status === "unavailable") {
     coverageAvailability = unavailable("coverage_interval_ambiguous");
+  } else if (otUnavailable && coverageSelection.templates.some((row) =>
+    row.items.some((item) => item.applicableOperationalTypeKeys.length > 0),
+  )) {
+    coverageAvailability = unavailable("no_historical_ot_version");
   } else {
     const items = flattenCoverageTemplateItems(coverageSelection.templates);
     const cycleRefs: CoverageCycleRef[] = facts.cycles
@@ -254,6 +305,8 @@ export function composeOperationalReviewDay(
             departmentId: contextDepartmentId,
             spaceId: location.spaceId,
             unitId: location.parentUnitId,
+            operationalTypeKey: location.operationalTypeKey,
+            operationalTypeName: location.operationalTypeName,
           },
           cycles: cycleRefs,
         }),
@@ -276,6 +329,7 @@ export function composeOperationalReviewDay(
           templateVersion: slot.expectation.templateVersion,
           cycleStableKey: slot.expectation.cycleStableKey,
           cycleLabel: slot.expectation.cycleLabel,
+          operationalTypeKey: slot.expectation.operationalTypeKey,
           fillingAssignmentIds: slot.fillingAssignmentIds,
         });
       }
@@ -406,6 +460,7 @@ export function composeOperationalReviewDay(
     menu: composeReviewMenuDomain({
       facts,
       locations,
+      otByDepartment,
     }),
   };
 }

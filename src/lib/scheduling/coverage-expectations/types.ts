@@ -1,21 +1,26 @@
 /**
- * Canonical coverage need.
+ * Canonical Dietary coverage expectations.
  *
- * WHAT: operational assignment roleKey
+ * WHAT: OperationalAssignment roleKey
  * HOW MANY: requiredCount
- * WHERE: canonical UnitSpace (spaceId). A Unit id is that Unit, not its rooms.
- * WHEN: DepartmentOperationalCycle.stableKey for a period
- * ACTUAL: OperationalAssignment (never ScheduleEntry, Team membership, or Job Role)
+ * WHERE: DepartmentRoomArchetype.key (Operational Type)
+ * WHEN: DepartmentOperationalCycle.stableKey
+ * ACTUAL: OperationalAssignment (never ScheduleEntry, Team, or Job Role)
  *
  * Coverage state is derived. Do not persist isCovered.
- * Location Function does not select the room.
+ *
+ * Later runtime snapshots (Phase 6+) should preserve:
+ * requirement/version identity, roleKey, requiredCount, Operational Type key,
+ * cycle identity, service date, matching OA ids, and resulting state.
  */
 
 export type CoverageExpectationStatus = "DRAFT" | "PUBLISHED" | "RETIRED";
 
 export type CoveragePerspective = "working" | "runtime";
 
-export type CoverageProvenanceSource = "EXPLICIT_LOCATION";
+export type CoverageProvenanceSource =
+  | "OPERATIONAL_TYPE_DEFAULT"
+  | "EXPLICIT_LOCATION";
 
 export type CoverageExpectationItemInput = {
   id: string;
@@ -29,7 +34,7 @@ export type CoverageExpectationItemInput = {
   roleLabel: string;
   requiredCount: number;
   unitId: string | null;
-  spaceId: string | null;
+  applicableOperationalTypeKeys: readonly string[];
   applicableOperationalCycleStableKeys: readonly string[];
 };
 
@@ -37,6 +42,8 @@ export type CoverageLocationContext = {
   departmentId: string;
   spaceId: string;
   unitId: string | null;
+  operationalTypeKey: string | null;
+  operationalTypeName: string | null;
 };
 
 export type CoverageCycleRef = {
@@ -57,6 +64,8 @@ export type ResolvedCoverageExpectation = {
   requiredCount: number;
   cycleStableKey: string | null;
   cycleLabel: string | null;
+  operationalTypeKey: string | null;
+  operationalTypeName: string | null;
   unitId: string | null;
   provenance: CoverageProvenanceSource;
   detail: string;

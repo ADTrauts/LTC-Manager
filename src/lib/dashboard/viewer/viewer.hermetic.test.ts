@@ -76,6 +76,8 @@ function viewerOf(input: DashboardViewerFacts): DashboardViewer {
   return (resolution as { viewer: DashboardViewer }).viewer;
 }
 
+const TEAM = { mode: "TEAM_SCOPED" as const, activeTeams: [{ id: "team-1", name: "Second floor" }], roomIds: ["room-1", "room-2"] };
+
 test("authority: precedence and the Supervisor floor", () => {
   assert.equal(deriveDashboardAuthority({ role: "STAFF", leadsDepartmentInScope: true }), null);
   assert.equal(deriveDashboardAuthority({ role: "LEAD_TEAM_MEMBER", leadsDepartmentInScope: false }), null);
@@ -130,26 +132,27 @@ test("Manager without a head link: primary Department only", () => {
   assert.deepEqual(viewer.availableScopes, [{ kind: "DEPARTMENT", departmentId: FN.id }]);
 });
 
-test("Supervisor dashboard is the Department, not a Team room list", () => {
+test("Supervisor: team scope with rooms, Department fallbacks with notices", () => {
   const supervisor = session("SUPERVISOR", "employee");
-  const team = viewerOf(
+  const team = viewerOf(facts({ session: supervisor, primaryDepartmentId: FN.id, teamScope: TEAM }));
+  assert.deepEqual(team.scope, { kind: "TEAM", departmentId: FN.id, teamIds: ["team-1"], roomIds: ["room-1", "room-2"] });
+  assert.equal(team.availableScopes.length, 2);
+  assert.equal(team.layoutOwner?.kind, "EMPLOYEE");
+
+  const noRooms = viewerOf(
     facts({
       session: supervisor,
       primaryDepartmentId: FN.id,
-      teamScope: {
-        mode: "ASSIGNMENT_SCOPED",
-        reason: "TODAYS_ASSIGNMENT",
-        departmentId: FN.id,
-        departmentLabel: FN.name,
-        employeeId: "emp-1",
-        activeTeams: [{ id: "team-1", name: "Resident Services" }],
-        roomIds: ["room-1"],
-      },
+      teamScope: { mode: "TEAM_WITHOUT_LOCATIONS", activeTeams: TEAM.activeTeams, roomIds: [] },
     }),
   );
-  assert.deepEqual(team.scope, { kind: "DEPARTMENT", departmentId: FN.id });
-  assert.equal(team.notices.length, 0);
-  assert.equal(team.layoutOwner?.kind, "EMPLOYEE");
+  assert.deepEqual(noRooms.scope, { kind: "DEPARTMENT", departmentId: FN.id });
+  assert.equal(noRooms.notices[0]?.code, "TEAM_WITHOUT_ROOMS");
+  assert.equal(noRooms.notices[0]?.message, "Your team has no rooms yet. Your Dashboard shows all of Food & Nutrition.");
+
+  const noTeam = viewerOf(facts({ session: supervisor, primaryDepartmentId: FN.id, teamScope: null }));
+  assert.equal(noTeam.notices[0]?.code, "NO_TEAM_ASSIGNED");
+  assert.equal(noTeam.notices[0]?.message, "No team assigned. Your Dashboard shows all of Food & Nutrition.");
 });
 
 test("no primary Department: a single plain notice and no scope", () => {
@@ -217,10 +220,10 @@ test("lens: a forged cookie or ?scope= never widens scope", () => {
     assert.equal(viewer.notices.at(-1)?.message, "That view isn't available to you. Your Dashboard shows Food & Nutrition.");
   }
 
-  const supervisor = facts({ session: session("SUPERVISOR"), primaryDepartmentId: FN.id });
-  const forged = viewerOf({ ...supervisor, lens: { scopeParam: "facility" } });
-  assert.equal(forged.scope?.kind, "DEPARTMENT");
-  assert.equal(forged.notices[0]?.message, "That view isn't available to you. Your Dashboard shows Food & Nutrition.");
+  const supervisorTeam = facts({ session: session("SUPERVISOR"), primaryDepartmentId: FN.id, teamScope: TEAM });
+  const forged = viewerOf({ ...supervisorTeam, lens: { scopeParam: "facility" } });
+  assert.equal(forged.scope?.kind, "TEAM");
+  assert.equal(forged.notices[0]?.message, "That view isn't available to you. Your Dashboard shows your team in Food & Nutrition.");
 });
 
 test("lens: available choices are honoured, ?scope= outranks the sidebar cookie", () => {
@@ -239,10 +242,10 @@ test("lens: available choices are honoured, ?scope= outranks the sidebar cookie"
   );
   assert.deepEqual(viewerOf({ ...admin, lens: { cookieDepartmentId: EVS.id } }).notices, []);
 
-  const supervisor = facts({ session: session("SUPERVISOR"), primaryDepartmentId: FN.id });
-  assert.equal(viewerOf({ ...supervisor, lens: { cookieDepartmentId: FN.id } }).scope?.kind, "DEPARTMENT");
+  const supervisorTeam = facts({ session: session("SUPERVISOR"), primaryDepartmentId: FN.id, teamScope: TEAM });
+  assert.equal(viewerOf({ ...supervisorTeam, lens: { cookieDepartmentId: FN.id } }).scope?.kind, "TEAM");
   assert.equal(
-    viewerOf({ ...supervisor, lens: { scopeParam: `department:${FN.id}` } }).scope?.kind,
+    viewerOf({ ...supervisorTeam, lens: { scopeParam: `department:${FN.id}` } }).scope?.kind,
     "DEPARTMENT",
   );
 });

@@ -16,6 +16,9 @@ import { prisma } from "@/lib/prisma";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
 
 import { changeAssetStatus } from "./asset-service";
+import { recordWorkOrderResponseTerminal } from "./work-order-response";
+import { enqueueWorkOrderAssignmentEnded } from "./work-order-assignment-attention";
+import { syncWorkOrderDueAttention } from "./work-order-overdue-attention";
 import { isAssignedWorkOrderTechnician } from "./work-order-actor";
 import {
   appendRepairUpdate,
@@ -977,10 +980,11 @@ export async function applyWorkOrderCloseoutCompletion(
 ) {
   await resolveWorkOrderActorAuthority(session, input.facilityId, input.departmentId, {
     repairId: input.repairId,
+    client: input.client,
   });
   const repair = await loadWorkOrderScoped(input.client, input.repairId, input.facilityId);
   if (repair.status === "COMPLETED") {
-    return repair;
+    return { repair, attentionOutboxIds: [] as string[] };
   }
   if (repair.status === "CANCELLED") {
     throw new Error("Cancelled Work Orders cannot be completed.");
@@ -1013,13 +1017,14 @@ export async function applyWorkOrderCloseoutCompletion(
 
   const actorUserId = sessionUserIdForFk(session);
   const now = input.now ?? new Date();
+  let assetOutboxIds: string[] = [];
 
   if (
     repair.assetId &&
     review &&
     review !== "NO_CHANGE"
   ) {
-    await changeAssetStatus(session, {
+    const changed = await changeAssetStatus(session, {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       assetId: repair.assetId,
@@ -1032,7 +1037,16 @@ export async function applyWorkOrderCloseoutCompletion(
       now,
       allowWorkOrderCloseoutTechnician: true,
     });
+    assetOutboxIds = changed.attentionOutboxIds;
   }
+
+  const responseOutboxIds = await recordWorkOrderResponseTerminal(input.client, {
+    repairId: repair.id,
+    responseRequirement: repair.responseRequirement,
+    transition: "COMPLETED",
+    changedByUserId: actorUserId,
+    changedAt: now,
+  });
 
   const updated = await input.client.repair.update({
     where: { id: repair.id },
@@ -1053,7 +1067,7 @@ export async function applyWorkOrderCloseoutCompletion(
     },
   });
 
-  await appendRepairUpdate(input.client, {
+  const historyId = await appendRepairUpdate(input.client, {
     repairId: repair.id,
     updateText:
       input.comment?.trim() ||
@@ -1066,5 +1080,34 @@ export async function applyWorkOrderCloseoutCompletion(
 
   await completePmOccurrenceForWorkOrder(input.client, updated, now);
 
-  return updated;
+  const attentionOutboxIds: string[] = [...assetOutboxIds, ...responseOutboxIds];
+  if (repair.assignedEmployeeId) {
+    attentionOutboxIds.push(
+      await enqueueWorkOrderAssignmentEnded(input.client as Prisma.TransactionClient, {
+        repairId: repair.id,
+        assignmentEventId: historyId,
+        occurredAt: now,
+        cause: "completed",
+      }),
+    );
+  }
+  attentionOutboxIds.push(
+    ...(await syncWorkOrderDueAttention(input.client as Prisma.TransactionClient, {
+      repairId: repair.id,
+      before: {
+        status: repair.status,
+        dueAt: repair.dueAt,
+        assignedEmployeeId: repair.assignedEmployeeId,
+      },
+      after: {
+        status: updated.status,
+        dueAt: updated.dueAt,
+        assignedEmployeeId: updated.assignedEmployeeId,
+      },
+      historyEventId: historyId,
+      occurredAt: now,
+    })),
+  );
+
+  return { repair: updated, attentionOutboxIds };
 }

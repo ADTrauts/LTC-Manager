@@ -40,12 +40,12 @@ export type RecordAssignmentEventInput = {
 
 export async function recordAssignmentEvent(
   input: RecordAssignmentEventInput,
-): Promise<void> {
+): Promise<{ id: string; createdAt: Date }> {
   if (!input.assignmentId && !input.planId) {
     throw new Error("Assignment event requires assignmentId or planId.");
   }
   const client = input.client ?? prisma;
-  await client.operationalAssignmentEvent.create({
+  return client.operationalAssignmentEvent.create({
     data: {
       assignmentId: input.assignmentId ?? null,
       planId: input.planId ?? null,
@@ -65,6 +65,7 @@ export async function recordAssignmentEvent(
       priorValuesJson: input.priorValuesJson ?? null,
       newValuesJson: input.newValuesJson ?? null,
     },
+    select: { id: true, createdAt: true },
   });
 }
 

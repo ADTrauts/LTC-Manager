@@ -6,9 +6,19 @@
  * Does not invent Projection rules.
  */
 
+import {
+  findAreaForExperience,
+  getExperience,
+  listOperationalAreasForDepartment,
+} from "@/lib/experiences";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 
-import type { ShadowEligibilityView } from "./types";
+import type {
+  ShadowAreaView,
+  ShadowEligibilityView,
+  ShadowExperienceView,
+  ShadowQueryScopeView,
+} from "./types";
 
 export type LegacyShadowRoom = {
   roomId: string;
@@ -17,6 +27,7 @@ export type LegacyShadowRoom = {
   unitId: string | null;
   departmentId: string;
   departmentKey: OperationalDepartmentKey;
+  capabilities: readonly string[];
   isActive: boolean;
   isPlaced: boolean;
 };
@@ -54,21 +65,113 @@ function unitAllowed(
 export function adaptLegacyEligibilityToShadowView(
   input: LegacyShadowInput,
 ): ShadowEligibilityView {
-  const eligibleRooms = input.rooms.filter(
-    (room) =>
-      room.isActive &&
-      room.isPlaced &&
-      unitAllowed(room.unitId, input.allowedUnitIds, input.lockedUnitId) &&
-      input.departmentKeys.includes(room.departmentKey),
-  );
+  const experienceLocations = new Map<string, Set<string>>();
+  const experienceArea = new Map<string, string>();
+  const experienceOrder = new Map<string, number>();
+
+  for (const room of input.rooms) {
+    if (!room.isActive || !room.isPlaced) continue;
+    if (
+      !unitAllowed(room.unitId, input.allowedUnitIds, input.lockedUnitId)
+    ) {
+      continue;
+    }
+    if (!input.departmentKeys.includes(room.departmentKey)) continue;
+
+    const experienceKeys = room.capabilities.filter((key) => getExperience(key));
+    for (const experienceKey of experienceKeys) {
+      const experience = getExperience(experienceKey);
+      if (!experience) continue;
+      if (!experience.departments.includes(room.departmentKey)) continue;
+
+      const area = findAreaForExperience(room.departmentKey, experienceKey);
+      if (!area || area.departmentKey !== room.departmentKey) continue;
+
+      const locations = experienceLocations.get(experienceKey) ?? new Set();
+      locations.add(room.locationId);
+      experienceLocations.set(experienceKey, locations);
+      experienceArea.set(experienceKey, area.key);
+      experienceOrder.set(
+        experienceKey,
+        experienceOrder.get(experienceKey) ?? area.experienceKeys.indexOf(experienceKey),
+      );
+    }
+  }
+
+  const experiences: ShadowExperienceView[] = [...experienceLocations.entries()]
+    .map(([experienceKey, locations]) => {
+      const experience = getExperience(experienceKey)!;
+      return {
+        experienceKey,
+        areaKey: experienceArea.get(experienceKey)!,
+        order: (experienceOrder.get(experienceKey) ?? 0) * 10 || 10,
+        locationIds: [...locations].sort((a, b) => a.localeCompare(b)),
+        allowedActionKeys: experience.contracts.actions
+          .map((action) => action.key)
+          .sort((a, b) => a.localeCompare(b)),
+        navigationHandles: experience.contracts.navigationContribution.entries
+          .map((entry) => entry.id)
+          .sort((a, b) => a.localeCompare(b)),
+        workspaceHandles: [
+          experience.contracts.workspaceContribution.density,
+          experience.contracts.unitWorkspaceContribution.density,
+          experience.contracts.businessWorkspaceContribution.density,
+          experience.contracts.operationsCenterContribution.density,
+        ],
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.areaKey.localeCompare(b.areaKey) ||
+        a.order - b.order ||
+        a.experienceKey.localeCompare(b.experienceKey),
+    );
+
+  const areas: ShadowAreaView[] = [];
+  for (const departmentKey of input.departmentKeys) {
+    for (const area of listOperationalAreasForDepartment(departmentKey)) {
+      const experienceKeys = experiences
+        .filter((experience) => experience.areaKey === area.key)
+        .map((experience) => experience.experienceKey);
+      if (experienceKeys.length === 0) continue;
+      areas.push({
+        areaKey: area.key,
+        order: area.order,
+        experienceKeys,
+      });
+    }
+  }
+
   const actionableLocationIds = sortedUnique(
-    eligibleRooms.map((room) => room.locationId),
+    experiences.flatMap((experience) => experience.locationIds),
   );
-  const roomIds = sortedUnique(eligibleRooms.map((room) => room.roomId));
+  const roomIds = sortedUnique(
+    input.rooms
+      .filter((room) => actionableLocationIds.includes(room.locationId))
+      .map((room) => room.roomId),
+  );
+
   const locationIds = sortedUnique([
     ...input.sidebarUnitIds.map((id) => `unit:${id}`),
     ...actionableLocationIds,
   ]);
+
+  const queryScopes: ShadowQueryScopeView[] = experiences.map((experience) => {
+    const rooms = input.rooms.filter((room) =>
+      experience.locationIds.includes(room.locationId),
+    );
+    return {
+      experienceKey: experience.experienceKey,
+      unitIds: sortedUnique(
+        rooms.map((room) => room.unitId).filter((id): id is string => Boolean(id)),
+      ),
+      spaceIds: sortedUnique(rooms.map((room) => room.roomId)),
+      domains: [
+        ...(getExperience(experience.experienceKey)?.contracts.queryScope
+          .domains ?? []),
+      ].sort((a, b) => a.localeCompare(b)),
+    };
+  });
 
   return {
     source: "LEGACY",
@@ -80,6 +183,13 @@ export function adaptLegacyEligibilityToShadowView(
     locationIds,
     actionableLocationIds,
     roomIds,
+    areas: areas.sort(
+      (a, b) => a.order - b.order || a.areaKey.localeCompare(b.areaKey),
+    ),
+    experiences,
+    queryScopes: queryScopes.sort((a, b) =>
+      a.experienceKey.localeCompare(b.experienceKey),
+    ),
     plantApplied: input.plantApplied ?? false,
     plantCoveredLocationIds: sortedUnique(input.plantCoveredLocationIds ?? []),
     revisionTokens: [...(input.revisionTokens ?? [])].sort((a, b) =>

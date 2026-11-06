@@ -8,6 +8,7 @@ import {
   evaluateTeamManagerCandidate,
   normalizeTeamDisplayName,
   teamNamesConflict,
+  validateTeamRoomSubmission,
 } from "./validation";
 
 describe("Team authority", () => {
@@ -66,6 +67,38 @@ describe("Team validation", () => {
     assert.equal(teamNamesConflict("Culinary", "Retail"), false);
   });
 
+  it("accepts overlapping Room ids for different Teams and rejects unknown Rooms", () => {
+    const allowed = new Set(["naval", "lighthouse"]);
+    assert.deepEqual(
+      validateTeamRoomSubmission({
+        submittedSpaceIds: ["naval", "lighthouse"],
+        allowedSpaceIds: allowed,
+      }),
+      ["naval", "lighthouse"],
+    );
+    assert.throws(() =>
+      validateTeamRoomSubmission({
+        submittedSpaceIds: ["naval", "evs-only"],
+        allowedSpaceIds: allowed,
+      }),
+    );
+  });
+
+  it("does not persist Floor or Neighborhood ids as Rooms", () => {
+    const allowed = new Set(["room-1"]);
+    assert.throws(() =>
+      validateTeamRoomSubmission({
+        submittedSpaceIds: ["floor-1"],
+        allowedSpaceIds: allowed,
+      }),
+    );
+    assert.throws(() =>
+      validateTeamRoomSubmission({
+        submittedSpaceIds: ["neighborhood-1"],
+        allowedSpaceIds: allowed,
+      }),
+    );
+  });
 });
 
 describe("Team Manager eligibility", () => {
@@ -156,11 +189,12 @@ describe("Team product contracts", () => {
     );
     assert.match(workspace, /Teams are optional/);
     assert.match(workspace, /Employee Builder/);
-    assert.match(workspace, /does not own rooms or coverage/);
-    assert.doesNotMatch(workspace, /Rooms this team works/);
-    assert.doesNotMatch(workspace, /TeamCyclesPanel/);
+    assert.match(workspace, /Rooms this team works/);
+    assert.match(workspace, /Filter by Room Type/);
+    assert.match(workspace, /not today’s assignment/);
     assert.match(workspace, /department-teams-split/);
     assert.match(workspace, /team-detail-panel/);
+    assert.match(workspace, /TeamCyclesPanel/);
     assert.doesNotMatch(workspace, /OperatingRhythmPanel/);
     const rhythm = readFileSync(
       join(

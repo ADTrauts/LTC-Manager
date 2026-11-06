@@ -103,25 +103,6 @@ export function KeyTimeGroupsEditor({
   fieldName?: string;
 }) {
   const [roomTypeFilterId, setRoomTypeFilterId] = useState("");
-  const [floorFilter, setFloorFilter] = useState("");
-  const [neighborhoodFilterId, setNeighborhoodFilterId] = useState("");
-  const floorNames = [
-    ...new Set(locations.map((row) => row.floorName?.trim()).filter((name): name is string => Boolean(name))),
-  ].sort((a, b) => a.localeCompare(b));
-  const neighborhoods = [
-    ...new Map(
-      locations
-        .filter((row) => row.neighborhoodId && row.neighborhoodName?.trim())
-        .map((row) => [row.neighborhoodId as string, row.neighborhoodName!.trim()]),
-    ).entries(),
-  ]
-    .map(([id, name]) => ({ id, name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const visibleLocations = locations.filter((row) => {
-    if (row.kind !== "room") return false;
-    if (!roomTypeFilterId) return true;
-    return row.facilityRoomTypeId === roomTypeFilterId || row.roomTypeKey === roomTypeFilterId;
-  });
 
   function updateGroup(index: number, patch: Partial<{ dueLocal: string; spaceIds: string[] }>) {
     onChange(
@@ -140,66 +121,23 @@ export function KeyTimeGroupsEditor({
   return (
     <div className="space-y-3" data-testid="key-time-groups-editor">
       <input type="hidden" name={fieldName} value={JSON.stringify(groups)} />
-      <div className="grid gap-2 sm:grid-cols-3">
-        {floorNames.length > 0 ? (
-          <label className="block text-xs font-medium text-zinc-700">
-            Floor
-            <select
-              value={floorFilter}
-              onChange={(event) => setFloorFilter(event.target.value)}
-              className={inputClass}
-              data-testid="key-point-floor-filter"
-            >
-              <option value="">All floors</option>
-              {floorNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {neighborhoods.length > 0 ? (
-          <label className="block text-xs font-medium text-zinc-700">
-            Neighborhood
-            <select
-              value={neighborhoodFilterId}
-              onChange={(event) => setNeighborhoodFilterId(event.target.value)}
-              className={inputClass}
-              data-testid="key-point-neighborhood-filter"
-            >
-              <option value="">All neighborhoods</option>
-              {neighborhoods.map((neighborhood) => (
-                <option key={neighborhood.id} value={neighborhood.id}>
-                  {neighborhood.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {roomTypes.length > 0 ? (
-          <label className="block text-xs font-medium text-zinc-700">
-            Room type
-            <select
-              value={roomTypeFilterId}
-              onChange={(event) => setRoomTypeFilterId(event.target.value)}
-              className={inputClass}
-              data-testid="key-point-room-type-filter"
-            >
-              <option value="">All room types</option>
-              {roomTypes.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-      </div>
-      <p className="text-[11px] text-zinc-500">
-        Filters only change which rooms you see. A checked room is saved by its location. A new
-        room with the same room type does not join later.
-      </p>
+      {roomTypes.length > 0 ? (
+        <label className="block text-xs font-medium text-zinc-700">
+          Filter by Room Type
+          <select
+            value={roomTypeFilterId}
+            onChange={(event) => setRoomTypeFilterId(event.target.value)}
+            className={inputClass}
+          >
+            <option value="">All rooms</option>
+            {roomTypes.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {groups.map((group, index) => (
         <div
           key={`${index}-${group.dueLocal}`}
@@ -226,13 +164,14 @@ export function KeyTimeGroupsEditor({
             ) : null}
           </div>
           <RoomPicker
-            locations={visibleLocations}
+            locations={locations}
             selectedIds={group.spaceIds}
             onChange={(spaceIds) => updateGroup(index, { spaceIds })}
-            filter={{
-              neighborhoodId: neighborhoodFilterId || null,
-              floorName: floorFilter || null,
-            }}
+            filter={
+              roomTypeFilterId
+                ? { facilityRoomTypeId: roomTypeFilterId }
+                : undefined
+            }
           />
         </div>
       ))}

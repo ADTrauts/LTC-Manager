@@ -32,6 +32,7 @@ export async function loadAuditOperationalRecords(
     fromDateKey: string;
     toDateKey: string;
     catalogStableKey?: string | null;
+    locationFunctionKey?: string | null;
     now?: Date;
   },
 ): Promise<AuditRecordResult> {
@@ -43,7 +44,22 @@ export async function loadAuditOperationalRecords(
   const startDate = facilityLocalDateToServiceDate(input.fromDateKey);
   const endExclusive = facilityLocalDateToServiceDate(shiftDate(input.toDateKey, 1));
 
-  const [attachments, records, waivers, placeNames, spaces] = await Promise.all([
+  const [profiles, attachments, records, waivers, placeNames, spaces] = await Promise.all([
+    client.departmentOperationalProfile.findMany({
+      where: {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        status: { in: ["ACTIVE", "RETIRED", "CERTIFIED"] },
+      },
+      select: {
+        id: true,
+        departmentId: true,
+        version: true,
+        status: true,
+        activatedAt: true,
+        retiredAt: true,
+      },
+    }),
     client.logAttachment.findMany({
       where: { facilityId: input.facilityId, departmentId: input.departmentId },
       include: {
@@ -78,6 +94,19 @@ export async function loadAuditOperationalRecords(
       select: { id: true, name: true },
     }),
   ]);
+
+  const profileIds = profiles.map((row) => row.id);
+  const bindings =
+    profileIds.length === 0
+      ? []
+      : await client.departmentRoomArchetypeBinding.findMany({
+          where: { profileId: { in: profileIds } },
+          select: {
+            profileId: true,
+            unitSpaceId: true,
+            archetype: { select: { key: true, name: true, isActive: true } },
+          },
+        });
 
   const placeFacts: PlaceNameChangeFact[] = placeNames.map((row) => ({
     placeId: row.unitSpaceId ?? row.unitId ?? "",
@@ -134,9 +163,18 @@ export async function loadAuditOperationalRecords(
     facilityTimezone: timezone,
     departmentId: input.departmentId,
     catalogStableKey: input.catalogStableKey,
+    locationFunctionKey: input.locationFunctionKey,
     segments: mapReviewAttachmentSegments(attachments).map((segment) => ({
       ...segment,
       waiverAllowed: attachments.find((row) => row.id === segment.id)?.waiverAllowed ?? false,
+    })),
+    profiles,
+    bindings: bindings.map((row) => ({
+      profileId: row.profileId,
+      spaceId: row.unitSpaceId,
+      operationalTypeKey: row.archetype.key,
+      operationalTypeName: row.archetype.name,
+      archetypeIsActive: row.archetype.isActive,
     })),
     spaces: spaces.map((space) => ({ spaceId: space.id, currentLabel: space.name })),
     placeNames: placeFacts,

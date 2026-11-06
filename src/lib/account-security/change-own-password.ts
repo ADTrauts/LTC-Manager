@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { PrismaClient } from "@prisma/client";
 
+import { revokeAllPushSubscriptionsForUser } from "@/lib/notifications/push-subscription";
 import { revokeUserSessions } from "@/lib/session-revocation";
 
 export type ChangeOwnUserPasswordResult =
@@ -11,6 +12,9 @@ type PasswordClient = {
   user: {
     findFirst: PrismaClient["user"]["findFirst"];
     update: PrismaClient["user"]["update"];
+  };
+  pushSubscription: {
+    updateMany: PrismaClient["pushSubscription"]["updateMany"];
   };
   $transaction: PrismaClient["$transaction"];
 };
@@ -44,6 +48,7 @@ export async function changeOwnUserPassword(
       data: { passwordHash },
     });
     await revokeUserSessions(tx, user.id);
+    await revokeAllPushSubscriptionsForUser(tx, { userId: user.id, now: new Date() });
   });
   return { ok: true };
 }

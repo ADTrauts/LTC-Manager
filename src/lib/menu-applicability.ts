@@ -215,6 +215,17 @@ export function expandAllDepartmentLocations(
   return uniqueMenuLocationTargets(locations.map(locationTargetFromActionable));
 }
 
+export function expandRoomsByOperationalType(
+  locations: readonly DepartmentActionableLocation[],
+  patternKey: string,
+): MenuLocationTarget[] {
+  return uniqueMenuLocationTargets(
+    locations
+      .filter((location) => location.kind === "room" && location.patternKey === patternKey)
+      .map(locationTargetFromActionable),
+  );
+}
+
 export function expandRoomsByFacilityRoomType(
   locations: readonly DepartmentActionableLocation[],
   roomTypeKey: string,
@@ -238,7 +249,7 @@ export function expandRoomsUnderNeighborhood(
 }
 
 function visibleRoomTypeLabel(location: DepartmentActionableLocation): string | null {
-  const label = location.roomTypeLabel?.trim() || "";
+  const label = location.roomTypeLabel?.trim() || location.patternLabel?.trim() || "";
   return label || null;
 }
 
@@ -248,6 +259,7 @@ function roomsShareDisplayedType(
 ): boolean {
   if (chosen.kind !== "room" || candidate.kind !== "room") return false;
   if (chosen.roomTypeKey && chosen.roomTypeKey === candidate.roomTypeKey) return true;
+  if (chosen.patternKey && chosen.patternKey === candidate.patternKey) return true;
   const chosenLabel = visibleRoomTypeLabel(chosen);
   const candidateLabel = visibleRoomTypeLabel(candidate);
   return Boolean(chosenLabel && candidateLabel && chosenLabel.toLowerCase() === candidateLabel.toLowerCase());
@@ -255,7 +267,7 @@ function roomsShareDisplayedType(
 
 /**
  * After the first room of a displayed type is selected, offer the remaining
- * rooms that share that Facility room type or label.
+ * rooms that share that facility room type, operational pattern, or label.
  * Does not invent a type when the room has none.
  */
 export function offerSelectRemainingRoomsOfType(input: {

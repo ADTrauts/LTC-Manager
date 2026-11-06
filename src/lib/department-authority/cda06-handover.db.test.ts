@@ -30,6 +30,7 @@ import { searchEvidenceRecords } from "@/lib/operational-evidence/log-book";
 import { getFacilityServiceDate, toServiceDateKey } from "@/lib/operational-time";
 import { loadDepartmentDaySchedule } from "@/lib/scheduling/load-department-day-schedule";
 import { listMenus } from "@/lib/menu-db";
+import { loadPublishedWorkPlansForDate } from "@/lib/department-work/work-plan-service";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 
 const databaseUrl = process.env.DEPARTMENT_WORK_TEST_DATABASE_URL || process.env.VERIFY_DATABASE_URL;
@@ -140,6 +141,16 @@ test("a vendor handover hides the previous period and keeps compliance Records",
         facilityId: facility.id,
         departmentId: department.id,
         name: "Metz menu",
+        operatorPeriodId: metzPeriodId,
+      },
+    });
+    await prisma.departmentWorkPlan.create({
+      data: {
+        facilityId: facility.id,
+        departmentId: department.id,
+        stableKey: `metz-plan-${suffix}`,
+        name: "Metz plan",
+        status: "PUBLISHED",
         operatorPeriodId: metzPeriodId,
       },
     });
@@ -275,6 +286,10 @@ test("a vendor handover hides the previous period and keeps compliance Records",
     assert.equal(retiredMenu.status, "INACTIVE");
     assert.equal(retiredMenu.operatorPeriodId, metzPeriodId);
     assert.equal(
+      (await prisma.departmentWorkPlan.findFirstOrThrow({ where: { operatorPeriodId: metzPeriodId } })).status,
+      "RETIRED",
+    );
+    assert.equal(
       (await prisma.departmentOperationalCycle.findFirstOrThrow({ where: { operatorPeriodId: metzPeriodId } })).status,
       "RETIRED",
     );
@@ -312,6 +327,16 @@ test("a vendor handover hides the previous period and keeps compliance Records",
     const menusFor = async () =>
       (await listMenus(prisma, { facilityId: facility.id, departmentId: department.id })).menus.map((menu) => menu.name);
     assert.deepEqual(await menusFor(), ["Sodexo menu"]);
+    assert.deepEqual(
+      (
+        await loadPublishedWorkPlansForDate({
+          facilityId: facility.id,
+          departmentId: department.id,
+          operationalDate: today,
+        })
+      ).map((plan) => plan.name),
+      [],
+    );
     assert.deepEqual(
       (
         await loadPublishedCyclesForLogsOnDate({
@@ -395,6 +420,7 @@ test("a vendor handover hides the previous period and keeps compliance Records",
     assert.equal(metzArchive.length, 1);
     assert.equal(metzArchive[0]?.department.name, "Food & Nutrition");
     assert.equal(metzArchive[0]?._count.menus, 1);
+    assert.equal(metzArchive[0]?._count.workPlans, 1);
     assert.equal(metzArchive[0]?._count.operationalCycles, 1);
     assert.equal(metzArchive[0]?._count.employees, 1);
     assert.equal(metzArchive[0]?._count.evidenceRecords, 1);

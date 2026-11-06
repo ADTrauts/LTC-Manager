@@ -4,7 +4,7 @@
  * simulation without mutating the Product registry.
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -157,8 +157,10 @@ test("controlled AVAILABLE makes Plant customer-visible, installable, and operab
   );
 });
 
-test("Records use Plant runtime, not the env flag alone", () => {
-  assert.equal(existsSync("src/lib/department-work"), false);
+test("Work and Records use Plant runtime, not the env flag alone", () => {
+  const work = source("src/lib/department-work/authority.ts");
+  assert.match(work, /isDepartmentEngineEnabledForFacility/);
+  assert.doesNotMatch(work, /isDepartmentWorkPlansEnabled\(/);
   const evidence = source("src/lib/operational-evidence/evidence-authority.ts");
   assert.match(evidence, /isDepartmentEngineEnabledForFacility/);
   const engine = source("src/lib/department-operations.ts");
@@ -223,10 +225,18 @@ test("other Products are unchanged by Plant release", () => {
   assert.equal(getCommittedDepartmentProductStatus("PLANT"), "AVAILABLE");
 });
 
-test("starter catalog is the certified Record package", () => {
+test("starter catalog is the certified Work and Record package", () => {
   const items = listPlantStarterCatalog();
   assert.equal(PLANT_STARTER_PACKAGE_NAME, "Plant Operations starter configuration");
-  assert.equal(items.some((row) => row.kind === "work"), false);
+  assert.deepEqual(
+    items.filter((row) => row.kind === "work").map((row) => row.title),
+    [
+      "Mechanical Room Round",
+      "Building Walkthrough",
+      "Exterior / Grounds Walkthrough",
+      "Generator Visual Check",
+    ],
+  );
   assert.deepEqual(
     items.filter((row) => row.kind === "record").map((row) => row.title),
     [
@@ -252,7 +262,7 @@ test("Build and Run IA nouns stay Product language", () => {
       recordsEnabled: true,
       maintenanceEnabled: true,
     }).map((row) => row.id),
-    ["overview", "locations", "operating-rhythm", "maintenance", "people", "records"],
+    ["overview", "locations", "operating-rhythm", "work", "maintenance", "people", "records"],
   );
   assert.deepEqual(
     maintenanceSubNavItems(true).map((row) => row.label),

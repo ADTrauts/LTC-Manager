@@ -20,18 +20,16 @@
 | **User authorization (partner)** | Not implemented in Phase 2A. Partner relationship + Department scope do **not** grant any user Facility access. |
 | **Department Product** | Vssyl-owned operational product (Food and Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
-| **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Operating Rhythm starter, or Menu template. Included or Paid. Runs on Platform engines. Today Records forms exist as items (`CatalogLogDefinition`). Generic Work presets are retired. |
+| **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Work preset, Operating Rhythm starter or Menu template. Included or Paid. Runs on Platform engines. Today only Records forms exist as items (`CatalogLogDefinition`). |
 | **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. Operational records stay facility/department-scoped even when the operator differs from the parent Organization. |
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
 | **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
-| **Location Function** | Retired November 3, 2026. A Department's locations are Facility responsibility. Each engine stores its own canonical location. Do not add `functionKey`, `DepartmentRoomArchetype`, or a Department profile. |
+| **Location Function** | Product `functionKey` bound to an existing room on a Department profile. Stored as `DepartmentRoomArchetype.key`. Not a room name, a label slug, or a physical room type. |
 | **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). Email/password authenticates the global `User`. Workspace eligibility is available contexts, not a facility-native vs organization-only identity class. |
 | **User home Facility** | Optional `User.facilityId` presentation marker. Not login authority and not the active Facility. |
 | **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
 | **Organization membership** | `UserOrganizationMembership` + `UserOrganizationRolePeriod` (`ORG_ADMIN` / `ORG_MEMBER`). Independent of Facility access. |
 | **Role** | Facility Capability ladder (RoleKey): Staff → Lead → Supervisor → Manager → GM → Facility Administrator. Not Organization membership roles. |
-| **Operational role** | A function a Department assigns and covers. Identity is `OPERATIONAL_ROLE_REGISTRY`. Not a Job Title, Team, or RoleKey. |
-| **Operational eligibility** | This Employee may perform that operational role in this Department (`EmployeeOperationalRoleQualification`). Membership is required and is not eligibility. An Assignment exception does not grant it. |
 | **Operation** | **Retired** September 25, 2026 ([RETIRED](../platform-vision/RETIRED.md)). The window is an Operational Cycle. Remaining `operationInstanceId` code is removed in LEG-05, and the tables drop at LEG-06. |
 | **Readiness** | Computed location state: Ready / In Progress / Needs Attention. Location answers come from Runtime Location State. |
 | **Task** | **Legacy.** Written only by Task Sync and legacy inspection work. Not Work. Removed in LEG-05, and the table drops at LEG-06 ([LEG-D12](../legacy-retirement/DECISIONS.md#leg-d12--dormant-systems-are-removed-not-kept-dormant--accepted-program-default-october-20-2026)). |
@@ -43,10 +41,8 @@
 | **Record** | One engine. Facility requirement segment, derived expected slot, `OperationalEvidenceRecord`, permitted waiver, correction, and follow-up. Legacy log and inspection stores are compatibility. |
 | **Asset** | Equipment / plant object that can fail or need PM. |
 | **Knowledge article** | Facility-scoped SOP/reference publishable into work context. |
-| **Job Title** | HR position (`JobTitle`). One title on the Employee. Not eligibility and not authority. |
-| **Team** | Organizational group inside one Department (`DepartmentTeam`). Many memberships, one primary Team per Department. The lead is `managerEmployeeId`. Not eligibility and not authority. |
-| **Shift** | Who works, for which Department, and when (`ScheduleEntry`, from a `WorkShift` pattern). Identity on the schedule is the Employee, Job Title, and primary Team. Not a place and not an operational role. A call-off marks the shift. |
-| **Assignment** | Where a person works today and what they cover (`OperationalAssignment`). A move changes the Assignment. Optional: without one, a person sees the Work for the place they are signed into. |
+| **Shift** | Who works, for which Department, and when (`ScheduleEntry`, from a `WorkShift` pattern). Not a place. A call-off marks that whole shift absent. |
+| **Assignment** | Where a person works today and what they cover (`OperationalAssignment`). A move changes the Assignment. A called-off shift in the same Department stops the overlapping Assignment from counting toward Coverage. The Assignment row stays. Optional: without one, a person sees the Work for the place they are signed into. |
 | **Schedule / Override / Call-down** | Older umbrella for the two rows above. `AssignmentOverride` is legacy unit movement and retires (LEG-Q04). |
 | **WorkspacePreference** | Per-user, per-facility Workspace layout prefs. |
 
@@ -168,8 +164,8 @@ Disruption path
 
 | Concern | Authoritative owner |
 |---------|---------------------|
-| Which places belong to this Department? | Facility Builder Department responsibility |
-| Where does Operating Rhythm, a Record, Coverage, or a Menu apply? | That engine's own canonical location rows |
+| What kind of operational location is this for a Department? | Location Function on that Department’s profile (`functionKey`) |
+| Where does published Work apply? | Published Work Plan applicability, including a Location Function key when the plan uses one |
 | What window is active (what is happening now)? | Published Operational Cycle and Phase effective now. Build uses the working profile; Run uses ACTIVE. No published Cycle means no window, never a meal-time guess (foundation round, October 20, 2026). |
 | What was expected on a past service date? | Audit / Reports, using the profile and requirement segment effective that day |
 | Where should the supervisor look first? | The Dashboard |
@@ -181,13 +177,28 @@ Disruption path
 | Which Marketplace items does this Department use? | Its added items. Today: `FacilityCatalogInstall` plus `LogAttachment` for Records forms. |
 | What Work is expected? | Published Work Plans (derived requirements). Assignment does not create Work. |
 | What is **my** work? | One "my work" view: Work Plan items for my assigned places, or for the place I'm signed into when I have no Assignment; Records due there; work orders and preventive maintenance assigned to me. Each source keeps its own store. The view is **Job Flow**, in every Department. |
-| Who is this person in HR, and which Team are they on? | `JobTitle` and `EmployeeTeamMembership`. Neither grants eligibility or authority. |
-| Who may perform an operational role in this Department? | `EmployeeOperationalRoleQualification` for one `OPERATIONAL_ROLE_REGISTRY` key. Revoked is not active. |
-| Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks the shift. The shift does not store a unit or a role. |
-| Who covers this location or Work right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. |
+| Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks that whole shift absent. `calledOffAt` is when the absence was recorded. It does not start a partial shift. |
+| Who covers this location or Work right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. A called-off shift in the same Department stops that Employee's overlapping Assignment from counting toward Coverage. The Assignment row stays. |
+| Who is supervising this Department and location right now? | The Assignment whose role is that Department's supervisor-rounding responsibility, for the service window that contains now, at the most specific covering location. A call-off on the shift removes that Employee. The Supervisor role and the Department head do not answer it |
+| Who must respond to an operational incident right now? | The On-Call Coverage Assignment for that Department. The role is `DIETARY_ON_CALL_COVERAGE`, `EVS_ON_CALL_COVERAGE`, or Plant `ON_CALL_COVERAGE`. A location-specific Assignment beats a Department-wide one. An Assignment that starts one service date and ends the next morning still covers that later instant. A call-off removes the Employee only while the call-off covers the instant. The Supervisor role, the Department head, and the Work Order assignee do not answer it |
+| When did this coverage deficiency start, worsen, or end? | Coverage. The current answer stays derived. A Coverage episode is the history of one continuous deficiency for one slot. A later deficiency is a new episode. Notifications do not invent the episode. Scheduled Evaluation may ask Coverage to look again because time passed. Coverage still decides the answer |
+| Is this Key Point overdue? | The Operational Cycle. Only `occurrenceTracking = REQUIRED` can be overdue. The expected time is the same-day adjustment when one exists, otherwise the configured facility-local minute. The occurrence is `OperationalCycleKeyPointActual`. The expected minute is due, not overdue. Scheduled Evaluation may ask. Notifications do not decide |
+| Who is assigned this Work Order? | The Work Order (`Repair.assignedEmployeeId`). A material change writes one Work Order history row in the same transaction as the assignee. Create, reassignment, and clearing the assignee use that path. Issue-created, Request-created, and Preventive Maintenance Work Orders are the same `Repair`. Notifications tell the Employee named by that history row. They do not assign, complete, or prioritize the Work Order |
+| Is this Work Order overdue? | The Work Order. `dueAt` is the operational deadline instant. A missing deadline is not overdue. Open, assigned, in progress, on hold, and waiting on a vendor can be overdue. Hold does not pause the deadline. Completed and cancelled Work Orders are not overdue. `targetDate` is the planning date and is not this answer. Preventive Maintenance stores the scheduled civil day on the occurrence. The generated Work Order deadline is the start of the next facility-local day. Scheduled Evaluation may ask. Notifications do not decide |
+| How important is this Work Order in the queue? | The Work Order. `Repair.priority` is Facility Plant Operations prioritization: Routine, High, Urgent, or Emergency. Stored `LOW` and `MEDIUM` both present as Routine. The default is `MEDIUM`. It does not say that immediate response is required |
+| Does this Work Order require immediate operational response? | The Work Order. `responseRequirement` is `STANDARD` or `IMMEDIATE`. The default is `STANDARD`. It is active while the Work Order is open and the requirement is `IMMEDIATE`. An opening, a clearing, a completion, and a cancellation each write `WorkOrderResponseHistory`. A later opening is a new row. Completion and cancellation leave the classification in place and end the active episode. Hold does not clear it. Issue priority, Request urgency, Asset status, the assignee, and `dueAt` do not set it. Preventive Maintenance creates `STANDARD`. There is no Work Order preset. A supervisor who can manage the Work Order sets it on `/repairs/[id]`. Staff and a PIN session can see it and cannot change it. A completed or cancelled Work Order keeps the stored value. The opening history row publishes `work_order.intervention_required`. Clearing ends that notice. Completion resolves it. Cancellation ends it. The notice is Urgent for On-Call Coverage. It is not Critical and it is not protected. Queue priority does not publish it |
+| When should this Work Order be completed? | The Work Order. `dueAt` is the operational deadline. `targetDate` is the planning date. Neither is the response requirement |
+| What corrective action was taken on this Record? | The Record. `correctiveActionText` is the action written at submission. `correctiveActionAt` is when that text was entered. It is not a due time. The Record stays out of standard. A later measurement is another Record (`followsRecordId`). A condition that needs future work is an Issue or a Work Order, created explicitly. Records does not own an open corrective-action deadline |
+| Does an out-of-standard Record ask for attention? | The submission publishes `evidence.failed` when the Record is out of standard. Notifications delivers an Update to the on-duty supervisor. The Record remains the historical fact. Corrective text, a later recheck, an Issue, and a Work Order do not close that Update. Catalog `critical` scores an inspection. It is not notification severity |
+| Was a new Issue created? | The Issue. `reportIssue` and Issue-from-Request create it. The same write publishes `issue.created`. That notice is an Update for the on-duty supervisor. Issue `priority` and `operationalImpact` stay on the Issue. They do not set notification priority. An Issue has no assignee. A later Work Order does not replace this notice |
+| Is this Asset out of service? | The Asset. `status = OUT_OF_SERVICE` is written by `changeAssetStatus`, with one `AssetStatusHistory` row. That row is the outage episode. `DEGRADED` still participates, so a move from `OUT_OF_SERVICE` to `OPERATIONAL` or `DEGRADED` ends the outage. Retirement ends the Asset lifecycle. A later outage is a new history row. An Issue, a failed Record, and a Work Order do not set the status. Closeout changes it only when the person chooses a condition other than no change. The same write publishes `asset.out_of_service` to On-Call Coverage for the Asset's Department. Return to a usable status publishes `asset.returned_to_service` and resolves that episode. Retirement publishes the end and the history label is Ended. Asset criticality stays on the Asset. The responsible organization is not an Employee |
 | Who owns this equipment? | Title on the asset: the facility, or the company operating that Department. Existing assets stay facility-titled. A partner-titled asset leaves when the contract ends, and the facility keeps a closed note. |
 | Who maintains it, and who is called to repair it? | The responsible maintainer, and a repair vendor from that maintainer's list. Title and maintainer are separate facts. |
 | Am I on, and where? | My shift and my Assignment, not the Cycle |
+| Should a person hear about this change, and how loudly? | Notifications & Attention. The engine owns the thread, the recipient, and delivery. It does not own the condition. [16](./16_NOTIFICATIONS_AND_ATTENTION.md) |
+| Has the operational condition actually ended? | The domain that owns it. Coverage restored, readiness Ready, asset returned to service, Issue closed, or the Work Order leaving the state that thread was about. Corrective text on a Record does not close later Issue or Work Order work, and it does not turn the Record into a pass. Acknowledgement does not resolve it |
+| What should the supervisor's current list show? | Dashboard Attention, composed from the owners. That list is not a Notification row |
+| What was said in a conversation? | Chat, when that domain exists. A message does not change the rows above |
 
 Homes **must not** invent alternate truth for the rows above.
 
@@ -198,7 +209,7 @@ Homes **must not** invent alternate truth for the rows above.
 | Preferred product term | Common code/legacy term |
 |------------------------|-------------------------|
 | Location | `Unit` |
-| Needs Attention | internal `blocked` |
+| Needs Attention | internal `blocked` on readiness. Also a notification priority. Name which scale. See [16](./16_NOTIFICATIONS_AND_ATTENTION.md#three-different-scales) |
 | Issue | `Repair` table + `/repairs` routes still present |
 | Location Function | `DepartmentRoomArchetype.key` / historical “Operational Type” |
 | Records | `OperationalEvidenceRecord`; “Evidence” is internal |

@@ -1,7 +1,5 @@
 # 01 — Current Unit Model Audit
 
-Phase 7B removed `DefaultAssignment` and `ScheduleEntry.unitId`. Those rows below are the audit's reading of the older schema.
-
 ## Schema: Unit model
 
 The `Unit` model already has hierarchical support via `parentUnitId`:

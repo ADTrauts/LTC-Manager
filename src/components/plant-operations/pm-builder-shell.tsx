@@ -13,9 +13,11 @@ import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 
 export function plantMaintenanceTabs(input: {
   departmentKey: string;
+  workEnabled: boolean;
 }) {
   return departmentAdminTabsForFlags({
     locationsEnabled: true,
+    workEnabled: input.workEnabled,
     recordsEnabled: isCanonicalLogsEnabled(),
     menusEnabled: hasDietaryDomainCapabilities(input.departmentKey),
     maintenanceEnabled: input.departmentKey === "PLANT",
@@ -39,7 +41,13 @@ export function PmBuilderShell({
   children: ReactNode;
   contentClassName?: string;
 }) {
-  const tabs = plantMaintenanceTabs({ departmentKey });
+  const product = getDepartmentProduct(departmentKey);
+  const workEnabled =
+    departmentKey === "PLANT" ||
+    Boolean(product?.starters.workPresets) ||
+    context.publishedWorkPlanCount > 0 ||
+    context.draftWorkPlanCount > 0;
+  const tabs = plantMaintenanceTabs({ departmentKey, workEnabled });
   const activeTab: DepartmentAdminTabId = "maintenance";
 
   return (
@@ -48,12 +56,14 @@ export function PmBuilderShell({
         departmentId={departmentId}
         departmentName={departmentName}
         locationCount={locationCount}
+        profileId={null}
         activeTab={activeTab}
         context={context}
       />
       <DepartmentAdminLocalNav
         departmentId={departmentId}
         activeTab={activeTab}
+        profileId={null}
         tabs={tabs}
       />
       <div className={`min-w-0 ${contentClassName}`.trim()}>{children}</div>

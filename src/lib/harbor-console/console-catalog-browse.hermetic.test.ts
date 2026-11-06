@@ -150,7 +150,20 @@ const inspection = item({
   usageLabel: "placements",
 });
 
-const catalog = [cooler, evs, opening, plant, food, dishwasher, inspection];
+const round = item({
+  sourceType: "WORK_PRESET",
+  stableKey: "MECHANICAL_ROOM_ROUND",
+  name: "Mechanical Room Round",
+  catalogFamily: "WORK",
+  categoryKey: "PLANT",
+  categoryLabel: "Facility Plant Operations",
+  facilityInstallCount: 4,
+  usageCount: 6,
+  usageLabel: "published plans",
+  detailHref: "/console/catalog/work/MECHANICAL_ROOM_ROUND",
+});
+
+const catalog = [round, cooler, evs, opening, plant, food, dishwasher, inspection];
 
 test("family and subtype filters stay on the unified projection", () => {
   const all = filterMarketplaceItems(catalog, resolveMarketplaceBrowse({}, catalog));
@@ -163,6 +176,7 @@ test("family and subtype filters stay on the unified projection", () => {
       "equipment_inspection",
       "PLANT",
       "HEALTHCARE_FOOD_NUTRITION",
+      "MECHANICAL_ROOM_ROUND",
       "opening_checklist",
     ],
   );
@@ -190,6 +204,9 @@ test("family and subtype filters stay on the unified projection", () => {
     resolveMarketplaceBrowse({ family: "records", type: "inspection" }, catalog),
   );
   assert.deepEqual(inspections.map((row) => row.name), ["Equipment Inspection"]);
+
+  const work = filterMarketplaceItems(catalog, resolveMarketplaceBrowse({ family: "work" }, catalog));
+  assert.deepEqual(work.map((row) => row.stableKey), ["MECHANICAL_ROOM_ROUND"]);
 });
 
 test("search crosses families and composed filters stay on one list", () => {
@@ -197,13 +214,19 @@ test("search crosses families and composed filters stay on one list", () => {
     catalog,
     resolveMarketplaceBrowse({ q: "PLANT" }, catalog),
   );
-  assert.deepEqual(plantSearch.map((row) => row.stableKey), ["PLANT"]);
+  assert.deepEqual(plantSearch.map((row) => row.stableKey), ["PLANT", "MECHANICAL_ROOM_ROUND"]);
 
   const coolerSearch = filterMarketplaceItems(
     catalog,
     resolveMarketplaceBrowse({ q: "cooler" }, catalog),
   );
   assert.deepEqual(coolerSearch.map((row) => row.name), ["Cooler Temperature Log"]);
+
+  const mechanical = filterMarketplaceItems(
+    catalog,
+    resolveMarketplaceBrowse({ q: "Mechanical" }, catalog),
+  );
+  assert.deepEqual(mechanical.map((row) => row.name), ["Mechanical Room Round"]);
 
   const composed = filterMarketplaceItems(
     catalog,
@@ -217,6 +240,7 @@ test("search crosses families and composed filters stay on one list", () => {
 
 test("status and category filters are family-scoped", () => {
   assert.deepEqual(marketplaceStatusOptions({ family: "all" }), []);
+  assert.deepEqual(marketplaceStatusOptions({ family: "work" }), []);
   assert.deepEqual([...marketplaceStatusOptions({ family: "departments" })], [
     "AVAILABLE",
     "DEVELOPMENT",
@@ -245,6 +269,10 @@ test("status and category filters are family-scoped", () => {
   assert.deepEqual(
     marketplaceCategoryOptions(catalog, { family: "records", type: "log" }).map((row) => row.label),
     ["Sanitation", "Temperature"],
+  );
+  assert.deepEqual(
+    marketplaceCategoryOptions(catalog, { family: "work", type: null }).map((row) => row.label),
+    ["Facility Plant Operations"],
   );
 });
 
@@ -287,6 +315,8 @@ test("install, usage, type, empty, and create presentation stay source-specific"
   assert.equal(formatMarketplaceUsage(32, "users"), "32 users");
   assert.equal(formatMarketplaceUsage(1, "placements"), "1 placement");
   assert.equal(formatMarketplaceUsage(14, "placements"), "14 placements");
+  assert.equal(formatMarketplaceUsage(1, "published plans"), "1 published plan");
+  assert.equal(formatMarketplaceUsage(6, "published plans"), "6 published plans");
   assert.equal(formatMarketplaceUsage(null, null), CONSOLE_CATALOG_EMPTY);
   assert.equal(formatMarketplaceResultCount(1), "1 item");
   assert.equal(formatMarketplaceResultCount(14), "14 items");
@@ -295,11 +325,14 @@ test("install, usage, type, empty, and create presentation stay source-specific"
   assert.equal(marketplaceTypeLabel(cooler), "Log");
   assert.equal(marketplaceTypeLabel(opening), "Checklist");
   assert.equal(marketplaceTypeLabel(inspection), "Inspection");
+  assert.equal(marketplaceTypeLabel(round), "Work");
   assert.equal(plant.versionDisplay, "1.0");
   assert.equal(cooler.versionDisplay, "v1");
+  assert.equal(round.versionDisplay, CONSOLE_CATALOG_EMPTY);
 
   assert.equal(marketplaceRowHref(cooler), "/console/catalog/cooler_temperature_log");
   assert.equal(marketplaceRowHref(plant), "/console/catalog/products/PLANT");
+  assert.equal(marketplaceRowHref(round), "/console/catalog/work/MECHANICAL_ROOM_ROUND");
 
   assert.equal(marketplaceEmptyCopy(resolveMarketplaceBrowse({}, [])), "No Marketplace items are available.");
   assert.equal(
@@ -311,6 +344,10 @@ test("install, usage, type, empty, and create presentation stay source-specific"
     "No catalog Records match these filters.",
   );
   assert.equal(
+    marketplaceEmptyCopy(resolveMarketplaceBrowse({ family: "work" }, [])),
+    "No Work presets match these filters.",
+  );
+  assert.equal(
     marketplaceEmptyCopy(resolveMarketplaceBrowse({ q: "missing" }, catalog)),
     "No Marketplace items match “missing”.",
   );
@@ -320,6 +357,7 @@ test("install, usage, type, empty, and create presentation stay source-specific"
     label: "New catalog record",
   });
   assert.equal(marketplaceCreateAction(resolveMarketplaceBrowse({ family: "departments" }, catalog)), null);
+  assert.equal(marketplaceCreateAction(resolveMarketplaceBrowse({ family: "work" }, catalog)), null);
   assert.deepEqual(marketplaceCreateAction(resolveMarketplaceBrowse({ family: "records", type: "log" }, catalog)), {
     href: "/console/catalog/new?type=log",
     label: "New catalog log",
@@ -344,5 +382,5 @@ test("install, usage, type, empty, and create presentation stay source-specific"
   const refined = resolveMarketplaceBrowse({ family: "records", type: "log", q: "cooler" }, catalog);
   assert.equal(marketplaceRefinementsActive(refined), true);
   assert.equal(marketplaceClearHref(refined), "/console/catalog?family=records");
-  assert.equal(marketplaceRefinementsActive(resolveMarketplaceBrowse({ family: "departments" }, catalog)), false);
+  assert.equal(marketplaceRefinementsActive(resolveMarketplaceBrowse({ family: "work" }, catalog)), false);
 });

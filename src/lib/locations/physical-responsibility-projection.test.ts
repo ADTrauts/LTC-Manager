@@ -11,6 +11,7 @@ import {
   type HierarchyWalkUnit,
 } from "@/lib/department-administration/department-locations";
 import { FACILITY_VOCABULARY_PROFILES } from "@/lib/facility-builder/facility-vocabulary";
+import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 import {
   buildAndPruneProjectionLocations,
   normalizeProjectionHierarchy,
@@ -50,8 +51,11 @@ function dietaryDepartment(
     key: "DIETARY",
     label: "Dietary",
     isActive: true,
+    activeProfile: null,
     assignedRoomIds: roomIds,
     assignedUnitIds: unitIds,
+    archetypeBindings: [],
+    roomExceptions: [],
   };
 }
 
@@ -234,7 +238,10 @@ function physicalSource(
     revision: {
       hierarchyRevision: "h1",
       assignmentRevision: "a1",
+      profileRevision: "none",
+      bindingRevision: "none",
       policyRevision: "none",
+      experienceRegistryVersion: EXPERIENCE_REGISTRY_VERSION,
       accessClassRevision: "access",
     },
     resolvedAt: "2026-08-14T12:00:00.000Z",
@@ -297,10 +304,11 @@ describe("physical responsibility → Run Locations projection", () => {
     const hierarchy = normalizeProjectionHierarchy(
       physicalSource(dietaryDepartment([SERVERY_ID, CUSTOM_KITCHEN_ID])),
     ).value;
-    const locations = buildAndPruneProjectionLocations(hierarchy, [
-      `space:${SERVERY_ID}`,
-      `space:${CUSTOM_KITCHEN_ID}`,
-    ]);
+    const locations = buildAndPruneProjectionLocations(
+      hierarchy,
+      [],
+      [`space:${SERVERY_ID}`, `space:${CUSTOM_KITCHEN_ID}`],
+    );
     const facility = locations.roots[0];
     assert.deepEqual(
       facility?.children.map((child) => child.label),
@@ -312,14 +320,13 @@ describe("physical responsibility → Run Locations projection", () => {
     const snapshot = resolveProjection(
       physicalSource(dietaryDepartment([SERVERY_ID])),
     );
-    assert.equal(
+    assert.ok(
       snapshot.diagnostics.issues.some(
         (issue) => issue.code === "MISSING_ACTIVE_PROFILE",
       ),
-      false,
     );
     assert.ok(snapshot.locations.actionableIds.includes(`space:${SERVERY_ID}`));
-    assert.equal("experiences" in snapshot, false);
+    assert.deepEqual(snapshot.experiences, []);
   });
 
   it("Locations page + Sidebar share the same physical footprint", () => {

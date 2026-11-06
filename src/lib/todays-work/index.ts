@@ -31,7 +31,7 @@ export {
   isTeamUnconfiguredScope,
   keyTimeSpaceFilterFromTeamScope,
   type ViewerTeamScope,
-} from "./operational-placement";
+} from "./viewer-team-scope";
 export {
   buildCoverageItems,
   buildStaffingHref,
@@ -77,6 +77,7 @@ export {
 
 export {
   adaptProjectionToTodaysWork,
+  assembleExperienceWalkContributions,
   assembleProjectedTodaysWorkHandoffs,
   assembleProjectedTodaysWorkHub,
   assembleProjectedTodaysWorkWalk,
@@ -86,5 +87,12 @@ export {
   filterWalkListToProjectedUnits,
   loadTodaysWorkProjection,
   type AssembledTodaysWork,
+  type ExperienceWalkContribution,
   type TodaysWorkProjectionView,
 } from "./projection";
+export {
+  loadTodaysExpectedWork,
+  presentExpectedWorkFromRequirements,
+  todaysExpectedWorkHasVisibleWork,
+  type TodaysExpectedWorkView,
+} from "./expected-work";

@@ -38,6 +38,7 @@ test("V1 refinement — the canonical Build Home card set is present for a Facil
     "/employees",
     "/assets/builder",
     "/staffing/templates",
+    "/staffing/work-plans",
   ]) {
     assert.equal(hrefs.includes(href), true, `expected Build Home card for ${href}`);
   }

@@ -15,20 +15,18 @@ function source(path: string): string {
 }
 
 describe("Phase G manager terminology", () => {
-  it("names Facility, Operating Rhythm, Records, and People & Coverage", () => {
+  it("names Location Functions, Operating Rhythm, Work, Records, and People & Coverage", () => {
     const labels = DEPARTMENT_ADMIN_TABS.map((tab) => tab.label).join("\n");
-    assert.match(labels, /^Facility$/m);
+    assert.match(labels, /^Locations$/m);
     assert.match(labels, /Operating Rhythm/);
+    assert.match(labels, /^Work$/m);
     assert.match(labels, /People & Coverage/);
     assert.match(labels, /^Records$/m);
-    assert.doesNotMatch(labels, /^Locations$/m);
-    assert.doesNotMatch(labels, /^Work$/m);
     assert.doesNotMatch(labels, /Operational Type|Evidence|^Teams$/m);
     const locations = source(
       "src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx",
     );
-    assert.match(locations, /Facility Builder owns the place/);
-    assert.doesNotMatch(locations, /Location Function/);
+    assert.match(locations, /Location Functions/);
     assert.doesNotMatch(locations, /Operational Type|Archetype/);
   });
 
@@ -52,7 +50,7 @@ describe("Phase G manager terminology", () => {
       "src/app/(protected)/admin/departments/[departmentId]/cycles-builder-controls.tsx",
     );
     assert.match(controls, /Key Point/);
-    assert.match(controls, /All locations this department is responsible for/);
-    assert.doesNotMatch(controls, /Key Time|Operational Type|Location Functions/);
+    assert.match(controls, /Location Functions/);
+    assert.doesNotMatch(controls, /Key Time|Operational Type/);
   });
 });

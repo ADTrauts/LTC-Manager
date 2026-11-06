@@ -8,12 +8,15 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
 import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
-import { loadFacilityTimezone } from "@/lib/operational-time";
+import { processNotificationOutboxRow } from "@/lib/notifications/processing";
+import { loadFacilityTimezone, toServiceDateKey } from "@/lib/operational-time";
 import { hasPlatformCapability } from "@/lib/platform-capability";
 import { prisma } from "@/lib/prisma";
 
+import { enqueueKeyPointRecorded } from "./key-point-attention";
 import {
   addMinutesToLocalTime,
+  effectiveKeyPointDueLocal,
   expectedKeyTimeToday,
   localHhMmFromInstant,
 } from "./key-time-day-expectation";
@@ -135,6 +138,7 @@ export type CompleteKeyTimeDayExpectationResult =
       adjustedDueLocal: string | null;
       expectedToday: string;
       actualDueLocal: string;
+      attentionOutboxId: string | null;
     }
   | { ok: false; reason: CompleteKeyTimeDayExpectationDenial };
 
@@ -172,7 +176,13 @@ export async function completeKeyTimeDayExpectation(
 ): Promise<CompleteKeyTimeDayExpectationResult> {
   // All actual writers use the same expectation lock. The outer offline
   // Serializable transaction can then bind the effect and receipt atomically.
-  if ("$transaction" in client) return client.$transaction(tx => completeKeyTimeDayExpectation(input, tx));
+  if ("$transaction" in client) {
+    const result = await client.$transaction((tx) => completeKeyTimeDayExpectation(input, tx));
+    if (result.ok && result.attentionOutboxId) {
+      await processNotificationOutboxRow(client, { outboxId: result.attentionOutboxId });
+    }
+    return result;
+  }
   const target = await client.operationalCycleKeyTimeDayExpectation.findUnique({ where: { id: input.expectationId }, select: { cycleId: true, facilityId: true } });
   if (!target) return { ok: false, reason: "NOT_FOUND" };
   await client.$queryRaw`SELECT "id" FROM "Facility" WHERE "id"=${target.facilityId} FOR UPDATE`;
@@ -192,6 +202,7 @@ export async function completeKeyTimeDayExpectation(
       cycleStableKey: true,
       cycleVersion: true,
       spaceId: true,
+      cycleLabel: true,
     },
   });
   if (!row) return { ok: false, reason: "NOT_FOUND" };
@@ -258,6 +269,42 @@ export async function completeKeyTimeDayExpectation(
     },
   });
 
+  let attentionOutboxId: string | null = null;
+  if (append === "create") {
+    const point = await client.departmentOperationalCycle.findUnique({
+      where: { id: row.cycleId },
+      select: { nodeKind: true, occurrenceTracking: true, keyPointGrain: true },
+    });
+    const place = await client.unitSpace.findUnique({
+      where: { id: row.spaceId },
+      select: { name: true },
+    });
+    if (
+      point?.nodeKind === "KEY_TIME" &&
+      point.occurrenceTracking === "REQUIRED" &&
+      point.keyPointGrain === "LOCATION"
+    ) {
+      attentionOutboxId = await enqueueKeyPointRecorded(
+        client as Prisma.TransactionClient,
+        {
+          facilityId: row.facilityId,
+          serviceDate: toServiceDateKey(row.serviceDate),
+          departmentId: row.departmentId,
+          spaceId: row.spaceId,
+          cycleStableKey: row.cycleStableKey,
+          expectedLocal:
+            effectiveKeyPointDueLocal({
+              configuredDueLocal: row.configuredDueLocal,
+              expectationAdjustedDueLocal: row.adjustedDueLocal,
+            }) ?? row.configuredDueLocal,
+          locationLabel: place?.name ?? "Location",
+          keyPointLabel: row.cycleLabel,
+        },
+        now,
+      );
+    }
+  }
+
   const updated = await client.operationalCycleKeyTimeDayExpectation.update({
     where: { id: row.id },
     data: {
@@ -282,5 +329,6 @@ export async function completeKeyTimeDayExpectation(
     adjustedDueLocal: updated.adjustedDueLocal,
     expectedToday: expectedKeyTimeToday(updated)!,
     actualDueLocal: updated.actualDueLocal!,
+    attentionOutboxId,
   };
 }

@@ -161,6 +161,7 @@ function userSession(f: Fixture, uid: string, sessionVersion: number | undefined
     email: "revocation@example.test",
     facilityId: f.facilityId,
     sessionVersion,
+    jti: "33333333-3333-4333-8333-333333333333",
   };
 }
 

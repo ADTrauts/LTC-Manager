@@ -51,8 +51,8 @@ export function CoverageWorkspace({
 
   function openExpectation(id: string | null) {
     const href = id
-      ? `${departmentAdminHref(departmentId, "people")}&expectation=${encodeURIComponent(id)}`
-      : departmentAdminHref(departmentId, "people");
+      ? `${departmentAdminHref(departmentId, "coverage")}&expectation=${encodeURIComponent(id)}`
+      : departmentAdminHref(departmentId, "coverage");
     router.push(href);
   }
 
@@ -85,7 +85,7 @@ export function CoverageWorkspace({
       {expectations.length === 0 && !adding ? (
         <EmptyState
           title="No coverage expectations yet"
-          description="Choose the rooms, the operating period, the role, and how many people are required."
+          description="Define which operational responsibilities are required for each Operational Type and Operational Cycle."
           action={
             canManage ? (
               <Button type="button" onClick={() => setAdding(true)} data-testid="add-coverage-empty">
@@ -208,7 +208,7 @@ function ExpectationEditor({
                   {item.roleLabel} × {item.requiredCount}
                 </p>
                 <p className="text-xs text-zinc-500">
-                  {item.spaceName || "No location"}
+                  {item.applicableOperationalTypeKeys.join(", ") || "No Operational Type"}
                   {" · "}
                   {item.applicableOperationalCycleStableKeys.join(", ") || "No cycle"}
                 </p>
@@ -272,8 +272,7 @@ function RequirementForm({
   templateId: string;
   catalog: CoverageCatalog;
 }) {
-  const [spaceIds, setSpaceIds] = useState<string[]>([]);
-  const [roomType, setRoomType] = useState("");
+  const [operationalTypeKeys, setOperationalTypeKeys] = useState<string[]>([]);
   const [cycleStableKeys, setCycleStableKeys] = useState<string[]>([]);
 
   return (
@@ -301,48 +300,27 @@ function RequirementForm({
         defaultValue="1"
         required
       />
-      <section className="space-y-1" data-testid="coverage-locations">
-        <p className="text-xs font-medium text-zinc-700">Locations</p>
-        <p className="text-xs text-zinc-500">
-          Room type only filters this list. Saving stores the selected rooms.
-        </p>
-        <select
-          aria-label="Room type"
-          value={roomType}
-          onChange={(event) => setRoomType(event.target.value)}
-          className="min-h-9 rounded-md border border-zinc-300 px-2 text-sm"
-        >
-          <option value="">Room type</option>
-          {[...new Set(catalog.locations.map((row) => row.roomTypeLabel).filter(Boolean))].map(
-            (label) => (
-              <option key={label} value={label!}>
-                {label}
-              </option>
-            ),
-          )}
-        </select>
-        {catalog.locations.length === 0 ? (
-          <p className="text-xs text-zinc-500">No responsible rooms yet.</p>
+      <section className="space-y-1" data-testid="coverage-operational-types">
+        <p className="text-xs font-medium text-zinc-700">Operational Types</p>
+        {catalog.operationalTypes.length === 0 ? (
+          <p className="text-xs text-zinc-500">No Operational Types are configured yet.</p>
         ) : (
-          catalog.locations
-            .filter((location) => !roomType || location.roomTypeLabel === roomType)
-            .map((location) => (
-            <label key={location.id} className="flex items-center gap-2 text-sm text-zinc-800">
+          catalog.operationalTypes.map((type) => (
+            <label key={type.key} className="flex items-center gap-2 text-sm text-zinc-800">
               <input
                 type="checkbox"
-                name="spaceIds"
-                value={location.id}
-                checked={spaceIds.includes(location.id)}
+                name="operationalTypeKeys"
+                value={type.key}
+                checked={operationalTypeKeys.includes(type.key)}
                 onChange={() =>
-                  setSpaceIds((current) =>
-                    current.includes(location.id)
-                      ? current.filter((id) => id !== location.id)
-                      : [...current, location.id],
+                  setOperationalTypeKeys((current) =>
+                    current.includes(type.key)
+                      ? current.filter((key) => key !== type.key)
+                      : [...current, type.key],
                   )
                 }
               />
-              {location.name}
-              {location.roomTypeLabel ? ` · ${location.roomTypeLabel}` : ""}
+              {type.name}
             </label>
           ))
         )}
