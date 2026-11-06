@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Proposed People and Coverage</title>
+  <style>
+    :root { color-scheme: light; --bg:#f4f1ea; --paper:#fffcf7; --ink:#1c1915; --muted:#5c564c; --line:#e4ddd0; --accent:#1f6b45; --accent-soft:#e5f3eb; --link:#1d4e89; --warn:#8a4b12; --warn-soft:#f8efe3; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: "Iowan Old Style", Palatino, Georgia, serif; background:var(--bg); color:var(--ink); }
+    main { max-width: 920px; margin:0 auto; padding:28px 20px 64px; }
+    .banner, .nav, .k, a, .tag { font-family: "Avenir Next", "Segoe UI", sans-serif; }
+    .banner { font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--link); background:#e7f0fa; border:1px solid #c5d7ee; padding:10px 12px; }
+    h1 { font-size:28px; margin:18px 0 8px; }
+    .nav { display:flex; gap:16px; border-bottom:1px solid var(--line); padding-bottom:8px; font-size:13px; color:var(--muted); }
+    .nav b { color:var(--ink); border-bottom:2px solid var(--ink); padding-bottom:8px; }
+    section { margin-top:18px; background:var(--paper); border:1px solid var(--line); padding:16px; }
+    h2 { font-size:16px; margin:0; }
+    .label { font-family: "Avenir Next", sans-serif; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+    .cards { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top:12px; }
+    .card { border:1px solid var(--line); padding:10px; }
+    .card.warn { background:var(--warn-soft); border-color:#efd7b8; }
+    .k { font-size:13px; color:var(--muted); }
+    a { color:var(--link); font-size:13px; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; font-size:14px; }
+    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+    .tag { font-size:11px; letter-spacing:.04em; color:var(--accent); background:var(--accent-soft); padding:2px 6px; }
+    @media (max-width:720px) { .cards { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <p class="banner">Proposed layout. Not implemented. Illustrative Dietary example, not facility data.</p>
+  <h1>Food and Nutrition</h1>
+  <div class="nav"><span>Overview</span><span>Facility</span><span>Operating Rhythm</span><b>People &amp; Coverage</b><span>Records</span></div>
+
+  <section>
+    <p class="label">Today · Lunch · read only</p>
+    <h2>Coverage right now</h2>
+    <div class="cards">
+      <div class="card"><div class="k">1A Servery · Server</div><strong>2 required · 2 assigned</strong></div>
+      <div class="card warn"><div class="k">1B Servery · Server</div><strong>2 required · 1 assigned</strong><br><a href="#run">Open Run to place someone</a></div>
+      <div class="card"><div class="k">Dish room · Dishwashing</div><strong>1 required · 1 assigned</strong><br><span class="k">At risk · call-off</span></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="label">Department Builder writes this</p>
+    <h2>Coverage requirements</h2>
+    <table>
+      <thead><tr><th>Location</th><th>Period</th><th>Role</th><th>Required</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>1A Servery</td><td>Lunch</td><td>Server</td><td>2</td><td><span class="tag">Published</span></td></tr>
+        <tr><td>1B Servery</td><td>Lunch</td><td>Server</td><td>2</td><td><span class="tag">Published</span></td></tr>
+        <tr><td>Dish room</td><td>Lunch</td><td>Dishwashing</td><td>1</td><td><span class="tag">Draft</span></td></tr>
+      </tbody>
+    </table>
+    <p><a href="#edit">Edit draft</a></p>
+  </section>
+
+  <section>
+    <p class="label">Employee Builder owns edits</p>
+    <h2>Organization</h2>
+    <div class="cards">
+      <div class="card"><div class="k">Department</div><strong>96 people</strong><br><span class="k">Head · Priya Shah</span><br><a href="#employees">Open Employee Builder</a></div>
+      <div class="card"><div class="k">Resident Services · 42</div><strong>Lead · Priya Shah</strong><br><span class="k">Primary Team for 40</span></div>
+      <div class="card"><div class="k">No Team · 6</div><strong>Still on the roster</strong><br><span class="k">4 have no qualification</span></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>
