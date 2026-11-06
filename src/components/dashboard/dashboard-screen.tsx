@@ -326,7 +326,7 @@ export async function DashboardScreen({
       })),
   ];
   return (
-    <section className="mx-auto max-w-6xl space-y-4" data-testid="dashboard-v2">
+    <section className="w-full space-y-4" data-testid="dashboard-v2">
       <DashboardGridStyles />
       {onboardingComplete ? <OnboardingLaunchChecklist /> : null}
       <div className="flex items-start justify-between gap-4">

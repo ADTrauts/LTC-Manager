@@ -57,8 +57,6 @@ export const shadows = {
 } as const;
 
 export const layout = {
-  /** Main shell content column (matches `max-w-[1440px]`). */
-  shellMaxWidthPx: 1440,
   /** Approximate compact single-row header height for layout math. */
   headerHeightPx: 52,
   /** Left locations rail (`lg:w-72`). */
@@ -93,7 +91,7 @@ export const zIndex = {
 
 /** Tailwind-friendly class fragments derived from tokens. */
 export const shellClasses = {
-  maxWidth: "max-w-[1440px]",
+  /** Shell fills the viewport; page content may still set its own reading width. */
   pagePadding: "px-4 lg:px-6",
   mainPadding: "p-4 lg:p-6",
 } as const;
