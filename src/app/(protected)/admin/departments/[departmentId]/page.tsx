@@ -14,6 +14,7 @@ import {
 } from "@/app/(protected)/admin/departments/[departmentId]/overview-panel";
 import { CoveragePanel } from "@/app/(protected)/admin/departments/[departmentId]/coverage-panel";
 import { TeamsPanel } from "@/app/(protected)/admin/departments/[departmentId]/teams-panel";
+import { TodayCoveragePanel } from "@/app/(protected)/admin/departments/[departmentId]/today-coverage-panel";
 import { DepartmentBuildContextBar } from "@/components/build/DepartmentBuildContextBar";
 import { TargetLogsSection } from "@/components/canonical-logs/target-logs-section";
 import {
@@ -23,6 +24,7 @@ import {
   isDepartmentAdminRetiredTabId,
   resolveDepartmentAdminTab,
 } from "@/lib/department-administration";
+import { loadDepartmentTodayCoverage } from "@/lib/department-administration/today-coverage";
 import { loadDepartmentAdminView } from "@/lib/department-administration/load-department-admin";
 import { loadDepartmentLocationRoomInspects } from "@/lib/department-administration/load-location-room-inspect";
 import { resolveTeamAuthority } from "@/lib/department-teams";
@@ -52,7 +54,6 @@ import {
   canPurchaseDepartmentProducts,
   departmentProductOffersMenus,
   findCatalogItemForDepartmentKey,
-  getDepartmentProduct,
   loadFacilityDepartmentCatalog,
 } from "@/lib/department-products";
 import { formatCycleOverviewSummary } from "@/lib/operational-cycles/cycle-ui";
@@ -264,6 +265,13 @@ export default async function DepartmentBuilderPage({
     tab === "locations"
       ? await resolveTeamAuthority(session, session.facilityId, view.department.id)
       : null;
+  const todayCoverage =
+    tab === "people"
+      ? await loadDepartmentTodayCoverage(prisma, {
+          facilityId: session.facilityId,
+          departmentId: view.department.id,
+        })
+      : null;
 
   return (
     <SetupBuilderFrame active={setupWorkspace}>
@@ -319,16 +327,9 @@ export default async function DepartmentBuilderPage({
             departmentKey={view.department.key}
           />
         ) : null}
-        {tab === "people" ? (
+        {tab === "people" && todayCoverage ? (
           <div className="space-y-8">
-            <TeamsPanel
-              session={session}
-              facilityId={session.facilityId}
-              departmentId={view.department.id}
-              departmentName={view.department.name}
-              departmentKey={view.department.key}
-              selectedTeamId={query.team?.trim() || null}
-            />
+            <TodayCoveragePanel coverage={todayCoverage} />
             <CoveragePanel
               session={session}
               facilityId={session.facilityId}
@@ -336,6 +337,14 @@ export default async function DepartmentBuilderPage({
               departmentName={view.department.name}
               departmentKey={view.department.key}
               selectedExpectationId={query.expectation?.trim() || null}
+            />
+            <TeamsPanel
+              session={session}
+              facilityId={session.facilityId}
+              departmentId={view.department.id}
+              departmentName={view.department.name}
+              departmentKey={view.department.key}
+              selectedTeamId={query.team?.trim() || null}
             />
           </div>
         ) : null}

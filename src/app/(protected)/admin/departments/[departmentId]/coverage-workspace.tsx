@@ -17,8 +17,10 @@ import { Select, TextArea, TextInput } from "@/components/design-system/Field";
 import { Drawer } from "@/components/drawer";
 import { StatusBadge } from "@/components/design-system";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
+import { groupCoverageRequirements } from "@/lib/department-administration/people-coverage-presentation";
 import type {
   CoverageCatalog,
+  CoverageExpectationItemView,
   CoverageExpectationView,
 } from "@/lib/scheduling/coverage-expectations/views";
 
@@ -48,6 +50,7 @@ export function CoverageWorkspace({
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const selected = expectations.find((row) => row.id === selectedExpectationId) ?? null;
+  const groups = groupCoverageRequirements(expectations, catalog.cycles);
 
   function openExpectation(id: string | null) {
     const href = id
@@ -60,10 +63,11 @@ export function CoverageWorkspace({
     <div className="max-w-5xl space-y-3" data-testid="department-coverage-panel">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-2">
-          <h2 className="text-base font-semibold text-zinc-900">Coverage</h2>
+          <h2 className="text-base font-semibold text-zinc-900">Coverage requirements</h2>
           <p className="text-sm text-zinc-600">
-            Expected operational responsibilities for {departmentName}. Draft edits do not change
-            today’s Run until they are published.
+            Staffing {departmentName} requires at each location. A room with no published
+            requirement is not configured for zero people. Draft edits do not change today’s Run
+            until they are published.
           </p>
         </div>
         {canManage ? (
@@ -97,30 +101,41 @@ export function CoverageWorkspace({
         />
       ) : null}
 
-      {expectations.length > 0 ? (
-        <ul className="divide-y divide-zinc-100" data-testid="coverage-expectation-list">
-          {expectations.map((row) => (
-            <li key={row.id}>
-              <button
-                type="button"
-                onClick={() => openExpectation(row.id)}
-                className={`flex w-full items-center gap-3 py-3 text-left transition-colors hover:bg-zinc-50 ${
-                  selectedExpectationId === row.id ? "bg-amber-50/60" : ""
-                }`}
-                data-testid="coverage-expectation-row"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-zinc-900">{row.name}</span>
-                  <span className="block text-xs text-zinc-600">
-                    {row.items.length} {row.items.length === 1 ? "requirement" : "requirements"}
-                    {row.effectiveFrom ? ` · Effective ${row.effectiveFrom}` : ""}
-                  </span>
-                </span>
-                <StatusBadge variant={statusVariant(row.status)}>{row.status}</StatusBadge>
-              </button>
-            </li>
+      {groups.length > 0 ? (
+        <div className="space-y-4" data-testid="coverage-requirement-groups">
+          {groups.map((group) => (
+            <section key={group.locationName} className="rounded-lg border border-zinc-200 bg-white">
+              <h3 className="border-b border-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900">
+                {group.locationName}
+              </h3>
+              {group.periods.map((period) => (
+                <div key={period.periodLabel} className="px-3 py-2">
+                  <p className="text-xs font-medium text-zinc-500">{period.periodLabel}</p>
+                  <ul className="mt-1 divide-y divide-zinc-100">
+                    {period.rows.map((row) => (
+                      <li key={`${row.itemId}-${period.periodLabel}`}>
+                        <button
+                          type="button"
+                          onClick={() => openExpectation(row.expectationId)}
+                          className="flex w-full items-center justify-between gap-3 py-2 text-left hover:bg-zinc-50"
+                          data-testid="coverage-expectation-row"
+                        >
+                          <span className="text-sm text-zinc-800">
+                            {row.roleLabel} — Required: {row.requiredCount}
+                            {row.effectiveFrom ? ` · Effective ${row.effectiveFrom}` : ""}
+                          </span>
+                          <StatusBadge variant={statusVariant(row.status)}>
+                            {row.statusLabel}
+                          </StatusBadge>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </section>
           ))}
-        </ul>
+        </div>
       ) : null}
 
       <Drawer
@@ -210,8 +225,23 @@ function ExpectationEditor({
                 <p className="text-xs text-zinc-500">
                   {item.spaceName || "No location"}
                   {" · "}
-                  {item.applicableOperationalCycleStableKeys.join(", ") || "No cycle"}
+                  {item.applicableOperationalCycleStableKeys
+                    .map((key) => catalog.cycles.find((cycle) => cycle.stableKey === key)?.label ?? key)
+                    .join(", ") || "No cycle"}
                 </p>
+                {canManage ? (
+                  <details className="rounded-md border border-zinc-100 p-2">
+                    <summary className="cursor-pointer text-xs font-medium text-zinc-600">
+                      Edit requirement
+                    </summary>
+                    <RequirementForm
+                      departmentId={departmentId}
+                      templateId={expectation.id}
+                      catalog={catalog}
+                      item={item}
+                    />
+                  </details>
+                ) : null}
                 {canManage ? (
                   <DepartmentAdminActionForm action={removeCoverageExpectationItemAction}>
                     <input type="hidden" name="departmentId" value={departmentId} />
@@ -267,14 +297,18 @@ function RequirementForm({
   departmentId,
   templateId,
   catalog,
+  item,
 }: {
   departmentId: string;
   templateId: string;
   catalog: CoverageCatalog;
+  item?: CoverageExpectationItemView;
 }) {
-  const [spaceIds, setSpaceIds] = useState<string[]>([]);
+  const [spaceIds, setSpaceIds] = useState<string[]>(item?.spaceId ? [item.spaceId] : []);
   const [roomType, setRoomType] = useState("");
-  const [cycleStableKeys, setCycleStableKeys] = useState<string[]>([]);
+  const [cycleStableKeys, setCycleStableKeys] = useState<string[]>(
+    item ? [...item.applicableOperationalCycleStableKeys] : [],
+  );
 
   return (
     <div data-testid="coverage-requirement-form">
@@ -284,7 +318,14 @@ function RequirementForm({
     >
       <input type="hidden" name="departmentId" value={departmentId} />
       <input type="hidden" name="templateId" value={templateId} />
-      <Select name="roleKey" label="Responsibility" required data-testid="coverage-role-select">
+      {item ? <input type="hidden" name="itemId" value={item.id} /> : null}
+      <Select
+        name="roleKey"
+        label="Responsibility"
+        required
+        defaultValue={item?.roleKey ?? ""}
+        data-testid="coverage-role-select"
+      >
         <option value="">Select a responsibility</option>
         {catalog.roles.map((role) => (
           <option key={role.key} value={role.key}>
@@ -298,7 +339,7 @@ function RequirementForm({
         type="number"
         min={1}
         max={50}
-        defaultValue="1"
+        defaultValue={String(item?.requiredCount ?? 1)}
         required
       />
       <section className="space-y-1" data-testid="coverage-locations">
@@ -372,8 +413,13 @@ function RequirementForm({
           ))
         )}
       </section>
+      {item ? (
+        <p className="text-xs text-zinc-500">
+          Saving a published requirement starts a new draft. The published row stays as history.
+        </p>
+      ) : null}
       <Button type="submit" size="compact">
-        Add requirement
+        {item ? "Save requirement" : "Add requirement"}
       </Button>
     </DepartmentAdminActionForm>
     </div>
