@@ -55,10 +55,15 @@ test("Teams rows are catalog objects with chevron navigation", () => {
     ),
     "utf8",
   );
+  const authoring = readFileSync(
+    join(process.cwd(), "src/components/employee-teams-panel.tsx"),
+    "utf8",
+  );
   assert.match(teams, /team-row/);
   assert.match(teams, /Manager not assigned/);
-  assert.match(teams, /\+ Add Team/);
+  assert.match(authoring, /\+ Add Team/);
   assert.match(teams, /›/);
+  assert.doesNotMatch(teams, /\+ Add Team/);
 });
 
 test("TemporalStrip empty Period skips blank rail", () => {

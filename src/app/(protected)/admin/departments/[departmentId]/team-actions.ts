@@ -17,7 +17,9 @@ export type TeamActionResult =
 function revalidateTeams(departmentId: string) {
   revalidatePath(`/admin/departments/${departmentId}`);
   revalidatePath(`/admin/departments/${departmentId}`, "page");
+  revalidatePath(`/build/departments/${departmentId}`);
   revalidatePath("/admin/departments");
+  revalidatePath("/employees");
 }
 
 function optionalId(raw: FormDataEntryValue | null): string | null {

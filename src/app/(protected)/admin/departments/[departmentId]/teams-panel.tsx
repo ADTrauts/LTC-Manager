@@ -1,10 +1,6 @@
 import { TeamsWorkspace } from "@/app/(protected)/admin/departments/[departmentId]/teams-workspace";
 import type { FacilitySession } from "@/lib/auth";
-import {
-  loadTeamEmployeeOptions,
-  loadTeamsForDepartment,
-  resolveTeamAuthority,
-} from "@/lib/department-teams";
+import { loadDepartmentPeopleOrganization } from "@/lib/department-administration/people-organization";
 import { prisma } from "@/lib/prisma";
 
 type Props = {
@@ -17,25 +13,24 @@ type Props = {
 };
 
 export async function TeamsPanel({
-  session,
   facilityId,
   departmentId,
   departmentName,
   selectedTeamId,
 }: Props) {
-  const [authority, teams, employees] = await Promise.all([
-    resolveTeamAuthority(session, facilityId, departmentId),
-    loadTeamsForDepartment(prisma, { facilityId, departmentId }),
-    loadTeamEmployeeOptions(prisma, { facilityId, departmentId }),
-  ]);
+  const organization = await loadDepartmentPeopleOrganization(prisma, {
+    facilityId,
+    departmentId,
+  });
+  if (!organization) return null;
+
+  const employeesHref = `/employees?dept=${encodeURIComponent(departmentId)}`;
 
   return (
     <TeamsWorkspace
-      departmentId={departmentId}
       departmentName={departmentName}
-      teams={teams}
-      employees={employees}
-      canManage={authority.canManage}
+      organization={organization}
+      employeesHref={employeesHref}
       selectedTeamId={selectedTeamId}
     />
   );

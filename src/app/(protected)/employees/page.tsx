@@ -29,6 +29,8 @@ import {
 import { ensureGmEmployeeRosterRow } from "@/lib/ensure-gm-employee-roster";
 import { loadCustomerOperableDepartments } from "@/lib/department-products";
 import { findOtherOpenFacilityAdministratorPeriod } from "@/lib/facility-access";
+import { DepartmentTeamsSection } from "@/app/(protected)/employees/department-teams-section";
+import { resolveDirectoryDepartmentId } from "@/lib/department-administration/people-coverage-presentation";
 import { prisma } from "@/lib/prisma";
 
 function toIsoDate(d: Date | null): string | null {
@@ -184,19 +186,30 @@ export default async function EmployeesPage({
         select: { id: true, name: true },
       })
     : null;
-  const deptName = activeDepartment?.name ?? null;
 
   const sp = await searchParams;
   const directoryQuery = parseDirectoryQuery(sp);
-  // Shell active Department is canonical scope; deep-link `dept` is no longer the primary filter.
-  if (activeDepartmentId) {
-    directoryQuery.dept = activeDepartmentId;
-  }
   const visibility = await loadDepartmentVisibility(prisma, session, facilityId);
+  const requestedDept = typeof sp.dept === "string" ? sp.dept : null;
+  const directoryDepartmentId = resolveDirectoryDepartmentId({
+    requestedDepartmentId: requestedDept,
+    shellDepartmentId: activeDepartmentId,
+    visibleDepartmentIds: visibility ? visibility.pageDepartmentIds : null,
+  });
+  const scopeDepartment = directoryDepartmentId
+    ? await prisma.department.findFirst({
+        where: { id: directoryDepartmentId, facilityId, isActive: true },
+        select: { id: true, name: true },
+      })
+    : null;
+  if (scopeDepartment) {
+    directoryQuery.dept = scopeDepartment.id;
+  }
+  const deptName = scopeDepartment?.name ?? activeDepartment?.name ?? null;
   const canAuthorPeople =
     !visibility ||
-    (activeDepartmentId
-      ? visibility.manageDepartmentIds.has(activeDepartmentId)
+    (scopeDepartment
+      ? visibility.manageDepartmentIds.has(scopeDepartment.id)
       : visibility.manageDepartmentIds.size > 0);
   const peopleViewNotice =
     showManagerTools && visibility && !canAuthorPeople
@@ -426,6 +439,15 @@ export default async function EmployeesPage({
 
       {peopleViewNotice ? <DepartmentViewNotice notice={peopleViewNotice} /> : null}
 
+      {scopeDepartment ? (
+        <DepartmentTeamsSection
+          session={session}
+          facilityId={facilityId}
+          departmentId={scopeDepartment.id}
+          departmentName={scopeDepartment.name}
+        />
+      ) : null}
+
       <div className="rounded-lg border border-zinc-200 bg-white p-3">
         <EmployeesFiltersForm
           current={{ ...directoryQuery, dept: undefined }}
@@ -472,7 +494,11 @@ export default async function EmployeesPage({
         ))}
         {employees.length === 0 ? (
           <p className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-500 shadow-sm">
-            No employees match these filters.
+            {directoryQuery.team
+              ? "No employees are on this Team."
+              : directoryQuery.dept
+                ? "No employees belong to this Department."
+                : "No employees match these filters."}
           </p>
         ) : null}
       </div>
