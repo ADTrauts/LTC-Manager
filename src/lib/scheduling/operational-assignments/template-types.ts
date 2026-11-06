@@ -16,6 +16,9 @@ export type TemplateView = {
   name: string;
   description: string | null;
   isActive: boolean;
+  status?: "DRAFT" | "PUBLISHED" | "RETIRED";
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
   departmentId: string;
   departmentKey: string;
   operationDefinitionId: string | null;
