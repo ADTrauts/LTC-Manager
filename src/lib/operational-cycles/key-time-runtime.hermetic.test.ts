@@ -173,8 +173,28 @@ test("configured → adjusted → actual remain distinct; no meal grace", () => 
     adjustedDueLocal: null,
     actualDueLocal: null,
     nowLocalHhMm: "08:02",
+    occurrenceTracking: "REQUIRED",
   });
   assert.equal(overdue.key, "overdue");
+
+  const untracked = describeKeyTimeStatus({
+    configuredDueLocal: "08:00",
+    adjustedDueLocal: null,
+    actualDueLocal: null,
+    nowLocalHhMm: "08:02",
+    occurrenceTracking: "NONE",
+  });
+  assert.equal(untracked.key, "upcoming");
+  assert.equal(untracked.label.includes("Overdue"), false);
+
+  const optional = describeKeyTimeStatus({
+    configuredDueLocal: "08:00",
+    adjustedDueLocal: null,
+    actualDueLocal: null,
+    nowLocalHhMm: "08:02",
+    occurrenceTracking: "OPTIONAL",
+  });
+  assert.notEqual(optional.key, "overdue");
 
   const lateComplete = describeKeyTimeStatus({
     configuredDueLocal: "08:00",

@@ -61,6 +61,10 @@ export type OperationalCycleDefinition = {
   }>;
   /** Build Key Time due-time groups (KEY_TIME nodes only). */
   keyTimeGroups: KeyTimeGroupDefinition[];
+  /** Key Point only. Omitted means the schema default, REQUIRED. */
+  occurrenceTracking?: "NONE" | "OPTIONAL" | "REQUIRED";
+  /** Key Point only. Omitted means the schema default, LOCATION. */
+  keyPointGrain?: "DEPARTMENT" | "LOCATION";
 };
 
 /** A published cycle with resolved window instants for one operational date. */

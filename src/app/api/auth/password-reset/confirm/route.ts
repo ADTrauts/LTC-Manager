@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { revokeAllPushSubscriptionsForUser } from "@/lib/notifications/push-subscription";
 import { findValidPasswordResetToken } from "@/lib/password-reset/tokens";
 import { prisma } from "@/lib/prisma";
 import { revokeUserSessions } from "@/lib/session-revocation";
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
       data: { usedAt: new Date() },
     });
     await revokeUserSessions(tx, user.id);
+    await revokeAllPushSubscriptionsForUser(tx, { userId: user.id, now: new Date() });
   });
 
   console.info("password_reset_success", { userId: user.id });

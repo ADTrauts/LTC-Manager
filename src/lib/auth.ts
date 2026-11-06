@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { cookies } from "next/headers";
 
@@ -46,6 +48,19 @@ function resolveScopeKind(
 }
 
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
+
+/** Full User credentials carry this id. Employee and Harbor tokens do not. */
+const USER_SESSION_JTI = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function userSessionKey(session: { authKind?: AuthKind; jti?: unknown }): string | null {
+  if (session.authKind === "employee" || session.authKind === "harbor_staff") return null;
+  return typeof session.jti === "string" && USER_SESSION_JTI.test(session.jti) ? session.jti : null;
+}
+
+function withUserSessionKey(authKind: AuthKind, token: SignJWT): SignJWT {
+  if (authKind !== "user") return token;
+  return token.setJti(randomUUID());
+}
 
 type AppJwtCommon = JWTPayload & {
   uid: string;
@@ -234,10 +249,10 @@ export async function createSessionToken(payload: {
     body.primaryDepartmentId = payload.primaryDepartmentId;
   }
 
-  return new SignJWT(body)
+  return withUserSessionKey(authKind, new SignJWT(body)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`))
     .sign(getJwtSecret());
 }
 
@@ -276,10 +291,10 @@ export async function createPartnerFacilitySessionToken(payload: {
     facilityPartnerOrganizationId: payload.facilityPartnerOrganizationId,
     sessionVersion: payload.sessionVersion,
   };
-  return new SignJWT(body)
+  return withUserSessionKey("user", new SignJWT(body)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`))
     .sign(getJwtSecret());
 }
 
@@ -304,10 +319,10 @@ export async function createAccountSessionToken(payload: {
     sessionVersion: payload.sessionVersion,
   };
 
-  return new SignJWT(body)
+  return withUserSessionKey("user", new SignJWT(body)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`))
     .sign(getJwtSecret());
 }
 
@@ -334,10 +349,10 @@ export async function createOrganizationSessionToken(payload: {
     sessionVersion: payload.sessionVersion,
   };
 
-  return new SignJWT(body)
+  return withUserSessionKey("user", new SignJWT(body)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`))
     .sign(getJwtSecret());
 }
 
@@ -396,6 +411,7 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
       sessionVersion: common.sessionVersion,
       iat: payload.iat,
       exp: payload.exp,
+      jti: typeof payload.jti === "string" ? payload.jti : undefined,
       scopeKind: "account",
     };
   }
@@ -436,6 +452,7 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
       sessionVersion: common.sessionVersion,
       iat: payload.iat,
       exp: payload.exp,
+      jti: typeof payload.jti === "string" ? payload.jti : undefined,
       scopeKind: "facility",
       accessKind: "partner",
       facilityId,

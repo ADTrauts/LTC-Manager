@@ -1,6 +1,8 @@
 # 04 — Persona Model
 
-**Status:** Role homes. The plug-in contract is the [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026). Audit / Reports is the manager history surface. Review is not a workspace.  
+**Status:** Role homes. The plug-in contract is the [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026). Audit / Reports is the manager history surface. Review is not a workspace.
+
+Role changes who receives a notification. It does not set priority. Defaults for Frontline, Supervisor, Department Manager, and Facility Administrator are in [16 — Notifications & Attention](./16_NOTIFICATIONS_AND_ATTENTION.md#role-defaults).  
 
 Roles in code: `FACILITY_ADMINISTRATOR`, `GM`, `MANAGER`, `SUPERVISOR`, `LEAD_TEAM_MEMBER`, `STAFF` (display often “Team Member”).
 

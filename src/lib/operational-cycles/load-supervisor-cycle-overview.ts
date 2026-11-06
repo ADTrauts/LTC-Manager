@@ -499,6 +499,7 @@ export async function loadSupervisorCycleOverview(input: {
         adjustedDueLocal: timing.adjustedDueLocal,
         actualDueLocal: timing.actualDueLocal,
         nowLocalHhMm: nowLocal,
+        occurrenceTracking: timing.occurrenceTracking,
       });
       return {
         expectationId: timing.expectationId,
@@ -530,6 +531,7 @@ export async function loadSupervisorCycleOverview(input: {
       adjustedDueLocal: timing.adjustedDueLocal,
       actualDueLocal: timing.actualDueLocal,
       nowLocalHhMm: nowLocal,
+      occurrenceTracking: timing.occurrenceTracking,
     });
     if (status.key === "overdue") keyTimesOverdue += 1;
   }

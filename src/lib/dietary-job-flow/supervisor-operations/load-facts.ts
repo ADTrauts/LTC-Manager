@@ -13,6 +13,7 @@ import { loadZonesForDepartment } from "@/lib/department-zones";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
+import { evaluateWorkOrderDueState } from "@/lib/asset-operations/work-order-due-state";
 import {
   presentRequesterStatus,
   requesterProjectedStatusLabel,
@@ -29,6 +30,7 @@ import {
   loadRuntimeLocationStates,
   type RuntimeLocationSpaceRef,
 } from "@/lib/runtime-location-state";
+import { calledOffShiftExcludesAssignment } from "@/lib/scheduling/call-off-window";
 import { buildDietaryCoverageSummary } from "@/lib/scheduling/operational-assignments/build-coverage-summary";
 import { loadAssignmentPlanView } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import { buildLocationCoverageSummary } from "@/lib/scheduling/operational-assignments/location-coverage";
@@ -219,6 +221,28 @@ export async function loadSupervisorOperationsFacts(
       `${employee.firstName} ${employee.lastName}`.trim(),
     ]),
   );
+  const countingAssignments = board.assignments.filter((row) => {
+    if (row.status !== "PLANNED" && row.status !== "ACTIVE") return false;
+    return !board.callOffs.some((shift) =>
+      calledOffShiftExcludesAssignment({
+        shift: {
+          employeeId: shift.employeeId,
+          departmentId: shift.departmentId,
+          serviceDateKey: operationalDateKey,
+          plannedStart: shift.plannedStart,
+          plannedEnd: shift.plannedEnd,
+        },
+        assignment: {
+          employeeId: row.employeeId,
+          departmentId: input.departmentId,
+          startsAt: row.startsAt ? new Date(row.startsAt) : null,
+          endsAt: row.endsAt ? new Date(row.endsAt) : null,
+          serviceDateKey: operationalDateKey,
+        },
+        timeZone: timezone,
+      }),
+    );
+  });
   const assignments: SupervisorAssignmentFact[] = oaEnabled
     ? board.assignments
         .filter((row) => row.status === "PLANNED" || row.status === "ACTIVE")
@@ -247,12 +271,14 @@ export async function loadSupervisorOperationsFacts(
       departmentId: input.departmentId,
       serviceDateKey: operationalDateKey,
       planStatus: plan?.status ?? null,
-      assignments: assignments.map((row) => ({
+      assignments: countingAssignments.map((row) => ({
         unitId: row.unitId,
         unitName: row.unitName,
         roleKey: row.roleKey,
         status: row.status,
-        hasCallDown: callOffEmployeeIds.includes(row.employeeId ?? ""),
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+        hasCallDown: false,
       })),
       scheduledEmployeeIds: presenceEmployees.map((row) => row.id),
       assignedEmployeeIds,
@@ -525,7 +551,7 @@ async function loadPlantOverlay(
       (row) => row.status === "ON_HOLD" && row.holdReason === "WAITING_FOR_PART",
     ).length,
     overdueWorkOrders: workOrders.filter(
-      (row) => row.dueAt != null && row.dueAt.getTime() < now.getTime(),
+      (row) => evaluateWorkOrderDueState({ status: row.status, dueAt: row.dueAt, now }) === "OVERDUE",
     ).length,
     unassignedWorkOrders: workOrders.filter((row) => !row.assignedEmployeeId).length,
     requests: requests.map((row) => {
@@ -567,7 +593,7 @@ async function loadPlantOverlay(
         : null,
       unitName: row.unit.name,
       dueAt: row.dueAt?.toISOString() ?? null,
-      overdue: Boolean(row.dueAt && row.dueAt.getTime() < now.getTime()),
+      overdue: evaluateWorkOrderDueState({ status: row.status, dueAt: row.dueAt, now }) === "OVERDUE",
     })),
     requestingDepartments: requestingDepts,
     technicians: technicians.map((row) => ({

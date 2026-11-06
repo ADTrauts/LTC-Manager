@@ -10,6 +10,7 @@
 |----------|------|
 | [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md) | Platform, Department Product, Facility configuration, Run, History / Audit, Governance |
 | [15 — Platform Primitives & Engines Registry](./15_PLATFORM_PRIMITIVES_AND_ENGINES_REGISTRY.md) | Companion reuse registry. Extend before inventing. Does not supersede the Constitution. |
+| [16 — Notifications & Attention](./16_NOTIFICATIONS_AND_ATTENTION.md) | The platform attention-delivery engine. Accepted October 29, 2026. N0 complete. N1 foundation certified. N2 Attention Center implemented. N3A publishes Assignment changes. Coverage state transitions are live. The Coverage time evaluator and the Key Point overdue evaluator are implemented. The production scheduler is blocked. `work_order.assigned` is live. The `work_order.overdue` evaluator is implemented. The production clock is inactive. Not production-ready. Does not own operational truth. |
 | [03 — Domain Model](./03_PRODUCT_DOMAIN_MODEL.md) | Business relationships for those layers |
 | [05 — Operational Philosophy](./05_OPERATIONAL_PHILOSOPHY.md) | How a service day runs |
 | [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md) | Manager vocabulary |

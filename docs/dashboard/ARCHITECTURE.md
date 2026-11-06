@@ -258,7 +258,9 @@ The summary loader may read only aggregate queries over the vendor's current ope
 
 ## 5. Attention contract
 
-**Location.** `src/lib/dashboard/attention.ts` (DSH-01). This is the single shape for "something needs a person". Every module that can raise attention gets a pure mapper from its existing output to this shape. Modules don't change what they compute.
+**Location.** `src/lib/dashboard/attention.ts` (DSH-01). This is the single shape for "something needs a person" **on the Dashboard**. Every module that can raise attention gets a pure mapper from its existing output to this shape. Modules don't change what they compute.
+
+Dashboard Attention is a composition. It persists nothing. Its severity is `act_now`, `due_soon`, or `watch`. The platform notification engine is a different owner: it persists an attention thread and uses Update, Needs Attention, Urgent, and Critical. A mapper does not write a Notification row, and the bell does not read this list as if it were the inbox. See [16 — Notifications & Attention](../product/16_NOTIFICATIONS_AND_ATTENTION.md).
 
 ```ts
 type AttentionSeverity = "act_now" | "due_soon" | "watch";

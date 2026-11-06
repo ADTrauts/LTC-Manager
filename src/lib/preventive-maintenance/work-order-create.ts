@@ -12,14 +12,18 @@
  * - record requirements ← Plan Version requirements (pinned ids/keys/versions/names/sort)
  * - assignedEmployeeId ← default assignee if still eligible, else Unassigned
  * - requesting/responsible department ← Plan department
- * - dueAt/targetDate ← occurrence scheduledDate as UTC midnight (projection only)
+ * - dueAt ← start of the facility-local day after the scheduled civil date
+ * - targetDate ← scheduled civil date at UTC midnight (planning date, not the deadline)
  * Canonical scheduled obligation remains PreventiveMaintenanceOccurrence.scheduledDate.
+ * Occurrence lateness and Work Order overdue are different facts.
  */
 
 import { Prisma, type PrismaClient, type Repair } from "@prisma/client";
 
 import { isKnowledgeProcedureCategory } from "@/lib/knowledge/version-semantics";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
+import { workOrderDeadlineFromCivilDate } from "@/lib/asset-operations/work-order-due-state";
+import { syncWorkOrderDueAttention } from "@/lib/asset-operations/work-order-overdue-attention";
 import {
   nextRepairCode,
   snapshotWorkOrderLocation,
@@ -28,6 +32,7 @@ import { newWorkOrderCuid, type DbClient } from "@/lib/asset-operations/work-ord
 import { isAssetLifecycleRetired } from "@/lib/asset-operations/ownership";
 import { loadCurrentOperatorsForFacilityDepartments } from "@/lib/department-operators/service";
 import { prisma } from "@/lib/prisma";
+import { recordInitialWorkOrderAssignment, processWorkOrderAttention } from "@/lib/asset-operations/work-order-assignment-attention";
 
 import { isPmActiveWorkOrderStatus } from "./active-work-order";
 import { catalogFormServesRunningDepartment } from "./catalog-pin";
@@ -312,7 +317,12 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
       instructions: version.instructions,
       scheduledDate,
     });
-    const dueAt = civilDateToUtcMidnight(scheduledDate);
+    const facility = await tx.facility.findFirst({
+      where: { id: plan.facilityId },
+      select: { timezone: true },
+    });
+    const dueAt = workOrderDeadlineFromCivilDate(scheduledDate, facility?.timezone);
+    const targetDate = civilDateToUtcMidnight(scheduledDate);
     const initialStatus = assignedEmployeeId ? "ASSIGNED" : "OPEN";
     const repairCode = await nextRepairCode(tx);
 
@@ -326,6 +336,7 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
         title: copy.title,
         description: copy.description,
         priority: version.priority,
+        responseRequirement: "STANDARD",
         status: initialStatus,
         workOrderKind: "PREVENTIVE",
         repairTrade: "GENERAL",
@@ -338,7 +349,7 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
         procedureVersionId: version.procedureVersionId,
         maintenanceCategoryId: category.id,
         dueAt,
-        targetDate: dueAt,
+        targetDate,
         requestedAt: now,
         reportedById: null,
         holdReason: null,
@@ -365,7 +376,25 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
         },
       },
     });
-    return { repair: created, created: true };
+    const assignmentIds = assignedEmployeeId
+      ? await recordInitialWorkOrderAssignment(tx as Prisma.TransactionClient, {
+          repairId: created.id,
+          actorUserId: null,
+          occurredAt: now,
+        })
+      : [];
+    const dueIds = await syncWorkOrderDueAttention(tx as Prisma.TransactionClient, {
+      repairId: created.id,
+      before: { status: "OPEN", dueAt: null, assignedEmployeeId: null },
+      after: {
+        status: created.status,
+        dueAt: created.dueAt,
+        assignedEmployeeId: created.assignedEmployeeId,
+      },
+      historyEventId: null,
+      occurredAt: now,
+    });
+    return { repair: created, created: true as const, attentionOutboxIds: [...assignmentIds, ...dueIds] };
   };
 
   const startTransaction =
@@ -374,8 +403,14 @@ export async function createPreventiveWorkOrderForOccurrence(input: {
           (outer as PrismaClient).$transaction((tx) => fn(tx))
       : (fn: (tx: DbClient) => ReturnType<typeof run>) => fn(outer);
 
+  const ownsTransaction = typeof (outer as PrismaClient).$transaction === "function";
   try {
-    return await startTransaction(run);
+    const result = await startTransaction(run);
+    const attentionOutboxIds = result.attentionOutboxIds ?? [];
+    if (ownsTransaction && result.created && attentionOutboxIds.length > 0) {
+      await processWorkOrderAttention(outer as PrismaClient, attentionOutboxIds);
+    }
+    return { repair: result.repair, created: result.created };
   } catch (err) {
     if (isUniqueConflict(err)) {
       const existing = await findActiveWorkOrder(outer, input.occurrenceId);

@@ -268,6 +268,7 @@ export async function buildRuntimeBundle(
             adjustedDueLocal: timing.adjustedDueLocal,
             actualDueLocal: timing.actualDueLocal,
             nowLocalHhMm: nowLocal,
+            occurrenceTracking: timing.occurrenceTracking,
           });
           return {
             expectationId: timing.expectationId,

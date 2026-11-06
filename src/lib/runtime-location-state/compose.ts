@@ -551,6 +551,7 @@ function composeMilestones(input: {
       adjustedDueLocal: timing.adjustedDueLocal,
       actualDueLocal: timing.actualDueLocal,
       nowLocalHhMm: nowLocal,
+      occurrenceTracking: timing.occurrenceTracking,
     });
     items.push({
       kind: "KEY_TIME",

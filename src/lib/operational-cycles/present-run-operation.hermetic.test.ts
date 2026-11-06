@@ -782,3 +782,23 @@ test("selectCurrentDayKeyTimeGroups ignores superseded retired cycle version row
   assert.equal(groups[0]?.completed, 0);
   assert.equal(groups[0]?.overdue, 1);
 });
+
+test("a NONE Key Point keeps its planned time and is not overdue", () => {
+  const cycles = lunchHierarchy().map((row) =>
+    row.stableKey === "lunch_due" ? { ...row, occurrenceTracking: "NONE" as const } : row,
+  );
+  const groups = selectCurrentDayKeyTimeGroups(cycles, [navalTiming()], "14:01");
+  assert.equal(groups[0]?.overdue, 0);
+  const view = presentLocationRunOperation({
+    cycles,
+    timings: [navalTiming({ occurrenceTracking: "NONE" })],
+    now: at("14:01"),
+    facilityTimezone: TZ,
+    operationalDateKey: DATE_KEY,
+    spaceId: NAVAL,
+    location: NAVAL_LOCATION,
+    nowLocalHhMm: "14:01",
+  });
+  assert.equal(view.keyTimes[0]?.statusKey, "upcoming");
+  assert.equal(view.attention.kind === "needs_attention", false);
+});

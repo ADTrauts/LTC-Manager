@@ -13,6 +13,11 @@ import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windo
 import { loadPublishedRunModel } from "@/lib/operational-cycles/load-run-operation-presentation";
 import type { PublishedCycleForLogs } from "@/lib/canonical-logs/resolve-log-requirements";
 import { prisma } from "@/lib/prisma";
+import {
+  calledOffShiftExcludesAssignment,
+  previousServiceDateKey,
+  type CalledOffShift,
+} from "@/lib/scheduling/call-off-window";
 import type { CoverageAssignmentActual, CoverageTemplateVersionRow } from "@/lib/scheduling/coverage-expectations";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
@@ -260,7 +265,8 @@ export async function prefetchRuntimeLocationInputs(
   }
 
   stats.coveragePrefetchSets += 1;
-  const [templateRows, planRows, assignmentRows] = oaEnabled
+  const previousServiceDate = facilityLocalDateToServiceDate(previousServiceDateKey(operationalDateKey));
+  const [templateRows, planRows, assignmentRows, callOffRows] = oaEnabled
     ? await Promise.all([
         prisma.operationalAssignmentTemplate.findMany({
           where: {
@@ -309,8 +315,23 @@ export async function prefetchRuntimeLocationInputs(
             locations: { select: { unitSpaceId: true } },
           },
         }),
+        prisma.scheduleEntry.findMany({
+          where: {
+            calledOffAt: { not: null },
+            departmentId: { in: departmentIds },
+            date: { in: [previousServiceDate, serviceDate] },
+            employee: { facilityId: input.facilityId },
+          },
+          select: {
+            employeeId: true,
+            departmentId: true,
+            date: true,
+            plannedStart: true,
+            plannedEnd: true,
+          },
+        }),
       ])
-    : [[], [], []];
+    : [[], [], [], []];
 
   const coverageTemplatesByDepartmentId = new Map<string, CoverageTemplateVersionRow[]>();
   const coveragePlanByDepartmentId = new Map<string, string | null>();
@@ -330,10 +351,33 @@ export async function prefetchRuntimeLocationInputs(
         departmentId,
         planRows.find((row) => row.departmentId === departmentId)?.status ?? null,
       );
+      const callOffs: CalledOffShift[] = callOffRows.map((row) => ({
+        employeeId: row.employeeId,
+        departmentId: row.departmentId,
+        serviceDateKey: toServiceDateKey(row.date),
+        plannedStart: row.plannedStart,
+        plannedEnd: row.plannedEnd,
+      }));
       assignmentsByDepartmentId.set(
         departmentId,
         assignmentRows
           .filter((row) => row.departmentId === departmentId)
+          .filter(
+            (row) =>
+              !callOffs.some((shift) =>
+                calledOffShiftExcludesAssignment({
+                  shift,
+                  assignment: {
+                    employeeId: row.employeeId,
+                    departmentId,
+                    startsAt: row.startsAt,
+                    endsAt: row.endsAt,
+                    serviceDateKey: operationalDateKey,
+                  },
+                  timeZone: timezone,
+                }),
+              ),
+          )
           .map((row) => ({
             id: row.id,
             roleKey: row.roleKey,

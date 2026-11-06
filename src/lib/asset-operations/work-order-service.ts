@@ -11,6 +11,7 @@ import type {
   RepairTrade,
   WorkOrderHoldReason,
   WorkOrderKind,
+  WorkOrderResponseRequirement,
 } from "@prisma/client";
 
 import type { FacilitySession } from "@/lib/auth";
@@ -35,6 +36,17 @@ import {
   type DbClient,
 } from "./work-order-access";
 import { applyWorkOrderCloseoutCompletion } from "./work-order-closeout";
+import {
+  applyWorkOrderAssigneeChange,
+  enqueueWorkOrderAssignmentEnded,
+  recordInitialWorkOrderAssignment,
+  runWorkOrderMutation,
+} from "./work-order-assignment-attention";
+import {
+  recordCreatedResponseRequirement,
+  recordWorkOrderResponseTerminal,
+} from "./work-order-response";
+import { syncWorkOrderDueAttention } from "./work-order-overdue-attention";
 import { presentPmWorkOrderContext } from "@/lib/preventive-maintenance/pm-context";
 import {
   mapRepairTradeToCategoryKey,
@@ -190,6 +202,7 @@ export type CreateWorkOrderDirectInput = {
   title: string;
   description: string;
   priority?: RepairPriority;
+  responseRequirement?: WorkOrderResponseRequirement;
   repairTrade?: RepairTrade;
   workOrderKind?: WorkOrderKind;
   vendorId?: string | null;
@@ -221,6 +234,7 @@ export async function createWorkOrderDirect(
     session,
     input.facilityId,
     input.departmentId,
+    client,
   );
   requireWorkOrderManage(authority);
 
@@ -286,7 +300,11 @@ export async function createWorkOrderDirect(
     repairTrade,
   });
 
-  const suggested = await suggestRepairDepartmentIds(prisma, {
+  const routingClient =
+    typeof (client as import("@prisma/client").PrismaClient).$transaction === "function"
+      ? (client as import("@prisma/client").PrismaClient)
+      : prisma;
+  const suggested = await suggestRepairDepartmentIds(routingClient, {
     facilityId: input.facilityId,
     unitId: location.unitId,
     assetId: location.assetId,
@@ -305,45 +323,72 @@ export async function createWorkOrderDirect(
       ? await routeMaintainedWorkOrder(client, { facilityId: input.facilityId, assetId: location.assetId })
       : null;
 
-  const created = await client.repair.create({
-    data: {
-      id: cuidLike(),
-      repairCode,
-      assetId: location.assetId,
-      unitId: location.unitId,
-      spaceId: location.spaceId,
-      title: input.title.trim(),
-      description: input.description.trim(),
-      priority: input.priority ?? "MEDIUM",
-      status: initialStatus,
-      workOrderKind: input.workOrderKind ?? "CORRECTIVE",
-      repairTrade,
-      requestingDepartmentId: suggested.requestingDepartmentId,
-      responsibleDepartmentId:
-        input.responsibleDepartmentId ?? maintained?.responsibleDepartmentId ?? suggested.responsibleDepartmentId,
-      payerOrganizationId: maintained?.payerOrganizationId ?? null,
-      assignedEmployeeId: input.assignedEmployeeId ?? null,
-      vendorId: input.vendorId ?? null,
-      targetDate: input.targetDate ?? null,
-      dueAt: input.dueAt ?? null,
-      requestedAt: now,
-      reportedById: actorUserId,
-      issueId: linkedIssueId,
-      procedureVersionId: input.procedureVersionId ?? null,
-      maintenanceCategoryId,
-      holdReason: null,
-      updates: {
-        create: {
-          id: cuidLike(),
-          updateText: "Work Order created",
-          statusAfterUpdate: initialStatus,
-          updatedById: actorUserId,
+  return runWorkOrderMutation(client, async (tx) => {
+    const created = await tx.repair.create({
+      data: {
+        id: cuidLike(),
+        repairCode,
+        assetId: location.assetId,
+        unitId: location.unitId,
+        spaceId: location.spaceId,
+        title: input.title.trim(),
+        description: input.description.trim(),
+        priority: input.priority ?? "MEDIUM",
+        responseRequirement: input.responseRequirement ?? "STANDARD",
+        status: initialStatus,
+        workOrderKind: input.workOrderKind ?? "CORRECTIVE",
+        repairTrade,
+        requestingDepartmentId: suggested.requestingDepartmentId,
+        responsibleDepartmentId:
+          input.responsibleDepartmentId ?? maintained?.responsibleDepartmentId ?? suggested.responsibleDepartmentId,
+        payerOrganizationId: maintained?.payerOrganizationId ?? null,
+        assignedEmployeeId: input.assignedEmployeeId ?? null,
+        vendorId: input.vendorId ?? null,
+        targetDate: input.targetDate ?? null,
+        dueAt: input.dueAt ?? null,
+        requestedAt: now,
+        reportedById: actorUserId,
+        issueId: linkedIssueId,
+        procedureVersionId: input.procedureVersionId ?? null,
+        maintenanceCategoryId,
+        holdReason: null,
+        updates: {
+          create: {
+            id: cuidLike(),
+            updateText: "Work Order created",
+            statusAfterUpdate: initialStatus,
+            updatedById: actorUserId,
+          },
         },
       },
-    },
+    });
+    const responseOutboxIds = await recordCreatedResponseRequirement(tx, {
+      repairId: created.id,
+      responseRequirement: created.responseRequirement,
+      changedByUserId: actorUserId,
+      changedAt: now,
+    });
+    const attentionOutboxIds = [
+      ...responseOutboxIds,
+      ...(await recordInitialWorkOrderAssignment(tx, {
+        repairId: created.id,
+        actorUserId,
+        occurredAt: now,
+      })),
+      ...(await syncWorkOrderDueAttention(tx, {
+        repairId: created.id,
+        before: { status: "OPEN", dueAt: null, assignedEmployeeId: null },
+        after: {
+          status: created.status,
+          dueAt: created.dueAt,
+          assignedEmployeeId: created.assignedEmployeeId,
+        },
+        historyEventId: null,
+        occurredAt: now,
+      })),
+    ];
+    return { value: created, attentionOutboxIds };
   });
-
-  return created;
 }
 
 export async function createWorkOrderFromIssue(
@@ -373,6 +418,7 @@ export async function createWorkOrderFromIssue(
     session,
     input.facilityId,
     input.departmentId,
+    client,
   );
   requireWorkOrderManage(authority);
 
@@ -506,42 +552,86 @@ export async function updateWorkOrderStatus(
   const client = input.client ?? prisma;
   await resolveWorkOrderActorAuthority(session, input.facilityId, input.departmentId, {
     repairId: input.repairId,
+    client,
   });
 
-  const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
-  assertTransition(repair.status, input.toStatus);
-  const stored = resolveStoredHoldWrite(input.toStatus, input.holdReason);
+  return runWorkOrderMutation(client, async (tx) => {
+    const repair = await loadWorkOrderScoped(tx, input.repairId, input.facilityId);
+    assertTransition(repair.status, input.toStatus);
+    const stored = resolveStoredHoldWrite(input.toStatus, input.holdReason);
 
-  const actorUserId = sessionUserIdForFk(session);
-  const now = input.now ?? new Date();
-  const data: Prisma.RepairUpdateInput = {
-    status: stored.status,
-    holdReason: stored.holdReason,
-  };
-  if (stored.status === "IN_PROGRESS" && !repair.startedAt) {
-    data.startedAt = now;
-  }
-  if (stored.status === "COMPLETED") {
-    data.completedAt = now;
-  }
-  if (stored.status === "CANCELLED") {
-    data.completedAt = repair.completedAt ?? now;
-  }
+    const actorUserId = sessionUserIdForFk(session);
+    const now = input.now ?? new Date();
+    const data: Prisma.RepairUpdateInput = {
+      status: stored.status,
+      holdReason: stored.holdReason,
+    };
+    if (stored.status === "IN_PROGRESS" && !repair.startedAt) {
+      data.startedAt = now;
+    }
+    if (stored.status === "COMPLETED") {
+      data.completedAt = now;
+    }
+    if (stored.status === "CANCELLED") {
+      data.completedAt = repair.completedAt ?? now;
+    }
 
-  const updated = await client.repair.update({
-    where: { id: repair.id },
-    data,
+    const updated = await tx.repair.update({
+      where: { id: repair.id },
+      data,
+    });
+
+    const responseOutboxIds =
+      stored.status === "COMPLETED" || stored.status === "CANCELLED"
+        ? await recordWorkOrderResponseTerminal(tx, {
+            repairId: repair.id,
+            responseRequirement: repair.responseRequirement,
+            transition: stored.status === "COMPLETED" ? "COMPLETED" : "CANCELLED",
+            changedByUserId: actorUserId,
+            changedAt: now,
+          })
+        : [];
+
+    const historyId = await appendRepairUpdate(tx, {
+      repairId: repair.id,
+      updateText: input.comment?.trim() || `Status changed to ${stored.status}`,
+      statusAfterUpdate: stored.status,
+      updatedById: actorUserId,
+    });
+
+    const attentionOutboxIds: string[] = [...responseOutboxIds];
+    if (
+      (stored.status === "COMPLETED" || stored.status === "CANCELLED") &&
+      repair.assignedEmployeeId
+    ) {
+      attentionOutboxIds.push(
+        await enqueueWorkOrderAssignmentEnded(tx, {
+          repairId: repair.id,
+          assignmentEventId: historyId,
+          occurredAt: now,
+          cause: stored.status === "COMPLETED" ? "completed" : "cancelled",
+        }),
+      );
+    }
+    attentionOutboxIds.push(
+      ...(await syncWorkOrderDueAttention(tx, {
+        repairId: repair.id,
+        before: {
+          status: repair.status,
+          dueAt: repair.dueAt,
+          assignedEmployeeId: repair.assignedEmployeeId,
+        },
+        after: {
+          status: updated.status,
+          dueAt: updated.dueAt,
+          assignedEmployeeId: updated.assignedEmployeeId,
+        },
+        historyEventId: historyId,
+        occurredAt: now,
+      })),
+    );
+    return { value: updated, attentionOutboxIds };
   });
-
-  await appendRepairUpdate(client, {
-    repairId: repair.id,
-    updateText:
-      input.comment?.trim() || `Status changed to ${stored.status}`,
-    statusAfterUpdate: stored.status,
-    updatedById: actorUserId,
-  });
-
-  return updated;
 }
 
 export async function assignVendor(
@@ -599,6 +689,68 @@ export async function assignVendor(
   return updated;
 }
 
+/**
+ * Changes the operational deadline. It does not change Work Order status.
+ * `targetDate` stays the planning date.
+ */
+export async function recordWorkOrderDeadline(
+  session: FacilitySession,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    repairId: string;
+    dueAt: Date | null;
+    client?: DbClient;
+    now?: Date;
+  },
+) {
+  const client = input.client ?? prisma;
+  const authority = await resolveAssetOperationsAuthority(
+    session,
+    input.facilityId,
+    input.departmentId,
+    client,
+  );
+  requireWorkOrderManage(authority);
+  const actorUserId = sessionUserIdForFk(session);
+  const now = input.now ?? new Date();
+  return runWorkOrderMutation(client, async (tx) => {
+    const repair = await tx.repair.findFirst({
+      where: { id: input.repairId, unit: { facilityId: input.facilityId } },
+    });
+    if (!repair) throw new Error("Work Order not found.");
+    if (repair.status === "COMPLETED" || repair.status === "CANCELLED") {
+      throw new Error("A completed or cancelled Work Order deadline cannot change.");
+    }
+    const updated = await tx.repair.update({
+      where: { id: repair.id },
+      data: { dueAt: input.dueAt },
+    });
+    const historyId = await appendRepairUpdate(tx, {
+      repairId: repair.id,
+      updateText: input.dueAt ? "Work Order deadline changed" : "Work Order deadline cleared",
+      statusAfterUpdate: repair.status,
+      updatedById: actorUserId,
+    });
+    const attentionOutboxIds = await syncWorkOrderDueAttention(tx, {
+      repairId: repair.id,
+      before: {
+        status: repair.status,
+        dueAt: repair.dueAt,
+        assignedEmployeeId: repair.assignedEmployeeId,
+      },
+      after: {
+        status: updated.status,
+        dueAt: updated.dueAt,
+        assignedEmployeeId: updated.assignedEmployeeId,
+      },
+      historyEventId: historyId,
+      occurredAt: now,
+    });
+    return { value: updated, attentionOutboxIds };
+  });
+}
+
 export async function assignResponsibleEmployee(
   session: FacilitySession,
   input: {
@@ -616,10 +768,9 @@ export async function assignResponsibleEmployee(
     session,
     input.facilityId,
     input.departmentId,
+    client,
   );
   requireWorkOrderManage(authority);
-
-  const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);
 
   if (input.assignedEmployeeId) {
     const employee = await client.employee.findFirst({
@@ -642,32 +793,35 @@ export async function assignResponsibleEmployee(
   }
 
   const actorUserId = sessionUserIdForFk(session);
-  const nextStatus: RepairStatus | undefined =
-    input.assignedEmployeeId && repair.status === "OPEN" ? "ASSIGNED" : undefined;
-
-  const updated = await client.repair.update({
-    where: { id: repair.id },
-    data: {
-      assignedEmployeeId: input.assignedEmployeeId,
-      ...(input.responsibleDepartmentId !== undefined
-        ? { responsibleDepartmentId: input.responsibleDepartmentId }
-        : {}),
-      ...(nextStatus ? { status: nextStatus } : {}),
-    },
+  const now = new Date();
+  return runWorkOrderMutation(client, async (tx) => {
+    const before = await tx.repair.findFirst({
+      where: { id: input.repairId },
+      select: { status: true, dueAt: true, assignedEmployeeId: true },
+    });
+    const changed = await applyWorkOrderAssigneeChange(tx, {
+      repairId: input.repairId,
+      nextEmployeeId: input.assignedEmployeeId,
+      actorUserId,
+      occurredAt: now,
+      comment: input.comment,
+      responsibleDepartmentId: input.responsibleDepartmentId,
+    });
+    const dueIds = before
+      ? await syncWorkOrderDueAttention(tx, {
+          repairId: input.repairId,
+          before,
+          after: {
+            status: changed.repair.status,
+            dueAt: changed.repair.dueAt,
+            assignedEmployeeId: changed.repair.assignedEmployeeId,
+          },
+          historyEventId: null,
+          occurredAt: now,
+        })
+      : [];
+    return { value: changed.repair, attentionOutboxIds: [...changed.outboxIds, ...dueIds] };
   });
-
-  await appendRepairUpdate(client, {
-    repairId: repair.id,
-    updateText:
-      input.comment?.trim() ||
-      (input.assignedEmployeeId
-        ? "Responsible employee assigned"
-        : "Responsible employee cleared"),
-    statusAfterUpdate: updated.status,
-    updatedById: actorUserId,
-  });
-
-  return updated;
 }
 
 /**
@@ -691,13 +845,16 @@ export async function completeWorkOrder(
     now?: Date;
   },
 ) {
-  const run = (client: DbClient) =>
-    applyWorkOrderCloseoutCompletion(session, {
+  return runWorkOrderMutation(input.client ?? prisma, async (client) => {
+    const completed = await applyWorkOrderCloseoutCompletion(session, {
       ...input,
       client,
     });
-  if (input.client) return run(input.client);
-  return prisma.$transaction((tx) => run(tx));
+    return {
+      value: completed.repair,
+      attentionOutboxIds: completed.attentionOutboxIds,
+    };
+  });
 }
 
 /**
@@ -726,6 +883,7 @@ export async function createWorkOrderFromOperationalRequest(
     session,
     input.facilityId,
     input.plantDepartmentId,
+    { client },
   );
   if (!actor.canManage) {
     throw new Error("Work Order creation denied.");
@@ -785,67 +943,88 @@ export async function createWorkOrderFromOperationalRequest(
     repairTrade: requestTrade,
   });
 
-  const created = await client.repair.create({
-    data: {
-      id: cuidLike(),
-      repairCode,
-      assetId: location.assetId,
-      unitId: location.unitId,
-      spaceId: location.spaceId,
-      title: input.title?.trim() || request.summary,
-      description: input.description?.trim() || request.description,
-      priority: input.priority ?? request.priority,
-      status: initialStatus,
-      workOrderKind: "CORRECTIVE",
-      repairTrade: requestTrade,
-      requestingDepartmentId: request.requestingDepartmentId,
-      responsibleDepartmentId: request.responsibleDepartmentId,
-      assignedEmployeeId: input.assignedEmployeeId ?? null,
-      vendorId: input.vendorId ?? null,
-      targetDate: input.targetDate ?? null,
-      requestedAt: now,
-      reportedById: actorUserId,
-      maintenanceCategoryId: requestCategoryId,
-      updates: {
-        create: {
-          id: cuidLike(),
-          updateText: `Work Order created from request ${request.requestCode}`,
-          statusAfterUpdate: initialStatus,
-          updatedById: actorUserId,
-          requesterVisible: false,
+  return runWorkOrderMutation(client, async (tx) => {
+    const created = await tx.repair.create({
+      data: {
+        id: cuidLike(),
+        repairCode,
+        assetId: location.assetId,
+        unitId: location.unitId,
+        spaceId: location.spaceId,
+        title: input.title?.trim() || request.summary,
+        description: input.description?.trim() || request.description,
+        priority: input.priority ?? request.priority,
+        responseRequirement: "STANDARD",
+        status: initialStatus,
+        workOrderKind: "CORRECTIVE",
+        repairTrade: requestTrade,
+        requestingDepartmentId: request.requestingDepartmentId,
+        responsibleDepartmentId: request.responsibleDepartmentId,
+        assignedEmployeeId: input.assignedEmployeeId ?? null,
+        vendorId: input.vendorId ?? null,
+        targetDate: input.targetDate ?? null,
+        requestedAt: now,
+        reportedById: actorUserId,
+        maintenanceCategoryId: requestCategoryId,
+        updates: {
+          create: {
+            id: cuidLike(),
+            updateText: `Work Order created from request ${request.requestCode}`,
+            statusAfterUpdate: initialStatus,
+            updatedById: actorUserId,
+            requesterVisible: false,
+          },
         },
       },
-    },
+    });
+
+    const nextRequestStatus =
+      request.status === "UNDER_REVIEW" ||
+      request.status === "MONITORING" ||
+      request.status === "REOPENED"
+        ? request.status
+        : "UNDER_REVIEW";
+
+    await tx.operationalRequest.update({
+      where: { id: request.id },
+      data: {
+        workOrderId: created.id,
+        status: nextRequestStatus,
+        requesterVisibleStatusSummary: requesterVisibleStatusLabel(nextRequestStatus),
+      },
+    });
+
+    await tx.operationalRequestUpdate.create({
+      data: {
+        id: cuidLike(),
+        requestId: request.id,
+        updateText: `Work Order ${created.repairCode} linked`,
+        statusAfterUpdate: nextRequestStatus,
+        updatedByUserId: actorUserId,
+        requesterVisible: true,
+      },
+    });
+
+    const attentionOutboxIds = [
+      ...(await recordInitialWorkOrderAssignment(tx, {
+        repairId: created.id,
+        actorUserId,
+        occurredAt: now,
+      })),
+      ...(await syncWorkOrderDueAttention(tx, {
+        repairId: created.id,
+        before: { status: "OPEN", dueAt: null, assignedEmployeeId: null },
+        after: {
+          status: created.status,
+          dueAt: created.dueAt,
+          assignedEmployeeId: created.assignedEmployeeId,
+        },
+        historyEventId: null,
+        occurredAt: now,
+      })),
+    ];
+    return { value: created, attentionOutboxIds };
   });
-
-  const nextRequestStatus =
-    request.status === "UNDER_REVIEW" ||
-    request.status === "MONITORING" ||
-    request.status === "REOPENED"
-      ? request.status
-      : "UNDER_REVIEW";
-
-  await client.operationalRequest.update({
-    where: { id: request.id },
-    data: {
-      workOrderId: created.id,
-      status: nextRequestStatus,
-      requesterVisibleStatusSummary: requesterVisibleStatusLabel(nextRequestStatus),
-    },
-  });
-
-  await client.operationalRequestUpdate.create({
-    data: {
-      id: cuidLike(),
-      requestId: request.id,
-      updateText: `Work Order ${created.repairCode} linked`,
-      statusAfterUpdate: nextRequestStatus,
-      updatedByUserId: actorUserId,
-      requesterVisible: true,
-    },
-  });
-
-  return created;
 }
 
 /**
@@ -884,7 +1063,7 @@ export async function technicianUpdateWorkOrder(
     session,
     input.facilityId,
     input.departmentId,
-    { repairId: input.repairId },
+    { repairId: input.repairId, client },
   );
 
   const repair = await loadWorkOrderScoped(client, input.repairId, input.facilityId);

@@ -9,6 +9,7 @@ import {
   DEVICE_UNIT_COOKIE,
   getDeviceCookieOptions,
 } from "@/lib/device-cookie";
+import { revokeAllPushSubscriptionsForUser } from "@/lib/notifications/push-subscription";
 import { prisma } from "@/lib/prisma";
 import { revokeOwnSessions } from "@/lib/session-revocation";
 
@@ -34,10 +35,20 @@ export async function POST(request: Request) {
   // Unbinding the device is a security action, so it ends every session for this identity rather
   // than only the cookie on this browser. A tablet handed back to the facility should not leave a
   // usable session behind on any device.
-  await revokeOwnSessions(prisma, {
-    kind: session.authKind === "employee" ? "employee" : "user",
-    id: session.uid,
-  });
+  try {
+    if (session.authKind === "user") {
+      await revokeAllPushSubscriptionsForUser(prisma, { userId: session.uid, now: new Date() });
+    }
+    await revokeOwnSessions(prisma, {
+      kind: session.authKind === "employee" ? "employee" : "user",
+      id: session.uid,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Sign out stopped. Browser alerts are still tied to this account." },
+      { status: 503 },
+    );
+  }
 
   const url = new URL(request.url);
   const response = NextResponse.redirect(new URL("/login", url.origin), 303);

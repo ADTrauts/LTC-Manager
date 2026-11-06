@@ -9,7 +9,7 @@ The current structure lives in the product documents. Read them before a change 
 
 Authority, in order:
 
-1. [Current foundation](docs/product/01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026)
+1. [Current foundation](docs/product/01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), including the [October 29, 2026 Notifications & Attention amendment](docs/product/01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-29-2026)
 2. [How to build one](docs/product/13_DEPARTMENT_PRODUCT.md#how-to-build-one) for any new Department Product
 3. [Language guide](docs/product/08_PRODUCT_LANGUAGE_GUIDE.md) for the word, [domain model](docs/product/03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) for who owns the fact
 
@@ -18,7 +18,7 @@ A chat, a program log, or an older paragraph in those files does not override th
 Before writing the structural change:
 
 - Name the layer: Platform, Department Product, Marketplace item, Run, History, or Governance.
-- Use an engine that already exists. A second location tree, Cycle engine, Work engine, Record engine, catalog, people model, or home is a miss.
+- Use an engine that already exists. A second location tree, Cycle engine, Work engine, Record engine, catalog, people model, home, or notification engine is a miss. Notifications & Attention is the platform engine in [16](docs/product/16_NOTIFICATIONS_AND_ATTENTION.md). Departments configure policy. They do not own delivery.
 - A Department Product starts as DEVELOPMENT in `src/lib/department-products/registry.ts` and fills the blueprint first. It contributes Dashboard capabilities and does not ship dashboard UI.
 - Classify a new Department write in `src/lib/department-authority/write-manifest.ts`. A role check alone is not authority.
 - Do not add a capability environment switch. Do not change release status, price, or sellability as a side effect.

@@ -47,6 +47,7 @@ export async function loadDailyAssignmentBoard(
         shift: true,
         plannedStart: true,
         plannedEnd: true,
+        departmentId: true,
         calledOffAt: true,
         callOffReason: true,
         unit: { select: { id: true, name: true } },
@@ -190,6 +191,14 @@ export async function loadDailyAssignmentBoard(
     employees,
     assignments: boardEntries,
     warnings,
+    callOffs: scheduleEntries
+      .filter((entry) => entry.calledOffAt)
+      .map((entry) => ({
+        employeeId: entry.employeeId,
+        departmentId: entry.departmentId,
+        plannedStart: entry.plannedStart,
+        plannedEnd: entry.plannedEnd,
+      })),
   };
 }
 

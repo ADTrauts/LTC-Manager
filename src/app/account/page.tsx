@@ -56,6 +56,18 @@ export default async function AccountPage() {
       </section>
 
       <section className="mt-6 space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Notifications</h2>
+        <p className="text-sm text-zinc-600">Browser alerts on this personal device</p>
+        <Link
+          href="/account/notifications"
+          className={`inline-flex min-h-10 items-center rounded-md border border-zinc-300 bg-white px-3.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 ${FOCUS_RING_CLASS}`}
+          data-testid="account-browser-alerts-link"
+        >
+          Browser alerts
+        </Link>
+      </section>
+
+      <section className="mt-6 space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
         <h2 className="text-lg font-semibold text-zinc-900">Security</h2>
         <p className="text-sm text-zinc-600">Password and sessions</p>
         <Link

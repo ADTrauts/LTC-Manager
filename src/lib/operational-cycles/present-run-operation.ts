@@ -280,6 +280,7 @@ export function selectCurrentDayKeyTimeGroups(
             adjustedDueLocal: null,
             actualDueLocal: null,
             nowLocalHhMm,
+            occurrenceTracking: cycle.occurrenceTracking,
           });
           if (missingStatus.key === "overdue") overdue += 1;
           continue;
@@ -293,6 +294,7 @@ export function selectCurrentDayKeyTimeGroups(
           adjustedDueLocal: row.adjustedDueLocal,
           actualDueLocal: row.actualDueLocal,
           nowLocalHhMm,
+          occurrenceTracking: cycle.occurrenceTracking,
         });
         if (status.key === "overdue") overdue += 1;
       }
@@ -426,6 +428,7 @@ function presentKeyTimeView(
     adjustedDueLocal: timing.adjustedDueLocal,
     actualDueLocal: timing.actualDueLocal,
     nowLocalHhMm,
+    occurrenceTracking: timing.occurrenceTracking,
   });
   return {
     expectationId: timing.expectationId,

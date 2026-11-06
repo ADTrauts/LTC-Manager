@@ -71,6 +71,7 @@ function mapTiming(row: {
   actualDueLocal: string | null;
   completedAt: Date | null;
   adjustedAt: Date | null;
+  cycle?: { occurrenceTracking: "NONE" | "OPTIONAL" | "REQUIRED"; keyPointGrain: "DEPARTMENT" | "LOCATION" } | null;
   space?: {
     name: string;
     unitId: string | null;
@@ -103,6 +104,8 @@ function mapTiming(row: {
     actualDueLocal: row.actualDueLocal,
     completedAt: row.completedAt,
     adjustedAt: row.adjustedAt,
+    occurrenceTracking: row.cycle?.occurrenceTracking,
+    keyPointGrain: row.cycle?.keyPointGrain,
     adjustedByLabel: labels.adjustedByLabel,
     completedByLabel: labels.completedByLabel,
   };
@@ -135,6 +138,7 @@ async function loadExistingTimings(
       adjustedByEmployee: { select: { firstName: true, lastName: true } },
       completedByUser: { select: { displayName: true } },
       completedByEmployee: { select: { firstName: true, lastName: true } },
+      cycle: { select: { occurrenceTracking: true, keyPointGrain: true } },
     },
     orderBy: [{ configuredDueLocal: "asc" }, { cycleLabel: "asc" }, { spaceId: "asc" }],
   });

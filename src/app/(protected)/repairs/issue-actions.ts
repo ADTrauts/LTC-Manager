@@ -7,6 +7,11 @@ import { z } from "zod";
 import { requireAtLeastRole } from "@/lib/access";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
+import {
+  enqueueWorkOrderAssigned,
+  enqueueWorkOrderAssignmentEnded,
+  runWorkOrderMutation,
+} from "@/lib/asset-operations/work-order-assignment-attention";
 import { currentRepairStatusWrite } from "@/lib/asset-operations/work-order-semantics";
 import { issueDetailPath } from "@/lib/work/issues/issue-copy";
 const statusValues = [
@@ -65,22 +70,6 @@ async function loadFacilityIssue(issueId: string, facilityId: string) {
       assignedEmployeeId: true,
       responsibleDepartmentId: true,
       title: true,
-    },
-  });
-}
-
-async function appendHistory(opts: {
-  repairId: string;
-  updateText: string;
-  statusAfterUpdate?: RepairStatus | null;
-  updatedById?: string;
-}) {
-  await prisma.repairUpdate.create({
-    data: {
-      repairId: opts.repairId,
-      updateText: opts.updateText,
-      statusAfterUpdate: opts.statusAfterUpdate ?? undefined,
-      updatedById: opts.updatedById,
     },
   });
 }
@@ -145,17 +134,7 @@ export async function assignIssueAction(formData: FormData): Promise<IssueAction
 
   const nextAssignee = parsed.assignedEmployeeId ?? null;
   const nextDept = parsed.responsibleDepartmentId ?? issue.responsibleDepartmentId;
-
-  await prisma.repair.update({
-    where: { id: issue.id },
-    data: {
-      assignedEmployeeId: nextAssignee,
-      responsibleDepartmentId: nextDept,
-      completedAt: repairIsFinished(issue.status) ? null : undefined,
-      holdReason: repairIsFinished(issue.status) ? null : undefined,
-      status: repairIsFinished(issue.status) ? RepairStatus.OPEN : issue.status,
-    },
-  });
+  const nextStatus = repairIsFinished(issue.status) ? RepairStatus.OPEN : issue.status;
 
   const parts: string[] = [];
   if (employeeName) parts.push(`Assigned to ${employeeName}`);
@@ -163,11 +142,50 @@ export async function assignIssueAction(formData: FormData): Promise<IssueAction
   if (departmentName) parts.push(`Responsible department: ${departmentName}`);
   const updateText = parts.length > 0 ? parts.join(". ") : "Assignment updated";
 
-  await appendHistory({
-    repairId: issue.id,
-    updateText,
-    statusAfterUpdate: repairIsFinished(issue.status) ? RepairStatus.OPEN : issue.status,
-    updatedById: session.authKind === "user" ? session.uid : undefined,
+  await runWorkOrderMutation(prisma, async (tx) => {
+    await tx.repair.update({
+      where: { id: issue.id },
+      data: {
+        assignedEmployeeId: nextAssignee,
+        responsibleDepartmentId: nextDept,
+        completedAt: repairIsFinished(issue.status) ? null : undefined,
+        holdReason: repairIsFinished(issue.status) ? null : undefined,
+        status: nextStatus,
+      },
+    });
+    const history = await tx.repairUpdate.create({
+      data: {
+        repairId: issue.id,
+        updateText,
+        statusAfterUpdate: nextStatus,
+        updatedById: session.authKind === "user" ? session.uid : undefined,
+      },
+      select: { id: true },
+    });
+    const attentionOutboxIds: string[] = [];
+    if (issue.assignedEmployeeId !== nextAssignee) {
+      const occurredAt = new Date();
+      if (nextAssignee) {
+        attentionOutboxIds.push(
+          await enqueueWorkOrderAssigned(tx, {
+            repairId: issue.id,
+            assignmentEventId: history.id,
+            assigneeEmployeeId: nextAssignee,
+            occurredAt,
+          }),
+        );
+      } else if (issue.assignedEmployeeId) {
+        attentionOutboxIds.push(
+          await enqueueWorkOrderAssignmentEnded(tx, {
+            repairId: issue.id,
+            assignmentEventId: history.id,
+            occurredAt,
+            cause: "unassigned",
+          }),
+        );
+      }
+    }
+    return { value: null, attentionOutboxIds };
   });
 
   revalidateIssueSurfaces({ issueId: issue.id, unitId: issue.unitId });
@@ -203,24 +221,41 @@ export async function addIssueUpdateAction(formData: FormData): Promise<IssueAct
 
   const stored = storedRepairStatus(parsed.statusAfterUpdate ?? issue.status);
 
-  await prisma.$transaction([
-    prisma.repairUpdate.create({
+  await runWorkOrderMutation(prisma, async (tx) => {
+    const history = await tx.repairUpdate.create({
       data: {
         repairId: issue.id,
         updateText: parsed.updateText,
         updatedById: session.authKind === "user" ? session.uid : undefined,
         statusAfterUpdate: stored.status,
       },
-    }),
-    prisma.repair.update({
+      select: { id: true },
+    });
+    await tx.repair.update({
       where: { id: issue.id },
       data: {
         status: stored.status,
         holdReason: stored.holdReason,
         completedAt: stored.status === RepairStatus.COMPLETED ? new Date() : null,
       },
-    }),
-  ]);
+    });
+    const attentionOutboxIds: string[] = [];
+    if (
+      stored.status === RepairStatus.COMPLETED &&
+      issue.status !== RepairStatus.COMPLETED &&
+      issue.assignedEmployeeId
+    ) {
+      attentionOutboxIds.push(
+        await enqueueWorkOrderAssignmentEnded(tx, {
+          repairId: issue.id,
+          assignmentEventId: history.id,
+          occurredAt: new Date(),
+          cause: "completed",
+        }),
+      );
+    }
+    return { value: null, attentionOutboxIds };
+  });
 
   revalidateIssueSurfaces({ issueId: issue.id, unitId: issue.unitId });
   return { ok: true, message: "Update recorded." };
@@ -331,24 +366,37 @@ export async function closeIssueAction(formData: FormData): Promise<IssueActionR
   }
 
   const completed = storedRepairStatus(RepairStatus.COMPLETED);
-  await prisma.$transaction([
-    prisma.repairUpdate.create({
+  await runWorkOrderMutation(prisma, async (tx) => {
+    const history = await tx.repairUpdate.create({
       data: {
         repairId: issue.id,
         updateText: parsed.note?.trim() || "Issue resolved and closed",
         updatedById: session.authKind === "user" ? session.uid : undefined,
         statusAfterUpdate: completed.status,
       },
-    }),
-    prisma.repair.update({
+      select: { id: true },
+    });
+    await tx.repair.update({
       where: { id: issue.id },
       data: {
         status: completed.status,
         holdReason: null,
         completedAt: new Date(),
       },
-    }),
-  ]);
+    });
+    const attentionOutboxIds: string[] = [];
+    if (issue.assignedEmployeeId) {
+      attentionOutboxIds.push(
+        await enqueueWorkOrderAssignmentEnded(tx, {
+          repairId: issue.id,
+          assignmentEventId: history.id,
+          occurredAt: new Date(),
+          cause: "completed",
+        }),
+      );
+    }
+    return { value: null, attentionOutboxIds };
+  });
 
   revalidateIssueSurfaces({ issueId: issue.id, unitId: issue.unitId });
   return { ok: true, message: "Issue resolved." };

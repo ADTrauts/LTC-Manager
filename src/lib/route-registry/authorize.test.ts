@@ -239,6 +239,40 @@ test("role policy — /staffing keeps its Supervisor floor", () => {
   assert.equal(roleMayAccessRoute("/staffing/operations", "STAFF", FLAGS), false);
 });
 
+test("notifications center is a signed-in User surface", () => {
+  assert.equal(outcome("/notifications", null), "REQUIRE_AUTHENTICATION");
+  assert.equal(
+    authorizeRoute({
+      pathname: "/notifications",
+      role: "STAFF",
+      sessionScope: "facility",
+      authKind: "user",
+      featureFlags: FLAGS,
+    }).outcome,
+    "ALLOW",
+  );
+  assert.equal(
+    authorizeRoute({
+      pathname: "/notifications",
+      role: "STAFF",
+      sessionScope: "facility",
+      authKind: "employee",
+      featureFlags: FLAGS,
+    }).outcome,
+    "DENY",
+  );
+  assert.equal(
+    authorizeRoute({
+      pathname: "/notifications",
+      role: "FACILITY_ADMINISTRATOR",
+      sessionScope: "facility",
+      authKind: "harbor_staff",
+      featureFlags: FLAGS,
+    }).outcome,
+    "DENY",
+  );
+});
+
 test("user session — /account and /account/security are global User surfaces", () => {
   for (const pathname of ["/account", "/account/security"]) {
     assert.equal(outcome(pathname, null), "REQUIRE_AUTHENTICATION", pathname);

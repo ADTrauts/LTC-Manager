@@ -4,6 +4,7 @@ import { useTransition } from "react";
 
 import { signOutEverywhereAction } from "@/app/account/security/actions";
 import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
+import { releaseBrowserPushForSignOut } from "@/lib/notifications/browser-push-client";
 
 export function SignOutEverywhereForm() {
   const [pending, startTransition] = useTransition();
@@ -19,7 +20,9 @@ export function SignOutEverywhereForm() {
           return;
         }
         startTransition(() => {
-          void signOutEverywhereAction();
+          void releaseBrowserPushForSignOut().finally(() => {
+            void signOutEverywhereAction();
+          });
         });
       }}
     >

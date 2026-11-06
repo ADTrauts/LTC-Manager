@@ -1,5 +1,9 @@
 "use server";
 
+import {
+  enqueueWorkOrderAssignmentEnded,
+  runWorkOrderMutation,
+} from "@/lib/asset-operations/work-order-assignment-attention";
 import { nextRepairCode } from "@/lib/asset-operations/work-order-service";
 
 import { revalidatePath } from "next/cache";
@@ -34,6 +38,7 @@ import {
   resumeWorkOrder,
   satisfyWorkOrderRecordRequirement,
   setWorkOrderExternalCost,
+  setWorkOrderResponseRequirement,
   startWorkOrder,
   waiveWorkOrderRecordRequirement,
 } from "@/lib/asset-operations";
@@ -449,6 +454,25 @@ export async function addWorkOrderNoteAction(formData: FormData) {
   revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
 }
 
+export async function setWorkOrderResponseRequirementAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  const repairId = String(formData.get("repairId") ?? "");
+  const departmentId = String(formData.get("departmentId") ?? "");
+  const responseRequirement = String(formData.get("responseRequirement") ?? "");
+  if (!repairId || !departmentId) throw new Error("Work Order not found.");
+  if (responseRequirement !== "STANDARD" && responseRequirement !== "IMMEDIATE") {
+    throw new Error("Choose Standard or Immediate.");
+  }
+  await setWorkOrderResponseRequirement(session, {
+    facilityId: session.facilityId,
+    departmentId,
+    repairId,
+    responseRequirement,
+  });
+  revalidateWorkOrder(repairId, toOptional(formData.get("issueId")));
+  revalidatePath("/notifications");
+}
+
 export async function assignWorkOrderAction(formData: FormData) {
   const session = await requireFacilitySession();
   requireAtLeastRole(session.role, "SUPERVISOR");
@@ -494,7 +518,7 @@ export async function addRepairUpdateAction(formData: FormData) {
 
   const repair = await prisma.repair.findFirst({
     where: { id: parsed.repairId, unit: { facilityId: session.facilityId } },
-    select: { id: true },
+    select: { id: true, status: true, assignedEmployeeId: true },
   });
   if (!repair) {
     throw new Error("Repair not found.");
@@ -506,16 +530,17 @@ export async function addRepairUpdateAction(formData: FormData) {
       ? "WAITING_FOR_PART"
       : undefined,
   );
-  const [, updated] = await prisma.$transaction([
-    prisma.repairUpdate.create({
+  const updated = await runWorkOrderMutation(prisma, async (tx) => {
+    const history = await tx.repairUpdate.create({
       data: {
         repairId: parsed.repairId,
         updateText: parsed.updateText,
         updatedById: session.authKind === "user" ? session.uid : undefined,
         statusAfterUpdate: stored.status,
       },
-    }),
-    prisma.repair.update({
+      select: { id: true },
+    });
+    const row = await tx.repair.update({
       where: { id: parsed.repairId },
       data: {
         status: stored.status,
@@ -535,8 +560,24 @@ export async function addRepairUpdateAction(formData: FormData) {
         completedAt: true,
         unit: { select: { facilityId: true } },
       },
-    }),
-  ]);
+    });
+    const attentionOutboxIds: string[] = [];
+    if (
+      stored.status === RepairStatus.COMPLETED &&
+      repair.status !== RepairStatus.COMPLETED &&
+      repair.assignedEmployeeId
+    ) {
+      attentionOutboxIds.push(
+        await enqueueWorkOrderAssignmentEnded(tx, {
+          repairId: repair.id,
+          assignmentEventId: history.id,
+          occurredAt: new Date(),
+          cause: "completed",
+        }),
+      );
+    }
+    return { value: row, attentionOutboxIds };
+  });
 
   revalidateRepairViews({ issueId: updated.id, unitId: updated.unitId });
 }

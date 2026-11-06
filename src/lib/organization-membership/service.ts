@@ -1,6 +1,7 @@
 import { Prisma, type OrganizationMembershipRole, type PrismaClient } from "@prisma/client";
 
 import { closeCurrentPartnerAssignmentsForOrganizationMembership } from "@/lib/partner-user-access/service";
+import { revokeAllPushSubscriptionsForUser } from "@/lib/notifications/push-subscription";
 import { revokeUserSessions } from "@/lib/session-revocation";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -303,6 +304,7 @@ export async function createOrganizationMembership(
   });
 
   if (input.revokeSessions === true && "$transaction" in db) {
+    await revokeAllPushSubscriptionsForUser(db as PrismaClient, { userId: input.userId, now: new Date() });
     await revokeUserSessions(db as PrismaClient, input.userId);
   }
 
@@ -385,6 +387,7 @@ export async function changeOrganizationRole(
   });
 
   if (input.revokeSessions === true && "$transaction" in db) {
+    await revokeAllPushSubscriptionsForUser(db as PrismaClient, { userId: input.userId, now: new Date() });
     await revokeUserSessions(db as PrismaClient, input.userId);
   }
 
@@ -462,6 +465,7 @@ export async function endOrganizationMembership(
   });
 
   if (input.revokeSessions === true && "$transaction" in db) {
+    await revokeAllPushSubscriptionsForUser(db as PrismaClient, { userId: input.userId, now: new Date() });
     await revokeUserSessions(db as PrismaClient, input.userId);
   }
 

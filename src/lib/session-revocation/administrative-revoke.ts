@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { hasAtLeastRole, type AppRole } from "@/lib/access";
+import { revokeAllPushSubscriptionsForUser } from "@/lib/notifications/push-subscription";
 
 import { describeRevocation } from "./triggers";
 import { revokeEmployeeSessions, revokeUserSessions, type PrismaLike } from "./session-version";
@@ -84,6 +85,7 @@ export async function revokeEmployeeSessionsAdministratively(
     let revokedUser = false;
     if (target.userId) {
       await revokeUserSessions(tx, target.userId);
+      await revokeAllPushSubscriptionsForUser(tx, { userId: target.userId, now: new Date() });
       revokedUser = true;
     }
 

@@ -500,6 +500,7 @@ export const WRITE_MANIFEST: WriteManifest = {
       "waiveWorkOrderRecordRequirementAction",
       "addWorkOrderNoteAction",
       "assignWorkOrderAction",
+      "setWorkOrderResponseRequirementAction",
       "linkEvidenceToWorkOrderAction",
       "addRepairUpdateAction",
       "addRepairPhotosAction",
@@ -538,6 +539,13 @@ export const WRITE_MANIFEST: WriteManifest = {
     "ensureShiftTransitionAction",
   ]),
 
+  [`${PROTECTED}/notifications/actions.ts`]: each(PERSONAL, [
+    "markNotificationReadAction",
+    "acknowledgeNotificationAction",
+    "snoozeNotificationAction",
+    "resumeBrowserAlertsAction",
+  ]),
+  [`${APP}/account/notifications/actions.ts`]: each(PERSONAL, ["saveQuietHoursAction"]),
   [`${PROTECTED}/dashboard/actions.ts`]: {
     ...each(SHARED_FACILITY, ["refreshMorningBriefAction", "ensureMorningBriefAction"]),
     ...each(PERSONAL, ["saveDashboardLayout", "resetDashboardLayout"]),
@@ -550,6 +558,11 @@ export const WRITE_MANIFEST: WriteManifest = {
     "declineFacilityAdministratorInvitationAction",
   ]),
   [`${APP}/account/security/actions.ts`]: each(PERSONAL, ["changeOwnPasswordAction", "signOutEverywhereAction"]),
+  [`${APP}/api/notifications/push-subscription/route.ts`]: { POST: PERSONAL },
+  [`${APP}/api/notifications/push-subscription/disable/route.ts`]: { POST: PERSONAL },
+  [`${APP}/api/notifications/push-subscription/status/route.ts`]: { POST: PERSONAL },
+  [`${APP}/api/notifications/push-subscription/release/route.ts`]: { POST: AUTH_SYSTEM },
+  [`${APP}/api/notifications/push-subscription/reconcile/route.ts`]: { POST: AUTH_SYSTEM },
 
   // Offline sync replays commands through the same domain modules (CDA ARCHITECTURE §5).
   [`${PROTECTED}/unit/[unitId]/offline-actions.ts`]: each(AUTH_SYSTEM, ["resolveOfflineConflictAction"]),

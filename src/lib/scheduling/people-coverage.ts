@@ -1,7 +1,10 @@
 import { OperationalAssignmentSource } from "@prisma/client";
 
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
+import { processNotificationOutboxAfterCommit } from "@/lib/notifications/live-publishers";
 import { prisma } from "@/lib/prisma";
+import { loadCoverageSlotSnapshot } from "@/lib/scheduling/coverage-episodes/observe";
+import { recordCoverageEpisodeTransitions } from "@/lib/scheduling/coverage-episodes/record";
 
 import { formatCallDownReason, isCallDownTemplateKey } from "./call-down";
 
@@ -24,25 +27,63 @@ export async function markShiftsCalledOff(input: {
   serviceDate: string;
   reason: string;
   now?: Date;
-}): Promise<{ marked: number }> {
+}): Promise<{ marked: number; attentionOutboxIds: string[] }> {
   const { start, end } = dayWindow(input.serviceDate);
-  const shifts = await prisma.scheduleEntry.findMany({
-    where: {
-      employeeId: input.employeeId,
-      date: { gte: start, lt: end },
-      employee: { facilityId: input.facilityId },
-    },
-    select: { id: true },
-  });
-  if (shifts.length === 0) {
-    throw new Error("No shift on that date to mark.");
-  }
+  const serviceDateKey = input.serviceDate.slice(0, 10);
   const calledOffAt = input.now ?? new Date();
-  await prisma.scheduleEntry.updateMany({
-    where: { id: { in: shifts.map((shift) => shift.id) } },
-    data: { calledOffAt, callOffReason: input.reason },
+  const result = await prisma.$transaction(async (tx) => {
+    const shifts = await tx.scheduleEntry.findMany({
+      where: {
+        employeeId: input.employeeId,
+        date: { gte: start, lt: end },
+        employee: { facilityId: input.facilityId },
+      },
+      select: { id: true, departmentId: true },
+    });
+    if (shifts.length === 0) {
+      throw new Error("No shift on that date to mark.");
+    }
+    const departmentIds = [
+      ...new Set(shifts.map((shift) => shift.departmentId).filter((id): id is string => Boolean(id))),
+    ];
+    const before = new Map(
+      await Promise.all(
+        departmentIds.map(async (departmentId) => [
+          departmentId,
+          await loadCoverageSlotSnapshot(tx, {
+            facilityId: input.facilityId,
+            departmentId,
+            serviceDateKey,
+          }),
+        ] as const),
+      ),
+    );
+    await tx.scheduleEntry.updateMany({
+      where: { id: { in: shifts.map((shift) => shift.id) } },
+      data: { calledOffAt, callOffReason: input.reason },
+    });
+    const outboxIds: string[] = [];
+    for (const departmentId of departmentIds) {
+      const sourceId = shifts.find((shift) => shift.departmentId === departmentId)?.id;
+      if (!sourceId) continue;
+      outboxIds.push(
+        ...(await recordCoverageEpisodeTransitions(tx, {
+          facilityId: input.facilityId,
+          departmentId,
+          serviceDateKey,
+          before: before.get(departmentId) ?? new Map(),
+          occurredAt: calledOffAt,
+          sourceType: "schedule_call_off",
+          sourceId,
+        })),
+      );
+    }
+    return { marked: shifts.length, attentionOutboxIds: outboxIds };
   });
-  return { marked: shifts.length };
+  for (const outboxId of result.attentionOutboxIds) {
+    await processNotificationOutboxAfterCommit(outboxId);
+  }
+  return result;
 }
 
 export async function moveDayAssignment(input: {

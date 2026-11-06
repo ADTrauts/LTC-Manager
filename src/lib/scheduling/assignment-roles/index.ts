@@ -19,6 +19,12 @@ const DIETARY_ROLES: OperationalRoleDefinition[] = [
   { key: "SERVER", label: "Server", departmentKeys: ["DIETARY"], defaultUnitTypes: ["SERVERY", "RESIDENT_AREA"] },
   { key: "CALL_DOWN_RUNNER", label: "Call-Down Runner", departmentKeys: ["DIETARY"] },
   { key: "DIETARY_SUPERVISOR_ROUNDING", label: "Supervisor Rounding", departmentKeys: ["DIETARY"] },
+  {
+    key: "DIETARY_ON_CALL_COVERAGE",
+    label: "On-Call Coverage",
+    departmentKeys: ["DIETARY"],
+    description: "Who responds to an operational incident for this Department during this window.",
+  },
 ];
 
 const EVS_ROLES: OperationalRoleDefinition[] = [
@@ -28,13 +34,24 @@ const EVS_ROLES: OperationalRoleDefinition[] = [
   { key: "FLOOR_CARE", label: "Floor Care", departmentKeys: ["EVS"], defaultUnitTypes: ["COMMON_AREA", "EVS_ZONE"] },
   { key: "PUBLIC_AREA", label: "Public Area", departmentKeys: ["EVS"], defaultUnitTypes: ["COMMON_AREA"] },
   { key: "EVS_SUPERVISOR_ROUNDING", label: "Supervisor Rounding", departmentKeys: ["EVS"] },
+  {
+    key: "EVS_ON_CALL_COVERAGE",
+    label: "On-Call Coverage",
+    departmentKeys: ["EVS"],
+    description: "Who responds to an operational incident for this Department during this window.",
+  },
 ];
 
 const PLANT_ROLES: OperationalRoleDefinition[] = [
   { key: "WORK_ORDER_RESPONSE", label: "Work Order Response", departmentKeys: ["PLANT"] },
   { key: "PREVENTIVE_MAINTENANCE", label: "Preventive Maintenance", departmentKeys: ["PLANT"], defaultUnitTypes: ["MECHANICAL"] },
   { key: "EQUIPMENT_ROUND", label: "Equipment Round", departmentKeys: ["PLANT"], defaultUnitTypes: ["MECHANICAL"] },
-  { key: "ON_CALL_COVERAGE", label: "On-Call Coverage", departmentKeys: ["PLANT"] },
+  {
+    key: "ON_CALL_COVERAGE",
+    label: "On-Call Coverage",
+    departmentKeys: ["PLANT"],
+    description: "Who responds to an operational incident for this Department during this window.",
+  },
   { key: "RECEIVING_VENDOR", label: "Receiving / Vendor", departmentKeys: ["PLANT"], defaultUnitTypes: ["STORAGE"] },
   { key: "PLANT_SUPERVISOR_ROUNDING", label: "Supervisor Rounding", departmentKeys: ["PLANT"] },
 ];

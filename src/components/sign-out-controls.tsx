@@ -7,6 +7,7 @@ import { GlobalUserNavLinks } from "@/components/global-user-menu";
 import { CUSTOMER_SUPPORT_HREF } from "@/lib/customer-support";
 import { AppIcons } from "@/lib/design-system";
 import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
+import { completeBrowserSignOut } from "@/lib/notifications/browser-push-client";
 import { clearAllOfflineData, clearForSignOut, loadAllCommands } from "@/lib/offline/local-store";
 
 type AccountMenuProps = {
@@ -23,16 +24,7 @@ type AccountMenuProps = {
 
 async function postLogoutAndRedirect(form: HTMLFormElement) {
   const action = form.getAttribute("action") || "/api/auth/logout";
-  try {
-    await fetch(action, {
-      method: "POST",
-      credentials: "same-origin",
-      redirect: "manual",
-    });
-  } catch {
-    // Continue to login even if the network blips after local clearance.
-  }
-  window.location.assign("/login");
+  await completeBrowserSignOut(action, "/login");
 }
 
 function lockSpaceContext() {

@@ -17,6 +17,7 @@ import { applyMaintainerChoice, assertRepairCompanyMatchesMaintainer } from "@/l
 import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
 import { departmentUsesCanonicalRecords } from "@/lib/canonical-logs/record-engine-store";
 import { prisma } from "@/lib/prisma";
+import { enqueueAssetStatusAttention, processAssetStatusAttention } from "./asset-status-attention";
 import { listAttachmentsForAsset } from "@/lib/attachments";
 
 import {
@@ -454,11 +455,12 @@ export async function changeAssetStatus(
   }
 
   if (fromStatus === toStatus) {
-    return asset;
+    return { ...asset, attentionOutboxIds: [] as string[] };
   }
 
   const actorUserId = sessionUserIdForFk(session);
   const now = input.now ?? new Date();
+  const historyId = cuidLike();
   const retired =
     input.toStatus === "RETIRED"
       ? {
@@ -469,31 +471,47 @@ export async function changeAssetStatus(
         ? { retiredAt: null, retiredReason: null }
         : {};
 
-  const updated = await client.asset.update({
-    where: { id: asset.id },
-    data: {
-      status: toStatus,
-      ...(actorUserId
-        ? { lastChangedByUser: { connect: { id: actorUserId } } }
-        : {}),
-      ...retired,
-      statusHistory: {
-        create: {
-          id: cuidLike(),
-          fromStatus,
-          toStatus,
-          reason: input.reason,
-          note: input.note?.trim() || null,
-          changedByUserId: actorUserId,
-          sourceIssueId: input.sourceIssueId ?? null,
-          sourceRepairId: input.sourceRepairId ?? null,
-          changedAt: now,
+  const owns = typeof (client as PrismaClient).$transaction === "function";
+  const write = async (tx: DbClient) => {
+    const updated = await tx.asset.update({
+      where: { id: asset.id },
+      data: {
+        status: toStatus,
+        ...(actorUserId
+          ? { lastChangedByUser: { connect: { id: actorUserId } } }
+          : {}),
+        ...retired,
+        statusHistory: {
+          create: {
+            id: historyId,
+            fromStatus,
+            toStatus,
+            reason: input.reason,
+            note: input.note?.trim() || null,
+            changedByUserId: actorUserId,
+            sourceIssueId: input.sourceIssueId ?? null,
+            sourceRepairId: input.sourceRepairId ?? null,
+            changedAt: now,
+          },
         },
       },
-    },
-  });
+    });
+    const attentionOutboxIds = await enqueueAssetStatusAttention(tx, {
+      facilityId: input.facilityId,
+      assetId: asset.id,
+      historyId,
+      fromStatus,
+      toStatus,
+      reason: input.reason,
+      occurredAt: now,
+    });
+    return { ...updated, attentionOutboxIds };
+  };
 
-  return updated;
+  if (!owns) return write(client);
+  const written = await (client as PrismaClient).$transaction((tx) => write(tx));
+  await processAssetStatusAttention(client as PrismaClient, written.attentionOutboxIds);
+  return written;
 }
 
 /** Explicit return-to-service — never called automatically from Work Order complete. */

@@ -515,6 +515,8 @@ test("classifySessionRejection splits identity failure from context failure", ()
   assert.equal(classifySessionRejection("IDENTITY_INACTIVE"), "identity");
   assert.equal(classifySessionRejection("VERSION_STALE"), "identity");
   assert.equal(classifySessionRejection("VERSION_CLAIM_MISSING"), "identity");
+  assert.equal(classifySessionRejection("SESSION_UNIDENTIFIED"), "identity");
+  assert.equal(classifySessionRejection("SESSION_REVOKED"), "identity");
   assert.equal(classifySessionRejection("AUTH_METHOD_NOT_ALLOWED"), "identity");
   assert.equal(classifySessionRejection("FACILITY_ACCESS_REVOKED"), "context");
   assert.equal(classifySessionRejection("ROLE_STALE"), "context");
@@ -573,6 +575,7 @@ test("account session validator live-checks User only", async () => {
     email: "sarah@example.com",
     scopeKind: "account" as const,
     sessionVersion: 3,
+    jti: "22222222-2222-4222-8222-222222222222",
   };
   const valid = await validateSessionAuthority(base, client as never);
   assert.equal(valid.valid, true);

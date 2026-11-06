@@ -2,6 +2,8 @@ export {
   INITIAL_SESSION_VERSION,
   revokeEmployeeSessions,
   revokeEmployeeSessionsMany,
+  endSignedOutUserCredential,
+  findRevokedUserSession,
   revokeUserSessions,
   revokeUserSessionsMany,
   validateSessionAuthority,

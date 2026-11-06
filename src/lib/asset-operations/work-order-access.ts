@@ -32,9 +32,10 @@ export async function resolveWorkOrderActorAuthority(
   session: FacilitySession,
   facilityId: string,
   departmentId: string,
-  opts?: { repairId?: string },
+  opts?: { repairId?: string; client?: DbClient },
 ): Promise<WorkOrderActor> {
-  const department = await prisma.department.findFirst({
+  const db = opts?.client ?? prisma;
+  const department = await db.department.findFirst({
     where: { id: departmentId, facilityId, isActive: true },
     select: { id: true, key: true },
   });
@@ -77,6 +78,7 @@ export async function resolveWorkOrderActorAuthority(
     session,
     facilityId,
     departmentId,
+    db,
   );
   requireWorkOrderManage(authority);
   return {
@@ -109,7 +111,7 @@ export async function appendRepairUpdate(
     requesterVisible?: boolean;
   },
 ) {
-  await client.repairUpdate.create({
+  const row = await client.repairUpdate.create({
     data: {
       id: newWorkOrderCuid(),
       repairId: input.repairId,
@@ -118,5 +120,7 @@ export async function appendRepairUpdate(
       updatedById: input.updatedById,
       requesterVisible: input.requesterVisible ?? false,
     },
+    select: { id: true },
   });
+  return row.id;
 }

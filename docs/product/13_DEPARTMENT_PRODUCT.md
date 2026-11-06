@@ -218,7 +218,7 @@ Department Products that exist today:
 
 When Vssyl-authored Work belongs to a Phase, the preset binds that Work to the Phase stable key. Changing a preset affects future drafts only.
 
-Configure Locations, Operating Rhythm, Work, People & Coverage, and Records in Department Builder. Physical rooms stay in Facility Builder.
+Configure Locations, Operating Rhythm, Work, People & Coverage, Records, and Notifications & Attention in Department Builder. The Notifications & Attention section sets event policy, thresholds, protected categories, recipients, escalation, and grouping for the shared engine. It follows draft and publication. It does not send notifications. Physical rooms stay in Facility Builder. The engine contract is [16 — Notifications & Attention](./16_NOTIFICATIONS_AND_ATTENTION.md).
 
 ---
 
@@ -230,7 +230,7 @@ Facility Plant Operations is the filled example: [14 — Facility Plant Operatio
 
 1. Write every blueprint row before implementation.
 2. Add the Product to `src/lib/department-products/registry.ts` with status **DEVELOPMENT**. Customers cannot see, buy, or install it until a separate decision marks it **AVAILABLE**.
-3. Use the Platform engines: Location Functions, Operational Cycles, Work, Records, Assets and repairs, shifts, Assignments, and Job Flow. Empty starters are allowed. A second engine is allowed only when the platform-gap row names a mechanism the platform does not have.
+3. Use the Platform engines: Location Functions, Operational Cycles, Work, Records, Assets and repairs, shifts, Assignments, Job Flow, and Notifications & Attention. Empty starters are allowed. Notification behavior is a published policy on the shared engine, not a Department notification engine. A second engine is allowed only when the platform-gap row names a mechanism the platform does not have.
 4. Put starter forms in the existing Catalog (`CatalogLogDefinition`). Do not add a template model or a second catalog.
 5. Declare the Dashboard contribution. The Product contributes capabilities. It does not ship dashboard screens. The rules are the [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md).
 6. Classify every new Department write in `src/lib/department-authority/write-manifest.ts`. Who may run a vendor-run Department is already decided by the platform. The Product does not add roles or a separate partner application.
@@ -259,9 +259,10 @@ Every new Department Product must define these before implementation.
 | Starter content | Which Marketplace items are pre-selected for the Department, what install copies, and what stays unpublished until the facility publishes |
 | Facility-configurable values | Times, room bindings, people, local labels |
 | Dashboard contributions | Which Dashboard capabilities and attention sources the product produces, its drill-down homes, and its "not configured" states. Products contribute capabilities, never dashboard UI. See the [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md). |
+| Notification policy | Which platform events this product expects the shared Notifications & Attention engine to watch, the default thresholds, protected categories, recipient reasons, escalation, and grouping. Empty is allowed. The product does not ship delivery. See [16](./16_NOTIFICATIONS_AND_ATTENTION.md). |
 | Platform-gap test | Which required behavior no existing Platform mechanism can express |
 
-A Department Product does not receive a new location tree, Cycle engine, Work engine, Record engine, or history store unless that platform-gap test shows a missing reusable mechanism.
+A Department Product does not receive a new location tree, Cycle engine, Work engine, Record engine, history store, or notification engine unless that platform-gap test shows a missing reusable mechanism. Notification policy is not that missing mechanism.
 
 A Department Product cannot become AVAILABLE, or ship a new operational capability, until its Dashboard contribution declaration and the [Dashboard release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate) are complete, and every new Department write is classified in the write manifest (`src/lib/department-authority/write-manifest.ts`). An unclassified write fails that test. Food and Nutrition and Facility Plant Operations were declared on October 20, 2026. The Environmental Services declaration is a draft.
 

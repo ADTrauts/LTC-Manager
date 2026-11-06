@@ -30,6 +30,7 @@ import {
   requireAssetTriage,
   resolveAssetOperationsAuthority,
 } from "./authority";
+import { commitIssueCreation } from "./issue-created-attention";
 import { issueStatusesForListView, type IssueListView } from "./issue-semantics";
 import {
   normalizeAssetStatus,
@@ -294,7 +295,7 @@ export async function reportIssue(
   const issueCode = await nextIssueCode(client);
   const priority: RepairPriority = input.priority ?? "MEDIUM";
 
-  const created = await client.assetIssue.create({
+  const created = await commitIssueCreation(client, (tx) => tx.assetIssue.create({
     data: {
       id: cuidLike(),
       issueCode,
@@ -343,7 +344,7 @@ export async function reportIssue(
         : {}),
     },
     include: { updates: { orderBy: { updatedAt: "asc" }, take: 20 } },
-  });
+  }));
 
   return { issue: created, duplicateOf: null as string | null, idempotent: false };
 }
@@ -417,54 +418,59 @@ export async function createIssueFromRequest(
   const summary = (input.summary?.trim() || request.summary).trim();
   const description = (input.description?.trim() || request.description).trim();
 
-  const issue = await client.assetIssue.create({
-    data: {
-      id: cuidLike(),
-      issueCode,
-      facilityId: input.facilityId,
-      departmentId: input.plantDepartmentId,
-      assetId: location.assetId,
-      unitId: location.unitId,
-      spaceId: location.spaceId,
-      summary,
-      description,
-      status: "REPORTED",
-      priority: request.priority,
-      operationalImpact: request.operationalImpact,
-      equipmentRemainsUsable: request.equipmentRemainsUsable ?? true,
-      observedAt: request.observedAt,
-      reportedAt: now,
-      reportedByUserId: actors.userId,
-      reportedByEmployeeId: actors.employeeId,
-      reportedByLabel: actors.label,
-      updates: {
-        create: {
-          id: cuidLike(),
-          updateText: `Created from Request ${request.requestCode}`,
-          statusAfterUpdate: "REPORTED",
-          updatedByUserId: actors.userId,
-          updatedByEmployeeId: actors.employeeId,
+  const issue = await commitIssueCreation(client, async (tx) => {
+    const createdIssue = await tx.assetIssue.create({
+      data: {
+        id: cuidLike(),
+        issueCode,
+        facilityId: input.facilityId,
+        departmentId: input.plantDepartmentId,
+        assetId: location.assetId,
+        unitId: location.unitId,
+        spaceId: location.spaceId,
+        summary,
+        description,
+        status: "REPORTED",
+        priority: request.priority,
+        operationalImpact: request.operationalImpact,
+        equipmentRemainsUsable: request.equipmentRemainsUsable ?? true,
+        observedAt: request.observedAt,
+        reportedAt: now,
+        reportedByUserId: actors.userId,
+        reportedByEmployeeId: actors.employeeId,
+        reportedByLabel: actors.label,
+        updates: {
+          create: {
+            id: cuidLike(),
+            updateText: `Created from Request ${request.requestCode}`,
+            statusAfterUpdate: "REPORTED",
+            updatedByUserId: actors.userId,
+            updatedByEmployeeId: actors.employeeId,
+          },
         },
       },
-    },
-    include: { updates: { orderBy: { updatedAt: "asc" }, take: 20 } },
+      include: { updates: { orderBy: { updatedAt: "asc" }, take: 20 } },
+    });
+    await tx.operationalRequest.update({
+      where: { id: request.id },
+      data: { relatedAssetIssueId: createdIssue.id },
+    });
+    await tx.operationalRequestUpdate.create({
+      data: {
+        id: cuidLike(),
+        requestId: request.id,
+        updateText: `Linked to Issue ${createdIssue.issueCode}`,
+        statusAfterUpdate: request.status,
+        updatedByUserId: actors.userId,
+        requesterVisible: false,
+      },
+    });
+    return createdIssue;
   });
 
-  const updatedRequest = await client.operationalRequest.update({
+  const updatedRequest = await client.operationalRequest.findFirstOrThrow({
     where: { id: request.id },
-    data: { relatedAssetIssueId: issue.id },
   });
-  await client.operationalRequestUpdate.create({
-    data: {
-      id: cuidLike(),
-      requestId: request.id,
-      updateText: `Linked to Issue ${issue.issueCode}`,
-      statusAfterUpdate: request.status,
-      updatedByUserId: actors.userId,
-      requesterVisible: false,
-    },
-  });
-
   return { issue, request: updatedRequest, created: true };
 }
 

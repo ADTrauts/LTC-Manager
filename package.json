@@ -68,9 +68,10 @@
     "postmark": "^5.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "saxes": "5.0.1",
     "stripe": "^22.1.1",
-    "zod": "^4.3.6",
-    "saxes": "5.0.1"
+    "web-push": "^3.6.7",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2",

@@ -197,10 +197,91 @@ export function resolveStoredHoldWrite(
   return { status: "OPEN", holdReason: null };
 }
 
+export type WorkOrderResponseRequirementLabel = "STANDARD" | "IMMEDIATE";
+
+const TERMINAL_WORK_ORDER_STATUSES = new Set(["COMPLETED", "CANCELLED", "CLOSED", "CANCELED"]);
+
+/**
+ * Immediate response is active only while the Work Order is still open
+ * and its own response requirement says IMMEDIATE.
+ * Queue priority, the deadline, and the assignee do not answer this.
+ */
+export function workOrderRequiresImmediateResponse(input: {
+  status?: string | null;
+  responseRequirement?: string | null;
+}): boolean {
+  if (input.responseRequirement !== "IMMEDIATE") return false;
+  if (input.status && TERMINAL_WORK_ORDER_STATUSES.has(input.status)) return false;
+  return true;
+}
+
+export type WorkOrderResponseRequirementView = {
+  value: WorkOrderResponseRequirementLabel;
+  label: "Standard" | "Immediate";
+  explanation: string;
+  editable: boolean;
+  readOnlyReason: "role" | "completed" | "cancelled" | "no_department" | null;
+};
+
+const RESPONSE_EXPLANATION = {
+  STANDARD: "Uses the normal Work Order assignment and deadline workflow.",
+  IMMEDIATE:
+    "Immediate response uses the Department's On-Call Coverage to notify the current responder.",
+} as const;
+
+export const WORK_ORDER_RESPONSE_PRIORITY_DISTINCTION =
+  "Priority controls queue ordering. Response Requirement controls whether immediate operational response is required.";
+
+/**
+ * What the Work Order screen may show and change.
+ * The domain service remains the authority for the write.
+ */
+export function presentWorkOrderResponseRequirement(input: {
+  responseRequirement?: string | null;
+  status?: string | null;
+  canManageWorkOrders: boolean;
+  hasResponsibleDepartment: boolean;
+}): WorkOrderResponseRequirementView {
+  const value: WorkOrderResponseRequirementLabel =
+    input.responseRequirement === "IMMEDIATE" ? "IMMEDIATE" : "STANDARD";
+  const status = input.status ?? "OPEN";
+  const terminal = TERMINAL_WORK_ORDER_STATUSES.has(status);
+  let readOnlyReason: WorkOrderResponseRequirementView["readOnlyReason"] = null;
+  if (status === "CANCELLED" || status === "CANCELED") readOnlyReason = "cancelled";
+  else if (terminal) readOnlyReason = "completed";
+  else if (!input.hasResponsibleDepartment) readOnlyReason = "no_department";
+  else if (!input.canManageWorkOrders) readOnlyReason = "role";
+  return {
+    value,
+    label: value === "IMMEDIATE" ? "Immediate" : "Standard",
+    explanation: RESPONSE_EXPLANATION[value],
+    editable: readOnlyReason === null,
+    readOnlyReason,
+  };
+}
+
+export function presentWorkOrderResponseHistoryLine(
+  transition: string | null | undefined,
+): string | null {
+  switch (transition) {
+    case "OPENED":
+      return "Immediate response required";
+    case "CLEARED":
+      return "Response returned to Standard";
+    case "COMPLETED":
+      return "Immediate-response Work Order completed";
+    case "CANCELLED":
+      return "Immediate-response Work Order cancelled";
+    default:
+      return null;
+  }
+}
+
 export type WorkOrderPresentation = {
   status: WorkOrderStatus;
   holdReason: WorkOrderHoldReason | null;
   priority: WorkOrderPriority;
+  responseRequirement: WorkOrderResponseRequirementLabel;
   kind: "CORRECTIVE" | "PREVENTIVE";
   categoryKey: string | null;
   categoryLabel: string | null;
@@ -210,6 +291,7 @@ export function presentWorkOrder(input: {
   status: RepairStatus | string;
   holdReason?: WorkOrderHoldReason | string | null;
   priority: RepairPriority | string;
+  responseRequirement?: string | null;
   workOrderKind?: WorkOrderKind | string | null;
   maintenanceCategory?: { key: string; label: string; archivedAt?: Date | null } | null;
   repairTrade?: RepairTrade | string | null;
@@ -230,6 +312,7 @@ export function presentWorkOrder(input: {
     status,
     holdReason: status === "ON_HOLD" ? presentWorkOrderHoldReason(input) : null,
     priority: presentWorkOrderPriority(input.priority),
+    responseRequirement: input.responseRequirement === "IMMEDIATE" ? "IMMEDIATE" : "STANDARD",
     kind: presentWorkOrderKind(input.workOrderKind),
     categoryKey: category.key,
     categoryLabel: category.label,

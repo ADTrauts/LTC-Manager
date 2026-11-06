@@ -1,9 +1,9 @@
-/* LTC Manager Phase 6A — native service worker.
+/* Vssyl offline shell — native service worker.
  *
  * Cache policy: versioned application shell + public static assets only.
  * Never cache protected HTML, authentication responses, or arbitrary API GETs.
  */
-const CACHE_VERSION = "ltc-offline-shell-v3";
+const CACHE_VERSION = "ltc-offline-shell-v4";
 const SHELL_URLS = [
   "/offline.html",
   "/space-offline.js",
@@ -11,6 +11,9 @@ const SHELL_URLS = [
   "/manifest.webmanifest",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -133,4 +136,75 @@ self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
+});
+
+const PUSH_TITLE = "Vssyl";
+const PUSH_BODY = "Operational attention requires review";
+const ATTENTION_ID = /^[A-Za-z0-9_-]{8,64}$/;
+
+function attentionClickPath(data) {
+  const attentionId = data && typeof data.attentionId === "string" ? data.attentionId : "";
+  if (ATTENTION_ID.test(attentionId)) {
+    return `/notifications?attention=${encodeURIComponent(attentionId)}`;
+  }
+  return "/notifications";
+}
+
+self.addEventListener("push", (event) => {
+  let attentionId = "";
+  let renotify = false;
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      if (parsed && typeof parsed.attentionId === "string" && ATTENTION_ID.test(parsed.attentionId)) {
+        attentionId = parsed.attentionId;
+      }
+      if (parsed && parsed.renotify === true) renotify = true;
+    } catch {
+      attentionId = "";
+      renotify = false;
+    }
+  }
+  event.waitUntil(
+    self.registration.showNotification(PUSH_TITLE, {
+      body: PUSH_BODY,
+      tag: attentionId ? `attention-${attentionId}` : "vssyl-attention",
+      renotify,
+      data: attentionId ? { attentionId } : {},
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(attentionClickPath(event.notification.data), self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of windows) {
+        let sameOrigin = false;
+        try {
+          sameOrigin = new URL(client.url).origin === self.location.origin;
+        } catch {
+          sameOrigin = false;
+        }
+        if (!sameOrigin) continue;
+        try {
+          if (typeof client.focus === "function") await client.focus();
+        } catch {
+          continue;
+        }
+        if (typeof client.navigate !== "function") continue;
+        try {
+          const navigated = await client.navigate(target);
+          if (navigated) return;
+        } catch {
+          // This window could not move. Try another, then open one.
+        }
+      }
+      if (typeof self.clients.openWindow === "function") {
+        await self.clients.openWindow(target);
+      }
+    })(),
+  );
 });
