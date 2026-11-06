@@ -221,6 +221,8 @@ model Facility {
   notificationOutbox                    NotificationOutbox[]
   notifications                         Notification[]
   coverageEpisodes                      CoverageEpisode[]
+  employeeOperationalRoleQualifications EmployeeOperationalRoleQualification[]
+  assignmentEligibilityExceptions       OperationalAssignmentEligibilityException[]
   createdAt                             DateTime                                @default(now())
   updatedAt                             DateTime                                @updatedAt
 
@@ -288,6 +290,8 @@ model Department {
   partnerDepartmentScopes        FacilityPartnerDepartmentScope[]
   notificationOutbox             NotificationOutbox[]
   notifications                  Notification[]
+  employeeOperationalRoleQualifications EmployeeOperationalRoleQualification[]
+  assignmentEligibilityExceptions       OperationalAssignmentEligibilityException[]
   coverageEpisodes               CoverageEpisode[]
   createdAt                      DateTime                                @default(now())
   updatedAt                      DateTime                                @updatedAt
@@ -989,6 +993,7 @@ model User {
   createdAssignments                       OperationalAssignment[]                 @relation("AssignmentCreatedBy")
   lastChangedAssignments                   OperationalAssignment[]                 @relation("AssignmentLastChangedBy")
   createdTemplates                         OperationalAssignmentTemplate[]         @relation("TemplateCreatedBy")
+  assignmentEligibilityExceptions          OperationalAssignmentEligibilityException[] @relation("AssignmentEligibilityExceptionActor")
   assignmentEvents                         OperationalAssignmentEvent[]            @relation("AssignmentEventActor")
   assignmentPlansConfirmed                 OperationalAssignmentPlan[]             @relation("AssignmentPlanConfirmedBy")
   assignmentPlansReopened                  OperationalAssignmentPlan[]             @relation("AssignmentPlanReopenedBy")
@@ -2446,6 +2451,8 @@ model Employee {
   cycleDayExpectationAdjustments   OperationalCycleDayExpectation[]        @relation("CycleDayExpectationAdjustedByEmployee")
   keyTimeDayExpectationAdjustments OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationAdjustedByEmployee")
   keyTimeDayExpectationCompletions OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationCompletedByEmployee")
+  operationalRoleQualifications    EmployeeOperationalRoleQualification[]
+  assignmentEligibilityExceptions  OperationalAssignmentEligibilityException[]
   createdAt                        DateTime                                @default(now())
   updatedAt                        DateTime                                @updatedAt
 
@@ -3825,6 +3832,7 @@ model OperationalAssignment {
   lastChangedAt       DateTime?
   events              OperationalAssignmentEvent[]
   locations           OperationalAssignmentLocation[]
+  eligibilityException OperationalAssignmentEligibilityException?
   createdAt           DateTime                           @default(now())
   updatedAt           DateTime                           @updatedAt
 
@@ -3836,6 +3844,53 @@ model OperationalAssignment {
   @@index([sourceZoneId])
   @@index([templateItemId])
   @@index([planId])
+}
+
+enum EmployeeOperationalQualificationStatus {
+  ACTIVE
+  REVOKED
+}
+
+/// Department-scoped operational role eligibility for one Employee.
+/// Does not replace Job Title, Team, Schedule, or Assignment.
+model EmployeeOperationalRoleQualification {
+  id           String                                 @id @default(cuid())
+  facilityId   String
+  facility     Facility                               @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee                               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department                             @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  roleKey      String
+  status       EmployeeOperationalQualificationStatus @default(ACTIVE)
+  revokedAt    DateTime?
+  createdAt    DateTime                               @default(now())
+  updatedAt    DateTime                               @updatedAt
+
+  @@unique([employeeId, departmentId, roleKey])
+  @@index([facilityId, departmentId])
+  @@index([employeeId])
+}
+
+/// Auditable Assignment exception. Does not grant operational eligibility.
+model OperationalAssignmentEligibilityException {
+  id           String                @id @default(cuid())
+  assignmentId String                @unique
+  assignment   OperationalAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  facilityId   String
+  facility     Facility              @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  roleKey      String
+  reason       String
+  actorUserId  String?
+  actorUser    User?                 @relation("AssignmentEligibilityExceptionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt    DateTime              @default(now())
+
+  @@index([facilityId, departmentId])
+  @@index([employeeId])
 }
 
 /// Append-only audit log for assignment lifecycle changes.
