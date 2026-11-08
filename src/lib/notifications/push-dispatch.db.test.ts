@@ -21,6 +21,7 @@ import {
   recipientAddedTriggerKey,
 } from "./push-dispatch";
 import { evaluateResponsibilityReconciliation } from "./responsibility-reconciliation";
+import { runWithWebPushSendingEnabled } from "./web-push-config";
 
 const databaseUrl = process.env.VERIFY_DATABASE_URL;
 if (databaseUrl) assertDisposableDatabaseUrl(databaseUrl);
@@ -37,14 +38,16 @@ function at(clock: string) {
 }
 
 async function withSending<T>(run: () => Promise<T>): Promise<T> {
-  const previous = process.env.WEB_PUSH_SENDING_ENABLED;
-  process.env.WEB_PUSH_SENDING_ENABLED = "true";
-  try {
-    return await run();
-  } finally {
-    if (previous === undefined) delete process.env.WEB_PUSH_SENDING_ENABLED;
-    else process.env.WEB_PUSH_SENDING_ENABLED = previous;
-  }
+  return runWithWebPushSendingEnabled(true, async () => {
+    const previous = process.env.WEB_PUSH_SENDING_ENABLED;
+    process.env.WEB_PUSH_SENDING_ENABLED = "true";
+    try {
+      return await run();
+    } finally {
+      if (previous === undefined) delete process.env.WEB_PUSH_SENDING_ENABLED;
+      else process.env.WEB_PUSH_SENDING_ENABLED = previous;
+    }
+  });
 }
 
 test("a recipient and a priority rise become recoverable push attempts", { skip }, async () => {

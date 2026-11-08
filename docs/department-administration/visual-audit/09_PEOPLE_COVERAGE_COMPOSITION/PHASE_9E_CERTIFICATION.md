@@ -35,6 +35,11 @@ Reran failed jobs on run `42492918644` (new Database job `128808068695`).
 
 Workbook shared-parent is classified as intermittent under parallel disposable DB / P2034 contention; no product change.
 
+
+## Corrective push (ALS pin)
+
+`01af5d7` drain alone was insufficient under parallel env races. Follow-up pins sending via `runWithWebPushSendingEnabled` (AsyncLocalStorage) so the `SENT` assertion stays strict while peer suites toggle `process.env`.
+
 ## Merge stance
 
 Do **not** merge without separate product-owner authorization. Phase 9E closes CI for PR #7 after the corrective push below lands green.

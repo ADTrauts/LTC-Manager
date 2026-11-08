@@ -21,6 +21,7 @@ import {
   setNotificationSnooze,
 } from "./snooze";
 import { loadNotificationPreference, saveNotificationPreference } from "./notification-preference";
+import { runWithWebPushSendingEnabled } from "./web-push-config";
 
 const databaseUrl = process.env.VERIFY_DATABASE_URL;
 if (databaseUrl) assertDisposableDatabaseUrl(databaseUrl);
@@ -33,15 +34,18 @@ function tag() {
 const accept: PushTransport = async () => ({ outcome: "accepted" });
 
 async function withSending<T>(enabled: boolean, run: () => Promise<T>): Promise<T> {
-  const previous = process.env.WEB_PUSH_SENDING_ENABLED;
-  if (enabled) process.env.WEB_PUSH_SENDING_ENABLED = "true";
-  else delete process.env.WEB_PUSH_SENDING_ENABLED;
-  try {
-    return await run();
-  } finally {
-    if (previous === undefined) delete process.env.WEB_PUSH_SENDING_ENABLED;
-    else process.env.WEB_PUSH_SENDING_ENABLED = previous;
-  }
+  // AsyncLocalStorage pin: process.env alone races under parallel verify:db.
+  return runWithWebPushSendingEnabled(enabled, async () => {
+    const previous = process.env.WEB_PUSH_SENDING_ENABLED;
+    if (enabled) process.env.WEB_PUSH_SENDING_ENABLED = "true";
+    else delete process.env.WEB_PUSH_SENDING_ENABLED;
+    try {
+      return await run();
+    } finally {
+      if (previous === undefined) delete process.env.WEB_PUSH_SENDING_ENABLED;
+      else process.env.WEB_PUSH_SENDING_ENABLED = previous;
+    }
+  });
 }
 
 test("snooze changes only this user's interruption and leaves the center alone", { skip }, async () => {
