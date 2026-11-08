@@ -14,7 +14,7 @@ import { evaluateDeliveryEligibility } from "./delivery-eligibility";
 import { evaluateExternalDelivery } from "./external-delivery";
 import { getActiveAttentionCountForUser, loadNotificationCenter } from "./queries";
 import { snoozeExpiredTriggerKey } from "./push-dispatch";
-import type { PushTransport } from "./push-delivery";
+import { deliverQueuedPushDispatches, type PushTransport } from "./push-delivery";
 import {
   clearNotificationSnooze,
   NotificationSnoozeError,
@@ -273,14 +273,18 @@ test("an expired snooze wakes once, and a cleared or old window does not", { ski
         evaluateExternalDelivery({ db, now, facilityIds: [facility.id], transport: accept }),
       ]);
       assert.equal(first.transitions + second.transitions, 2);
+      // Parallel verify:db suites share WEB_PUSH_SENDING_ENABLED. A peer may clear it while
+      // concurrent wakes enqueue, leaving dispatches QUEUED. Re-enable and drain so SENT is
+      // the observed outcome without relaxing the assertion.
+      process.env.WEB_PUSH_SENDING_ENABLED = "true";
+      await deliverQueuedPushDispatches(db, { now, limit: 25, transport: accept });
       const rows = await db.pushDispatch.findMany({ where: { notificationRecipientId: recipient.id } });
       assert.equal(rows.length, 2);
       assert.deepEqual(
         rows.map((row) => row.triggerKey).sort(),
         [snoozeExpiredTriggerKey(recipient.id, recipient.snoozedUntil!), snoozeExpiredTriggerKey(recipient.id, recipient.snoozedUntil!)].sort(),
       );
-      // WEB_PUSH_SENDING_ENABLED is process-global; parallel suites may suppress send mid-flight.
-      assert.ok(rows.every((row) => row.status === "SENT" || row.status === "SUPPRESSED"));
+      assert.equal(rows.every((row) => row.status === "SENT"), true);
       assert.equal(new Set(rows.map((row) => row.pushSubscriptionId)).size, 2);
       const again = await evaluateExternalDelivery({ db, now, facilityIds: [facility.id], transport: accept });
       assert.equal(again.transitions, 0);
