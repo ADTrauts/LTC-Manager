@@ -6,5 +6,9 @@ export {
   narrowTeamScopeToCollectedRooms,
   resolveViewerTeamScopes,
   uniqueRoomIds,
-} from "@/lib/dashboard/viewer/viewer-team-scope";
-export type { ViewerTeamScope } from "@/lib/dashboard/viewer/viewer-team-scope";
+  type TeamMembershipScopeRow,
+  type ViewerTeamScope,
+  type ViewerTeamScopeMode,
+  type ViewerTeamScopeReason,
+  type ViewerTeamScopeTeam,
+} from "@/lib/dashboard/viewer/operational-placement";

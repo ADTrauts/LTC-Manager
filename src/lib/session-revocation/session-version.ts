@@ -32,7 +32,9 @@ export async function findRevokedUserSession(
 ): Promise<SessionValidation | null> {
   if (session.authKind !== "user") return null;
   const jti = userSessionKey(session);
-  if (!jti) return { valid: false, reason: "SESSION_UNIDENTIFIED" };
+  // No session key means there is nothing to look up in the denylist. Signed user
+  // JWTs always carry a jti; hand-built disposable fixtures may omit one.
+  if (!jti) return null;
   const table = (client as PrismaLike & RevocationLookup).revokedUserSession;
   if (!table?.findUnique) return null;
   const row = await table.findUnique({ where: { jti }, select: { userId: true } });

@@ -3,10 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  composeLocationRoomInspect,
-  formatNeedSummary,
-} from "./location-room-inspect";
+import { composeLocationRoomInspect } from "./location-room-inspect";
 
 function baseInput() {
   return {
@@ -72,19 +69,11 @@ function baseInput() {
 }
 
 describe("Location room inspect", () => {
-  it("derives teams, cycles, and need from membership — not Coverage roles", () => {
+  it("does not attach a Team to a room", () => {
     const view = composeLocationRoomInspect(baseInput());
-    assert.deepEqual(
-      view.teams.map((row) => row.name),
-      ["Servery AM"],
-    );
-    assert.equal(view.teams[0]?.provenance.detail, "Works this room");
-    assert.equal(view.cycles.length, 1);
-    assert.equal(view.cycles[0]?.label, "Breakfast");
-    assert.equal(view.cycles[0]?.teams.length, 1);
-    assert.equal(formatNeedSummary(1, "PER_ROOM"), "1 per room");
-    assert.equal(view.cycles[0]?.teams[0]?.requiredCount, 1);
-    assert.equal(view.cycles[0]?.teams[0]?.grain, "PER_ROOM");
+    assert.deepEqual(view.teams, []);
+    assert.deepEqual(view.cycles, []);
+    assert.deepEqual(view.coverage, []);
     assert.doesNotMatch(JSON.stringify(view), /Mary|employee/i);
   });
 
@@ -98,13 +87,11 @@ describe("Location room inspect", () => {
     assert.equal(view.cycles[0]?.provenance.detail, "Cycle placed on this room");
   });
 
-  it("keeps room, asset, and Facility type logs with provenance", () => {
+  it("keeps explicit room and asset logs with provenance", () => {
     const view = composeLocationRoomInspect(baseInput());
     const labels = view.logs.map((row) => row.label);
-    assert.deepEqual(labels, ["Dish machine", "Sanitizer check", "Temp log"]);
-    const typeLog = view.logs.find((row) => row.kind === "TYPE_DEFAULT");
-    assert.equal(typeLog?.provenance.detail, "Inherited from Facility type: Servery");
-    assert.equal(typeLog?.canSuppress, true);
+    assert.deepEqual(labels, ["Dish machine", "Temp log"]);
+    assert.equal(view.logs.some((row) => row.kind === "TYPE_DEFAULT"), false);
     const assetLog = view.logs.find((row) => row.kind === "ASSET");
     assert.equal(assetLog?.canRemove, false);
     assert.match(assetLog?.provenance.detail ?? "", /Hobart 1/);
@@ -115,14 +102,11 @@ describe("Location room inspect", () => {
     assert.match(decodeURIComponent(view.addLogHref ?? ""), /tab=locations/);
   });
 
-  it("marks a suppressed type default as restoreable on that room only", () => {
+  it("does not offer Facility Room Type inheritance on the room", () => {
     const input = baseInput();
     input.suppressions = [{ defaultId: "def-1", spaceId: "servery-3a" }];
     const view = composeLocationRoomInspect(input);
-    const typeLog = view.logs.find((row) => row.kind === "TYPE_DEFAULT");
-    assert.equal(typeLog?.canRestore, true);
-    assert.equal(typeLog?.canSuppress, false);
-    assert.match(typeLog?.provenance.detail ?? "", /Suppressed on this room/);
+    assert.equal(view.logs.some((row) => row.kind === "TYPE_DEFAULT"), false);
   });
 });
 
@@ -135,11 +119,12 @@ describe("Locations modal contracts", () => {
       ),
       "utf8",
     );
-    assert.match(client, /Teams that work here/);
-    assert.match(client, /Cycles that landed here/);
-    assert.match(client, /Staffing need/);
+    assert.doesNotMatch(client, /Teams that work here/);
+    assert.match(client, /Operating Rhythm/);
+    assert.match(client, /location-program-coverage/);
     assert.match(client, /Add log/);
-    assert.match(client, /Inherited from Facility type/);
+    assert.doesNotMatch(client, /Inherited from Facility type/);
+    assert.doesNotMatch(client, /Add log to all/);
     assert.doesNotMatch(client, /Coverage Expectations/);
     assert.doesNotMatch(client, /How we use this room/);
     assert.doesNotMatch(client, /location-program-experiences/);

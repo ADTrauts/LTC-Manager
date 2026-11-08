@@ -19,7 +19,6 @@ export type LogicalAttachmentSegment = {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
-  operationalTypeKey?: string | null;
   departmentId?: string | null;
 };
 
@@ -59,7 +58,6 @@ export function groupLogicalLogAttachments(
       spaceId: row.spaceId,
       unitId: row.unitId,
       targetDepartmentId: row.targetDepartmentId,
-      operationalTypeKey: row.operationalTypeKey,
       departmentId: row.departmentId,
     });
     const list = byLineage.get(key) ?? [];

@@ -7,6 +7,7 @@ import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types"
 import { getFacilityServiceDate, toServiceDateKey } from "@/lib/operational-time";
 
 import { composeOperationalReviewDay } from "./compose-operational-review-day";
+import { presentOperationalReviewDay } from "./present-operational-review-day";
 import type {
   OperationalReviewDayFacts,
   ReviewAttachmentSegmentFact,
@@ -297,7 +298,7 @@ test("cycle version for Sept 1 uses v1 timing, not v2", () => {
   assert.equal(v2.version, 2);
 });
 
-test("OT version for Sept 2 uses v1 bindings, not current ACTIVE v2", () => {
+test("a historical room label comes from Facility identity, not a profile", () => {
   const model = composeOperationalReviewDay(
     facts({
       serviceDate: "2026-09-02",
@@ -337,7 +338,9 @@ test("OT version for Sept 2 uses v1 bindings, not current ACTIVE v2", () => {
       ],
     }),
   );
-  assert.equal(model.locations[0]?.operationalTypeKey, "servery");
+  assert.equal("operationalTypeKey" in (model.locations[0] ?? {}), false);
+  assert.equal(model.locations[0]?.displayLabel, "Main Kitchen");
+  assert.equal(model.locations[0]?.displayLabelIsHistorical, false);
 });
 
 test("coverage v1 remains historical expectation after isActive=false", () => {
@@ -360,6 +363,7 @@ test("coverage v1 remains historical expectation after isActive=false", () => {
               roleLabel: "Server",
               requiredCount: 2,
               unitId: null,
+              spaceId: "space-1",
               applicableOperationalTypeKeys: ["servery"],
               applicableOperationalCycleStableKeys: [],
             },
@@ -380,6 +384,7 @@ test("coverage v1 remains historical expectation after isActive=false", () => {
               roleLabel: "Server",
               requiredCount: 1,
               unitId: null,
+              spaceId: "space-1",
               applicableOperationalTypeKeys: ["servery"],
               applicableOperationalCycleStableKeys: [],
             },
@@ -412,6 +417,7 @@ test("OA actual of 1 against required 2 is at risk; schedule count does not cove
               roleLabel: "Server",
               requiredCount: 2,
               unitId: null,
+              spaceId: "space-1",
               applicableOperationalTypeKeys: ["servery"],
               applicableOperationalCycleStableKeys: [],
             },
@@ -570,6 +576,76 @@ test("Work historical expectation is deferred", () => {
   const model = composeOperationalReviewDay(facts());
   assert.equal(model.work.availability.status, "unavailable");
   assert.equal(model.work.availability.reason, "unsupported_work_history");
+});
+
+test("an unvisited day reconstructs Key Points from the published group", () => {
+  const model = composeOperationalReviewDay(
+    facts({
+      spaces: [
+        {
+          spaceId: "space-a",
+          displayLabel: "1A Servery",
+          parentUnitId: "unit-1",
+          parentUnitLabel: "Neighborhood A",
+        },
+        {
+          spaceId: "space-b",
+          displayLabel: "1B Servery",
+          parentUnitId: "unit-1",
+          parentUnitLabel: "Neighborhood A",
+        },
+        {
+          spaceId: "space-c",
+          displayLabel: "1A Dining",
+          parentUnitId: "unit-1",
+          parentUnitLabel: "Neighborhood A",
+        },
+      ],
+      cycles: [
+        cycle({
+          id: "ready-v1",
+          stableKey: "breakfast_ready",
+          nodeKind: "KEY_TIME",
+          label: "Breakfast Ready",
+          cycleType: "CUSTOM",
+          startLocal: null,
+          endLocal: null,
+          mealType: null,
+          locationMode: "EXPLICIT_UNITS",
+          expectedMilestones: [],
+          status: "PUBLISHED",
+          unitIds: [],
+          spaceIds: [],
+          milestoneTimes: [],
+          keyTimeGroups: [{ id: "g1", dueLocal: "07:05", spaceIds: ["space-a", "space-b"] }],
+        }),
+      ],
+      keyTimeActuals: [],
+    }),
+  );
+  const keyTimes = model.milestones.items.filter((row) => row.kind === "KEY_TIME");
+  assert.equal(keyTimes.length, 2);
+  assert.deepEqual(
+    keyTimes.map((row) => row.spaceId).sort(),
+    ["space-a", "space-b"],
+  );
+  assert.ok(
+    keyTimes.every(
+      (row) => row.expectedTimeLocal === "07:05" && row.actualOccurredAt === null,
+    ),
+  );
+
+  const day = presentOperationalReviewDay(model);
+  assert.equal(day.summaryItems.find((row) => row.id === "service-missing")?.count, 2);
+
+  const selected = presentOperationalReviewDay(model, { spaceId: "space-a" });
+  assert.equal(selected.summaryItems.find((row) => row.id === "service-missing")?.count, 1);
+
+  const unselected = presentOperationalReviewDay(model, { spaceId: "space-c" });
+  assert.equal(
+    unselected.summaryItems.find((row) => row.id === "service-missing"),
+    undefined,
+  );
 });
 
 test("milestone expected stays distinct from actual", () => {

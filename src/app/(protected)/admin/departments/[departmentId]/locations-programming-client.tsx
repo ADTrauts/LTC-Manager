@@ -4,21 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
-import {
-  addFacilityTypeLogDefaultAction,
-  removeFacilityTypeLogDefaultAction,
-  removeRoomLogAction,
-  restoreFacilityTypeLogDefaultAction,
-  suppressFacilityTypeLogDefaultAction,
-} from "@/app/(protected)/admin/departments/[departmentId]/location-room-actions";
+import { removeRoomLogAction } from "@/app/(protected)/admin/departments/[departmentId]/location-room-actions";
 import { DepartmentLocationTree } from "@/components/location-tree";
 import { GuardedModal } from "@/components/guarded-modal";
 import { Button } from "@/components/design-system/Button";
 import type { DepartmentAdminView } from "@/lib/department-administration";
-import {
-  formatNeedSummary,
-  type LocationRoomInspectView,
-} from "@/lib/department-administration/location-room-inspect";
+import type { LocationRoomInspectView } from "@/lib/department-administration/location-room-inspect";
 import { formatCycleWindow } from "@/lib/operational-cycles/cycle-display";
 
 type Props = {
@@ -75,7 +66,6 @@ function LocationRoomInspector({
   inspect: LocationRoomInspectView;
   canManage: boolean;
 }) {
-  const [addingTypeDefault, setAddingTypeDefault] = useState(false);
   const place = [inspect.place, inspect.facilityTypeLabel ? `Facility type: ${inspect.facilityTypeLabel}` : null]
     .filter(Boolean)
     .join(" · ");
@@ -93,27 +83,9 @@ function LocationRoomInspector({
         </p>
       </section>
 
-      <section className="space-y-2" data-testid="location-program-teams">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Teams that work here
-        </h3>
-        {inspect.teams.length === 0 ? (
-          <p className="text-xs text-zinc-400">No teams include this room.</p>
-        ) : (
-          <ul className="space-y-1">
-            {inspect.teams.map((team) => (
-              <li key={team.id} className="text-xs text-zinc-800">
-                <span className="font-medium">{team.name}</span>
-                <span className="block text-zinc-400">{team.provenance.detail}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
       <section className="space-y-2" data-testid="location-program-cycles">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Cycles that landed here
+          Operating Rhythm
         </h3>
         {inspect.cycles.length === 0 ? (
           <p className="text-xs text-zinc-400">No cycles land on this room yet.</p>
@@ -127,16 +99,22 @@ function LocationRoomInspector({
                   {" · "}
                   {cycle.provenance.detail}
                 </p>
-                {cycle.teams.length > 0 ? (
-                  <ul className="mt-1 space-y-0.5">
-                    {cycle.teams.map((team) => (
-                      <li key={team.teamId} className="text-xs text-zinc-600">
-                        Staffing need · {team.teamName}:{" "}
-                        {formatNeedSummary(team.requiredCount, team.grain)}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2" data-testid="location-program-coverage">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Coverage</h3>
+        {inspect.coverage.length === 0 ? (
+          <p className="text-xs text-zinc-400">No coverage need is stored for this room.</p>
+        ) : (
+          <ul className="space-y-1">
+            {inspect.coverage.map((need) => (
+              <li key={need.id} className="text-xs text-zinc-700">
+                {need.cycleLabel ?? "Operating period"} · {need.roleLabel} · {need.requiredCount}{" "}
+                required
               </li>
             ))}
           </ul>
@@ -145,7 +123,7 @@ function LocationRoomInspector({
 
       <section className="space-y-2" data-testid="location-program-logs">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Logs</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Records</h3>
           {canManage && inspect.addLogHref ? (
             <Link
               href={inspect.addLogHref}
@@ -157,7 +135,7 @@ function LocationRoomInspector({
           ) : null}
         </div>
         {inspect.logs.length === 0 ? (
-          <p className="text-xs text-zinc-400">No logs on this room or its assets.</p>
+          <p className="text-xs text-zinc-400">No records on this room or its assets.</p>
         ) : (
           <ul className="space-y-2">
             {inspect.logs.map((log) => (
@@ -173,96 +151,10 @@ function LocationRoomInspector({
                     </Button>
                   </DepartmentAdminActionForm>
                 ) : null}
-                {canManage && log.canSuppress && log.defaultId ? (
-                  <DepartmentAdminActionForm
-                    action={suppressFacilityTypeLogDefaultAction}
-                    className="mt-1"
-                  >
-                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
-                    <input type="hidden" name="spaceId" value={inspect.spaceId} />
-                    <input type="hidden" name="defaultId" value={log.defaultId} />
-                    <Button type="submit" variant="secondary" size="compact">
-                      Don’t use on this room
-                    </Button>
-                  </DepartmentAdminActionForm>
-                ) : null}
-                {canManage && log.canRestore && log.defaultId ? (
-                  <DepartmentAdminActionForm
-                    action={restoreFacilityTypeLogDefaultAction}
-                    className="mt-1"
-                  >
-                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
-                    <input type="hidden" name="spaceId" value={inspect.spaceId} />
-                    <input type="hidden" name="defaultId" value={log.defaultId} />
-                    <Button type="submit" variant="secondary" size="compact">
-                      Inherit again
-                    </Button>
-                  </DepartmentAdminActionForm>
-                ) : null}
-                {canManage && log.kind === "TYPE_DEFAULT" && log.defaultId && !log.canRestore ? (
-                  <DepartmentAdminActionForm
-                    action={removeFacilityTypeLogDefaultAction}
-                    className="mt-1"
-                  >
-                    <input type="hidden" name="departmentId" value={inspect.departmentId} />
-                    <input type="hidden" name="defaultId" value={log.defaultId} />
-                    <Button type="submit" variant="secondary" size="compact">
-                      Remove from all {inspect.facilityTypeLabel ?? "type"} rooms
-                    </Button>
-                  </DepartmentAdminActionForm>
-                ) : null}
               </li>
             ))}
           </ul>
         )}
-
-        {canManage && inspect.facilityRoomTypeId && inspect.catalogOptions.length > 0 ? (
-          <div className="pt-1">
-            <Button
-              type="button"
-              variant="secondary"
-              size="compact"
-              onClick={() => setAddingTypeDefault((current) => !current)}
-              data-testid="location-add-type-default"
-            >
-              {addingTypeDefault
-                ? "Cancel"
-                : `+ Add log to all ${inspect.facilityTypeLabel ?? "type"} rooms`}
-            </Button>
-            {addingTypeDefault ? (
-              <DepartmentAdminActionForm
-                action={addFacilityTypeLogDefaultAction}
-                className="mt-2 space-y-2"
-                onSuccess={() => setAddingTypeDefault(false)}
-              >
-                <input type="hidden" name="departmentId" value={inspect.departmentId} />
-                <input type="hidden" name="facilityRoomTypeId" value={inspect.facilityRoomTypeId} />
-                <label className="block text-xs font-medium text-zinc-700">
-                  Catalog log
-                  <select
-                    name="catalogStableKey"
-                    required
-                    className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-                  >
-                    <option value="">Select a log…</option>
-                    {inspect.catalogOptions.map((option) => (
-                      <option key={option.stableKey} value={option.stableKey}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <p className="text-[11px] text-zinc-500">
-                  Inherited from Facility type. One room can turn it off without deleting the
-                  default.
-                </p>
-                <Button type="submit" size="compact">
-                  Add type default
-                </Button>
-              </DepartmentAdminActionForm>
-            ) : null}
-          </div>
-        ) : null}
       </section>
 
       <section className="space-y-2" data-testid="location-program-assets">
@@ -278,6 +170,26 @@ function LocationRoomInspector({
                   {asset.code ? ` (${asset.code})` : ""}
                 </Link>
                 <span className="block text-zinc-400">From Asset Builder</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2" data-testid="location-program-menus">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Menus</h3>
+        {inspect.menus.length === 0 ? (
+          <p className="text-xs text-zinc-400">No menu is placed on this room.</p>
+        ) : (
+          <ul className="space-y-1">
+            {inspect.menus.map((menu) => (
+              <li key={menu.id} className="text-xs text-zinc-800">
+                <Link
+                  href={`/admin/departments/${inspect.departmentId}?tab=menus`}
+                  className="font-medium underline-offset-2 hover:underline"
+                >
+                  {menu.name}
+                </Link>
               </li>
             ))}
           </ul>

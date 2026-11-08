@@ -18,6 +18,7 @@ Review drawings only. Nothing in this folder changes production code, schema, or
 | [06_FACILITY_UI_CONCEPT.md](./06_FACILITY_UI_CONCEPT.md) | Conceptual Facility page. Open the [HTML wireframe](./06_facility_ui_concept.html) |
 | [07_WHAT_WE_ARE_REMOVING.md](./07_WHAT_WE_ARE_REMOVING.md) | Keep, move, and retire after the November 2 decision |
 | [08_LOCATION_FUNCTION_ELIMINATION_AUDIT.md](./08_LOCATION_FUNCTION_ELIMINATION_AUDIT.md) | Whether Location Function is a business fact |
+| [09 — People & Coverage composition](./09_PEOPLE_COVERAGE_COMPOSITION/README.md) | Phase 9A audit of the mounted screen, ownership, and the proposed layout |
 
 Legend used throughout:
 

@@ -373,7 +373,7 @@ test("snooze quiet and digest do not change attention", { skip }, async () => {
             roleKey: "SERVER",
             roleLabel: "Server",
             requiredCount: 1,
-            applicableOperationalTypeKeys: ["SERVERY"],
+            spaceId: space.id,
             applicableOperationalCycleStableKeys: ["breakfast"],
           },
         },

@@ -73,7 +73,7 @@ export function presentReviewLocationsFromRuntime(
         displayLabel: state.identity.displayName,
         parentUnitId: unitId,
         parentUnitLabel: state.identity.hierarchy.neighborhoodName ?? state.identity.hierarchy.unitName,
-        operationalTypeName: programLabel(state),
+        contextLabel: programLabel(state),
         currentLocationHref: unitId
           ? `/unit/${unitId}?space=${encodeURIComponent(state.identity.location.spaceId)}`
           : null,

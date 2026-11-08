@@ -144,7 +144,6 @@ async function main() {
       select: {
         id: true,
         displayName: true,
-        _count: { select: { roomMemberships: true } },
       },
     });
     if (!residentServices) {
@@ -342,7 +341,7 @@ async function main() {
           currentDepartmentManager: dietary.headEmployee,
           residentServices: {
             id: residentServices.id,
-            roomCount: residentServices._count.roomMemberships,
+            displayName: residentServices.displayName,
             activeMembershipsBefore: membershipBefore,
             activeMembershipsAfter: membershipAfter,
           },

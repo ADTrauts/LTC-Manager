@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Current People and Coverage — reconstruction</title>
+  <style>
+    :root { color-scheme: light; --bg:#f4f1ea; --paper:#fffcf7; --ink:#1c1915; --muted:#5c564c; --line:#e4ddd0; --warn:#8a4b12; --warn-soft:#f8efe3; --ok:#1f6b45; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: "Iowan Old Style", Palatino, Georgia, serif; background:var(--bg); color:var(--ink); }
+    main { max-width: 920px; margin:0 auto; padding:28px 20px 64px; }
+    .banner, .nav, .meta, button, .badge { font-family: "Avenir Next", "Segoe UI", sans-serif; }
+    .banner { font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--warn); background:var(--warn-soft); border:1px solid #efd7b8; padding:10px 12px; }
+    h1 { font-size:28px; margin:18px 0 8px; }
+    .nav { display:flex; gap:16px; border-bottom:1px solid var(--line); padding-bottom:8px; font-size:13px; color:var(--muted); }
+    .nav b { color:var(--ink); border-bottom:2px solid var(--ink); padding-bottom:8px; }
+    section { margin-top:22px; }
+    h2 { font-size:16px; margin:0 0 6px; }
+    p { margin:0 0 10px; color:var(--muted); font-size:14px; }
+    .row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    button { border:1px solid var(--ink); background:var(--paper); padding:6px 10px; font-size:13px; }
+    .split { display:grid; grid-template-columns: 240px 1fr; border:1px solid var(--line); background:var(--paper); min-height:220px; }
+    .list { border-right:1px solid var(--line); }
+    .item, .req { padding:12px; border-bottom:1px solid var(--line); }
+    .item strong, .req strong { display:block; }
+    .meta { color:var(--muted); font-size:12px; }
+    .detail { padding:16px; }
+    .badge { float:right; font-size:11px; letter-spacing:.04em; border:1px solid var(--ok); color:var(--ok); padding:2px 6px; }
+    @media (max-width:720px) { .split { grid-template-columns:1fr; } .list { border-right:0; border-bottom:1px solid var(--line); } }
+  </style>
+</head>
+<body>
+<main>
+  <p class="banner">Reconstruction of the mounted screen. Not a screenshot. Names are illustrative.</p>
+  <h1>Food and Nutrition</h1>
+  <div class="nav"><span>Overview</span><span>Facility</span><span>Operating Rhythm</span><b>People &amp; Coverage</b><span>Records</span></div>
+
+  <section>
+    <div class="row"><h2>People</h2><button>+ Add Team</button></div>
+    <p>Teams, roles, and employees for Food and Nutrition. Coverage requirements are listed with each location below. Employee records and permissions stay on the employee record.</p>
+    <div class="split">
+      <div class="list">
+        <div class="item"><strong>Resident Services</strong><span class="meta">42 people<br>Manager: Priya Shah</span></div>
+        <div class="item"><strong>Utility</strong><span class="meta">11 people<br>Manager not assigned</span></div>
+      </div>
+      <div class="detail">
+        <p><strong style="color:var(--ink)">Name, description, Team Manager</strong></p>
+        <button>Save Team</button>
+        <p style="margin-top:16px">42 active employees<br>Assign membership in Employee Builder.</p>
+        <p><u>View employees</u></p>
+        <p class="meta">More → Archive Team. The detail does not list the 42 people.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="row"><h2>Coverage</h2><button>+ Add expectation</button></div>
+    <p>Expected operational responsibilities for Food and Nutrition. Draft edits do not change today’s Run until they are published.</p>
+    <div class="req"><strong>Lunch serveries</strong><span class="meta">17 requirements · Effective 2026-11-06</span><span class="badge">PUBLISHED</span></div>
+    <div class="req"><strong>Dinner utility</strong><span class="meta">3 requirements</span><span class="badge">DRAFT</span></div>
+    <p class="meta">Opening a row uses a drawer: name, requirements (role × count, rooms, cycles), and Publish. No assigned count.</p>
+  </section>
+</main>
+</body>
+</html>

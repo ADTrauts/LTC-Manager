@@ -14,7 +14,7 @@ Department → Team → Role → Employee is a useful presentation. It is not a 
 | Coverage need | Department + room + role + period + required count | Department Builder → People & Coverage |
 | Platform authorization | RoleKey and the current facility role period | Existing access rules |
 
-Eligibility uses `OPERATIONAL_ROLE_REGISTRY`. It is not inferred from Job Title, Team, RoleKey, the schedule, or a past Assignment. Department membership is required and is not itself eligibility.
+Eligibility uses `OPERATIONAL_ROLE_REGISTRY`. It is not inferred from Job Title, Team, RoleKey, the schedule, or a past Assignment. Department membership is required and is not itself eligibility. The assignment board does not author Coverage. It may apply a published requirement that is effective on that service date, and a draft cannot be applied.
 
 One Employee may hold several roles, and different roles in different Departments. An Assignment does not change Team membership, Job Title, RoleKey, the Department head, or a staff-manager grant.
 

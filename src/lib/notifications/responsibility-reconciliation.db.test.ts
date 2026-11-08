@@ -496,7 +496,7 @@ test("intervention, coverage, key points, and excluded threads follow the same d
             roleKey: "SERVER",
             roleLabel: "Server",
             requiredCount: 1,
-            applicableOperationalTypeKeys: ["SERVERY"],
+            spaceId: space.id,
             applicableOperationalCycleStableKeys: ["breakfast"],
           },
         },

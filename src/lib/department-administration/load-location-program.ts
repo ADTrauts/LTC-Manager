@@ -8,8 +8,13 @@ import {
   listPublishedCatalogBrowseCards,
 } from "@/lib/canonical-logs";
 import { isCanonicalLogsEnabled, isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
-import { loadTeamsForDepartment } from "@/lib/department-teams";
+import {
+  getFacilityServiceDate,
+  loadFacilityTimezone,
+  toServiceDateKey,
+} from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
+import { selectRuntimeCoverageTemplates } from "@/lib/scheduling/coverage-expectations";
 
 import type { DepartmentActionableLocation } from "./department-locations";
 import {
@@ -52,11 +57,10 @@ async function loadProgramsForDepartmentRooms(input: {
   const spaceIds = input.rooms.map((room) => room.spaceId);
   const logsEnabled = isCanonicalLogsEnabled();
 
-  const [teams, spaces, attachments, assets, typeDefaults, suppressions] = await Promise.all([
-    loadTeamsForDepartment(prisma, {
-      facilityId: input.facilityId,
-      departmentId: input.department.id,
-    }),
+  const serviceDateKey = toServiceDateKey(
+    getFacilityServiceDate(await loadFacilityTimezone(prisma, input.facilityId)),
+  );
+  const [spaces, attachments, assets, coverageTemplates, periodCycles, menus] = await Promise.all([
     spaceIds.length
       ? prisma.unitSpace.findMany({
           where: { id: { in: spaceIds }, facilityId: input.facilityId },
@@ -99,42 +103,71 @@ async function loadProgramsForDepartmentRooms(input: {
           select: { id: true, name: true, assetCode: true, spaceId: true },
         })
       : Promise.resolve([]),
-    logsEnabled
-      ? prisma.departmentFacilityTypeLogDefault.findMany({
+    prisma.operationalAssignmentTemplate.findMany({
+      where: {
+        facilityId: input.facilityId,
+        departmentId: input.department.id,
+      },
+      select: {
+        id: true,
+        stableKey: true,
+        version: true,
+        status: true,
+        isActive: true,
+        effectiveFrom: true,
+        effectiveTo: true,
+        items: {
+          where: spaceIds.length ? { spaceId: { in: spaceIds } } : { id: "__none__" },
+          select: {
+            id: true,
+            roleKey: true,
+            roleLabel: true,
+            requiredCount: true,
+            unitId: true,
+            spaceId: true,
+            applicableOperationalCycleStableKeys: true,
+          },
+        },
+      },
+    }),
+    prisma.departmentOperationalCycle.findMany({
+      where: {
+        facilityId: input.facilityId,
+        departmentId: input.department.id,
+        nodeKind: "PERIOD",
+        status: "PUBLISHED",
+      },
+      select: { stableKey: true, label: true },
+    }),
+    spaceIds.length
+      ? prisma.menu.findMany({
           where: {
             facilityId: input.facilityId,
             departmentId: input.department.id,
+            status: "ACTIVE",
+            locationApplicability: { some: { spaceId: { in: spaceIds } } },
           },
           select: {
             id: true,
-            facilityRoomTypeId: true,
-            catalogDefinition: { select: { name: true } },
-            facilityRoomType: { select: { displayName: true } },
+            name: true,
+            locationApplicability: { select: { spaceId: true } },
           },
-        })
-      : Promise.resolve([]),
-    logsEnabled && spaceIds.length
-      ? prisma.departmentLocationLogSuppression.findMany({
-          where: {
-            departmentId: input.department.id,
-            spaceId: { in: spaceIds },
-          },
-          select: { defaultId: true, spaceId: true },
         })
       : Promise.resolve([]),
   ]);
 
-  const cycleIds = [
-    ...new Set(
-      teams.flatMap((team) =>
-        team.cycles.map((cycle) => cycle.cycleId).filter((id): id is string => Boolean(id)),
-      ),
-    ),
-  ];
   const placementRows =
-    cycleIds.length > 0
+    spaceIds.length > 0
       ? await prisma.departmentOperationalCycleLocation.findMany({
-          where: { cycleId: { in: cycleIds }, spaceId: { in: spaceIds } },
+          where: {
+            spaceId: { in: spaceIds },
+            cycle: {
+              facilityId: input.facilityId,
+              departmentId: input.department.id,
+              status: "PUBLISHED",
+              nodeKind: "PERIOD",
+            },
+          },
           select: {
             spaceId: true,
             cycle: { select: { stableKey: true, label: true, startLocal: true, endLocal: true } },
@@ -152,22 +185,41 @@ async function loadProgramsForDepartmentRooms(input: {
     ]),
   );
 
-  const teamInput = teams.map((team) => ({
-    id: team.id,
-    name: team.displayName,
-    spaceIds: team.rooms.map((room) => room.spaceId),
-  }));
-  const teamCycles = teams.flatMap((team) =>
-    team.cycles.map((cycle) => ({
-      teamId: team.id,
-      cycleStableKey: cycle.cycleStableKey,
-      label: cycle.label,
-      startLocal: cycle.startLocal,
-      endLocal: cycle.endLocal,
-      requiredCount: cycle.requiredCount,
-      grain: cycle.grain,
-    })),
-  );
+  const cycleLabelByKey = new Map(periodCycles.map((cycle) => [cycle.stableKey, cycle.label]));
+  const runtimeCoverage = selectRuntimeCoverageTemplates(coverageTemplates, serviceDateKey);
+  const coverageBySpace = new Map<
+    string,
+    Array<{ id: string; roleLabel: string; requiredCount: number; cycleLabel: string | null }>
+  >();
+  for (const template of runtimeCoverage) {
+    for (const item of template.items) {
+      if (!item.spaceId) continue;
+      const labels = item.applicableOperationalCycleStableKeys.length
+        ? item.applicableOperationalCycleStableKeys.map((key) => cycleLabelByKey.get(key) ?? key)
+        : [null];
+      const list = coverageBySpace.get(item.spaceId) ?? [];
+      for (const cycleLabel of labels) {
+        list.push({
+          id: `${item.id}:${cycleLabel ?? "any"}`,
+          roleLabel: item.roleLabel,
+          requiredCount: item.requiredCount,
+          cycleLabel,
+        });
+      }
+      coverageBySpace.set(item.spaceId, list);
+    }
+  }
+
+  const teamInput: Array<{ id: string; name: string; spaceIds: string[] }> = [];
+  const teamCycles: Array<{
+    teamId: string;
+    cycleStableKey: string;
+    label: string;
+    startLocal: string | null;
+    endLocal: string | null;
+    requiredCount: number | null;
+    grain: "TOTAL" | "PER_ROOM";
+  }> = [];
   const cyclePlacements = placementRows
     .filter((row) => row.spaceId)
     .map((row) => ({
@@ -177,13 +229,6 @@ async function loadProgramsForDepartmentRooms(input: {
       endLocal: row.cycle.endLocal,
       spaceIds: [row.spaceId!],
     }));
-  const typeDefaultInput = typeDefaults.map((row) => ({
-    id: row.id,
-    label: row.catalogDefinition.name,
-    facilityRoomTypeId: row.facilityRoomTypeId,
-    typeLabel: row.facilityRoomType.displayName,
-  }));
-
   const programs: Record<string, LocationProgram> = {};
   for (const room of input.rooms) {
     const type = typeBySpace.get(room.spaceId);
@@ -215,10 +260,11 @@ async function loadProgramsForDepartmentRooms(input: {
       teams: teamInput,
       teamCycles,
       cyclePlacements,
+      coverageNeeds: coverageBySpace.get(room.spaceId) ?? [],
       spaceLogs,
       assetLogs,
-      typeDefaults: typeDefaultInput,
-      suppressions,
+      typeDefaults: [],
+      suppressions: [],
       assets: assets
         .filter((asset) => asset.spaceId === room.spaceId)
         .map((asset) => ({
@@ -226,6 +272,11 @@ async function loadProgramsForDepartmentRooms(input: {
           name: asset.name,
           code: asset.assetCode,
         })),
+      menus: menus
+        .filter((menu) =>
+          menu.locationApplicability.some((row) => row.spaceId === room.spaceId),
+        )
+        .map((menu) => ({ id: menu.id, name: menu.name })),
     });
   }
 

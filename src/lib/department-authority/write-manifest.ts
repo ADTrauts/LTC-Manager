@@ -270,7 +270,7 @@ export const WRITE_MANIFEST: WriteManifest = {
     createDepartmentTeamAction: department("department"),
     ...each(department("departmentTeam"), [
       "updateDepartmentTeamAction",
-      "addRemainingRoomsOfTypeToTeamAction",
+      
       "archiveDepartmentTeamAction",
     ]),
   },
@@ -301,6 +301,10 @@ export const WRITE_MANIFEST: WriteManifest = {
     ]),
     revokeEmployeeSessionsAction: GOVERNANCE,
   },
+  [`${PROTECTED}/employees/qualification-actions.ts`]: {
+    setEmployeeOperationalQualificationsAction: department("department"),
+  },
+
   // Bulk employee setup: each row names its Departments.
   [`${PROTECTED}/employees/bulk-setup/actions.ts`]: each(department("department"), [
     "previewSetupImportAction",

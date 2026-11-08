@@ -25,8 +25,6 @@ function room(spaceId: string, departmentId = "dietary"): CoverageLocationContex
     departmentId,
     spaceId,
     unitId: "unit-1",
-    operationalTypeKey: "servery",
-    operationalTypeName: "Servery",
   };
 }
 
@@ -44,7 +42,6 @@ function need(
     roleLabel: overrides.roleKey,
     requiredCount: 2,
     unitId: null,
-    applicableOperationalTypeKeys: ["servery"],
     applicableOperationalCycleStableKeys: ["breakfast"],
     ...overrides,
   };
@@ -170,7 +167,6 @@ describe("explicit space coverage", () => {
           requiredCount: 2,
           unitId: null,
           spaceId: "space-a",
-          applicableOperationalTypeKeys: ["servery"],
           applicableOperationalCycleStableKeys: ["lunch"],
         },
       ],

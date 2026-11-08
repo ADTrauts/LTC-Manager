@@ -488,6 +488,7 @@ test("delivery honors the flag, revocation, resolution, recovery, and expiry", a
     let expiredCalls = 0;
     const expiredResult = await deliverQueuedPushDispatches(expired.db as never, {
       now,
+      facilityIds: ["fac-1"],
       transport: async () => {
         expiredCalls += 1;
         return { outcome: "accepted" };

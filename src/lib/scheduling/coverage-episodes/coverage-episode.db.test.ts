@@ -98,7 +98,7 @@ test("assignment changes open, restore, and repeat a coverage episode", { skip }
             roleKey: "SERVER",
             roleLabel: "Server",
             requiredCount: 1,
-            applicableOperationalTypeKeys: ["SERVERY"],
+            spaceId: space.id,
             applicableOperationalCycleStableKeys: ["breakfast"],
           },
         },

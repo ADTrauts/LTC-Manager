@@ -251,13 +251,14 @@ A Team lead is the Team's `managerEmployeeId`. That relationship does not grant 
 
 ### 7.2 Department Builder People & Coverage consumes the model
 
+The mounted People & Coverage page is three regions on one screen: Today, Coverage requirements, and Organization. Today reads the canonical Coverage evaluator for the facility service date. Coverage requirements are the only facts this page writes. Organization reads Department membership, Teams, the Team lead, and active qualifications, and links to Employee Builder.
+
 People & Coverage may show:
 
-- Department employee count
-- Teams and who leads them
+- Department employee count and Department head
+- Teams, who leads them, and people with no Team
 - Eligible operational roles, read from Employee Builder
 - required coverage
-- scheduled coverage
 - actual/daily coverage
 - gaps
 - drill-down links to Employee Builder or Run
@@ -273,7 +274,7 @@ A Team does not own locations, define Coverage, define authorization, or define 
 - Department responsibility is the Department footprint.
 - Coverage is the staffing need.
 - `OperationalAssignment` is today's placement.
-- Employee Builder is the home for Team membership and operational eligibility.
+- Employee Builder is the home for creating a Team, naming its lead, Team membership, and operational eligibility. Department Builder shows that organization and does not author it.
 - Authorization stays with policy and authority.
 
 Do not nest an operational role under a Team. Do not put rooms, Location Function keys, or cycle staffing counts on the Team.

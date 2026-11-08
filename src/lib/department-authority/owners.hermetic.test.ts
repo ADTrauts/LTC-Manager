@@ -79,7 +79,13 @@ test("owner kinds cover the CDA architecture §4 table", () => {
 });
 
 test("every owner resolver scopes its lookup to the facility and returns null when missing", async () => {
-  const retired = new Set(["callOffOverride", "legacyLogTemplate", "evidenceTemplate", "inspectionDefinition"]);
+  const retired = new Set([
+    "callOffOverride",
+    "legacyLogTemplate",
+    "evidenceTemplate",
+    "inspectionDefinition",
+    "departmentTeamCycle",
+  ]);
   for (const kind of DEPARTMENT_OWNER_KINDS) {
     const { db, calls } = recordingDb();
     const owner = await resolveDepartmentOwner(db, kind, input);
@@ -106,7 +112,6 @@ test("Department-owned records return their departmentId", async () => {
     "keyTimeDayExpectation",
     "locationFunctionProfile",
     "departmentTeam",
-    "departmentTeamCycle",
     "workPlan",
     "workOccurrence",
     "menu",
@@ -132,8 +137,7 @@ test("Department-owned records return their departmentId", async () => {
           "operationalCycleKeyTimeDayExpectation",
           "departmentOperationalProfile",
           "departmentTeam",
-          "departmentTeamCycle",
-          "departmentWorkPlan",
+                "departmentWorkPlan",
           "departmentWorkOccurrence",
           "menu",
           "logAttachment",

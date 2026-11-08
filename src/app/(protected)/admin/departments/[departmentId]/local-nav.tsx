@@ -8,7 +8,6 @@ import { SubNav } from "@/components/design-system/SubNav";
 type Props = {
   departmentId: string;
   activeTab: DepartmentAdminTabId;
-  profileId: string | null;
   /** When set, only these tabs render (feature-flag filtered). */
   tabs?: readonly (typeof DEPARTMENT_ADMIN_TABS)[number][];
   setupWorkspace?: boolean;
@@ -16,12 +15,11 @@ type Props = {
 
 /**
  * Department Builder local navigation — horizontal SubNav under the page header.
- * Preserves deep-link hrefs via departmentAdminHref (tab + profile query).
+ * Preserves deep-link hrefs via departmentAdminHref.
  */
 export function DepartmentAdminLocalNav({
   departmentId,
   activeTab,
-  profileId,
   tabs = DEPARTMENT_ADMIN_TABS,
   setupWorkspace = false,
 }: Props) {
@@ -33,7 +31,7 @@ export function DepartmentAdminLocalNav({
       items={tabs.map((tab) => ({
         id: tab.id,
         label: tab.label,
-        href: departmentAdminHref(departmentId, tab.id, profileId, setupWorkspace),
+        href: departmentAdminHref(departmentId, tab.id, setupWorkspace),
       }))}
     />
   );

@@ -3,12 +3,26 @@
  *
  * The public key may be given to the signed-in browser. The private key and subject stay on the server.
  * A configured public key does not turn sending on. Only WEB_PUSH_SENDING_ENABLED exactly true may send.
+ *
+ * Disposable SQL suites may pin sending for one async chain via runWithWebPushSendingEnabled so
+ * parallel process.env toggles cannot suppress or enable another suite's deliveries.
  */
+
+import { AsyncLocalStorage } from "node:async_hooks";
 
 const UNCOMPRESSED_P256_LENGTH = 65;
 
+const sendingOverride = new AsyncLocalStorage<boolean>();
+
 export function isWebPushSendingEnabled(): boolean {
+  const override = sendingOverride.getStore();
+  if (override !== undefined) return override;
   return process.env.WEB_PUSH_SENDING_ENABLED === "true";
+}
+
+/** Pin sending on or off for one sync or async chain (tests). Production callers leave this unset. */
+export function runWithWebPushSendingEnabled<T>(enabled: boolean, run: () => T): T {
+  return sendingOverride.run(enabled, run);
 }
 
 /** Presence only. The private key is never returned. */

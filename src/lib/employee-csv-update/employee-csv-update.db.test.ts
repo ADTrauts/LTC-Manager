@@ -29,7 +29,7 @@ async function fixture(db: PrismaClient) {
     primaryUnitId: unit.id, pinDigest: `test-digest-${suffix}`, sessionVersion: 7,
     workStations: { create: [{ station: "COOK" }, { station: "SERVER" }] },
   } });
-  const session = { uid: actor.id, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "MANAGER", facilityId: facility.id, sessionVersion: 0, name: "Manager", email: actor.email } as FacilitySession;
+  const session = { jti: randomUUID(), uid: actor.id, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "MANAGER", facilityId: facility.id, sessionVersion: 0, name: "Manager", email: actor.email } as FacilitySession;
   const source = (body: string) => ({ text: body, fileName: "updates.csv" });
   const snapshot = () => db.employee.findUniqueOrThrow({ where: { id: employee.id }, include: { workStations: { orderBy: { station: "asc" } }, terminationRecords: true } });
   return { facility, actor, grant, targetUser, unit, employee, session, source, snapshot };

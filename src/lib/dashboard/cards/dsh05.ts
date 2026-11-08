@@ -5,7 +5,6 @@ import { loadFacilityDepartmentCatalog } from "@/lib/department-products/load-fa
 import { OPEN_OPERATIONAL_REQUEST_STATUSES } from "@/lib/operational-requests/types";
 import { presentRequesterStatus, requesterProjectedStatusLabel } from "@/lib/operational-requests/request-semantics";
 import { prisma } from "@/lib/prisma";
-import { attentionFromRuntimeLocations } from "@/lib/dashboard/attention-mappers/runtime-locations";
 
 import type { CardLoadInput, CardResult, DashboardReadyModel } from "./types";
 import { quiet, ready } from "./present";
@@ -168,24 +167,16 @@ function chrcLabel(status: ChrcStatus): string {
 export async function loadTeamsAtAGlance(input: CardLoadInput): Promise<CardResult<DashboardReadyModel>> {
   const departmentId = input.facts.departmentIds[0];
   if (!departmentId || input.facts.viewer.scope?.kind === "FACILITY") return presentTeamsAtAGlance([]);
-  const [teams, states] = await Promise.all([
-    prisma.departmentTeam.findMany({
-      where: { facilityId: input.facts.viewer.facilityId, departmentId, status: "ACTIVE" },
-      select: { id: true, displayName: true, roomMemberships: { select: { spaceId: true } } },
-    }),
-    input.facts.runtimeLocations(),
-  ]);
-  const attention = new Set(
-    attentionFromRuntimeLocations(states)
-      .map((item) => item.locationId)
-      .filter((id): id is string => Boolean(id)),
-  );
+  const teams = await prisma.departmentTeam.findMany({
+    where: { facilityId: input.facts.viewer.facilityId, departmentId, status: "ACTIVE" },
+    select: { id: true, displayName: true },
+  });
   return presentTeamsAtAGlance(
     teams.map((team) => ({
       id: team.id,
       name: team.displayName,
       departmentId,
-      attention: team.roomMemberships.filter((room) => attention.has(room.spaceId)).length,
+      attention: 0,
     })),
   );
 }

@@ -72,8 +72,15 @@ export type LocationProgram = {
   };
   teams: LocationProgramTeam[];
   cycles: LocationProgramCycle[];
+  coverage: readonly {
+    id: string;
+    roleLabel: string;
+    requiredCount: number;
+    cycleLabel: string | null;
+  }[];
   logs: LocationProgramLog[];
   assets: LocationProgramAsset[];
+  menus: readonly { id: string; name: string }[];
 };
 
 export type ComposeLocationProgramInput = {
@@ -109,6 +116,12 @@ export type ComposeLocationProgramInput = {
     endLocal: string | null;
     spaceIds: readonly string[];
   }[];
+  coverageNeeds?: readonly {
+    id: string;
+    roleLabel: string;
+    requiredCount: number;
+    cycleLabel: string | null;
+  }[];
   spaceLogs: readonly { id: string; label: string }[];
   assetLogs: readonly { id: string; label: string; assetName: string }[];
   typeDefaults: readonly {
@@ -119,6 +132,7 @@ export type ComposeLocationProgramInput = {
   }[];
   suppressions: readonly { defaultId: string; spaceId: string }[];
   assets: readonly { id: string; name: string; code: string | null }[];
+  menus?: readonly { id: string; name: string }[];
 };
 
 export function formatNeedSummary(
@@ -156,8 +170,10 @@ export function emptyLocationProgram(input: {
     },
     teams: [],
     cycles: [],
+    coverage: [],
     logs: [],
     assets: [],
+    menus: [],
   };
 }
 
@@ -169,8 +185,10 @@ export function locationProgramIsAttached(
   return (
     program.teams.length > 0 ||
     program.cycles.length > 0 ||
+    program.coverage.length > 0 ||
     program.logs.some((log) => !log.suppressed) ||
-    program.assets.length > 0
+    program.assets.length > 0 ||
+    program.menus.length > 0
   );
 }
 
@@ -182,53 +200,8 @@ export function composeLocationProgram(
     .filter(Boolean)
     .join(" · ");
 
-  const teamsHere = input.teams.filter((team) => team.spaceIds.includes(spaceId));
-  const teamIds = new Set(teamsHere.map((team) => team.id));
-  const teamNameById = new Map(input.teams.map((team) => [team.id, team.name]));
-
-  const teams: LocationProgramTeam[] = teamsHere
-    .map((team) => ({
-      id: team.id,
-      name: team.name,
-      provenance: {
-        source: "TEAM_ROOM_MEMBERSHIP" as const,
-        detail: "Works this room",
-      },
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
+  const teams: LocationProgramTeam[] = [];
   const cyclesByKey = new Map<string, LocationProgramCycle>();
-
-  for (const row of input.teamCycles) {
-    if (!teamIds.has(row.teamId)) continue;
-    const teamName = teamNameById.get(row.teamId) ?? "Team";
-    const teamRow: LocationProgramCycleTeam = {
-      teamId: row.teamId,
-      teamName,
-      requiredCount: row.requiredCount,
-      grain: row.grain,
-      provenance: {
-        source: "TEAM_CYCLE",
-        detail: `From ${teamName}`,
-      },
-    };
-    const existing = cyclesByKey.get(row.cycleStableKey);
-    if (existing) {
-      existing.teams.push(teamRow);
-      continue;
-    }
-    cyclesByKey.set(row.cycleStableKey, {
-      cycleStableKey: row.cycleStableKey,
-      label: row.label,
-      startLocal: row.startLocal,
-      endLocal: row.endLocal,
-      teams: [teamRow],
-      provenance: {
-        source: "TEAM_CYCLE",
-        detail: `From ${teamName}`,
-      },
-    });
-  }
 
   for (const row of input.cyclePlacements) {
     if (!row.spaceIds.includes(spaceId)) continue;
@@ -251,11 +224,6 @@ export function composeLocationProgram(
     cycle.teams.sort((a, b) => a.teamName.localeCompare(b.teamName));
   }
 
-  const suppressed = new Set(
-    input.suppressions
-      .filter((row) => row.spaceId === spaceId)
-      .map((row) => row.defaultId),
-  );
   const logs: LocationProgramLog[] = [];
 
   for (const row of input.spaceLogs) {
@@ -287,28 +255,6 @@ export function composeLocationProgram(
     });
   }
 
-  if (input.location.facilityRoomTypeId) {
-    for (const row of input.typeDefaults) {
-      if (row.facilityRoomTypeId !== input.location.facilityRoomTypeId) continue;
-      const isSuppressed = suppressed.has(row.id);
-      logs.push({
-        id: `type:${row.id}`,
-        label: row.label,
-        kind: "TYPE_DEFAULT",
-        assetName: null,
-        defaultId: row.id,
-        attachmentId: null,
-        suppressed: isSuppressed,
-        provenance: {
-          source: "FACILITY_TYPE_DEFAULT",
-          detail: isSuppressed
-            ? `Suppressed on this room · default for ${row.typeLabel}`
-            : `Inherited from Facility type: ${row.typeLabel}`,
-        },
-      });
-    }
-  }
-
   return {
     department: { id: input.departmentId, name: input.departmentName },
     location: {
@@ -323,7 +269,9 @@ export function composeLocationProgram(
     },
     teams,
     cycles,
+    coverage: [...(input.coverageNeeds ?? [])],
     logs: logs.sort((a, b) => a.label.localeCompare(b.label)),
     assets: [...input.assets].sort((a, b) => a.name.localeCompare(b.name)),
+    menus: [...(input.menus ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
   };
 }

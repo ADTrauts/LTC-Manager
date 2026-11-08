@@ -38,7 +38,7 @@ describe("scheduler relationship presentation", () => {
       employeeId: "e1",
       employeeFirstName: "Sharon",
       employeeLastName: "Smith",
-      jobRoleDisplayName: "Resident Services Supervisor",
+      jobTitleName: "Resident Services Supervisor",
       teamDisplayName: "Resident Services",
       serviceDate: "2026-09-03",
     };
@@ -52,7 +52,6 @@ describe("scheduler relationship presentation", () => {
           plannedEnd: "15:00",
           shift: "FULL_DAY",
           departmentId: "d1",
-          unitId: null,
           workShiftId: null,
         },
       ],
@@ -71,7 +70,7 @@ describe("scheduler relationship presentation", () => {
 
     const scheduledUnassigned = buildEmployeeShiftProjection({
       ...base,
-      jobRoleDisplayName: null,
+      jobTitleName: null,
       scheduleEntries: [
         {
           id: "s1",
@@ -79,14 +78,13 @@ describe("scheduler relationship presentation", () => {
           plannedEnd: "15:00",
           shift: "FULL_DAY",
           departmentId: "d1",
-          unitId: null,
           workShiftId: null,
         },
       ],
       operationalAssignments: [],
     });
     assert.equal(scheduledUnassigned.relationship, "SCHEDULED_UNASSIGNED");
-    assert.equal(scheduledUnassigned.jobRoleDisplayName, null);
+    assert.equal(scheduledUnassigned.jobTitleName, null);
 
     const assignedUnscheduled = buildEmployeeShiftProjection({
       ...base,
@@ -113,7 +111,6 @@ describe("scheduler relationship presentation", () => {
           plannedEnd: "10:00",
           shift: "FULL_DAY",
           departmentId: "d1",
-          unitId: null,
           workShiftId: null,
         },
         {
@@ -122,7 +119,6 @@ describe("scheduler relationship presentation", () => {
           plannedEnd: "18:00",
           shift: "FULL_DAY",
           departmentId: "d1",
-          unitId: null,
           workShiftId: null,
         },
       ],
@@ -152,7 +148,7 @@ describe("legacy ScheduleEntry readability", () => {
       employeeId: "e2",
       employeeFirstName: "Legacy",
       employeeLastName: "Row",
-      jobRoleDisplayName: null,
+      jobTitleName: null,
       teamDisplayName: null,
       serviceDate: "2026-09-03",
       scheduleEntries: [
@@ -162,7 +158,6 @@ describe("legacy ScheduleEntry readability", () => {
           plannedEnd: null,
           shift: "BREAKFAST",
           departmentId: null,
-          unitId: "unit-1",
           workShiftId: null,
         },
       ],
@@ -170,7 +165,6 @@ describe("legacy ScheduleEntry readability", () => {
     });
     assert.equal(proj.relationship, "SCHEDULED_UNASSIGNED");
     assert.equal(proj.shifts[0]!.departmentId, null);
-    assert.equal(proj.shifts[0]!.legacyUnitId, "unit-1");
     assert.equal(proj.shifts[0]!.shiftSlot, "BREAKFAST");
     assert.equal(formatShiftWindow12h(proj.shifts[0]!), null);
   });
@@ -180,7 +174,7 @@ describe("legacy ScheduleEntry readability", () => {
       employeeId: "e3",
       employeeFirstName: "Joseph",
       employeeLastName: "Sauer",
-      jobRoleDisplayName: "Team Member",
+      jobTitleName: "Team Member",
       teamDisplayName: "Resident Services",
       serviceDate: "2026-09-03",
       scheduleEntries: [
@@ -190,7 +184,6 @@ describe("legacy ScheduleEntry readability", () => {
           plannedEnd: "15:00",
           shift: "FULL_DAY",
           departmentId: "d1",
-          unitId: null,
           workShiftId: null,
         },
       ],
@@ -198,7 +191,7 @@ describe("legacy ScheduleEntry readability", () => {
     });
     assert.equal(proj.relationship, "SCHEDULED_UNASSIGNED");
     assert.equal(proj.assignments.length, 0);
-    assert.equal(proj.shifts[0]!.legacyUnitId, null);
+    assert.equal(proj.shifts[0]!.departmentId, "d1");
     assert.equal(
       formatAssignmentCoverageContext({
         relationship: proj.relationship,

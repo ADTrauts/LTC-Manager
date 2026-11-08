@@ -5,7 +5,6 @@
 
 import type { LogRequirement } from "@/lib/logs-architecture/types";
 import {
-  bindOperationalTypeRequirementToSpace,
   dedupeLocationLogRequirements,
   matchLogAttachmentToLocation,
   spaceIdForLogTarget,
@@ -24,8 +23,6 @@ export type RuntimeEvidenceSpaceContext = {
   spaceId: string;
   departmentId: string;
   unitId: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
   facilityId: string;
 };
 
@@ -49,7 +46,6 @@ export function resolveEvidenceRequirementsForSpaces(input: {
     spaceId: row.spaceId,
     unitId: row.unitId,
     targetDepartmentId: row.targetDepartmentId,
-    operationalTypeKey: row.operationalTypeKey,
     assetId: row.assetId,
     status: row.status,
   }));
@@ -64,17 +60,13 @@ export function resolveEvidenceRequirementsForSpaces(input: {
         departmentId: space.departmentId,
         spaceId: space.spaceId,
         unitId: space.unitId,
-        operationalTypeKey: space.operationalTypeKey,
-        operationalTypeName: space.operationalTypeName,
       });
       if (!match) continue;
 
-      const resolvedSpaceId =
-        attachment.targetKind === "OPERATIONAL_TYPE" ? space.spaceId : attachment.resolvedSpaceId;
       const resolved = resolveLogRequirementsForAttachment({
         attachment: {
           ...attachment,
-          resolvedSpaceId,
+          resolvedSpaceId: attachment.targetKind === "SPACE" ? space.spaceId : null,
         },
         operationalDateKey: input.operationalDateKey,
         now: input.now,
@@ -85,11 +77,7 @@ export function resolveEvidenceRequirementsForSpaces(input: {
         existingRecords: [...input.existingRecords],
       });
       for (const requirement of resolved) {
-        collected.push(
-          requirement.target.kind === "OPERATIONAL_TYPE"
-            ? bindOperationalTypeRequirementToSpace(requirement, space.spaceId)
-            : requirement,
-        );
+        collected.push(requirement);
       }
     }
     bySpace.set(space.spaceId, dedupeLocationLogRequirements(collected));

@@ -183,9 +183,6 @@ export {
   matchLogAttachmentToLocation,
   dedupeLocationLogMatches,
   dedupeLocationLogRequirements,
-  bindOperationalTypeRequirementToSpace,
-  expandOperationalTypeSpaces,
-  operationalTypeAssignId,
   type LocationLogApplicabilitySource,
 } from "./log-operational-type-applicability";
 

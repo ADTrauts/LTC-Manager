@@ -10,7 +10,11 @@ import { browserAlertStatusLabel, presentBrowserAlerts } from "@/lib/notificatio
 import { BROWSER_ALERT_BODY, BROWSER_ALERT_TITLE, browserAlertClickPath } from "@/lib/notifications/push-display";
 import { canReleaseBrowserPush, pushRegistrationUserId } from "@/lib/notifications/push-registration-session";
 import { PushSubscriptionError, registerPushSubscription } from "@/lib/notifications/push-subscription";
-import { isWebPushSendingEnabled, readVapidPublicKey } from "@/lib/notifications/web-push-config";
+import {
+  isWebPushSendingEnabled,
+  readVapidPublicKey,
+  runWithWebPushSendingEnabled,
+} from "@/lib/notifications/web-push-config";
 
 const root = process.cwd();
 const source = (path: string) => readFileSync(join(root, path), "utf8");
@@ -229,6 +233,10 @@ test("sending stays off unless the flag is exactly true, and a public key is not
     process.env.WEB_PUSH_SENDING_ENABLED = "false";
     assert.equal(isWebPushSendingEnabled(), false);
     process.env.WEB_PUSH_SENDING_ENABLED = "true";
+    assert.equal(isWebPushSendingEnabled(), true);
+    runWithWebPushSendingEnabled(false, () => {
+      assert.equal(isWebPushSendingEnabled(), false);
+    });
     assert.equal(isWebPushSendingEnabled(), true);
     process.env.VAPID_PUBLIC_KEY = "not-a-key";
     assert.equal(readVapidPublicKey(), null);

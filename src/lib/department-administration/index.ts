@@ -1,95 +1,15 @@
 /**
  * Department Administration — public barrel.
  *
- * Current programming: Location Program on Overview · Locations · Teams.
- * Experience-catalog profiles / Areas / Archetypes are retired compatibility.
- * Do not import this barrel from client components that would pull server code.
+ * Department Builder composes Facility responsibility with Operating Rhythm,
+ * People & Coverage, and Records. Do not import this barrel from client
+ * components that would pull server code.
  */
-
-export type {
-  ArchetypeExperienceSnapshot,
-  ExperienceConfiguration,
-  OperationalProfileStatusKey,
-  ProfileAreaExperienceSnapshot,
-  ProfileAreaSnapshot,
-  ProfileArchetypeSnapshot,
-  ProfileSnapshot,
-  RoomArchetypeBindingSnapshot,
-  RoomContext,
-  RoomExceptionMode,
-  RoomExceptionSnapshot,
-} from "./profile-types";
-export { isRoomStagedOrUndesignated } from "./profile-types";
-
-export {
-  isValidExperienceConfiguration,
-  mergeExperienceConfiguration,
-  validateExperienceConfiguration,
-  type ConfigurationIssue,
-} from "./configuration";
-
-export {
-  assertProfileEditable,
-  assertProfileTransition,
-  canTransitionProfileStatus,
-  isProfileDeletable,
-  isProfileEditable,
-  nextProfileVersion,
-  planProfileActivation,
-  type ActivationPlan,
-} from "./lifecycle";
-
-export {
-  BASELINE_DEPARTMENT_KEYS,
-  EXPERIENCE_CATALOG_BASELINE_RETIRED,
-  EXPERIENCE_CATALOG_BASELINE_RETIRED_MESSAGE,
-  assertExperienceCatalogBaselinesNotWritable,
-  isBaselineDepartmentKey,
-  materializeBaselineProfilePlan,
-  type BaselineAreaPlan,
-  type BaselineArchetypePlan,
-  type BaselineDepartmentKey,
-  type BaselineProfilePlan,
-} from "./baseline";
-
-export { recommendArchetypeKey } from "./archetype-recommendation";
-
-export {
-  validateProfileForCertification,
-  type CertificationDiagnostic,
-  type CertificationError,
-  type CertificationInput,
-  type CertificationResult,
-} from "./certification";
-
-export {
-  resolveDepartmentRoomProfile,
-  type ResolvedExperienceSource,
-  type ResolvedRoomArea,
-  type ResolvedRoomExperience,
-  type ResolvedRoomProfile,
-  type ResolveRoomProfileInput,
-  type RoomProfileDiagnostic,
-} from "./resolve-room-profile";
 
 export {
   PLANT_FACILITY_WIDE_POLICY,
-  policyEligibleExperienceKeys,
   type PlantFacilityWidePolicy,
 } from "./plant-policy";
-
-export {
-  assertPatternAuthoringAccess,
-  assertProfileWriteAccess,
-  checkPatternAuthoringAccess,
-  checkProfileWriteAccess,
-  type PatternAuthoringContext,
-  type ProfileAccessDenial,
-  type ProfileWriteContext,
-} from "./profile-access";
-
-// profile-service is server-only (Prisma). Import it from
-// `@/lib/department-administration/profile-service`, never this barrel.
 
 export {
   DEPARTMENT_ADMIN_TABS,
@@ -133,12 +53,7 @@ export {
 
 export {
   groupRoomsByFacilityRoomType,
-  groupRoomsByOperationalType,
-  locationConfigurationLabel,
-  operationalTypeKeyFromName,
-  uniqueOperationalTypeKey,
   type FacilityRoomTypeGroup,
-  type OperationalTypeGroup,
 } from "./operational-type";
 
 export {
@@ -157,43 +72,13 @@ export {
   type LocationProgramTeam,
 } from "./location-program";
 
-export {
-  emptyLocationOverlays,
-  resolveEffectiveLocationProgram,
-  type EffectiveLocationExperience,
-  type EffectiveLocationKind,
-  type EffectiveCoverageExpectationItem,
-  type EffectiveLocationOverlays,
-  type EffectiveLocationProgram,
-  type EffectiveOperationalType,
-  type OverlayProvenance,
-  type ResolveEffectiveLocationProgramInput,
-} from "./effective-location-program";
-
-// load-effective-location-program and load-location-program are server-only.
-// Import them from their files, not this barrel.
-
-export {
-  buildRoomTypeExperienceGroups,
-  classifyRoomTypeExperienceForUi,
-  customizedAssociatedRoomCount,
-  departmentArchetypeForRoomType,
-  groupAssignedRoomsByRoomType,
-  roomTypeSupportsDepartmentConfiguration,
-  sharedRoomTypeDescription,
-  type DepartmentRoomTypeGroup,
-  type RoomTypeExperienceGroup,
-  type RoomTypeExperienceProductClass,
-  type RoomTypeExperienceRow,
-} from "./room-types";
+// load-location-program is server-only. Import it from its file, not this barrel.
 
 export {
   collectDepartmentActionableLocations,
   groupLocationsByPhysicalHierarchy,
   isActionableDepartmentUnit,
   locationCoverageSummary,
-  resolveLocationStatus,
-  roomOperationalPattern,
   type DepartmentActionableLocation,
   type DepartmentLocationFloorGroup,
   type DepartmentLocationKind,
@@ -202,11 +87,7 @@ export {
   type DepartmentLocationStatus,
 } from "./department-locations";
 
-export type {
-  DepartmentAdminView,
-  DepartmentRoomRow,
-  ProfileListItem,
-} from "./load-department-admin";
+export type { DepartmentAdminView } from "./load-department-admin";
 
 // loadDepartmentAdminView / loadDepartmentLocationsView / experienceDisplayName
 // are server-only. Import them from

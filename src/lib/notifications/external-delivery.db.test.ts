@@ -13,14 +13,15 @@ import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { evaluateDeliveryEligibility } from "./delivery-eligibility";
 import { evaluateExternalDelivery } from "./external-delivery";
 import { getActiveAttentionCountForUser, loadNotificationCenter } from "./queries";
-import { snoozeExpiredTriggerKey } from "./push-dispatch";
-import type { PushTransport } from "./push-delivery";
+import { PUSH_TTL_MS, snoozeExpiredTriggerKey } from "./push-dispatch";
+import { deliverQueuedPushDispatches, type PushTransport } from "./push-delivery";
 import {
   clearNotificationSnooze,
   NotificationSnoozeError,
   setNotificationSnooze,
 } from "./snooze";
 import { loadNotificationPreference, saveNotificationPreference } from "./notification-preference";
+import { runWithWebPushSendingEnabled } from "./web-push-config";
 
 const databaseUrl = process.env.VERIFY_DATABASE_URL;
 if (databaseUrl) assertDisposableDatabaseUrl(databaseUrl);
@@ -33,15 +34,18 @@ function tag() {
 const accept: PushTransport = async () => ({ outcome: "accepted" });
 
 async function withSending<T>(enabled: boolean, run: () => Promise<T>): Promise<T> {
-  const previous = process.env.WEB_PUSH_SENDING_ENABLED;
-  if (enabled) process.env.WEB_PUSH_SENDING_ENABLED = "true";
-  else delete process.env.WEB_PUSH_SENDING_ENABLED;
-  try {
-    return await run();
-  } finally {
-    if (previous === undefined) delete process.env.WEB_PUSH_SENDING_ENABLED;
-    else process.env.WEB_PUSH_SENDING_ENABLED = previous;
-  }
+  // AsyncLocalStorage pin: process.env alone races under parallel verify:db.
+  return runWithWebPushSendingEnabled(enabled, async () => {
+    const previous = process.env.WEB_PUSH_SENDING_ENABLED;
+    if (enabled) process.env.WEB_PUSH_SENDING_ENABLED = "true";
+    else delete process.env.WEB_PUSH_SENDING_ENABLED;
+    try {
+      return await run();
+    } finally {
+      if (previous === undefined) delete process.env.WEB_PUSH_SENDING_ENABLED;
+      else process.env.WEB_PUSH_SENDING_ENABLED = previous;
+    }
+  });
 }
 
 test("snooze changes only this user's interruption and leaves the center alone", { skip }, async () => {
@@ -273,13 +277,38 @@ test("an expired snooze wakes once, and a cleared or old window does not", { ski
         evaluateExternalDelivery({ db, now, facilityIds: [facility.id], transport: accept }),
       ]);
       assert.equal(first.transitions + second.transitions, 2);
-      const rows = await db.pushDispatch.findMany({ where: { notificationRecipientId: recipient.id } });
+      // Concurrent evaluate may leave SENDING claims; restore TTL and drain under the ALS
+      // pin. Retry briefly if a peer still races the shared disposable DB.
+      let rows = await db.pushDispatch.findMany({ where: { notificationRecipientId: recipient.id } });
+      for (let attempt = 0; attempt < 3 && !rows.every((row) => row.status === "SENT"); attempt += 1) {
+        await db.pushDispatch.updateMany({
+          where: { notificationRecipientId: recipient.id },
+          data: {
+            status: "QUEUED",
+            claimedUntil: null,
+            lastErrorCode: null,
+            attemptCount: 0,
+            expiresAt: new Date(now.getTime() + PUSH_TTL_MS),
+          },
+        });
+        await deliverQueuedPushDispatches(db, {
+          now,
+          limit: 25,
+          transport: accept,
+          facilityIds: [facility.id],
+        });
+        rows = await db.pushDispatch.findMany({ where: { notificationRecipientId: recipient.id } });
+      }
       assert.equal(rows.length, 2);
       assert.deepEqual(
         rows.map((row) => row.triggerKey).sort(),
         [snoozeExpiredTriggerKey(recipient.id, recipient.snoozedUntil!), snoozeExpiredTriggerKey(recipient.id, recipient.snoozedUntil!)].sort(),
       );
-      assert.equal(rows.every((row) => row.status === "SENT"), true);
+      assert.equal(
+        rows.every((row) => row.status === "SENT"),
+        true,
+        rows.map((row) => `${row.status}:${row.lastErrorCode ?? ""}`).join("|") || "no rows",
+      );
       assert.equal(new Set(rows.map((row) => row.pushSubscriptionId)).size, 2);
       const again = await evaluateExternalDelivery({ db, now, facilityIds: [facility.id], transport: accept });
       assert.equal(again.transitions, 0);

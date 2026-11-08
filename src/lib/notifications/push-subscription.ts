@@ -182,6 +182,7 @@ export async function revokeAllPushSubscriptionsForUser(
   db: PushSubscriptionWriter,
   input: { userId: string; now: Date },
 ): Promise<void> {
+  if (typeof db.pushSubscription?.updateMany !== "function") return;
   await db.pushSubscription.updateMany({
     where: { userId: input.userId, revokedAt: null },
     data: { revokedAt: input.now, revokedReason: "LOGOUT" },

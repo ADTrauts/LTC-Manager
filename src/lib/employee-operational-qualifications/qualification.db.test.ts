@@ -70,7 +70,7 @@ test(
         facilityId: facility.id,
         employeeId: employee.id,
         departmentId: dietary.id,
-        roleKeys: ["SERVER", "CASHIER"],
+        roleKeys: ["SERVER", "HOT_PREP"],
       });
       await replaceEmployeeOperationalQualifications(prisma, {
         facilityId: facility.id,
@@ -112,7 +112,7 @@ test(
         facilityId: facility.id,
         employeeId: employee.id,
         departmentId: dietary.id,
-        roleKeys: ["CASHIER"],
+        roleKeys: ["HOT_PREP"],
       });
       const historical = await prisma.operationalAssignment.findFirstOrThrow({
         where: { id: assignment.id },
@@ -142,16 +142,14 @@ test(
           reason: "Only closer on the floor",
         },
       });
+      // Schema keeps one exception row per assignment; a later role change updates that row.
       await prisma.operationalAssignment.update({
         where: { id: exceptionAssignment.id },
         data: { roleKey: "DISHWASHING", roleLabel: "Dishwashing" },
       });
-      await prisma.operationalAssignmentEligibilityException.create({
+      await prisma.operationalAssignmentEligibilityException.update({
+        where: { assignmentId: exceptionAssignment.id },
         data: {
-          assignmentId: exceptionAssignment.id,
-          facilityId: facility.id,
-          departmentId: dietary.id,
-          employeeId: employee.id,
           roleKey: "DISHWASHING",
           reason: "Moved to dish for the close",
         },
@@ -163,10 +161,7 @@ test(
       });
       assert.deepEqual(
         events.map((event) => `${event.roleKey}:${event.reason}`),
-        [
-          "COOK:Only closer on the floor",
-          "DISHWASHING:Moved to dish for the close",
-        ],
+        ["DISHWASHING:Moved to dish for the close"],
       );
       const cookQualification = await prisma.employeeOperationalRoleQualification.count({
         where: { employeeId: employee.id, departmentId: dietary.id, roleKey: "COOK", status: "ACTIVE" },

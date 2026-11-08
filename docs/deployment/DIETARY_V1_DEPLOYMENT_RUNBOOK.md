@@ -122,7 +122,7 @@ Via Admin UI (no ordinary SQL):
 2. Dietary Department active.  
 3. Locations: Central Kitchen, Retail, Dietitian Office, Serverys, Floors, Units/neighborhoods.  
 4. Meal times / service-time groups.  
-5. Coverage requirements / Assignment templates.  
+5. Coverage requirements in Department Builder → People & Coverage.  
 6. Employees (~100), Supervisors, Managers, GM.  
 7. Quick PIN only for eligible frontline roles.  
 8. Password accounts for Supervisor+.  

@@ -111,8 +111,8 @@ function presentLocations(
       unitName: state?.identity.hierarchy.unitName ?? null,
       floorName: state?.identity.hierarchy.floorName ?? ref.floorName ?? null,
       neighborhoodName: state?.identity.hierarchy.neighborhoodName ?? ref.neighborhoodName ?? null,
-      operationalTypeKey: state?.program.operationalType.key ?? null,
-      operationalTypeName: state?.program.operationalType.name ?? null,
+      operationalTypeKey: null,
+      operationalTypeName: null,
       operationLabel:
         state?.operation.state === "ACTIVE"
           ? (state.operation.current?.hierarchyLabel ?? state.operation.current?.label ?? null)
