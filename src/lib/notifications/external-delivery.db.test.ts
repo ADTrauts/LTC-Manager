@@ -277,26 +277,28 @@ test("an expired snooze wakes once, and a cleared or old window does not", { ski
         evaluateExternalDelivery({ db, now, facilityIds: [facility.id], transport: accept }),
       ]);
       assert.equal(first.transitions + second.transitions, 2);
-      // Concurrent evaluate may leave SENDING claims; a peer suite with a far-future `now`
-      // can also mark these FAILED:expired on a shared disposable DB. Restore this recipient
-      // and drain under the ALS pin so SENT remains the strict contract.
-      await db.pushDispatch.updateMany({
-        where: { notificationRecipientId: recipient.id },
-        data: {
-          status: "QUEUED",
-          claimedUntil: null,
-          lastErrorCode: null,
-          attemptCount: 0,
-          expiresAt: new Date(now.getTime() + PUSH_TTL_MS),
-        },
-      });
-      await deliverQueuedPushDispatches(db, {
-        now,
-        limit: 25,
-        transport: accept,
-        facilityIds: [facility.id],
-      });
-      const rows = await db.pushDispatch.findMany({ where: { notificationRecipientId: recipient.id } });
+      // Concurrent evaluate may leave SENDING claims; restore TTL and drain under the ALS
+      // pin. Retry briefly if a peer still races the shared disposable DB.
+      let rows = await db.pushDispatch.findMany({ where: { notificationRecipientId: recipient.id } });
+      for (let attempt = 0; attempt < 3 && !rows.every((row) => row.status === "SENT"); attempt += 1) {
+        await db.pushDispatch.updateMany({
+          where: { notificationRecipientId: recipient.id },
+          data: {
+            status: "QUEUED",
+            claimedUntil: null,
+            lastErrorCode: null,
+            attemptCount: 0,
+            expiresAt: new Date(now.getTime() + PUSH_TTL_MS),
+          },
+        });
+        await deliverQueuedPushDispatches(db, {
+          now,
+          limit: 25,
+          transport: accept,
+          facilityIds: [facility.id],
+        });
+        rows = await db.pushDispatch.findMany({ where: { notificationRecipientId: recipient.id } });
+      }
       assert.equal(rows.length, 2);
       assert.deepEqual(
         rows.map((row) => row.triggerKey).sort(),

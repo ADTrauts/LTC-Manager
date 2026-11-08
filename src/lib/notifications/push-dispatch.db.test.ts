@@ -576,6 +576,7 @@ test("a recipient and a priority rise become recoverable push attempts", { skip 
       delete process.env.WEB_PUSH_SENDING_ENABLED;
       await deliverQueuedPushDispatches(db, {
         now,
+        facilityIds: [facility.id],
         transport: async () => {
           staleCalls += 1;
           return { outcome: "accepted" };

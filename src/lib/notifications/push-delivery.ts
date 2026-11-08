@@ -83,6 +83,9 @@ export async function deliverQueuedPushDispatches(
     expired: 0,
     stopped: null,
   };
+  // Bulk expire is Facility-scoped and windowed to the caller's clock. An unscoped
+  // pass with a synthetic far-future `now` must not mark every shared-DB dispatch
+  // FAILED:expired; per-row expiry still runs after claim in deliverOne.
   summary.expired = await expirePushDispatches(db, now, facilityIds);
   if (!isWebPushSendingEnabled()) {
     summary.stopped = "flag";
@@ -343,12 +346,19 @@ async function expirePushDispatches(
   now: Date,
   facilityIds: readonly string[] = [],
 ): Promise<number> {
-  const facilityScope =
-    facilityIds.length > 0
-      ? { notificationRecipient: { notification: { facilityId: { in: [...facilityIds] } } } }
-      : {};
+  if (facilityIds.length === 0) return 0;
+  const facilityScope = {
+    notificationRecipient: { notification: { facilityId: { in: [...facilityIds] } } },
+  };
+  // Only rows that just expired relative to this clock. A peer suite whose `now`
+  // is hours or years ahead must not harvest another suite's still-live TTL.
+  const recentlyExpiredAfter = new Date(now.getTime() - PUSH_TTL_SECONDS * 1000);
   const expired = await db.pushDispatch.updateMany({
-    where: { ...facilityScope, status: { in: ["QUEUED", "SENDING"] }, expiresAt: { lte: now } },
+    where: {
+      ...facilityScope,
+      status: { in: ["QUEUED", "SENDING"] },
+      expiresAt: { lte: now, gt: recentlyExpiredAfter },
+    },
     data: { status: "FAILED", lastErrorCode: "expired", claimedUntil: null },
   });
   const exhausted = await db.pushDispatch.updateMany({
