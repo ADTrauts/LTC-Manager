@@ -2,7 +2,7 @@
  * Department Builder location projection tests.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -12,8 +12,6 @@ import {
   groupLocationsByPhysicalHierarchy,
   isActionableDepartmentUnit,
   locationCoverageSummary,
-  resolveLocationStatus,
-  roomOperationalPattern,
   type HierarchyWalkUnit,
 } from "@/lib/department-administration/department-locations";
 
@@ -91,8 +89,7 @@ describe("Department Builder actionable location projection", () => {
     assert.equal(locations[0]!.id, "1a");
     assert.equal(locations[0]!.kind, "neighborhood");
     assert.equal(locations[0]!.status, "assigned");
-    assert.equal(locations[0]!.hasPattern, false);
-    assert.equal(locations[0]!.patternKey, null);
+    assert.equal(locations[0]!.roomTypeKey, null);
     assert.equal(locations[0]!.floorName, "Floor 1");
   });
 
@@ -119,12 +116,12 @@ describe("Department Builder actionable location projection", () => {
     for (const location of locations) {
       assert.equal(location.kind, "neighborhood");
       assert.equal(location.status, "assigned");
-      assert.equal(location.hasPattern, false);
-      assert.equal(location.patternLabel, null);
+      assert.equal(location.roomTypeKey, null);
+      assert.equal(location.roomTypeLabel, null);
     }
-    // unitType may still be present as facility metadata, but is not a pattern.
+    // unitType may still be present as facility metadata.
     assert.equal(locations.find((l) => l.id === "1c")!.unitType, "SERVERY");
-    assert.equal(locations.find((l) => l.id === "1c")!.patternKey, null);
+    assert.equal(locations.find((l) => l.id === "1c")!.roomTypeKey, null);
   });
 
   it("does not group neighborhoods by Unit.unitType", () => {
@@ -160,13 +157,12 @@ describe("Department Builder actionable location projection", () => {
     assert.equal(hierarchy.length, 1);
     assert.equal(hierarchy[0]!.floorName, "Floor 1");
     assert.equal(hierarchy[0]!.neighborhoods.length, 2);
-    // No pattern buckets — both neighborhoods sit under the same floor.
     assert.ok(
-      hierarchy[0]!.neighborhoods.every((n) => n.location.hasPattern === false),
+      hierarchy[0]!.neighborhoods.every((n) => n.location.roomTypeKey === null),
     );
   });
 
-  it("includes room assignments and optional archetype labels without forcing setup", () => {
+  it("includes room assignments and facility room type labels without forcing setup", () => {
     const floor = unit({
       id: "floor-1",
       name: "Floor 1",
@@ -211,10 +207,6 @@ describe("Department Builder actionable location projection", () => {
         [
           "central",
           {
-            archetypeKey: "production_kitchen",
-            archetypeName: "Production Kitchen",
-            exceptionCount: 1,
-            recommendedPatternKey: null,
             spaceTypeLabel: "Production",
             displayName: "Central Kitchen",
           },
@@ -229,13 +221,13 @@ describe("Department Builder actionable location projection", () => {
 
     const central = locations.find((l) => l.id === "central")!;
     assert.equal(central.kind, "room");
-    assert.equal(central.hasPattern, true);
-    assert.equal(central.patternLabel, "Production Kitchen");
-    assert.equal(central.status, "custom");
+    assert.equal(central.displayName, "Central Kitchen");
+    assert.equal(central.roomTypeLabel, "Production");
+    assert.equal(central.status, "assigned");
     assert.equal(central.parentNeighborhoodId, "kitchen-nbhd");
 
     const unbound = locations.find((l) => l.id === "unbound")!;
-    assert.equal(unbound.hasPattern, false);
+    assert.equal(unbound.roomTypeKey, null);
     assert.equal(unbound.status, "assigned");
 
     const hierarchy = groupLocationsByPhysicalHierarchy(locations);
@@ -256,25 +248,6 @@ describe("Department Builder actionable location projection", () => {
     assert.equal(locations.length, 0);
   });
 
-  it("treats room patterns as optional department-scoped metadata", () => {
-    assert.equal(
-      roomOperationalPattern({ archetypeKey: null, archetypeName: null }).hasPattern,
-      false,
-    );
-    assert.equal(
-      resolveLocationStatus({ kind: "neighborhood", hasPattern: false, hasOverrides: false }),
-      "assigned",
-    );
-    assert.equal(
-      resolveLocationStatus({ kind: "room", hasPattern: false, hasOverrides: false }),
-      "assigned",
-    );
-    assert.equal(
-      resolveLocationStatus({ kind: "room", hasPattern: true, hasOverrides: false }),
-      "pattern",
-    );
-  });
-
   it("summarizes assigned locations without an unconfigured bucket", () => {
     const locations = collectDepartmentActionableLocations({
       departmentId: "dietary",
@@ -290,7 +263,8 @@ describe("Department Builder actionable location projection", () => {
     const summary = locationCoverageSummary(locations);
     assert.equal(summary.total, 1);
     assert.equal(summary.assigned, 1);
-    assert.equal(summary.withPattern, 0);
+    assert.equal(summary.neighborhoodCount, 1);
+    assert.equal(summary.roomCount, 0);
     assert.equal("unconfigured" in summary, false);
   });
 
@@ -549,10 +523,6 @@ describe("Department Builder actionable location projection", () => {
         [
           "albright-servery",
           {
-            archetypeKey: "servery",
-            archetypeName: "Servery",
-            exceptionCount: 0,
-            recommendedPatternKey: null,
             spaceTypeLabel: "Servery",
             displayName: "Albright Servery",
           },
@@ -646,21 +616,20 @@ describe("Department Builder Locations source contracts", () => {
       join(root, "src/components/location-tree/DepartmentLocationTree.tsx"),
       "utf8",
     );
-    const typesPanel = readFileSync(
-      join(root, "src/app/(protected)/admin/departments/[departmentId]/room-types-panel.tsx"),
-      "utf8",
+    const typesPanel = join(
+      root,
+      "src/app/(protected)/admin/departments/[departmentId]/room-types-panel.tsx",
     );
+    assert.equal(existsSync(typesPanel), false);
     assert.equal(/spaceType\s*:/.test(actions), false);
     assert.equal(/unitType\s*:/.test(actions), false);
     assert.equal(/prisma\.unitSpace\.update/.test(panel), false);
     assert.equal(/prisma\.unit\.update/.test(actions), false);
     assert.match(panel, /LocationsProgrammingClient/);
-    assert.match(panel, /Physical places stay in Facility Builder/);
+    assert.match(panel, /Facility Builder owns the place/);
     assert.match(tree, /parentNeighborhoodName/);
     assert.match(tree, /No physical type/);
-    assert.match(typesPanel, /Room Types/);
     assert.equal(/archetypeId/.test(panel), false);
-    assert.equal(/archetypeId/.test(typesPanel), false);
   });
 
   it("does not expose archetype terminology in Department Locations or Room Types UI", () => {
@@ -669,13 +638,12 @@ describe("Department Builder Locations source contracts", () => {
       join(root, "src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx"),
       "utf8",
     );
-    const typesPanel = readFileSync(
-      join(root, "src/app/(protected)/admin/departments/[departmentId]/room-types-panel.tsx"),
-      "utf8",
-    );
     assert.equal(/\bArchetype\b/.test(panel), false);
-    assert.equal(/\bArchetype\b/.test(typesPanel), false);
-    assert.equal(/Operational type/.test(typesPanel), false);
+    assert.equal(/Operational type/.test(panel), false);
+    assert.equal(
+      existsSync(join(root, "src/app/(protected)/admin/departments/[departmentId]/room-types-panel.tsx")),
+      false,
+    );
   });
 
   it("nests room-only responsibility under structural Neighborhood context without inflating coverage", () => {

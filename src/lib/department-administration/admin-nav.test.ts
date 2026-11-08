@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -13,10 +13,6 @@ import {
   profileStatusBadgeVariant,
   resolveDepartmentAdminTab,
 } from "@/lib/department-administration";
-import {
-  selectWorkingProfileId,
-  type ProfileListItem,
-} from "@/lib/department-administration/load-department-admin";
 
 describe("Department Builder local navigation", () => {
   it("exposes Department Builder sections for the installed product", () => {
@@ -26,7 +22,6 @@ describe("Department Builder local navigation", () => {
         "overview",
         "locations",
         "operating-rhythm",
-        "work",
         "maintenance",
         "people",
         "records",
@@ -65,10 +60,10 @@ describe("Department Builder local navigation", () => {
     assert.equal(resolveDepartmentAdminTab("coverage"), "people");
     assert.equal(resolveDepartmentAdminTab("cycles"), "operating-rhythm");
     assert.equal(resolveDepartmentAdminTab("teams"), "people");
-    assert.equal(resolveDepartmentAdminTab("room-types"), "locations");
-    assert.equal(resolveDepartmentAdminTab("areas"), "locations");
-    assert.equal(resolveDepartmentAdminTab("archetypes"), "locations");
-    assert.equal(resolveDepartmentAdminTab("rooms"), "locations");
+    assert.equal(resolveDepartmentAdminTab("room-types"), "overview");
+    assert.equal(resolveDepartmentAdminTab("areas"), "overview");
+    assert.equal(resolveDepartmentAdminTab("archetypes"), "overview");
+    assert.equal(resolveDepartmentAdminTab("rooms"), "overview");
     assert.equal(resolveDepartmentAdminTab("diagnostics"), "overview");
     assert.equal(resolveDepartmentAdminTab("versions"), "overview");
     assert.equal(resolveDepartmentAdminTab("settings"), "overview");
@@ -77,14 +72,13 @@ describe("Department Builder local navigation", () => {
   });
 
   it("keeps Operating Rhythm on the bar and omits Records and Menus until the product needs them", () => {
-    const base = ["overview", "locations", "operating-rhythm", "work", "people"];
+    const base = ["overview", "locations", "operating-rhythm", "people"];
     assert.deepEqual(
       departmentAdminTabsForFlags({ cyclesEnabled: true }).map((t) => t.id),
       base,
     );
     assert.deepEqual(
       departmentAdminTabsForFlags({
-        workEnabled: false,
         recordsEnabled: true,
         menusEnabled: true,
       }).map((t) => t.id),
@@ -92,7 +86,6 @@ describe("Department Builder local navigation", () => {
     );
     assert.deepEqual(
       departmentAdminTabsForFlags({
-        workEnabled: false,
         maintenanceEnabled: true,
       }).map((t) => t.id),
       ["overview", "locations", "operating-rhythm", "maintenance", "people"],
@@ -105,8 +98,8 @@ describe("Department Builder local navigation", () => {
       "/build/departments/dept1",
     );
     assert.equal(
-      departmentAdminHref("dept1", "locations", "prof1"),
-      "/build/departments/dept1?tab=locations&profile=prof1",
+      departmentAdminHref("dept1", "locations"),
+      "/build/departments/dept1?tab=locations",
     );
     assert.equal(
       departmentAdminHref("dept1", "people"),
@@ -121,11 +114,11 @@ describe("Department Builder local navigation", () => {
       "/build/departments/dept1/preventive-maintenance",
     );
     assert.equal(
-      departmentAdminHref("dept1", "locations", "prof1", true),
-      "/build/departments/dept1?tab=locations&profile=prof1&onboarding=workspace",
+      departmentAdminHref("dept1", "locations", true),
+      "/build/departments/dept1?tab=locations&onboarding=workspace",
     );
     assert.equal(
-      departmentAdminHref("dept1", "maintenance", null, true),
+      departmentAdminHref("dept1", "maintenance", true),
       "/build/departments/dept1/preventive-maintenance?onboarding=workspace",
     );
     assert.ok(!departmentAdminHref("dept1", "overview").includes("/sidebar"));
@@ -187,51 +180,6 @@ describe("Department Builder local navigation", () => {
   });
 });
 
-describe("working profile selection", () => {
-  const base = {
-    name: "Model",
-    baselineKey: "DIETARY",
-    certifiedAt: null,
-    activatedAt: null,
-    retiredAt: null,
-    createdAt: new Date(),
-  } satisfies Omit<ProfileListItem, "id" | "version" | "status">;
-
-  it("prefers an explicit requested profile", () => {
-    const profiles: ProfileListItem[] = [
-      { ...base, id: "draft", version: 2, status: "DRAFT" },
-      { ...base, id: "active", version: 1, status: "ACTIVE" },
-    ];
-    assert.equal(selectWorkingProfileId(profiles, "active"), "active");
-  });
-
-  it("prefers DRAFT over ACTIVE when no request", () => {
-    const profiles: ProfileListItem[] = [
-      { ...base, id: "active", version: 1, status: "ACTIVE" },
-      { ...base, id: "draft", version: 2, status: "DRAFT" },
-    ];
-    assert.equal(selectWorkingProfileId(profiles, null), "draft");
-  });
-
-  it("falls back through ACTIVE → CERTIFIED → latest", () => {
-    assert.equal(
-      selectWorkingProfileId(
-        [{ ...base, id: "a", version: 1, status: "ACTIVE" }],
-        null,
-      ),
-      "a",
-    );
-    assert.equal(
-      selectWorkingProfileId(
-        [{ ...base, id: "c", version: 1, status: "CERTIFIED" }],
-        null,
-      ),
-      "c",
-    );
-    assert.equal(selectWorkingProfileId([], null), null);
-  });
-});
-
 describe("Department Administration barrel stays client-safe", () => {
   it("does not re-export server loaders or profile writes", () => {
     const barrel = readFileSync(
@@ -250,8 +198,16 @@ describe("Department Administration barrel stays client-safe", () => {
     const files = [
       "src/app/(protected)/admin/departments/[departmentId]/teams-workspace.tsx",
       "src/app/(protected)/admin/departments/[departmentId]/coverage-workspace.tsx",
-      "src/app/(protected)/admin/departments/[departmentId]/room-types-panel.tsx",
     ];
+    assert.equal(
+      existsSync(
+        join(
+          process.cwd(),
+          "src/app/(protected)/admin/departments/[departmentId]/room-types-panel.tsx",
+        ),
+      ),
+      false,
+    );
     for (const file of files) {
       const source = readFileSync(join(process.cwd(), file), "utf8");
       assert.equal(

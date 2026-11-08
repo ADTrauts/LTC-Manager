@@ -44,7 +44,7 @@ describe("Run surface reference freeze", () => {
     const landing = read("src/lib/locations/landing/from-runtime-state.ts");
 
     assert.match(types, /locationProgram/);
-    assert.match(types, /operationalType/);
+    assert.doesNotMatch(types, /operationalType/);
     assert.match(compose, /from \"@\/lib\/department-administration\/location-program\"/);
     assert.match(prefetch, /loadLocationProgramsForRuntimeSpaces/);
     assert.match(landing, /locationProgramIsAttached/);
