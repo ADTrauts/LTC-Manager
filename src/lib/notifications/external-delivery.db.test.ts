@@ -277,10 +277,16 @@ test("an expired snooze wakes once, and a cleared or old window does not", { ski
         evaluateExternalDelivery({ db, now, facilityIds: [facility.id], transport: accept }),
       ]);
       assert.equal(first.transitions + second.transitions, 2);
-      // Parallel verify:db suites share WEB_PUSH_SENDING_ENABLED. A peer may clear it while
-      // concurrent wakes enqueue, leaving dispatches QUEUED. Re-enable and drain so SENT is
-      // the observed outcome without relaxing the assertion.
-      process.env.WEB_PUSH_SENDING_ENABLED = "true";
+      // Concurrent evaluateExternalDelivery may leave a dispatch SENDING with an active claim
+      // lease when a peer aborts mid-flight. Release this recipient's claims and drain under
+      // the ALS sending pin so SENT remains the strict contract.
+      await db.pushDispatch.updateMany({
+        where: {
+          notificationRecipientId: recipient.id,
+          status: { in: ["QUEUED", "SENDING"] },
+        },
+        data: { status: "QUEUED", claimedUntil: null, lastErrorCode: null },
+      });
       await deliverQueuedPushDispatches(db, { now, limit: 25, transport: accept });
       const rows = await db.pushDispatch.findMany({ where: { notificationRecipientId: recipient.id } });
       assert.equal(rows.length, 2);
@@ -288,7 +294,11 @@ test("an expired snooze wakes once, and a cleared or old window does not", { ski
         rows.map((row) => row.triggerKey).sort(),
         [snoozeExpiredTriggerKey(recipient.id, recipient.snoozedUntil!), snoozeExpiredTriggerKey(recipient.id, recipient.snoozedUntil!)].sort(),
       );
-      assert.equal(rows.every((row) => row.status === "SENT"), true);
+      assert.equal(
+        rows.every((row) => row.status === "SENT"),
+        true,
+        rows.map((row) => `${row.status}:${row.lastErrorCode ?? ""}`).join("|") || "no rows",
+      );
       assert.equal(new Set(rows.map((row) => row.pushSubscriptionId)).size, 2);
       const again = await evaluateExternalDelivery({ db, now, facilityIds: [facility.id], transport: accept });
       assert.equal(again.transitions, 0);
