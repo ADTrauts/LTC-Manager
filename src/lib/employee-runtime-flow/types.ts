@@ -100,6 +100,8 @@ export type EmployeeRuntimeNextKind =
   | "overdue_evidence"
   | "due_work"
   | "due_evidence"
+  | "due_work_order"
+  | "upcoming_work_order"
   | "milestone"
   | "assignment_transition"
   | "upcoming_work"

@@ -11,7 +11,7 @@
 | | |
 |---|---|
 | Starting HEAD (2C-2A baseline) | `99a90abe7c26ffd419177325ea7dcea28fd488f0` |
-| Ending HEAD | Working tree on top of `99a90ab` (commit when approved) |
+| Ending HEAD | `bf83128` (committed after certification) |
 | Prior checkpoints | `78dcd3d` (2C-1), `3de0f41` (2A/2B) |
 
 Preflight: 2C-2A verified (51 hermetics), committed as `99a90ab`. `.neon` excluded.

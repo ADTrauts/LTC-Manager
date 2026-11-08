@@ -266,15 +266,6 @@ export function composeEmployeeRuntimeFlow(
   const milestones = collectMilestones(states);
   const issues = collectIssues(states);
   const locationNext = earliestLocationNext(states);
-  const next = resolveEmployeeNextAction({
-    work,
-    evidence: harborEvidence,
-    milestones,
-    currentAssignment: input.currentAssignment,
-    upcomingAssignment: input.upcomingAssignment,
-    locationNext,
-  });
-
   const items = composeJobFlowItems({
     compatibilityWork: work,
     harborEvidence,
@@ -283,6 +274,15 @@ export function composeEmployeeRuntimeFlow(
     workOrders: input.workOrders,
     preventiveMaintenance: input.preventiveMaintenance,
     assignmentExceptions: input.assignmentExceptions,
+  });
+  const next = resolveEmployeeNextAction({
+    items,
+    work,
+    evidence: harborEvidence,
+    milestones,
+    currentAssignment: input.currentAssignment,
+    upcomingAssignment: input.upcomingAssignment,
+    locationNext,
   });
 
   return {

@@ -86,4 +86,6 @@ export {
   presentEmployeeRuntimeExperience,
   type EmployeeRuntimeExperienceView,
   type EmployeeRuntimeGrain,
+  type EmployeeRuntimePresentedException,
+  type EmployeeRuntimePresentedItem,
 } from "./present";
