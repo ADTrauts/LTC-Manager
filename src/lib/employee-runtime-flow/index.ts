@@ -12,11 +12,30 @@ export type {
   EmployeeRuntimeNextKind,
   EmployeeRuntimeOperation,
   EmployeeRuntimeScopeKind,
+  JobFlowItem,
+  JobFlowItemAttention,
+  JobFlowItemPlace,
+  JobFlowItemTime,
+  JobFlowOwnerKind,
 } from "./types";
 export {
   EMPLOYEE_ASSIGNMENT_UNAVAILABLE_LABEL,
   EMPLOYEE_NO_ACTIVE_OPERATION_LABEL,
 } from "./types";
+export {
+  composeJobFlowItems,
+  jobFlowItemFromCompatibilityWork,
+  jobFlowItemFromHarborEvidence,
+  jobFlowItemFromMilestone,
+  jobFlowItemFromTemplateEvidence,
+  jobFlowItemsFromAssignmentExceptions,
+  jobFlowItemsFromCompatibilityWork,
+  jobFlowItemsFromHarborEvidence,
+  jobFlowItemsFromMilestones,
+  jobFlowItemsFromPreventiveMaintenance,
+  jobFlowItemsFromTemplateEvidence,
+  jobFlowItemsFromWorkOrders,
+} from "./job-flow-item";
 
 export {
   composeEmployeeRuntimeFlow,

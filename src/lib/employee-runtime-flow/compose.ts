@@ -17,6 +17,7 @@ import {
   collectHarborEvidence,
   filterTemplateEvidenceToAssignedSpaces,
 } from "./evidence";
+import { composeJobFlowItems } from "./job-flow-item";
 import { resolveEmployeeNextAction } from "./next-action";
 import { aggregateAssignedOperation } from "./operation";
 import type {
@@ -76,6 +77,7 @@ function emptyFlow(
     evidence: [],
     templateEvidence: [],
     work: [],
+    items: [],
     milestones: [],
     issues: [],
     next: { kind: "none", label: "", spaceId: null, sourceId: "" },
@@ -206,13 +208,15 @@ export function composeEmployeeRuntimeFlow(
 
   if (!input.currentAssignment && !input.upcomingAssignment) {
     const signedIn = emptyFlow(input, "no_confirmed_assignment", mismatch);
+    const work = filterWorkToAssignedSpaces(input.workRequirements, null);
     return {
       ...signedIn,
       responsibility: {
         ...signedIn.responsibility,
         unitId: input.deviceBoundUnitId ?? null,
       },
-      work: filterWorkToAssignedSpaces(input.workRequirements, null),
+      work,
+      items: composeJobFlowItems({ compatibilityWork: work }),
     };
   }
 
@@ -245,6 +249,13 @@ export function composeEmployeeRuntimeFlow(
     locationNext,
   });
 
+  const items = composeJobFlowItems({
+    compatibilityWork: work,
+    harborEvidence,
+    templateEvidence,
+    milestones,
+  });
+
   return {
     assignmentAvailability: "evaluated",
     currentAssignment: input.currentAssignment,
@@ -265,6 +276,7 @@ export function composeEmployeeRuntimeFlow(
     evidence: harborEvidence,
     templateEvidence,
     work,
+    items,
     milestones,
     issues,
     next,

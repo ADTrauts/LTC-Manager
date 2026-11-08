@@ -31,7 +31,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
-| ARR-003 | Job Flow still depends on generic Work Plans — **2C-1 design complete** | Confirmed conflict | Critical | 2C-2 → 5 |
+| ARR-003 | Job Flow still depends on generic Work — **2C-2A item contract live; CompatWork remains** | Confirmed conflict | Critical | 2C-2B → 5 |
 | ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A) | Legacy debt + conflict | Critical | 2 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
@@ -96,13 +96,13 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Job Flow / Employee Runtime Flow |
-| Code evidence | `employee-runtime-flow/load-flow.ts` imports `resolveUnitWorkRequirements` / `isDepartmentWorkPlansEnabled` / department-work types; Expected Work + Dashboard `work.expected`; offline completion; one-off occurrences. **RLS already unwired from generic Work.** Design: [PHASE_2C1_JOB_FLOW_CONSUMER_AUDIT_AND_REHOMING_DESIGN_2026-11-08.md](./PHASE_2C1_JOB_FLOW_CONSUMER_AUDIT_AND_REHOMING_DESIGN_2026-11-08.md) |
+| Code evidence | `employee-runtime-flow/load-flow.ts` still resolves Work; `flow.items` now carries owner-referenced rows ([PHASE_2C2A](./PHASE_2C2A_JOB_FLOW_COMPOSITION_FOUNDATION.md)) including `COMPATIBILITY_WORK`. Expected Work + Dashboard + offline + one-off remain. **RLS unwired from generic Work.** Design: [PHASE_2C1](./PHASE_2C1_JOB_FLOW_CONSUMER_AUDIT_AND_REHOMING_DESIGN_2026-11-08.md) |
 | Governing decision | Foundation: Job Flow composes Assignment, Cycle, Records, WO/PM; 15A: must not require generic Work going forward |
-| Current vs expected | Expected: composition without generic Work. Current: plan-derived + one-off Work still composed. Authoring closed (2B). |
+| Current vs expected | Expected: composition without generic Work. Current: dual `work` + `items` with CompatWork. Authoring closed (2B). Foundation contract **PASS** (2C-2A). |
 | Risk | Critical — blocks Role Job Flows and timeline cleanliness |
-| Recommended action | Execute 2C-2 sequence after PO decisions on one-off + Plant rounds; do not drop schema yet |
+| Recommended action | 2C-2B wire WO/PM into `items`; keep CompatWork until PO decisions; do not drop schema yet |
 | Dependencies | ARR-001, ARR-002 (authoring closed) |
-| Proposed phase | 2C-2 before 5 |
+| Proposed phase | 2C-2B before 5 — **ARR-003 not closed** |
 | Verification needed | `employee-runtime-flow*.test.ts`, dietary job flow suites; offline sync; Dashboard capabilities |
 
 ### ARR-004 — Location Function / profile / archetype remain

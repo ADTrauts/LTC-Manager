@@ -110,7 +110,7 @@ Also recorded: progressive configuration principle; temporal constraints; Builde
 | ID | Remains | Proposed phase |
 |---|---|---|
 | ARR-002 | Work tab/nav authoring — **closed Phase 2B** | 2B done |
-| ARR-003 | Job Flow reads Work Plans — **2C-1 audit/design done**; implement in 2C-2 | 2C-2 → 5 |
+| ARR-003 | Job Flow reads Work — **2C-2A item contract**; CompatWork remains | 2C-2B → 5 |
 | ARR-004 / 016 / 018 / 023 | LF/profile/archetype/Experience readers (writers closed 2A) | 2 |
 | ARR-008 | Job Role beside qualifications | 2 |
 | ARR-015 | Partner/staffing Work Plan writers — **closed Phase 2B** | 2B done |
