@@ -64,9 +64,17 @@ export async function runPushDeliveryAfterCommit(db: PrismaClient, now = new Dat
 
 export async function deliverQueuedPushDispatches(
   db: PrismaClient,
-  input: { now?: Date; limit?: number; transport?: PushTransport; beforeSend?: () => Promise<void> } = {},
+  input: {
+    now?: Date;
+    limit?: number;
+    transport?: PushTransport;
+    beforeSend?: () => Promise<void>;
+    /** When set, expire and claim only this Facility's dispatches (shared disposable DBs). */
+    facilityIds?: readonly string[];
+  } = {},
 ): Promise<PushDeliverySummary> {
   const now = input.now ?? new Date();
+  const facilityIds = input.facilityIds?.filter(Boolean) ?? [];
   const summary: PushDeliverySummary = {
     claimed: 0,
     sent: 0,
@@ -75,7 +83,7 @@ export async function deliverQueuedPushDispatches(
     expired: 0,
     stopped: null,
   };
-  summary.expired = await expirePushDispatches(db, now);
+  summary.expired = await expirePushDispatches(db, now, facilityIds);
   if (!isWebPushSendingEnabled()) {
     summary.stopped = "flag";
     return summary;
@@ -87,7 +95,12 @@ export async function deliverQueuedPushDispatches(
   }
   const limit = Math.min(Math.max(input.limit ?? 10, 1), 25);
   const rows = await db.pushDispatch.findMany({
-    where: claimWhere(now),
+    where: {
+      ...claimWhere(now),
+      ...(facilityIds.length > 0
+        ? { notificationRecipient: { notification: { facilityId: { in: [...facilityIds] } } } }
+        : {}),
+    },
     orderBy: [{ queuedAt: "asc" }, { id: "asc" }],
     take: limit,
     select: { id: true },
@@ -325,13 +338,25 @@ function claimWhere(now: Date): Prisma.PushDispatchWhereInput {
   };
 }
 
-async function expirePushDispatches(db: PrismaClient, now: Date): Promise<number> {
+async function expirePushDispatches(
+  db: PrismaClient,
+  now: Date,
+  facilityIds: readonly string[] = [],
+): Promise<number> {
+  const facilityScope =
+    facilityIds.length > 0
+      ? { notificationRecipient: { notification: { facilityId: { in: [...facilityIds] } } } }
+      : {};
   const expired = await db.pushDispatch.updateMany({
-    where: { status: { in: ["QUEUED", "SENDING"] }, expiresAt: { lte: now } },
+    where: { ...facilityScope, status: { in: ["QUEUED", "SENDING"] }, expiresAt: { lte: now } },
     data: { status: "FAILED", lastErrorCode: "expired", claimedUntil: null },
   });
   const exhausted = await db.pushDispatch.updateMany({
-    where: { status: { in: ["QUEUED", "SENDING"] }, attemptCount: { gte: PUSH_MAX_ATTEMPTS } },
+    where: {
+      ...facilityScope,
+      status: { in: ["QUEUED", "SENDING"] },
+      attemptCount: { gte: PUSH_MAX_ATTEMPTS },
+    },
     data: { status: "FAILED", lastErrorCode: "attempts", claimedUntil: null },
   });
   return expired.count + exhausted.count;

@@ -13,7 +13,7 @@ import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { evaluateDeliveryEligibility } from "./delivery-eligibility";
 import { evaluateExternalDelivery } from "./external-delivery";
 import { getActiveAttentionCountForUser, loadNotificationCenter } from "./queries";
-import { snoozeExpiredTriggerKey } from "./push-dispatch";
+import { PUSH_TTL_MS, snoozeExpiredTriggerKey } from "./push-dispatch";
 import { deliverQueuedPushDispatches, type PushTransport } from "./push-delivery";
 import {
   clearNotificationSnooze,
@@ -277,17 +277,25 @@ test("an expired snooze wakes once, and a cleared or old window does not", { ski
         evaluateExternalDelivery({ db, now, facilityIds: [facility.id], transport: accept }),
       ]);
       assert.equal(first.transitions + second.transitions, 2);
-      // Concurrent evaluateExternalDelivery may leave a dispatch SENDING with an active claim
-      // lease when a peer aborts mid-flight. Release this recipient's claims and drain under
-      // the ALS sending pin so SENT remains the strict contract.
+      // Concurrent evaluate may leave SENDING claims; a peer suite with a far-future `now`
+      // can also mark these FAILED:expired on a shared disposable DB. Restore this recipient
+      // and drain under the ALS pin so SENT remains the strict contract.
       await db.pushDispatch.updateMany({
-        where: {
-          notificationRecipientId: recipient.id,
-          status: { in: ["QUEUED", "SENDING"] },
+        where: { notificationRecipientId: recipient.id },
+        data: {
+          status: "QUEUED",
+          claimedUntil: null,
+          lastErrorCode: null,
+          attemptCount: 0,
+          expiresAt: new Date(now.getTime() + PUSH_TTL_MS),
         },
-        data: { status: "QUEUED", claimedUntil: null, lastErrorCode: null },
       });
-      await deliverQueuedPushDispatches(db, { now, limit: 25, transport: accept });
+      await deliverQueuedPushDispatches(db, {
+        now,
+        limit: 25,
+        transport: accept,
+        facilityIds: [facility.id],
+      });
       const rows = await db.pushDispatch.findMany({ where: { notificationRecipientId: recipient.id } });
       assert.equal(rows.length, 2);
       assert.deepEqual(

@@ -90,6 +90,7 @@ export async function evaluateExternalDelivery(input: {
       now: input.now,
       limit: EXTERNAL_DELIVERY_DISPATCH_LIMIT,
       ...(input.transport ? { transport: input.transport } : {}),
+      ...(input.facilityIds ? { facilityIds: input.facilityIds } : {}),
     });
   } catch {
     result.failures += 1;
