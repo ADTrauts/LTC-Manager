@@ -96,13 +96,24 @@ test("a call-off opens Coverage attention and a replacement closes the same epis
         status: "PUBLISHED",
         isActive: true,
         items: {
-          create: {
-            roleKey: "SERVER",
-            roleLabel: "Server",
-            requiredCount: 1,
-            spaceId: space.id,
-            applicableOperationalCycleStableKeys: ["breakfast"],
-          },
+          create: [
+            {
+              roleKey: "SERVER",
+              roleLabel: "Server",
+              requiredCount: 1,
+              spaceId: space.id,
+              sortOrder: 0,
+              applicableOperationalCycleStableKeys: ["breakfast"],
+            },
+            {
+              roleKey: "SERVER",
+              roleLabel: "Server",
+              requiredCount: 1,
+              spaceId: otherSpace.id,
+              sortOrder: 1,
+              applicableOperationalCycleStableKeys: ["breakfast"],
+            },
+          ],
         },
       },
     });

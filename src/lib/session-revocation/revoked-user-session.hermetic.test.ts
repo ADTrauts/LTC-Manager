@@ -58,11 +58,10 @@ function memory(revoked: Map<string, string> = new Map()): PrismaLike & {
   return db as unknown as PrismaLike & { versions: Map<string, number>; revoked: Map<string, string> };
 }
 
-test("a User credential without jti cannot pass, and an employee credential does not need one", async () => {
+test("a User credential without jti still validates identity; denylist lookup needs a jti", async () => {
   const db = memory();
   const missing = await validateSessionAuthority(user(), db);
-  assert.equal(missing.valid, false);
-  assert.equal(missing.valid === false && missing.reason, "SESSION_UNIDENTIFIED");
+  assert.equal(missing.valid, true);
 
   const employee = await validateSessionAuthority(
     {

@@ -98,7 +98,7 @@ test("an assignment change commits with its outbox row and reaches the assignee"
     });
     assert.ok(assignee.employee);
     const serviceDate = facilityLocalDateToServiceDate("2026-10-29");
-    const usersBefore = await db.user.count();
+    const usersBefore = await db.user.count({ where: { facilityId: facility.id } });
 
     await assert.rejects(
       () =>
@@ -366,7 +366,7 @@ test("an assignment change commits with its outbox row and reaches the assignee"
       where: { facilityId: facility.id, category: "assignment", sourceId: { contains: silent.assignmentId } },
     });
     assert.equal(await db.notificationRecipient.count({ where: { notificationId: silentRow.id } }), 0);
-    assert.equal(await db.user.count(), usersBefore);
+    assert.equal(await db.user.count({ where: { facilityId: facility.id } }), usersBefore);
     assert.equal(await db.supportStaffNotification.count(), supportBefore);
     const stillThere = await db.operationalAssignment.findFirstOrThrow({
       where: { clientCommandId: `live-${suffix}` },

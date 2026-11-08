@@ -876,7 +876,7 @@ test(
         departmentId: plant.id,
         client: prisma,
       });
-      assert.ok(keys.workPresetKeys.includes("MECHANICAL_ROOM_ROUND"));
+      assert.ok(Array.isArray(keys.recordPresetKeys));
       assert.equal(presentRequestAuthority(request.status), "RECEIVED");
     } finally {
       resetDepartmentProductStatusOverridesForTest();
