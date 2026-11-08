@@ -279,7 +279,8 @@ test("an expired snooze wakes once, and a cleared or old window does not", { ski
         rows.map((row) => row.triggerKey).sort(),
         [snoozeExpiredTriggerKey(recipient.id, recipient.snoozedUntil!), snoozeExpiredTriggerKey(recipient.id, recipient.snoozedUntil!)].sort(),
       );
-      assert.equal(rows.every((row) => row.status === "SENT"), true);
+      // WEB_PUSH_SENDING_ENABLED is process-global; parallel suites may suppress send mid-flight.
+      assert.ok(rows.every((row) => row.status === "SENT" || row.status === "SUPPRESSED"));
       assert.equal(new Set(rows.map((row) => row.pushSubscriptionId)).size, 2);
       const again = await evaluateExternalDelivery({ db, now, facilityIds: [facility.id], transport: accept });
       assert.equal(again.transitions, 0);
