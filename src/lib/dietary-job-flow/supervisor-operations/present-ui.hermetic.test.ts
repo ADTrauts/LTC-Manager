@@ -370,6 +370,7 @@ test("Needs Attention groups coverage, evidence, milestones, timing, work, and a
     "Evidence",
     "Service Milestones",
     "Service Timing",
+    "Work",
     "Equipment / Asset Impact",
   ]);
   const coverage = presented.needsAttention.sections.find((section) => section.category === "Coverage");
@@ -396,10 +397,9 @@ test("Needs Attention groups coverage, evidence, milestones, timing, work, and a
   assert.equal(timing?.items.some((item) => item.detail.includes("Meal Service Started late")), true);
   assert.equal(timing?.items.some((item) => item.detail.includes("Key Time overdue")), true);
 
-  assert.equal(
-    presented.needsAttention.sections.some((section) => section.category === "Work"),
-    false,
-  );
+  const work = presented.needsAttention.sections.find((section) => section.category === "Work");
+  assert.match(work?.items[0]?.detail ?? "", /Dining Room cleaning/);
+  assert.equal(work?.items[0]?.href.includes("work="), true);
 
   const assets = presented.needsAttention.sections.find(
     (section) => section.category === "Equipment / Asset Impact",

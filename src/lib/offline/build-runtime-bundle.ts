@@ -20,6 +20,7 @@ import {
   isDepartmentJobFlowEnabled,
   isDepartmentOperationalCyclesEnabled,
   isDepartmentOperationalEvidenceEnabled,
+  isDepartmentWorkPlansEnabled,
   resolveUnitOperationalDepartment,
 } from "@/lib/department-operations";
 import {
@@ -29,17 +30,23 @@ import {
   loadFrontlineEmployeeAssignments,
   serializeEmployeeRuntimeEvidenceContext,
   serializeEmployeeRuntimeJobFlowContext,
+  serializeEmployeeRuntimeWorkContext,
 } from "@/lib/employee-runtime-flow";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
 import { loadUnitRuntimeAssets } from "@/lib/asset-operations";
+import { resolveUnitWorkRequirements } from "@/lib/department-work";
 import {
   dietaryMealTimingUpgradeRequired,
   selectDietaryMealTimingModel,
 } from "@/lib/dietary/meal-timing";
 import { loadPublishedCyclesWithKeyTimesForDate } from "@/lib/operational-cycles/load-published-cycles";
+import {
+  loadSpaceOperationalTypeAssignments,
+  operationalTypeKeysForSpaces,
+} from "@/lib/operational-cycles/load-operational-type-targets";
 import {
   loadPublishedCyclesForDate,
   resolveOperationalCycle,
@@ -140,7 +147,7 @@ export async function buildRuntimeBundle(
     return { ok: false, reason: "UNIT_NOT_FOUND", status: 404 };
   }
 
-  // Prefer a Job Flow department (DIETARY or EVS). Classic SERVERY
+  // Prefer flagged Job Flow / Work Plans department (DIETARY or EVS). Classic SERVERY
   // milestone offline must still work when DIETARY_JOB_FLOW_ENABLED is off — fall back
   // to Dietary for SERVERY units (Phase 6/9 offline foundation).
   let operationalDepartment = await resolveUnitOperationalDepartment({
@@ -217,7 +224,10 @@ export async function buildRuntimeBundle(
     if (!access.ok) {
       return { ok: false, reason: access.reason, status: 403 };
     }
-  } else if (!isDepartmentJobFlowEnabled(dietary.key)) {
+  } else if (
+    !isDepartmentJobFlowEnabled(dietary.key) &&
+    !isDepartmentWorkPlansEnabled(dietary.key)
+  ) {
     return { ok: false, reason: "DEPARTMENT_UNAVAILABLE", status: 403 };
   }
 
@@ -226,7 +236,7 @@ export async function buildRuntimeBundle(
   const serviceDateKey = toServiceDateKey(serviceDate);
 
   {
-    const { prepareCurrentKeyTimeDayExpectations, timingsForOwnerUnits } = await import(
+    const { materializeKeyTimeDayExpectations, timingsForOwnerUnits } = await import(
       "@/lib/operational-cycles/materialize-key-time-day-expectations"
     );
     const { timingOwnerUnitIds } = await import(
@@ -237,7 +247,7 @@ export async function buildRuntimeBundle(
     );
     const { hasAtLeastRole } = await import("@/lib/access");
     try {
-      const keyMaterialized = await prepareCurrentKeyTimeDayExpectations(
+      const keyMaterialized = await materializeKeyTimeDayExpectations(
         {
           facilityId: input.session.facilityId,
           departmentId: dietary.id,
@@ -258,6 +268,7 @@ export async function buildRuntimeBundle(
             adjustedDueLocal: timing.adjustedDueLocal,
             actualDueLocal: timing.actualDueLocal,
             nowLocalHhMm: nowLocal,
+            occurrenceTracking: timing.occurrenceTracking,
           });
           return {
             expectationId: timing.expectationId,
@@ -401,6 +412,12 @@ export async function buildRuntimeBundle(
     const roomTypeKeys = [
       ...new Set(unit.childSpaces.map((space) => roomTypeKeyForStoredSpace(space))),
     ];
+    const runtimeFunctions = await loadSpaceOperationalTypeAssignments({
+      facilityId: input.session.facilityId,
+      departmentId: dietary.id,
+      spaceIds: unit.childSpaces.map((space) => space.id),
+      perspective: "runtime",
+    });
     resolvedCycle = resolveOperationalCycle({
       cycles,
       now,
@@ -411,6 +428,10 @@ export async function buildRuntimeBundle(
         unitType: unit.unitType,
         childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
+        childOperationalTypeKeys: operationalTypeKeysForSpaces(
+          runtimeFunctions,
+          unit.childSpaces.map((space) => space.id),
+        ),
       },
       mealTargets: includeMealMilestones
         ? runtimeMealTimes.map((m) => ({
@@ -502,6 +523,7 @@ export async function buildRuntimeBundle(
 
   let jobFlowContext: OfflineRuntimeBundle["jobFlowContext"] = null;
   let evidenceContext: OfflineRuntimeBundle["evidenceContext"] = null;
+  let workContext: OfflineRuntimeBundle["workContext"] = null;
   const jobFlowEnabled = isDepartmentJobFlowEnabled(dietary.key);
   const oaEnabled = true;
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
@@ -594,6 +616,19 @@ export async function buildRuntimeBundle(
       }
     }
 
+    const workRequirementsRaw =
+      oaEnabled && isDepartmentWorkPlansEnabled(dietary.key) && (activeAssignment?.unitId || unit.id)
+        ? await resolveUnitWorkRequirements({
+            facilityId: input.session.facilityId,
+            departmentId: dietary.id,
+            operationalDate: serviceDate,
+            operationalDateKey: serviceDateKey,
+            now: issuedAt,
+            facilityTimezone,
+            unitId: activeAssignment?.unitId ?? unit.id,
+          })
+        : [];
+
     const flow = composeEmployeeRuntimeFlow({
       operationalAssignmentsEnabled: oaEnabled,
       canonicalLogsEnabled,
@@ -605,6 +640,7 @@ export async function buildRuntimeBundle(
       spaceRefs,
       states: loadedStates.states,
       templateEvidence,
+      workRequirements: workRequirementsRaw,
       deviceBoundUnitId: input.deviceBoundUnitId,
       offline: {
         bundleRevision: serverRevision,
@@ -629,6 +665,7 @@ export async function buildRuntimeBundle(
       lastSyncedAt: issuedAt.toISOString(),
     });
     evidenceContext = serializeEmployeeRuntimeEvidenceContext(flow, issuedAt.toISOString());
+    workContext = serializeEmployeeRuntimeWorkContext(flow, issuedAt.toISOString());
   }
 
   // Leftover evidence-only producer: template compatibility when Job Flow is off
@@ -755,6 +792,61 @@ export async function buildRuntimeBundle(
     }
   }
 
+  if (!jobFlowEnabled && isDepartmentWorkPlansEnabled(dietary.key)) {
+    try {
+      const workRequirements = await resolveUnitWorkRequirements({
+        facilityId: input.session.facilityId,
+        departmentId: dietary.id,
+        operationalDate: serviceDate,
+        operationalDateKey: serviceDateKey,
+        now: issuedAt,
+        facilityTimezone,
+        unitId: unit.id,
+      });
+      const assignedSpaceIds =
+        assignmentContext?.scopeKind === "SPACES"
+          ? new Set(assignmentContext.assignedLocations?.map((l) => l.unitSpaceId) ?? [])
+          : null;
+      const scoped = workRequirements.filter((r) => {
+        if (
+          !["DUE", "CURRENT", "UPCOMING", "PAST_DUE_NOT_CONFIRMED", "SAVED_ON_THIS_TABLET"].includes(
+            r.state,
+          )
+        ) {
+          return false;
+        }
+        if (assignedSpaceIds == null) return true;
+        // SPACES scope: only assigned rooms — never the full unit Work catalog.
+        return r.spaceId != null && assignedSpaceIds.has(r.spaceId);
+      });
+      workContext = {
+        requirements: scoped.map((r) => ({
+          occurrenceKey: r.occurrenceKey,
+          label: r.label,
+          state: r.state,
+          priority: r.priority,
+          completionMode: r.completionMode,
+          workPlanStableKey: r.workPlanStableKey,
+          workPlanVersion: r.workPlanVersion,
+          workItemKey: r.workItemKey,
+          workPlanId: r.workPlanId,
+          workItemId: r.workItemId,
+          instructions: r.instructions,
+          knowledgeArticleId: r.knowledgeArticleId,
+          procedureTitle: r.procedureTitle,
+          dueAt: r.dueAt?.toISOString() ?? null,
+          cycleStableKey: r.cycleStableKey,
+          windowStartLocal: r.windowStartLocal,
+          windowEndLocal: r.windowEndLocal,
+          assignedEmployeeId: r.assignedEmployeeId,
+        })),
+        lastSyncedAt: issuedAt.toISOString(),
+      };
+    } catch {
+      workContext = null;
+    }
+  }
+
   let plantWorkOrderContext: OfflineRuntimeBundle["plantWorkOrderContext"] = null;
   if (
     dietary.key === "PLANT" &&
@@ -845,6 +937,7 @@ export async function buildRuntimeBundle(
     jobFlowContext,
     evidenceContext,
     assetContext,
+    workContext,
     plantWorkOrderContext,
   };
 

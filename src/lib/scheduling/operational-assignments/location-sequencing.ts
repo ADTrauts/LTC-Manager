@@ -1,15 +1,23 @@
 /**
- * Assignment location order for Job Flow.
- * Explicitly not route optimization, and not a Work Plan.
+ * Phase 11C — Deterministic EVS location / work sequencing for Job Flow.
+ * Explicitly NOT route optimization.
  */
 
+import type { WorkRequirement } from "@/lib/department-work/types";
 import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
+
+const PRIORITY_RANK: Record<string, number> = {
+  URGENT: 0,
+  TIME_SENSITIVE: 1,
+  ROUTINE: 2,
+};
 
 export type SequencedLocationWork = {
   unitSpaceId: string;
   label: string;
   sortOrder: number;
   roomNumber: string | null;
+  work: WorkRequirement[];
   hasUrgent: boolean;
   hasCurrentWork: boolean;
   allComplete: boolean;
@@ -26,17 +34,31 @@ export type DeterministicSequence = {
 
 export function buildDeterministicLocationSequence(input: {
   locations: ResolvedAssignmentLocation[];
+  workRequirements: WorkRequirement[];
   currentSpaceId?: string | null;
 }): DeterministicSequence {
-  const sequenced: SequencedLocationWork[] = input.locations.map((loc) => ({
-    unitSpaceId: loc.unitSpaceId,
-    label: loc.label,
-    sortOrder: loc.sortOrder,
-    roomNumber: loc.roomNumber,
-    hasUrgent: false,
-    hasCurrentWork: false,
-    allComplete: false,
-  }));
+  const workBySpace = new Map<string, WorkRequirement[]>();
+  for (const req of input.workRequirements) {
+    if (!req.spaceId) continue;
+    const list = workBySpace.get(req.spaceId) ?? [];
+    list.push(req);
+    workBySpace.set(req.spaceId, list);
+  }
+
+  const sequenced: SequencedLocationWork[] = input.locations.map((loc) => {
+    const work = (workBySpace.get(loc.unitSpaceId) ?? []).slice().sort(compareWork);
+    const incomplete = work.filter((w) => !isWorkComplete(w));
+    return {
+      unitSpaceId: loc.unitSpaceId,
+      label: loc.label,
+      sortOrder: loc.sortOrder,
+      roomNumber: loc.roomNumber,
+      work,
+      hasUrgent: incomplete.some((w) => w.priority === "URGENT"),
+      hasCurrentWork: incomplete.length > 0,
+      allComplete: work.length > 0 && incomplete.length === 0,
+    };
+  });
 
   sequenced.sort((a, b) => {
     if (a.hasUrgent !== b.hasUrgent) return a.hasUrgent ? -1 : 1;
@@ -63,8 +85,26 @@ export function buildDeterministicLocationSequence(input: {
     queue,
     all: sequenced,
     sequencingNote:
-      "Order follows the assigned rooms. This is not an optimized walking route.",
+      "Order follows Room display order, priority, and due time. This is not an optimized walking route.",
   };
+}
+
+function isWorkComplete(w: WorkRequirement): boolean {
+  return (
+    w.state === "COMPLETED" ||
+    w.state === "COMPLETED_WITH_EVIDENCE" ||
+    w.state === "NOT_REQUIRED"
+  );
+}
+
+function compareWork(a: WorkRequirement, b: WorkRequirement): number {
+  const pa = PRIORITY_RANK[a.priority] ?? 9;
+  const pb = PRIORITY_RANK[b.priority] ?? 9;
+  if (pa !== pb) return pa - pb;
+  const da = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
+  const db = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY;
+  if (da !== db) return da - db;
+  return (a.label ?? "").localeCompare(b.label ?? "");
 }
 
 /** Compact scope summary for Employee Job Flow header. */

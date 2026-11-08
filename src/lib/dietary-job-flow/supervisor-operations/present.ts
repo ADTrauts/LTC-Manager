@@ -14,6 +14,7 @@ function exceptionRank(group: SupervisorExceptionItem["group"], temporal: Superv
     Readiness: 300,
     ServiceTiming: 400,
     Evidence: 450,
+    Work: 460,
     Asset: 470,
     Equipment: 475,
     OfflineSync: 500,
@@ -93,6 +94,9 @@ export function presentSupervisorOperationsBoard(
   }
   for (const item of view.needsAttention.assets) {
     push(exceptions, "Asset", item);
+  }
+  for (const item of view.needsAttention.work) {
+    push(exceptions, "Work", item);
   }
   for (const item of view.needsAttention.sync) {
     push(exceptions, "OfflineSync", item);

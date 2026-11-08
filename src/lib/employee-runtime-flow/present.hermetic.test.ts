@@ -17,6 +17,7 @@ import {
 } from "./present";
 import { EMPLOYEE_ASSIGNMENT_UNAVAILABLE_LABEL } from "./types";
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
+import type { WorkRequirement } from "@/lib/department-work/types";
 import { emptyLocationProgram } from "@/lib/department-administration/location-program";
 import {
   DEFERRED_READINESS,
@@ -180,6 +181,50 @@ function state(partial: {
   });
 }
 
+function work(
+  partial: Partial<WorkRequirement> & { occurrenceKey: string; label: string; state: WorkRequirement["state"] },
+): WorkRequirement {
+  return {
+    occurrenceKey: partial.occurrenceKey,
+    workPlanId: "wp",
+    workPlanStableKey: "wp",
+    workPlanVersion: 1,
+    workPlanName: "Plan",
+    workItemId: "item",
+    workItemKey: "item",
+    label: partial.label,
+    instructions: null,
+    priority: "ROUTINE",
+    completionMode: partial.completionMode ?? "EXPLICIT_CONFIRMATION",
+    responsibilityMode: "UNIT_SHARED",
+    scheduleKind: "OPERATIONAL_CYCLE",
+    cycleStableKey: null,
+    windowStartLocal: null,
+    windowEndLocal: null,
+    dueAt: null,
+    windowStartsAt: null,
+    windowEndsAt: null,
+    unitId: "unit-a",
+    unitName: "3A",
+    spaceId: partial.spaceId ?? "servery-a",
+    assetId: null,
+    roleKeys: [],
+    knowledgeArticleId: null,
+    procedureTitle: null,
+    linkedTemplateStableKey: partial.linkedTemplateStableKey ?? null,
+    linkedTemplateId: null,
+    state: partial.state,
+    occurrenceId: null,
+    occurrenceStatus: null,
+    assignedEmployeeId: null,
+    completedByLabel: null,
+    completedAt: null,
+    evidenceRecordId: null,
+    sourceKind: "WORK_PLAN",
+    sourceHref: "/staffing/work-plans",
+  };
+}
+
 function present(
   flow: ReturnType<typeof composeEmployeeRuntimeFlow>,
   grain: "neighborhood" | "space" = "neighborhood",
@@ -227,6 +272,7 @@ function serverFlow() {
       }),
     ],
     templateEvidence: [],
+    workRequirements: [],
   });
 }
 
@@ -277,6 +323,7 @@ test("multi SPACE Neighborhood hides 3C", () => {
       }),
     ],
     templateEvidence: [],
+    workRequirements: [],
   });
   const view = present(flow);
   assert.deepEqual(
@@ -304,6 +351,7 @@ test("UNIT scope presents resolved child spaces", () => {
     })),
     states: ["s1", "s2", "s3"].map((id) => state({ spaceId: id, name: id })),
     templateEvidence: [],
+    workRequirements: [],
   });
   const view = present(flow);
   assert.deepEqual(view.assignedSpaces.map((row) => row.spaceId), ["s1", "s2", "s3"]);
@@ -320,6 +368,7 @@ test("unavailable assignment shows Assignment unavailable and no execution", () 
       spaceRefs: [],
       states: [],
       templateEvidence: [],
+      workRequirements: [],
     }),
   );
   assert.equal(view.assignmentTitle, EMPLOYEE_ASSIGNMENT_UNAVAILABLE_LABEL);
@@ -340,6 +389,7 @@ test("no confirmed assignment is distinct from unavailable", () => {
       spaceRefs: [],
       states: [],
       templateEvidence: [],
+      workRequirements: [],
     }),
   );
   assert.equal(view.assignmentTitle, EMPLOYEE_NO_CONFIRMED_ASSIGNMENT_LABEL);
@@ -361,6 +411,7 @@ test("upcoming-only assignment is not presented as current work", () => {
     spaceRefs: [{ spaceId: "dining", departmentId: "dept-1", unitId: "unit-a", displayName: "Dining Room" }],
     states: [state({ spaceId: "dining", name: "Dining Room" })],
     templateEvidence: [],
+    workRequirements: [],
   });
   const view = present(flow);
   assert.equal(view.assignmentTitle, "Upcoming assignment");
@@ -379,6 +430,7 @@ test("device mismatch keeps assignment and hides execution", () => {
     spaceRefs: [{ spaceId: "servery-a", departmentId: "dept-1", unitId: "unit-b", displayName: "4B Servery" }],
     states: [state({ spaceId: "servery-a", name: "4B Servery" })],
     templateEvidence: [],
+    workRequirements: [],
     deviceBoundUnitId: "unit-a",
   });
   const view = present(flow);
@@ -443,11 +495,135 @@ test("Harbor and template evidence are never merged", () => {
         instructions: null,
       },
     ],
+    workRequirements: [],
   });
   const template = present(templateFlow);
   assert.equal(template.evidenceMode, "template");
   assert.match(template.evidenceGroups[0]?.items[0]?.href ?? "", /evidence=tpl-food/);
   assert.equal((template.next?.href ?? "").includes("/staffing/logs/open"), false);
+});
+
+test("work stays distinct from evidence and linkedTemplateStableKey stays compatible", () => {
+  const flow = composeEmployeeRuntimeFlow({
+    operationalAssignmentsEnabled: true,
+    canonicalLogsEnabled: true,
+    currentAssignment: assignment({ id: "oa-1" }),
+    upcomingAssignment: null,
+    assignmentLocations: [location("servery-a", "3A Servery")],
+    spaceRefs: [{ spaceId: "servery-a", departmentId: "dept-1", unitId: "unit-a", displayName: "3A Servery" }],
+    states: [state({ spaceId: "servery-a", name: "3A Servery" })],
+    templateEvidence: [],
+    workRequirements: [
+      work({
+        occurrenceKey: "occ-1",
+        label: "Dining Room cleaning",
+        state: "DUE",
+        completionMode: "LINKED_EVIDENCE",
+        linkedTemplateStableKey: "cooler_temperature_log",
+      }),
+    ],
+  });
+  const view = present(flow);
+  assert.equal(view.work[0]?.kind, "work");
+  assert.equal(view.work[0]?.label, "Dining Room cleaning");
+  assert.match(view.work[0]?.href ?? "", /cooler_temperature_log/);
+  assert.equal(view.next?.label, "Dining Room cleaning");
+});
+
+test("linked Work Plan exact Harbor catalogStableKey uses Harbor href", () => {
+  const flow = composeEmployeeRuntimeFlow({
+    operationalAssignmentsEnabled: true,
+    canonicalLogsEnabled: true,
+    currentAssignment: assignment({ id: "oa-1" }),
+    upcomingAssignment: null,
+    assignmentLocations: [location("servery-a", "3A Servery")],
+    spaceRefs: [{ spaceId: "servery-a", departmentId: "dept-1", unitId: "unit-a", displayName: "3A Servery" }],
+    states: [
+      state({
+        spaceId: "servery-a",
+        name: "3A Servery",
+        evidenceItems: [evidenceItem("H-cooler", "Cooler Temperature", "DUE", "cooler_temperature_log")],
+      }),
+    ],
+    templateEvidence: [],
+    workRequirements: [
+      work({
+        occurrenceKey: "occ-cooler",
+        label: "Confirm cooler temperatures",
+        state: "DUE",
+        completionMode: "LINKED_EVIDENCE",
+        linkedTemplateStableKey: "cooler_temperature_log",
+      }),
+    ],
+  });
+  const view = present(flow);
+  assert.match(view.work[0]?.href ?? "", /\/staffing\/logs\/open/);
+  assert.match(view.work[0]?.href ?? "", /attachmentId=att-H-cooler/);
+  assert.equal((view.work[0]?.href ?? "").includes("evidence="), false);
+});
+
+test("linked Work Plan tmpl_* key does not fake-match Harbor catalogStableKey", () => {
+  const flow = composeEmployeeRuntimeFlow({
+    operationalAssignmentsEnabled: true,
+    canonicalLogsEnabled: true,
+    currentAssignment: assignment({ id: "oa-1" }),
+    upcomingAssignment: null,
+    assignmentLocations: [location("servery-a", "3A Servery")],
+    spaceRefs: [{ spaceId: "servery-a", departmentId: "dept-1", unitId: "unit-a", displayName: "3A Servery" }],
+    states: [
+      state({
+        spaceId: "servery-a",
+        name: "3A Servery",
+        evidenceItems: [evidenceItem("H-cooler", "Cooler Temperature", "DUE", "cooler_temperature_log")],
+      }),
+    ],
+    templateEvidence: [],
+    workRequirements: [
+      work({
+        occurrenceKey: "occ-legacy",
+        label: "Confirm cooler temperatures",
+        state: "DUE",
+        completionMode: "LINKED_EVIDENCE",
+        linkedTemplateStableKey: "tmpl_123",
+      }),
+    ],
+  });
+  const view = present(flow);
+  assert.match(view.work[0]?.href ?? "", /evidence=tmpl_123/);
+  assert.equal((view.work[0]?.href ?? "").includes("/staffing/logs/open"), false);
+});
+
+test("dishwasher_sanitizer_log does not silently match high_temp_dishwasher_log", () => {
+  const flow = composeEmployeeRuntimeFlow({
+    operationalAssignmentsEnabled: true,
+    canonicalLogsEnabled: true,
+    currentAssignment: assignment({ id: "oa-1" }),
+    upcomingAssignment: null,
+    assignmentLocations: [location("servery-a", "3A Servery")],
+    spaceRefs: [{ spaceId: "servery-a", departmentId: "dept-1", unitId: "unit-a", displayName: "3A Servery" }],
+    states: [
+      state({
+        spaceId: "servery-a",
+        name: "3A Servery",
+        evidenceItems: [
+          evidenceItem("H-dish", "High Temp Dishwasher", "DUE", "high_temp_dishwasher_log"),
+        ],
+      }),
+    ],
+    templateEvidence: [],
+    workRequirements: [
+      work({
+        occurrenceKey: "occ-dish",
+        label: "Sanitizer check",
+        state: "DUE",
+        completionMode: "LINKED_EVIDENCE",
+        linkedTemplateStableKey: "dishwasher_sanitizer_log",
+      }),
+    ],
+  });
+  const view = present(flow);
+  assert.match(view.work[0]?.href ?? "", /evidence=dishwasher_sanitizer_log/);
+  assert.equal((view.work[0]?.href ?? "").includes("/staffing/logs/open"), false);
 });
 
 test("employee next uses 6J result, location next stays secondary", () => {
@@ -488,6 +664,7 @@ test("asset impact appears without coverage facts", () => {
       }),
     ],
     templateEvidence: [],
+    workRequirements: [],
   });
   const view = present(flow);
   assert.equal(view.issues[0]?.summary, "Refrigerator unavailable");

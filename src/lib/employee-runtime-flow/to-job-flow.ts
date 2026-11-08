@@ -222,6 +222,15 @@ function evidenceAttention(flow: EmployeeRuntimeFlow): JobFlowAttentionItem[] {
       message: "Evidence recorded with corrective action or needs review.",
     });
   }
+  if (flow.work.some((row) => row.state === "DUE" || row.state === "CURRENT")) {
+    items.push({ kind: "work_due", message: "Department Work is due now." });
+  }
+  if (flow.work.some((row) => row.state === "PAST_DUE_NOT_CONFIRMED")) {
+    items.push({
+      kind: "work_past_due",
+      message: "Work is past due and not confirmed.",
+    });
+  }
   return items;
 }
 
@@ -269,6 +278,8 @@ export function adaptEmployeeRuntimeFlowToJobFlow(
         cycle: null,
       },
       evidenceRequirements: [],
+      workRequirements: [],
+      spaceWorkSummaries: [],
     };
   }
 
@@ -293,6 +304,7 @@ export function adaptEmployeeRuntimeFlowToJobFlow(
       milestoneExpectation: nextLabel ?? null,
     },
     evidenceRequirements,
+    workRequirements: flow.work,
     attention: [...base.attention, ...evidenceAttention(flow)].filter(
       (item, idx, arr) =>
         arr.findIndex((row) => row.kind === item.kind && row.message === item.message) === idx,

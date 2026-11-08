@@ -583,6 +583,25 @@ test("only operational-impact assets become generic exceptions", () => {
   assert.equal(view.overlay.plant?.openWorkOrders, 1);
 });
 
+test("work exception stays work, not evidence", () => {
+  const view = composeSupervisorOperations(
+    facts({
+      workExceptions: [
+        {
+          occurrenceKey: "wp-1",
+          label: "Hood filter",
+          unitId: "unit-a",
+          unitName: "3A",
+          state: "PAST_DUE_NOT_CONFIRMED",
+          assignedEmployeeId: "mary",
+        },
+      ],
+    }),
+  );
+  assert.match(view.needsAttention.work[0]?.status ?? "", /past due/);
+  assert.deepEqual(view.needsAttention.evidence, []);
+});
+
 test("sync items stay outside RLS and keep department-scoped facts", () => {
   const view = composeSupervisorOperations(
     facts({
@@ -647,7 +666,7 @@ test("pipeline source scan: one RLS batch, assignments always read, no readiness
   assert.match(files, /presentSupervisorEvidenceAttention/);
   assert.match(files, /buildDietaryCoverageSummary/);
   assert.match(files, /buildLocationCoverageSummary/);
-  assert.doesNotMatch(files, /loadSupervisorWorkExceptions/);
+  assert.match(files, /loadSupervisorWorkExceptions/);
   assert.equal(files.includes("resolveOperationalCycle"), false);
   assert.equal(files.includes("loadSupervisorCycleOverview"), false);
   assert.equal(files.includes("computeReadinessBatch"), false);

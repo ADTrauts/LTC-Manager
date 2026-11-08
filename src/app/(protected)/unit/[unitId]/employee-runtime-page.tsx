@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
 import { ReportProblemForm } from "@/components/operational-requests/report-problem-form";
+import { WorkCompletionPanel } from "@/components/department-work/work-completion-panel";
 import { EvidenceEntryForm } from "@/components/operational-evidence/evidence-entry-form";
 import { EmployeeRuntimeExperience } from "@/components/unit-workspace/employee-runtime-experience";
 import { resolveActiveDepartmentForShell } from "@/lib/active-department-context";
@@ -32,12 +33,39 @@ function firstSearchValue(value: string | string[] | undefined): string | null {
   return trimmed ? trimmed : null;
 }
 
+function linkedRecordHref(
+  flow: {
+    evidenceMode: string;
+    evidence: Array<{
+      catalogStableKey: string | null;
+      attachmentId: string;
+      requirementKey: string;
+    }>;
+  },
+  unitId: string,
+  requirement: { completionMode: string; linkedTemplateStableKey: string | null },
+): string | null {
+  const key = requirement.linkedTemplateStableKey?.trim();
+  if (!key || requirement.completionMode !== "LINKED_EVIDENCE") return null;
+  if (flow.evidenceMode === "harbor") {
+    const match = flow.evidence.find((item) => item.catalogStableKey === key);
+    if (!match) return "/staffing/logs";
+    const params = new URLSearchParams({
+      attachmentId: match.attachmentId,
+      requirementKey: match.requirementKey,
+    });
+    return `/staffing/logs/open?${params.toString()}`;
+  }
+  return `/unit/${unitId}?evidence=${encodeURIComponent(key)}`;
+}
+
 export async function tryRenderEmployeeRuntimeExperience(input: {
   session: FacilitySession;
   unitId: string;
   spaceId?: string | null;
   query?: {
     evidence?: string | string[];
+    work?: string | string[];
     reportAsset?: string | string[];
     reportProblem?: string | string[];
   };
@@ -82,6 +110,7 @@ export async function tryRenderEmployeeRuntimeExperience(input: {
   });
 
   const evidenceKey = firstSearchValue(input.query?.evidence);
+  const workKey = firstSearchValue(input.query?.work);
   const reportAsset = firstSearchValue(input.query?.reportAsset);
   const reportProblem = firstSearchValue(input.query?.reportProblem);
   const extras: ReactNode[] = [];
@@ -102,6 +131,27 @@ export async function tryRenderEmployeeRuntimeExperience(input: {
           departmentId={department.id}
           unitId={input.unitId}
           requirement={requirement}
+          deviceFacilityId={cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null}
+          deviceBoundUnitId={deviceBoundUnitId}
+          actorRef={actorRefForSession(input.session)}
+          sessionVersion={input.session.sessionVersion ?? 0}
+        />,
+      );
+    }
+  }
+
+  if (view.showExecution && workKey && department) {
+    const requirement = loaded.flow.work.find((row) => row.occurrenceKey === workKey);
+    if (requirement) {
+      extras.push(
+        <WorkCompletionPanel
+          key="employee-work"
+          facilityId={input.session.facilityId}
+          departmentId={department.id}
+          unitId={input.unitId}
+          requirement={requirement}
+          evidenceHref={linkedRecordHref(loaded.flow, input.unitId, requirement)}
+          canonicalOffline={Boolean(input.spaceId)}
           deviceFacilityId={cookieJar.get(DEVICE_FACILITY_COOKIE)?.value?.trim() || null}
           deviceBoundUnitId={deviceBoundUnitId}
           actorRef={actorRefForSession(input.session)}
