@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-import { shellClasses } from "@/lib/design-system";
-
 type WorkspaceShellHeaderProps = {
   menu?: ReactNode;
   brand: ReactNode;
@@ -30,9 +28,7 @@ export function WorkspaceShellHeader({
       data-shell-region="header"
       data-testid="workspace-shell-header"
     >
-      <div
-        className={`mx-auto flex w-full min-w-0 ${shellClasses.maxWidth} flex-nowrap items-center gap-1.5 overflow-x-clip px-3 py-1.5 sm:gap-2 sm:px-4 sm:py-2`}
-      >
+      <div className="flex w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-clip px-3 py-1.5 sm:gap-2 sm:px-4 sm:py-2">
         {menu}
         {brand}
         {workspace ? (

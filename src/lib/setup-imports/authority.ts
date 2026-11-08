@@ -49,5 +49,6 @@ export async function lockDependencies(tx: Prisma.TransactionClient, facilityId:
   await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Unit" WHERE "facilityId"=${facilityId} FOR SHARE`);
   await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "UnitSpace" WHERE "facilityId"=${facilityId} FOR SHARE`);
   await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "DepartmentTeam" WHERE "facilityId"=${facilityId} FOR SHARE`);
+  await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "DepartmentJobRole" WHERE "facilityId"=${facilityId} FOR SHARE`);
   await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "JobTitle" WHERE "facilityId"=${facilityId} FOR SHARE`);
 }

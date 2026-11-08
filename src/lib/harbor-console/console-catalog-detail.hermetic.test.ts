@@ -12,6 +12,7 @@ import {
   formatProductReleaseDate,
   formatProductVersionLabel,
   loadConsoleDepartmentProductDetail,
+  loadConsoleWorkPresetDetail,
   productAccessRoleTotal,
 } from "./console-catalog-detail";
 
@@ -157,6 +158,7 @@ test("role breakdown dedups an employee and facility administrator once", () => 
   );
 });
 
-test("unknown product keys do not query", async () => {
+test("unknown product and work keys do not query", async () => {
   assert.equal(await loadConsoleDepartmentProductDetail({} as never, "NOT_REAL"), null);
+  assert.equal(await loadConsoleWorkPresetDetail({} as never, "NOT_REAL"), null);
 });

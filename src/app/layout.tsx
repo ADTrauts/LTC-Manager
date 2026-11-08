@@ -1,6 +1,7 @@
 import Script from "next/script";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { PushTransportReconcile } from "@/components/notifications/push-transport-reconcile";
 import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
 
@@ -18,6 +19,13 @@ export const metadata: Metadata = {
   title: "Vssyl",
   description: "Vssyl — Business Operations Platform. Your operations. All together.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     title: "Vssyl",
@@ -39,7 +47,8 @@ export default function RootLayout({
         className="min-h-full bg-[var(--background)] font-sans text-[var(--foreground)]"
       >
         <PwaRegister />
-        <Script type="module" src="/space-offline.js" strategy="afterInteractive" />
+        <PushTransportReconcile />
+        <Script type="module" src="/space-offline.js" strategy="afterInteractive" crossOrigin="anonymous" />
         {children}
       </body>
     </html>

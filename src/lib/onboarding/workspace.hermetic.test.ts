@@ -51,8 +51,6 @@ test("legacy writer is explicitly retired and workspace delegates intake and pub
   assert.doesNotMatch(lead, /Save Department head|Invite the head/);
   const invitations = readFileSync("src/lib/onboarding/manager-invitations.ts", "utf8");
   assert.match(invitations, /headEmployeeId: result\.employeeId/);
-  assert.match(invitations, /confirmedRollback/);
-  assert.match(invitations, /attempt >= 4/);
   assert.doesNotMatch(workspace, /builder\?onboarding=workspace" onClick/);
   assert.match(workspace, /expectedFacilityId/); assert.match(workspace, /onboarding\/draft/);
 });

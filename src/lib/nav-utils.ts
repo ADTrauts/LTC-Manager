@@ -12,6 +12,7 @@ export function isActiveNavPath(pathname: string | null, href: string): boolean 
     return (
       pathname === "/employees" ||
       pathname.startsWith("/employees/import") ||
+      pathname.startsWith("/employees/job-roles") ||
       pathname.startsWith("/employees/points-summary") ||
       pathname.startsWith("/employees/separations") ||
       pathname.startsWith("/employees/terminations") ||

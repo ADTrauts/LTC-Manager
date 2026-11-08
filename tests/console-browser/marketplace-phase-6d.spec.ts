@@ -193,6 +193,29 @@ test.beforeAll(async () => {
       });
     }
 
+    const plans = await prisma.departmentWorkPlan.count({
+      where: { facilityId: work.id, presetKey: "MECHANICAL_ROOM_ROUND" },
+    });
+    if (plans === 0) {
+      for (const version of [
+        { version: 1, status: "DRAFT" as const, name: "Phase 6D Mechanical Draft" },
+        { version: 2, status: "PUBLISHED" as const, name: "Phase 6D Mechanical Published" },
+        { version: 3, status: "DRAFT" as const, name: "Phase 6D Mechanical Successor" },
+      ]) {
+        await prisma.departmentWorkPlan.create({
+          data: {
+            facilityId: work.id,
+            departmentId: workDepartment.id,
+            stableKey: "phase6d_mechanical_round",
+            presetKey: "MECHANICAL_ROOM_ROUND",
+            version: version.version,
+            name: version.name,
+            status: version.status,
+          },
+        });
+      }
+    }
+
     if (!(await prisma.catalogLogDefinition.findUnique({ where: { stableKey_version: { stableKey: "cooler_temperature_log", version: 1 } } }))) {
       await prisma.catalogLogDefinition.create({
         data: {
@@ -292,11 +315,19 @@ test.describe("Harbor Marketplace detail", () => {
     await expect(page.getByRole("heading", { name: "New catalog record" })).toBeVisible();
   });
 
-  test("generic Work presets are not a Marketplace family", async ({ page }) => {
+  test("Work preset detail lists facility plan versions", async ({ page }) => {
     await page.goto("/console/catalog?family=work");
-    await expect(page.locator('[data-stable-key="MECHANICAL_ROOM_ROUND"]')).toHaveCount(0);
-    const missing = await page.goto("/console/catalog/work/MECHANICAL_ROOM_ROUND");
-    expect(missing?.status()).toBe(404);
+    await page.locator('[data-stable-key="MECHANICAL_ROOM_ROUND"] a').click();
+    await expect(page).toHaveURL(/\/console\/catalog\/work\/MECHANICAL_ROOM_ROUND$/);
+    await expect(page.getByRole("heading", { name: "Mechanical Room Round" })).toBeVisible();
+    await expect(page.getByTestId("work-version")).toHaveText("—");
+    await expect(page.getByTestId("work-status")).toHaveText("—");
+    await expect(page.getByRole("link", { name: "Facility Plant Operations" })).toBeVisible();
+    const rows = page.locator('[data-testid="work-plan-row"][data-facility-name="Phase 6D Mechanical Facility"]');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.filter({ hasText: "Phase 6D Mechanical Published" })).toContainText("PUBLISHED");
+    await expect(rows.filter({ hasText: "Phase 6D Mechanical Draft" })).toContainText("DRAFT");
+    await expect(page.getByRole("button", { name: /new work preset/i })).toHaveCount(0);
   });
 });
 
@@ -325,8 +356,8 @@ test("catalog routes coexist", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "New catalog record" })).toBeVisible();
   await page.goto("/console/catalog/products/PLANT");
   await expect(page.getByRole("heading", { name: "Facility Plant Operations" })).toBeVisible();
-  const retiredWork = await page.goto("/console/catalog/work/MECHANICAL_ROOM_ROUND");
-  expect(retiredWork?.status()).toBe(404);
+  await page.goto("/console/catalog/work/MECHANICAL_ROOM_ROUND");
+  await expect(page.getByRole("heading", { name: "Mechanical Room Round" })).toBeVisible();
   await page.goto("/console/catalog/cooler_temperature_log");
   await expect(page.getByRole("heading", { name: "Cooler Temperature Log" })).toBeVisible();
   const missingProduct = await page.goto("/console/catalog/products/NOT_REAL");

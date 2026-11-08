@@ -107,34 +107,6 @@ async function lockPartnership(db: DbClient, partnershipId: string): Promise<voi
   }
 }
 
-/**
- * Membership end locks the Organization, then its partnerships.
- * Assignment writes that depend on current membership take the same locks in
- * that order so they cannot pass the membership transaction.
- */
-async function lockMembershipThenPartnership(db: DbClient, partnershipId: string): Promise<void> {
-  const client = db as PrismaClient;
-  if (typeof client.$queryRaw !== "function") {
-    throw new PartnerUserAccessError(
-      "INVALID_INPUT",
-      "Partner authorization mutations require a client that can lock the partnership row.",
-    );
-  }
-  const found = await client.$queryRaw<Array<{ organizationId: string }>>(
-    Prisma.sql`SELECT "organizationId" FROM "FacilityPartnerOrganization" WHERE "id" = ${partnershipId}`,
-  );
-  if (!Array.isArray(found) || found.length !== 1) {
-    throw new PartnerUserAccessError("PARTNERSHIP_NOT_FOUND", "Partner relationship not found.");
-  }
-  const organizations = await client.$queryRaw<Array<{ id: string }>>(
-    Prisma.sql`SELECT "id" FROM "Organization" WHERE "id" = ${found[0]!.organizationId} FOR UPDATE`,
-  );
-  if (!Array.isArray(organizations) || organizations.length !== 1) {
-    throw new PartnerUserAccessError("ORGANIZATION_INACTIVE", "The partner Organization is inactive.");
-  }
-  await lockPartnership(db, partnershipId);
-}
-
 function assertNoOverlap(
   periods: Array<{ startsAt: Date; endsAt: Date | null }>,
   message: string,
@@ -326,23 +298,16 @@ export async function closeCurrentPartnerAssignmentsForOrganizationMembership(
     include: { rolePeriods: true },
   });
   for (const assignment of assignments) {
-    for (const period of assignment.rolePeriods) {
-      // A period that is still open, or that continues past the membership end,
-      // must not stay current. A period that starts at the same millisecond as
-      // the membership end does not contain that instant, so an instant match
-      // would leave it open. Close it at its own start; the row stays as history.
-      if (period.endsAt && period.endsAt.getTime() <= input.endsAt.getTime()) continue;
-      const closeAt =
-        period.startsAt.getTime() > input.endsAt.getTime() ? period.startsAt : input.endsAt;
-      await closeCurrentPartnerUserRolePeriod(db, {
-        rolePeriodId: period.id,
-        endsAt: closeAt,
-        endedByUserId: input.actorUserId,
-        endedByAuthorityKind: "partner_org_admin",
-        endedByOrganizationId: input.organizationId,
-        endReason: "ORGANIZATION_MEMBERSHIP_ENDED",
-      });
-    }
+    const current = findPeriodContainingInstant(assignment.rolePeriods, input.endsAt);
+    if (!current) continue;
+    await closeCurrentPartnerUserRolePeriod(db, {
+      rolePeriodId: current.id,
+      endsAt: input.endsAt,
+      endedByUserId: input.actorUserId,
+      endedByAuthorityKind: "partner_org_admin",
+      endedByOrganizationId: input.organizationId,
+      endReason: "ORGANIZATION_MEMBERSHIP_ENDED",
+    });
   }
 }
 
@@ -654,12 +619,9 @@ export async function assignPartnerUser(
     at?: Date;
   },
 ): Promise<{ assignmentId: string; rolePeriod: PartnerRolePeriodView }> {
+  const at = input.at ?? new Date();
   const assigned = await runInTransaction(db, async (tx) => {
-    await lockMembershipThenPartnership(tx, input.partnershipId);
-    // Take the clock after both locks. A timestamp from before the wait can
-    // fall inside a membership that ends while this transaction is blocked,
-    // then remain open after that membership commits.
-    const at = input.at ?? new Date();
+    await lockPartnership(tx, input.partnershipId);
     const partnership = await loadPartnership(tx, input);
     await assertAssignmentAuthority(tx, input, partnership, at);
     await assertAssignable(tx, {
@@ -729,9 +691,9 @@ export async function changePartnerUserRole(
     at?: Date;
   },
 ): Promise<PartnerRolePeriodView> {
+  const at = input.at ?? new Date();
   const next = await runInTransaction(db, async (tx) => {
-    await lockMembershipThenPartnership(tx, input.partnershipId);
-    const at = input.at ?? new Date();
+    await lockPartnership(tx, input.partnershipId);
     const partnership = await loadPartnership(tx, input);
     await assertAssignmentAuthority(tx, input, partnership, at);
     await assertNotRestricted(tx, partnership.id, input.userId, at);

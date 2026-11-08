@@ -16,6 +16,7 @@ import { ShellZoneIndicator } from "@/components/shell-zone-indicator";
 import { AccountMenu } from "@/components/sign-out-controls";
 import { ActiveDepartmentRouteSync } from "@/components/active-department-route-sync";
 import { DepartmentScopeSwitcher } from "@/components/department-scope-switcher";
+import { AttentionBellSlot } from "@/components/notifications/attention-bell-slot";
 import { ShellOfflineIndicator } from "@/components/offline/shell-offline-indicator";
 import { ResponsiveShellNav } from "@/components/responsive-shell-nav";
 import { HarborWorkSessionShell } from "@/components/harbor-console/harbor-work-session-shell";
@@ -55,7 +56,6 @@ import { createProjectionRuntimeRequestScope } from "@/lib/projection";
 import { groupNavItemsByMode } from "@/lib/product-mode";
 import { platformNavItemsForRole } from "@/lib/route-registry";
 import type { SidebarUnit } from "@/lib/units";
-import { shellClasses } from "@/lib/design-system";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -143,6 +143,7 @@ export async function AppShell({ children }: AppShellProps) {
     authKind === "user" && hasAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
   const navFeatureFlags = {
     dietaryOperationalEvidenceEnabled: true,
+    dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled: isCanonicalLogsEnabled(),
   };
   const rawNavItems = platformNavItemsForRole(session.role, navFeatureFlags);
@@ -276,7 +277,14 @@ export async function AppShell({ children }: AppShellProps) {
             showAdmin={menuShowAdmin}
           />
         }
-        trailing={<ShellOfflineIndicator key="shell-offline" />}
+        trailing={
+          <>
+            {authKind === "user" && session.uid ? (
+              <AttentionBellSlot userId={session.uid} facilityId={session.facilityId} />
+            ) : null}
+            <ShellOfflineIndicator key="shell-offline" />
+          </>
+        }
         account={
           <AccountMenu
             key="account-menu"
@@ -292,9 +300,7 @@ export async function AppShell({ children }: AppShellProps) {
 
       {kioskBannerUnitName ? <KioskUnitAccessBanner unitName={kioskBannerUnitName} /> : null}
 
-      <div
-        className={`mx-auto flex min-h-0 w-full min-w-0 ${shellClasses.maxWidth} flex-1 overflow-hidden`}
-      >
+      <div className="flex min-h-0 w-full min-w-0 flex-1 overflow-hidden">
         <WorkspaceShellRail
           department={departmentSwitcherNode()}
           destinations={

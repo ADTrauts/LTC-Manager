@@ -337,7 +337,8 @@ ON_HOLD may have a reason such as waiting for part, waiting for vendor, waiting 
 | Concept | Meaning | Owner |
 |---------|---------|-------|
 | **Reported urgency** | Requester-provided intake signal | Request |
-| **Work Order priority** | Authoritative Facility Plant Operations prioritization | Work Order |
+| **Work Order priority** | Authoritative Facility Plant Operations prioritization. Queue ordering: Routine, High, Urgent, Emergency | Work Order |
+| **Response requirement** | Whether this Work Order requires immediate operational response: Standard or Immediate. Set on the open Work Order at `/repairs/[id]` | Work Order |
 | **Asset criticality** | Shared Asset property describing operational consequence of Asset failure | Platform Asset |
 
 A critical Asset does not automatically make every Work Order Emergency. Do not add a fourth overlapping **Issue severity** concept unless a later audit proves a distinct need.

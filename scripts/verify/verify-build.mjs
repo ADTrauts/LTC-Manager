@@ -14,8 +14,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const env = { ...process.env };
 delete env.NODE_ENV;
 
-console.log("verify-build: running next build with NODE_ENV unset (Next sets production)");
-const result = spawnSync("npx", ["next", "build"], { cwd: ROOT, env, stdio: "inherit" });
+// Webpack is required here: Turbopack production builds on this host stall at
+// "Creating an optimized production build" while waiting on Google Fonts sockets.
+console.log("verify-build: running next build --webpack with NODE_ENV unset (Next sets production)");
+const result = spawnSync("npx", ["next", "build", "--webpack"], { cwd: ROOT, env, stdio: "inherit" });
 if (result.status !== 0) {
   console.error(`verify-build: FAIL — exit ${result.status ?? 1}`);
   process.exit(result.status ?? 1);

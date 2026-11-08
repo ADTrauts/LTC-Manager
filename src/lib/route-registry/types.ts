@@ -67,6 +67,7 @@ export type RouteAccess =
  */
 export type RouteFeatureFlag =
   | "DIETARY_OPERATIONAL_EVIDENCE"
+  | "DIETARY_WORK_PLANS"
   | "CANONICAL_LOGS";
 
 export type RouteSurface = "PAGE" | "API" | "INTERNAL";

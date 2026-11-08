@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import type { AppJwtPayload } from "@/lib/auth";
+import { userSessionKey } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -40,10 +41,12 @@ const validateForRequest = cache(
     accessKind: "partner" | undefined,
     partnerOrganizationId: string | undefined,
     facilityPartnerOrganizationId: string | undefined,
+    jti: string | undefined,
   ): Promise<SessionValidation> =>
     validateSessionAuthority(
       // React `cache` keys must be primitives, so the request-scoped wrapper
       // rebuilds the session bag. Authority validation does not use name/email.
+      // The session id is part of the key so one request cannot reuse another credential.
       {
         uid,
         authKind,
@@ -57,6 +60,7 @@ const validateForRequest = cache(
         accessKind,
         partnerOrganizationId,
         facilityPartnerOrganizationId,
+        jti,
       } as unknown as AppJwtPayload,
       prisma,
     ),
@@ -81,6 +85,7 @@ export async function validateSessionForRequest(
     typeof session.facilityPartnerOrganizationId === "string"
       ? session.facilityPartnerOrganizationId
       : undefined,
+    userSessionKey(session) ?? undefined,
   );
 }
 

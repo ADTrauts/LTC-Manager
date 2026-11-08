@@ -17,6 +17,10 @@ import {
   type KeyTimeDayTiming,
   type KeyTimeStatus,
 } from "./key-time-day-expectation";
+import {
+  loadSpaceOperationalTypeAssignments,
+  operationalTypeKeysForSpaces,
+} from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import {
   materializeMealServiceDayExpectations,
@@ -24,7 +28,7 @@ import {
   timingsForOwnerUnits,
 } from "./materialize-day-expectations";
 import {
-  prepareCurrentKeyTimeDayExpectations,
+  materializeKeyTimeDayExpectations,
   timingsForOwnerUnits as keyTimeTimingsForOwnerUnits,
   timingsForSpaces,
 } from "./materialize-key-time-day-expectations";
@@ -100,7 +104,7 @@ export async function loadEmployeeCycleContext(input: {
       operationalDateKey,
       now,
     }),
-    prepareCurrentKeyTimeDayExpectations({
+    materializeKeyTimeDayExpectations({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
       operationalDateKey,
@@ -114,6 +118,7 @@ export async function loadEmployeeCycleContext(input: {
     parentUnitId: string | null;
     childRoomTypeKeys?: string[];
     spaceIds?: string[];
+    childOperationalTypeKeys?: string[];
   } | null = null;
   let mealTargets: UnitMealTarget[] = [];
   let keyTimes: EmployeeKeyTimeCard[] = [];
@@ -149,6 +154,16 @@ export async function loadEmployeeCycleContext(input: {
       ],
       spaceIds: row.childSpaces.map((space) => space.id),
     };
+    const runtimeFunctions = await loadSpaceOperationalTypeAssignments({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      spaceIds: unit.spaceIds,
+      perspective: "runtime",
+    });
+    unit.childOperationalTypeKeys = operationalTypeKeysForSpaces(
+      runtimeFunctions,
+      unit.spaceIds ?? [],
+    );
     const ownerIds = timingOwnerUnitIds(unit);
     const unitTimings = timingsForOwnerUnits(mealMaterialized.timings, ownerIds);
     if (unitTimings.length > 0) {
@@ -172,6 +187,7 @@ export async function loadEmployeeCycleContext(input: {
         adjustedDueLocal: timing.adjustedDueLocal,
         actualDueLocal: timing.actualDueLocal,
         nowLocalHhMm: nowLocal,
+        occurrenceTracking: timing.occurrenceTracking,
       }),
       canAdjust: canAdjust && !timing.actualDueLocal,
       canComplete: canComplete && !timing.actualDueLocal,
@@ -189,6 +205,7 @@ export async function loadEmployeeCycleContext(input: {
         adjustedDueLocal: timing.adjustedDueLocal,
         actualDueLocal: timing.actualDueLocal,
         nowLocalHhMm: nowLocal,
+        occurrenceTracking: timing.occurrenceTracking,
       }),
       canAdjust: canAdjust && !timing.actualDueLocal,
       canComplete: canComplete && !timing.actualDueLocal,
@@ -207,6 +224,7 @@ export async function loadEmployeeCycleContext(input: {
     operationalDateKey,
     unit,
     spaceId: input.spaceId,
+    operationalTypeKey: null,
     mealTargets,
   });
 

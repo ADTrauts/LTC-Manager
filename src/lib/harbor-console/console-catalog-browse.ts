@@ -27,6 +27,7 @@ export const MARKETPLACE_FAMILIES = [
   { key: "all", label: "All" },
   { key: "departments", label: "Departments" },
   { key: "records", label: "Records" },
+  { key: "work", label: "Work" },
 ] as const;
 
 export type MarketplaceFamilyKey = (typeof MARKETPLACE_FAMILIES)[number]["key"];
@@ -53,6 +54,7 @@ export const MARKETPLACE_DEPARTMENT_STATUSES = ["AVAILABLE", "DEVELOPMENT", "RET
 const FAMILY_TO_CATALOG: Record<Exclude<MarketplaceFamilyKey, "all">, ConsoleCatalogFamily> = {
   departments: "DEPARTMENTS",
   records: "RECORDS",
+  work: "WORK",
 };
 
 const TYPE_TO_SUBTYPE: Record<MarketplaceRecordTypeKey, ConsoleCatalogRecordSubtype> = {
@@ -64,6 +66,7 @@ const TYPE_TO_SUBTYPE: Record<MarketplaceRecordTypeKey, ConsoleCatalogRecordSubt
 const USAGE_SINGULAR: Record<ConsoleCatalogUsageLabel, string> = {
   users: "user",
   placements: "placement",
+  "published plans": "published plan",
 };
 
 export type MarketplaceBrowseParamInput = Record<string, string | string[] | undefined>;
@@ -271,6 +274,7 @@ export function filterMarketplaceItems(
 
 export function marketplaceTypeLabel(item: ConsoleCatalogItem): string {
   if (item.sourceType === "DEPARTMENT_PRODUCT") return "Department";
+  if (item.sourceType === "WORK_PRESET") return "Work";
   if (item.catalogSubtype) return catalogPurposeLabel(item.catalogSubtype);
   return "Record";
 }
@@ -302,6 +306,7 @@ export function marketplaceEmptyCopy(query: MarketplaceBrowseQuery): string {
   }
   if (query.family === "departments") return "No Department Products match these filters.";
   if (query.family === "records") return "No catalog Records match these filters.";
+  if (query.family === "work") return "No Work presets match these filters.";
   if (query.status || query.category) return "No Marketplace items match these filters.";
   return "No Marketplace items are available.";
 }
@@ -312,7 +317,7 @@ export function marketplaceRowHref(item: ConsoleCatalogItem): string | null {
 }
 
 export function marketplaceCreateAction(query: MarketplaceBrowseQuery): MarketplaceCreateAction | null {
-  if (query.family === "departments") return null;
+  if (query.family === "departments" || query.family === "work") return null;
   if (query.family === "records" && query.type === "log") {
     return { href: "/console/catalog/new?type=log", label: "New catalog log" };
   }

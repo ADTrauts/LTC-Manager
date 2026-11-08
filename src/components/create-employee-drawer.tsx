@@ -7,7 +7,10 @@ import {
   createEmployeeAction,
   previewEmployeeAccountAction,
 } from "@/app/(protected)/employees/actions";
-import { EmployeeOrganizationFields } from "@/components/employee-organization-fields";
+import {
+  EmployeeOrganizationFields,
+  type OrganizationJobRoleOption,
+} from "@/components/employee-organization-fields";
 import { Button } from "@/components/design-system/Button";
 import { Select, TextInput } from "@/components/design-system/Field";
 import {
@@ -28,14 +31,16 @@ type CreateEmployeeDrawerProps = {
   departments: UnitOption[];
   jobTitles: UnitOption[];
   teams: TeamOption[];
+  jobRoles?: OrganizationJobRoleOption[];
 };
 
 export function CreateEmployeeDrawer({
   facilityDisplayName,
   units: _units,
   departments,
-  jobTitles,
+  jobTitles: _jobTitles,
   teams,
+  jobRoles = [],
 }: CreateEmployeeDrawerProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
@@ -149,11 +154,12 @@ export function CreateEmployeeDrawer({
             <EmployeeOrganizationFields
               departments={departments}
               teams={teams}
-              jobTitles={jobTitles}
+              jobRoles={jobRoles}
               primaryDepartmentId={departments[0]?.id ?? null}
               additionalDepartmentIds={[]}
               jobTitleId={null}
               teamMemberships={[]}
+              jobRoleAssignments={[]}
               requirePrimaryDepartment
             />
           </div>

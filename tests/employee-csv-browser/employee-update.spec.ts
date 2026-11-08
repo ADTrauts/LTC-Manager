@@ -19,7 +19,7 @@ async function setup() {
   const facility = await db.facility.create({ data: { organizationId: org.id, displayName: "Roster Update Test", timezone: "America/New_York", onboardingCompletedAt: new Date() } });
   const actor = await db.user.create({ data: { email: `csv-browser-${id}@example.com`, displayName: "Roster Manager", facilityId: facility.id, roleId: role.id } });
   await db.userFacilityAccess.create({ data: { userId: actor.id, facilityId: facility.id, rolePeriods: { create: { roleKey: "MANAGER", startsAt: new Date("2020-01-01") } } } });
-  const employee = await db.employee.create({ data: { facilityId: facility.id, firstName: "Jane", lastName: "Doe", roleType: "STAFF", status: "OFF", phone: "555-1234", unionMember: true, pinDigest: `browser-${id}`, sessionVersion: 5 } });
+  const employee = await db.employee.create({ data: { facilityId: facility.id, firstName: "Jane", lastName: "Doe", roleType: "STAFF", status: "OFF", phone: "555-1234", unionMember: true, pinDigest: `browser-${id}`, sessionVersion: 5, workStations: { create: { station: "COOK" } } } });
   const unchanged = await db.employee.create({ data: { facilityId: facility.id, firstName: "John", lastName: "Doe", roleType: "STAFF", phone: "555-2000" } });
   const blocked = await db.employee.create({ data: { facilityId: facility.id, firstName: "Pat", lastName: "Green", roleType: "STAFF", phone: "555-3000" } });
   const token = await new SignJWT({ uid: actor.id, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "MANAGER", facilityId: facility.id, name: actor.displayName, email: actor.email, sessionVersion: 0 })
@@ -34,7 +34,7 @@ for (const width of [1280, 768]) test(`preview, cancel, confirm and per-row outc
   const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/employees/import");
   await expect(page.getByRole("heading", { name: "Update employees (CSV)" })).toBeVisible();
-  const csv = `employeeId,phone,hrNotes,status\n${f.employee.id},__CLEAR__,__CLEAR__,\n${f.unchanged.id},555-2000,,\n${f.blocked.id},555-3000,,TERMINATED`;
+  const csv = `employeeId,phone,workStations,status\n${f.employee.id},__CLEAR__,__CLEAR__,\n${f.unchanged.id},555-2000,,\n${f.blocked.id},555-3000,,TERMINATED`;
   await page.getByLabel("File (.csv)").setInputFiles({ name: "roster.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
   await page.getByRole("button", { name: "Validate and preview" }).click();
   const preview = page.getByRole("region", { name: "Employee update preview" });
@@ -52,8 +52,8 @@ for (const width of [1280, 768]) test(`preview, cancel, confirm and per-row outc
   await page.screenshot({ path: `tmp/onb01-browser/preview-${width}.png`, fullPage: true });
   await page.getByRole("button", { name: "Confirm reviewed updates" }).click();
   await expect(page.getByRole("status", { name: "Employee update results" })).toContainText("Committed 1, unchanged 1, blocked 1, failed 0");
-  const after = await db.employee.findUniqueOrThrow({ where: { id: f.employee.id } });
-  expect(after.phone).toBe(null); expect(after.hrNotes).toBe(null); expect(after.status).toBe("OFF"); expect(after.unionMember).toBe(true); expect(after.sessionVersion).toBe(5); expect(after.pinDigest).toBe(f.employee.pinDigest);
+  const after = await db.employee.findUniqueOrThrow({ where: { id: f.employee.id }, include: { workStations: true } });
+  expect(after.phone).toBe(null); expect(after.workStations).toEqual([]); expect(after.status).toBe("OFF"); expect(after.unionMember).toBe(true); expect(after.sessionVersion).toBe(5); expect(after.pinDigest).toBe(f.employee.pinDigest);
   expect((await db.employee.findUniqueOrThrow({ where: { id: f.blocked.id } })).status).toBe("ACTIVE");
   await page.screenshot({ path: `tmp/onb01-browser/results-${width}.png`, fullPage: true });
   expect(errors).toEqual([]);

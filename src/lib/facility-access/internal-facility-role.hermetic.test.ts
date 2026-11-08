@@ -423,6 +423,7 @@ test("stale JWT role is denied after a Facility-local role change", async () => 
     email: "sarah@example.com",
     facilityId: "terrace",
     sessionVersion: 0,
+    jti: "44444444-4444-4444-8444-444444444444",
   };
   const before = await validateSessionAuthority(session, db as never);
   assert.equal(before.valid, true);

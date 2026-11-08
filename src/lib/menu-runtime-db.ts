@@ -20,6 +20,7 @@ import {
   type ResolveApplicableMenusInput,
 } from "@/lib/menu-runtime";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
+import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import type { CycleUnitScope } from "@/lib/operational-cycles/types";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -126,6 +127,22 @@ async function loadUnitCycleScope(unitId: string): Promise<CycleUnitScope | null
     unitType: unit.unitType,
     spaceIds: unit.childSpaces.map((space) => space.id),
   };
+}
+
+async function loadOperationalTypeKey(input: {
+  facilityId: string;
+  departmentId: string;
+  spaceId: string;
+  provided?: string | null;
+}): Promise<string | null> {
+  if (input.provided !== undefined) return input.provided;
+  const assignments = await loadSpaceOperationalTypeAssignments({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    spaceIds: [input.spaceId],
+    perspective: "runtime",
+  });
+  return assignments.get(input.spaceId)?.key ?? null;
 }
 
 export async function loadMenuRuntimeCandidates(input: {
@@ -261,10 +278,19 @@ export async function resolveApplicableMenus(
     request.departmentId,
     request.serviceDateKey,
   );
+  const operationalTypeKey = request.location.spaceId
+    ? await loadOperationalTypeKey({
+        facilityId: request.facilityId,
+        departmentId: request.departmentId,
+        spaceId: request.location.spaceId,
+        provided: input.operationalTypeKey,
+      })
+    : (input.operationalTypeKey ?? null);
   const unitCycleScope = request.location.unitId ? await loadUnitCycleScope(request.location.unitId) : null;
 
   const emptyFacts = {
     ...request,
+    operationalTypeKey,
     locationActionable: locationState.actionable,
     publishedCycles,
     candidates: [] as MenuRuntimeCandidateFact[],
@@ -284,6 +310,7 @@ export async function resolveApplicableMenus(
       published: publishedCycles,
       location: request.location,
       serviceDateKey: request.serviceDateKey,
+      operationalTypeKey,
       unitCycleScope,
     })
   ) {

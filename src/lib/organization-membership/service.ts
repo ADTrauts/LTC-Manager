@@ -1,6 +1,7 @@
 import { Prisma, type OrganizationMembershipRole, type PrismaClient } from "@prisma/client";
 
 import { closeCurrentPartnerAssignmentsForOrganizationMembership } from "@/lib/partner-user-access/service";
+import { revokeAllPushSubscriptionsForUser } from "@/lib/notifications/push-subscription";
 import { revokeUserSessions } from "@/lib/session-revocation";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -303,6 +304,7 @@ export async function createOrganizationMembership(
   });
 
   if (input.revokeSessions === true && "$transaction" in db) {
+    await revokeAllPushSubscriptionsForUser(db as PrismaClient, { userId: input.userId, now: new Date() });
     await revokeUserSessions(db as PrismaClient, input.userId);
   }
 
@@ -328,11 +330,10 @@ export async function changeOrganizationRole(
     revokeSessions?: boolean;
   },
 ): Promise<OrganizationMembershipView> {
-  let at = input.at ?? new Date();
+  const at = input.at ?? new Date();
 
   await runInTransaction(db, async (tx) => {
     await lockOrganizationForAdminMutation(tx, input.organizationId);
-    if (!input.at) at = new Date();
     const row = await loadMembershipRow(tx, {
       userId: input.userId,
       organizationId: input.organizationId,
@@ -386,6 +387,7 @@ export async function changeOrganizationRole(
   });
 
   if (input.revokeSessions === true && "$transaction" in db) {
+    await revokeAllPushSubscriptionsForUser(db as PrismaClient, { userId: input.userId, now: new Date() });
     await revokeUserSessions(db as PrismaClient, input.userId);
   }
 
@@ -410,14 +412,10 @@ export async function endOrganizationMembership(
     revokeSessions?: boolean;
   },
 ): Promise<OrganizationMembershipView> {
-  let endsAt = input.endsAt ?? new Date();
+  const endsAt = input.endsAt ?? new Date();
 
   await runInTransaction(db, async (tx) => {
     await lockOrganizationForAdminMutation(tx, input.organizationId);
-    // Partner assignment uses this Organization lock before its partnership lock.
-    // Read the membership instant after the wait. An earlier clock can miss an
-    // assignment that starts while this transaction is blocked and leave it current.
-    if (!input.endsAt) endsAt = new Date();
     const row = await loadMembershipRow(tx, {
       userId: input.userId,
       organizationId: input.organizationId,
@@ -467,6 +465,7 @@ export async function endOrganizationMembership(
   });
 
   if (input.revokeSessions === true && "$transaction" in db) {
+    await revokeAllPushSubscriptionsForUser(db as PrismaClient, { userId: input.userId, now: new Date() });
     await revokeUserSessions(db as PrismaClient, input.userId);
   }
 

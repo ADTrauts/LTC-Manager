@@ -116,7 +116,6 @@ async function main() {
       passwordHash: hash,
       isActive: true,
       primaryDepartmentId: departmentIds.DIETARY,
-      emailVerifiedAt: new Date(),
     },
     create: {
       email: "admin@terraceview.local",
@@ -126,33 +125,8 @@ async function main() {
       passwordHash: hash,
       isActive: true,
       primaryDepartmentId: departmentIds.DIETARY,
-      emailVerifiedAt: new Date(),
     },
   });
-
-  const demoAdmin = await prisma.user.findUniqueOrThrow({
-    where: { email: "admin@terraceview.local" },
-    select: { id: true },
-  });
-  const demoAdminAccess = await prisma.userFacilityAccess.upsert({
-    where: { userId_facilityId: { userId: demoAdmin.id, facilityId: facility.id } },
-    update: { isActive: true, revokedAt: null },
-    create: { userId: demoAdmin.id, facilityId: facility.id, isActive: true },
-    select: { id: true },
-  });
-  const openAdminPeriod = await prisma.userFacilityRolePeriod.findFirst({
-    where: { userFacilityAccessId: demoAdminAccess.id, endsAt: null },
-    select: { id: true },
-  });
-  if (!openAdminPeriod) {
-    await prisma.userFacilityRolePeriod.create({
-      data: {
-        userFacilityAccessId: demoAdminAccess.id,
-        roleKey: RoleKey.FACILITY_ADMINISTRATOR,
-        startsAt: new Date(),
-      },
-    });
-  }
 
   const starterUnits = [
     {
@@ -275,16 +249,10 @@ async function main() {
   await prisma.scheduleEntry.deleteMany({
     where: { employeeId: { in: sampleEmployeeIds } },
   });
-  await prisma.operationalAssignmentEligibilityException.deleteMany({
-    where: { employeeId: { in: sampleEmployeeIds } },
-  });
   await prisma.operationalAssignment.deleteMany({
     where: { employeeId: { in: sampleEmployeeIds } },
   });
-  await prisma.employeeOperationalRoleQualification.deleteMany({
-    where: { employeeId: { in: sampleEmployeeIds } },
-  });
-  await prisma.employeeTeamMembership.deleteMany({
+  await prisma.defaultAssignment.deleteMany({
     where: { employeeId: { in: sampleEmployeeIds } },
   });
   await prisma.employeeUnitAccess.deleteMany({
@@ -334,6 +302,15 @@ async function main() {
 
     const unitId = unitIdByName[item.unitName];
     if (!unitId) continue;
+
+    await prisma.defaultAssignment.create({
+      data: {
+        employeeId: employee.id,
+        unitId,
+        roleType: item.roleType,
+        isActive: true,
+      },
+    }).catch(() => undefined);
 
     // Phase D: demo PIN sidebar restriction — Jane is limited to one unit; others use all units.
     if (item.firstName === "Jane" && serveryId) {

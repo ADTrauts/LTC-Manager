@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { AppIcons } from "@/lib/design-system";
 import { FOCUS_RING_CLASS } from "@/lib/design-system/focus";
+import { completeBrowserSignOut } from "@/lib/notifications/browser-push-client";
 
 export type GlobalUserMenuCurrentContext = {
   title: string;
@@ -128,7 +129,15 @@ export function GlobalUserMenu({
         <CurrentContextHeader currentContext={currentContext} />
         {currentContext ? <div className="mx-3 my-1 border-t border-zinc-100" role="separator" /> : null}
         <GlobalUserNavLinks onNavigate={() => setOpen(false)} />
-        <form action="/api/auth/logout" method="post">
+        <form
+          action="/api/auth/logout"
+          method="post"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            void completeBrowserSignOut(form.getAttribute("action") || "/api/auth/logout", "/login");
+          }}
+        >
           <button type="submit" className={MENU_ITEM_CLASS} data-testid="account-menu-sign-out">
             <span className="inline-flex items-center gap-2">
               <SignOutIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />

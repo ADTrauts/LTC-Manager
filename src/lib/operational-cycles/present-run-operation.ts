@@ -3,10 +3,7 @@
  * Does not invent meal-service copy. Legacy meal banners stay on the legacy path.
  */
 
-import {
-  resolveWorkCycleRoomParticipation,
-  resolvedCycleLocationMode,
-} from "./cycle-applicability";
+import { resolveWorkCycleRoomParticipation } from "./cycle-applicability";
 import { formatCycleWindow } from "./cycle-display";
 import {
   buildCyclesByStableKey,
@@ -283,6 +280,7 @@ export function selectCurrentDayKeyTimeGroups(
             adjustedDueLocal: null,
             actualDueLocal: null,
             nowLocalHhMm,
+            occurrenceTracking: cycle.occurrenceTracking,
           });
           if (missingStatus.key === "overdue") overdue += 1;
           continue;
@@ -296,6 +294,7 @@ export function selectCurrentDayKeyTimeGroups(
           adjustedDueLocal: row.adjustedDueLocal,
           actualDueLocal: row.actualDueLocal,
           nowLocalHhMm,
+          occurrenceTracking: cycle.occurrenceTracking,
         });
         if (status.key === "overdue") overdue += 1;
       }
@@ -370,7 +369,15 @@ function cycleHasParticipatingLocations(
   cycle: OperationalCycleDefinition,
   allByKey: ReadonlyMap<string, OperationalCycleDefinition>,
 ): boolean {
-  if (resolvedCycleLocationMode(cycle, allByKey) === "ALL_DEPARTMENT_UNITS") return true;
+  if (cycle.locationMode === "ALL_DEPARTMENT_UNITS") return true;
+  if (cycle.locationMode === "UNIT_TYPES" && cycle.applicableUnitTypes.length > 0) return true;
+  if (
+    cycle.locationMode === "OPERATIONAL_TYPES" &&
+    (cycle.applicableOperationalTypeKeys?.length ?? 0) > 0
+  ) {
+    return true;
+  }
+  if (cycle.locationMode === "ROOM_TYPE" && Boolean(cycle.roomTypeKey?.trim())) return true;
   if (cycle.unitIds.length > 0) return true;
   return effectiveCycleSpaceIds(cycle, allByKey).length > 0;
 }
@@ -421,6 +428,7 @@ function presentKeyTimeView(
     adjustedDueLocal: timing.adjustedDueLocal,
     actualDueLocal: timing.actualDueLocal,
     nowLocalHhMm,
+    occurrenceTracking: timing.occurrenceTracking,
   });
   return {
     expectationId: timing.expectationId,
@@ -500,6 +508,8 @@ export function presentLocationRunOperation(input: {
   nowLocalHhMm: string;
   canAdjust?: boolean;
   canComplete?: boolean;
+  /** Current Operational Type key — required for OPERATIONAL_TYPES targeting. */
+  operationalTypeKey?: string | null;
 }): RunLocationOperationPresentation {
   const scopedTimings = timingsForPublishedKeyTimeCycles(input.timings, input.cycles).filter(
     (row) => row.spaceId === input.spaceId,
@@ -511,6 +521,7 @@ export function presentLocationRunOperation(input: {
     facilityTimezone: input.facilityTimezone,
     operationalDateKey: input.operationalDateKey,
     spaceId: input.spaceId,
+    operationalTypeKey: input.operationalTypeKey,
   });
 
   let currentOperation: RunLocationCurrentOperation = {
@@ -570,7 +581,7 @@ export function presentLocationRunOperation(input: {
 function roomCountSpaceIds(
   cycle: OperationalCycleDefinition | undefined,
   allByKey: ReadonlyMap<string, OperationalCycleDefinition>,
-  functionSpaces?: readonly { id: string }[],
+  functionSpaces?: readonly { id: string; operationalTypeKey?: string | null }[],
 ): string[] {
   if (!cycle) return [];
   if (functionSpaces) {
@@ -587,8 +598,8 @@ export function presentDepartmentRunOperation(input: {
   operationalDateKey: string;
   nowLocalHhMm: string;
   spaceIdFilter?: ReadonlySet<string>;
-  /** Responsible rooms for department-wide room counts. Explicit Cycles use stored space ids. */
-  functionSpaces?: readonly { id: string }[];
+  /** Rooms and their adopted Location Function keys. Same binding set Work uses. */
+  functionSpaces?: readonly { id: string; operationalTypeKey?: string | null }[];
 }): RunDepartmentOperationPresentation {
   const provenance = detectRunModelProvenance(input.cycles, input.timings);
   const defsByKey = buildCyclesByStableKey(

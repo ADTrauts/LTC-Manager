@@ -28,6 +28,9 @@ export type KeyTimeDayTiming = {
   actualDueLocal: string | null;
   completedAt: Date | null;
   adjustedAt: Date | null;
+  /** From the Key Point definition. Omitted means the schema default, REQUIRED. */
+  occurrenceTracking?: "NONE" | "OPTIONAL" | "REQUIRED";
+  keyPointGrain?: "DEPARTMENT" | "LOCATION";
   adjustedByLabel?: string | null;
   completedByLabel?: string | null;
 };
@@ -69,14 +72,66 @@ export function localHhMmFromInstant(date: Date, timeZone: string): string {
   return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
 }
 
+export type KeyPointTracking = "NONE" | "OPTIONAL" | "REQUIRED";
+
+/**
+ * Effective facility-local due time.
+ * A later same-day timing adjustment wins over the expectation overlay.
+ * Neither is a separate tolerance.
+ */
+export function effectiveKeyPointDueLocal(input: {
+  configuredDueLocal: string | null | undefined;
+  expectationAdjustedDueLocal?: string | null;
+  expectationAdjustedAt?: Date | null;
+  latestAdjustmentDueLocal?: string | null;
+  latestAdjustmentAt?: Date | null;
+}): string | null {
+  const configured = input.configuredDueLocal?.trim() || null;
+  const expectationAdjusted = input.expectationAdjustedDueLocal?.trim() || null;
+  const adjustment = input.latestAdjustmentDueLocal?.trim() || null;
+  if (adjustment && expectationAdjusted && input.latestAdjustmentAt && input.expectationAdjustedAt) {
+    return input.latestAdjustmentAt.getTime() >= input.expectationAdjustedAt.getTime()
+      ? adjustment
+      : expectationAdjusted;
+  }
+  return adjustment || expectationAdjusted || configured;
+}
+
+/**
+ * A REQUIRED Key Point with no actual, after its expected facility-local minute.
+ * The expected minute itself is due, not overdue. NONE and OPTIONAL are never overdue.
+ * Omitted tracking matches the schema default, REQUIRED.
+ */
+export function isRequiredKeyPointOverdue(input: {
+  occurrenceTracking?: KeyPointTracking | null;
+  configuredDueLocal: string | null | undefined;
+  adjustedDueLocal?: string | null;
+  hasActual: boolean;
+  nowLocalHhMm: string;
+}): boolean {
+  if (input.hasActual) return false;
+  if ((input.occurrenceTracking ?? "REQUIRED") !== "REQUIRED") return false;
+  const expected = expectedKeyTimeToday({
+    configuredDueLocal: input.configuredDueLocal,
+    adjustedDueLocal: input.adjustedDueLocal,
+  });
+  if (!expected) return false;
+  const nowMin = toMinutes(input.nowLocalHhMm);
+  const expectedMin = toMinutes(expected);
+  if (nowMin == null || expectedMin == null) return false;
+  return nowMin > expectedMin;
+}
+
 /**
  * Generic Key Time status. Does NOT apply the Dietary 15-minute meal grace.
+ * Overdue is only for REQUIRED tracking. NONE still shows its planned time.
  */
 export function describeKeyTimeStatus(input: {
   configuredDueLocal: string;
   adjustedDueLocal?: string | null;
   actualDueLocal?: string | null;
   nowLocalHhMm: string;
+  occurrenceTracking?: KeyPointTracking | null;
 }): KeyTimeStatus {
   const expected = expectedKeyTimeToday(input);
   if (!expected) {
@@ -102,6 +157,15 @@ export function describeKeyTimeStatus(input: {
     return {
       key: "completed_on_time",
       label: `Completed on time · ${actualClock}`,
+    };
+  }
+
+  if ((input.occurrenceTracking ?? "REQUIRED") !== "REQUIRED") {
+    return {
+      key: input.adjustedDueLocal ? "adjusted" : "upcoming",
+      label: input.adjustedDueLocal
+        ? `Adjusted to ${adjustedClock}`
+        : `Due ${expectedClock}`,
     };
   }
 

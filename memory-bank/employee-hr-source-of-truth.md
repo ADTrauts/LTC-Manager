@@ -127,7 +127,7 @@ The old tracker included:
 | **Union** | Shipped | `unionMember` — seniority + discipline/points (single flag). |
 | **Hire / start date** | Shipped | Drives seniority for union members. |
 | **Job classification** | Shipped | Enum in app; extend list if HR adds roles. |
-| **Stations** | Retired in Phase 7B | `EmployeeWorkStation` was an obsolete operational-role duplicate. Eligibility is `EmployeeOperationalRoleQualification`. |
+| **Stations** | Shipped | Multi-select from facility list (`EmployeeWorkStation`). |
 | **Birth month / day** | Shipped | Year not stored in v1. |
 | **CHRC** | Shipped | Status + notes pattern; terminations + offboarding (§2). |
 | **HR notes** | Shipped | Free text. |

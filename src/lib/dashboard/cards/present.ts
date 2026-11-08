@@ -9,6 +9,7 @@ import type { RuntimeLocationState } from "@/lib/runtime-location-state";
 import type { SupervisorDailyCoverageProjection } from "@/lib/scheduling/supervisor-daily-coverage";
 import type { CallDownData } from "@/lib/scheduling/call-down";
 import type { HandoffData } from "@/lib/staffing/handoffs/handoffs";
+import type { TodaysExpectedWorkView } from "@/lib/work/expected/types";
 import type { OperatingLocationStatus } from "@/lib/todays-work/operating-locations/types";
 
 import { plural, type DashboardAttentionItem } from "../attention";
@@ -208,6 +209,27 @@ export function presentTimeline(input: {
         title: row.label,
         detail: `${row.completed} of ${row.total} · ${row.dueLabel}`,
         tone: row.overdue > 0 ? "late" : "attention",
+      }),
+    ),
+  );
+}
+
+export function presentExpectedWork(view: TodaysExpectedWorkView): CardResult<DashboardReadyModel> {
+  const items = [...view.currentGroups.flatMap((group) => group.locations), ...view.otherWork].flatMap((location) =>
+    location.plans.flatMap((plan) => plan.items.map((item) => ({ item, locationName: location.locationName }))),
+  );
+  const late = items.filter((row) => row.item.state === "PAST_DUE_NOT_CONFIRMED" || row.item.state === "CONFLICT_REVIEW");
+  const due = items.filter((row) => row.item.state === "DUE" || row.item.state === "CURRENT");
+  if (late.length === 0 && due.length === 0) return quiet("Today's Work is on track.");
+  return ready(
+    [metric("Late", late.length, tone(late.length, 0)), metric("Due", due.length, tone(0, due.length))],
+    [...late, ...due].map((row) =>
+      line({
+        id: row.item.occurrenceKey,
+        title: row.item.label,
+        detail: row.locationName,
+        tone: row.item.state === "PAST_DUE_NOT_CONFIRMED" || row.item.state === "CONFLICT_REVIEW" ? "late" : "attention",
+        href: "/staffing/work-plans",
       }),
     ),
   );

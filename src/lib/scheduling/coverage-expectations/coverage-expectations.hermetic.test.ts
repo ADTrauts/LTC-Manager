@@ -39,7 +39,6 @@ function item(
     requiredCount: 1,
     unitId: null,
     spaceId: null,
-    applicableOperationalTypeKeys: [],
     applicableOperationalCycleStableKeys: [],
     ...overrides,
   };
@@ -52,7 +51,6 @@ function serveryBreakfastServer(overrides: Partial<CoverageExpectationItemInput>
     roleLabel: "Server",
     requiredCount: 1,
     spaceId: "space-3a",
-    applicableOperationalTypeKeys: [],
     applicableOperationalCycleStableKeys: ["breakfast", "lunch", "dinner"],
     ...overrides,
   });
@@ -66,7 +64,6 @@ function retailLunchServer() {
     requiredCount: 1,
     templateStableKey: "retail-lunch",
     spaceId: "space-retail",
-    applicableOperationalTypeKeys: [],
     applicableOperationalCycleStableKeys: ["lunch"],
   });
 }
@@ -79,7 +76,6 @@ function mainKitchenBreakfast() {
       roleLabel: "Cook",
       requiredCount: 2,
       spaceId: "space-kitchen",
-      applicableOperationalTypeKeys: [],
       applicableOperationalCycleStableKeys: ["breakfast_production"],
     }),
     item({
@@ -88,7 +84,6 @@ function mainKitchenBreakfast() {
       roleLabel: "Hot Prep",
       requiredCount: 1,
       spaceId: "space-kitchen",
-      applicableOperationalTypeKeys: [],
       applicableOperationalCycleStableKeys: ["breakfast_production"],
     }),
     item({
@@ -97,7 +92,6 @@ function mainKitchenBreakfast() {
       roleLabel: "Porter",
       requiredCount: 1,
       spaceId: "space-kitchen",
-      applicableOperationalTypeKeys: [],
       applicableOperationalCycleStableKeys: ["breakfast_production"],
     }),
   ];
@@ -115,8 +109,6 @@ function serveryContext(spaceId = "space-3a"): CoverageLocationContext {
     departmentId: "dietary",
     spaceId,
     unitId: "unit-3a",
-    operationalTypeKey: "servery",
-    operationalTypeName: "Servery",
   };
 }
 
@@ -180,8 +172,6 @@ describe("coverage expectation applicability", () => {
         departmentId: "dietary",
         spaceId: "space-retail",
         unitId: "unit-retail",
-        operationalTypeKey: "retail",
-        operationalTypeName: "Retail",
       },
       cycles,
       cycleStableKey: "lunch",
@@ -192,8 +182,6 @@ describe("coverage expectation applicability", () => {
         departmentId: "dietary",
         spaceId: "space-retail",
         unitId: "unit-retail",
-        operationalTypeKey: "retail",
-        operationalTypeName: "Retail",
       },
       cycles,
       cycleStableKey: "breakfast",
@@ -210,8 +198,6 @@ describe("coverage expectation applicability", () => {
         departmentId: "dietary",
         spaceId: "space-kitchen",
         unitId: "unit-kitchen",
-        operationalTypeKey: "main_kitchen",
-        operationalTypeName: "Main Kitchen",
       },
       cycles,
       cycleStableKey: "breakfast_production",
@@ -230,8 +216,6 @@ describe("coverage expectation applicability", () => {
         departmentId: "dietary",
         spaceId: "space-untyped",
         unitId: "unit-3a",
-        operationalTypeKey: null,
-        operationalTypeName: null,
       },
       cycles,
       cycleStableKey: "breakfast",
@@ -247,8 +231,6 @@ describe("coverage expectation applicability", () => {
         departmentId: "dietary",
         spaceId: "space-3a",
         unitId: "unit-3a",
-        operationalTypeKey: "retail",
-        operationalTypeName: "Retail",
       },
       cycles,
       cycleStableKey: "breakfast",
@@ -291,7 +273,6 @@ describe("coverage publication boundary", () => {
         requiredCount: 1,
         unitId: null,
         spaceId: "space-3a",
-        applicableOperationalTypeKeys: ["servery"],
         applicableOperationalCycleStableKeys: ["breakfast"],
       },
     ],
@@ -393,7 +374,6 @@ describe("historical coverage selection", () => {
         requiredCount: 2,
         unitId: null,
         spaceId: "space-3a",
-        applicableOperationalTypeKeys: ["servery"],
         applicableOperationalCycleStableKeys: ["breakfast"],
       },
     ],
@@ -540,8 +520,6 @@ describe("canonical coverage states", () => {
         departmentId: "dietary",
         spaceId: "space-kitchen",
         unitId: "unit-kitchen",
-        operationalTypeKey: "main_kitchen",
-        operationalTypeName: "Main Kitchen",
       },
       cycles,
       cycleStableKey: "breakfast_production",

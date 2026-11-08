@@ -1,4 +1,4 @@
-import { ChrcStatus, EmployeeStatus, EmploymentType, JobClassification, RoleKey } from "@prisma/client";
+import { ChrcStatus, EmployeeStatus, EmploymentType, JobClassification, RoleKey, WorkStation } from "@prisma/client";
 import { SHIRT_SIZE_VALUES } from "@/lib/employee-hr-labels";
 
 export class EmployeeCsvInputError extends Error {}
@@ -12,7 +12,7 @@ export const EMPLOYEE_CLEAR = "__CLEAR__";
 export const EMPLOYEE_CSV_FIELDS = [
   "employeeId", "firstName", "lastName", "email", "phone", "roleType", "employmentType", "status",
   "unionMember", "onLeave", "hireDate", "jobClassification", "chrcStatus", "chrcClearedAt", "chrcNotes",
-  "birthMonth", "birthDay", "shirtSize", "hrNotes", "primaryUnit", "terminationDate",
+  "birthMonth", "birthDay", "shirtSize", "hrNotes", "workStations", "primaryUnit", "terminationDate",
   "chrcOffboardingCompletedAt", "chrcOffboardingNotes",
 ] as const;
 export type EmployeeCsvField = (typeof EMPLOYEE_CSV_FIELDS)[number];
@@ -20,7 +20,7 @@ export type EmployeeCsvField = (typeof EMPLOYEE_CSV_FIELDS)[number];
 export const EMPLOYEE_CSV_TEMPLATE = EMPLOYEE_CSV_FIELDS.join(",") + "\r\n";
 export const EMPLOYEE_CLEARABLE_FIELDS: ReadonlySet<EmployeeCsvField> = new Set([
   "email", "phone", "hireDate", "jobClassification", "chrcStatus", "chrcClearedAt", "chrcNotes",
-  "birthMonth", "birthDay", "shirtSize", "hrNotes", "primaryUnit",
+  "birthMonth", "birthDay", "shirtSize", "hrNotes", "primaryUnit", "workStations",
 ]);
 
 export type EmployeeUpdateValues = Partial<{
@@ -29,7 +29,7 @@ export type EmployeeUpdateValues = Partial<{
   onLeave: boolean; hireDate: Date | null; jobClassification: JobClassification | null;
   chrcStatus: ChrcStatus | null; chrcClearedAt: Date | null; chrcNotes: string | null;
   birthMonth: number | null; birthDay: number | null; shirtSize: string | null; hrNotes: string | null;
-  primaryUnit: string | null; terminationDate: Date;
+  workStations: WorkStation[]; primaryUnit: string | null; terminationDate: Date;
   chrcOffboardingCompletedAt: Date; chrcOffboardingNotes: string;
 }>;
 export type EmployeeUpdateRow = {
@@ -48,7 +48,7 @@ const aliases: Record<string, EmployeeCsvField> = Object.fromEntries(
     [field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`), field],
   ]),
 );
-Object.assign(aliases, { first: "firstName", last: "lastName", role: "roleType", employment: "employmentType", union: "unionMember", classification: "jobClassification" });
+Object.assign(aliases, { first: "firstName", last: "lastName", role: "roleType", employment: "employmentType", union: "unionMember", classification: "jobClassification", stations: "workStations" });
 
 /** Strict RFC-style reader, retaining physical source line numbers and multiline quoted cells. */
 export function readRecords(text: string): Array<{ row: number; cells: string[] }> {
@@ -96,7 +96,7 @@ const limits: Partial<Record<EmployeeCsvField, number>> = {
 function parseValue(field: EmployeeCsvField, raw: string): unknown {
   if (raw === EMPLOYEE_CLEAR) {
     if (!EMPLOYEE_CLEARABLE_FIELDS.has(field)) throw new EmployeeCsvInputError(`${field} cannot be cleared.`);
-    return null;
+    return field === "workStations" ? [] : null;
   }
   const max = limits[field];
   if (max && raw.length > max) throw new EmployeeCsvInputError(`${field} exceeds ${max} characters.`);
@@ -125,6 +125,11 @@ function parseValue(field: EmployeeCsvField, raw: string): unknown {
     const maxValue = field === "birthMonth" ? 12 : 31;
     if (!/^\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > maxValue) throw new EmployeeCsvInputError(`${field} must be 1–${maxValue}.`);
     return Number(raw);
+  }
+  if (field === "workStations") {
+    const values = raw.split(/[|,;]/).map((part) => part.trim().toUpperCase());
+    if (values.some((part) => !Object.values(WorkStation).includes(part as WorkStation))) throw new EmployeeCsvInputError("Invalid workStations value.");
+    return [...new Set(values)].sort();
   }
   return raw;
 }

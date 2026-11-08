@@ -200,12 +200,14 @@ async function countPlantContent(
   facilityId: string,
   departmentId: string,
 ) {
-  const [assets, pms, procedures] = await Promise.all([
+  const [work, records, assets, pms, procedures] = await Promise.all([
+    prisma.departmentWorkPlan.count({ where: { facilityId, departmentId } }),
+    0,
     prisma.asset.count({ where: { departmentId } }),
     prisma.preventiveMaintenancePlan.count({ where: { facilityId, departmentId } }),
     prisma.knowledgeArticle.count({ where: { facilityId, departmentId } }),
   ]);
-  return { work: 0, records: 0, assets, pms, procedures };
+  return { work, records, assets, pms, procedures };
 }
 
 test.afterEach(() => {
@@ -407,33 +409,55 @@ test(
       const firstStarter = await installPlantStarterConfiguration(mgr, {
         facilityId: facility.id,
         departmentId: plant.id,
-        selectedIds: ["EQUIPMENT_CONDITION_INSPECTION"],
+        selectedIds: ["MECHANICAL_ROOM_ROUND", "EQUIPMENT_CONDITION_INSPECTION"],
         actor,
         client: prisma,
       });
+      assert.equal(firstStarter.workAdded, 1);
       assert.equal(firstStarter.recordAdded, 1);
       const afterFirst = await countPlantContent(prisma, facility.id, plant.id);
       assert.equal(afterFirst.assets, 0);
       assert.equal(afterFirst.pms, 0);
       assert.equal(afterFirst.procedures, 0);
+      const workDrafts = await prisma.departmentWorkPlan.findMany({
+        where: { facilityId: facility.id, departmentId: plant.id },
+      });
+      assert.ok(workDrafts.every((row) => row.status === "DRAFT"));
 
       const remaining = await installPlantStarterConfiguration(mgr, {
         facilityId: facility.id,
         departmentId: plant.id,
-        selectedIds: ["GENERATOR_INSPECTION"],
+        selectedIds: ["BUILDING_WALKTHROUGH", "GENERATOR_INSPECTION"],
         actor,
         client: prisma,
       });
+      assert.equal(remaining.workAdded, 1);
       assert.equal(remaining.recordAdded, 1);
       const again = await installPlantStarterConfiguration(mgr, {
         facilityId: facility.id,
         departmentId: plant.id,
-        selectedIds: ["EQUIPMENT_CONDITION_INSPECTION"],
+        selectedIds: ["MECHANICAL_ROOM_ROUND", "EQUIPMENT_CONDITION_INSPECTION"],
         actor,
         client: prisma,
       });
-      assert.equal(again.alreadyExisted, 1);
-      assert.equal(again.recordAdded, 0);
+      assert.equal(again.alreadyExisted, 2);
+      assert.equal(again.workAdded, 0);
+      const edited = await prisma.departmentWorkPlan.update({
+        where: { id: workDrafts[0]!.id },
+        data: { name: "Facility-owned Mechanical Room Round" },
+      });
+      const afterEdit = await installPlantStarterConfiguration(mgr, {
+        facilityId: facility.id,
+        departmentId: plant.id,
+        selectedIds: ["MECHANICAL_ROOM_ROUND"],
+        actor,
+        client: prisma,
+      });
+      assert.equal(afterEdit.alreadyExisted, 1);
+      const kept = await prisma.departmentWorkPlan.findUniqueOrThrow({
+        where: { id: edited.id },
+      });
+      assert.equal(kept.name, "Facility-owned Mechanical Room Round");
 
       const asset = await createAsset(mgr, {
         facilityId: facility.id,
@@ -873,8 +897,7 @@ test(
         departmentId: plant.id,
         client: prisma,
       });
-      assert.ok(keys.recordPresetKeys.includes("EQUIPMENT_CONDITION_INSPECTION"));
-      assert.ok(keys.recordPresetKeys.includes("GENERATOR_INSPECTION"));
+      assert.ok(keys.workPresetKeys.includes("MECHANICAL_ROOM_ROUND"));
       assert.equal(presentRequestAuthority(request.status), "RECEIVED");
     } finally {
       resetDepartmentProductStatusOverridesForTest();

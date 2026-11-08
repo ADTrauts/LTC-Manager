@@ -1,6 +1,6 @@
 # 6. Domain Assessment
 
-How business concepts were represented when this review was written. This describes **what existed**, not the current schema. Phase 7B removed Department Job Role, Default Assignment, and EmployeeWorkStation. Operational eligibility is `EmployeeOperationalRoleQualification`.
+How business concepts are represented in the current codebase. This describes **what exists**, not what should exist.
 
 ---
 

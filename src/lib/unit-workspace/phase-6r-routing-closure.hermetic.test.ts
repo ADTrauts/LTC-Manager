@@ -140,7 +140,7 @@ test("query-param compatibility remains canonical", () => {
   assert.match(space, /reportAsset/);
   assert.match(neighborhood, /unitTab: firstSearchValue\(input.query\?\.unitTab\)/);
   assert.match(employee, /query\?\.evidence/);
-  assert.doesNotMatch(employee, /query\?\.work/);
+  assert.match(employee, /query\?\.work/);
   assert.match(employee, /query\?\.reportAsset/);
   assert.equal(page.includes("activeInspectId"), false);
   assert.equal(neighborhood.includes("inspect="), false);

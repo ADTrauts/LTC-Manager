@@ -21,6 +21,7 @@ function shift(partial: Partial<ShiftPresence> & { scheduleEntryId: string }): S
     plannedEnd: "15:00",
     shiftSlot: "FULL_DAY",
     departmentId: "d1",
+    legacyUnitId: null,
     workShiftId: null,
     ...partial,
   };

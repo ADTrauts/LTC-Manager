@@ -11,8 +11,10 @@ import {
   registerAuthFailure,
   resetAuthRateLimitBucket,
 } from "@/lib/auth-rate-limit";
+import { getAppSession } from "@/lib/auth";
 import { applyAccountSessionCookies, applyContextTransitionCookies } from "@/lib/context-entry";
 import { isGlobalAccountActivated } from "@/lib/employee-identity";
+import { revokePushForDepartingUser } from "@/lib/notifications/push-subscription";
 import { PostAuthRoutingError, routeAuthenticatedUser } from "@/lib/post-auth-routing";
 import { prisma } from "@/lib/prisma";
 
@@ -124,6 +126,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
     }
     return NextResponse.json({ error: "Unable to complete sign-in." }, { status: 500 });
+  }
+
+  try {
+    const previous = await getAppSession();
+    await revokePushForDepartingUser(prisma, previous, user.id, new Date());
+  } catch {
+    return NextResponse.json(
+      { error: "Sign-in stopped. Browser alerts for the previous account are still active." },
+      { status: 503 },
+    );
   }
 
   const response = NextResponse.json({

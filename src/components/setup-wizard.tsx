@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { completeBrowserSignOut } from "@/lib/notifications/browser-push-client";
 import { useRouter } from "next/navigation";
 import { useActionState, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
@@ -206,7 +207,16 @@ export function SetupWizard({ initial, checkoutOutcome, checkout, returned, file
         <div className="flex items-center gap-3 pt-1 text-sm text-zinc-500">
           <Link href="/access" className="hover:text-zinc-900">Switch Facility</Link>
           <span aria-hidden="true" className="text-zinc-300">·</span>
-          <form action="/api/auth/logout" method="post"><button type="submit" className="hover:text-zinc-900">Sign out</button></form>
+          <form
+            action="/api/auth/logout"
+            method="post"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void completeBrowserSignOut("/api/auth/logout", "/login");
+            }}
+          >
+            <button type="submit" className="hover:text-zinc-900">Sign out</button>
+          </form>
         </div>
       </div>
       <div className="space-y-0.5">

@@ -11,6 +11,7 @@ import {
   Prisma,
   RoleKey,
   SeparationKind,
+  WorkStation,
 } from "@prisma/client";
 
 /** Structural type so tooling stays valid even if `@prisma/client` types lag behind `prisma generate`. */
@@ -146,6 +147,13 @@ const createEmployeeSchema = z.object({
   }
 });
 
+const setDefaultAssignmentSchema = z.object({
+  employeeId: z.string().cuid(),
+  unitId: z.string().cuid(),
+  roleType: z.enum(roleKeyValues),
+  isActive: z.coerce.boolean().default(true),
+});
+
 const setEmployeePinSchema = z
   .object({
     employeeId: z.string().trim().min(1).max(128),
@@ -195,6 +203,11 @@ function parseHrProfileFields(formData: FormData) {
   const hireDate = parseOptionalDateField(toOptional(formData.get("hireDate")));
   const chrcClearedAt = parseOptionalDateField(toOptional(formData.get("chrcClearedAt")));
 
+  const workStations = formData
+    .getAll("workStations")
+    .map(String)
+    .filter((s): s is WorkStation => (Object.values(WorkStation) as string[]).includes(s));
+
   const chrcNotes = toOptional(formData.get("chrcNotes"));
   const hrNotes = toOptional(formData.get("hrNotes"));
   const chrcOffboardingNotes = toOptional(formData.get("chrcOffboardingNotes"));
@@ -230,10 +243,28 @@ function parseHrProfileFields(formData: FormData) {
       return raw;
     })(),
     hrNotes: hrNotes ?? null,
+    workStations,
     terminationDate,
     chrcOffboardingCompletedAt,
     chrcOffboardingNotes: chrcOffboardingNotes ?? null,
   };
+}
+
+async function syncEmployeeWorkStationsTx(
+  tx: {
+    employeeWorkStation: {
+      deleteMany: (args: { where: { employeeId: string } }) => Promise<unknown>;
+      createMany: (args: { data: { employeeId: string; station: WorkStation }[] }) => Promise<unknown>;
+    };
+  },
+  employeeId: string,
+  stations: WorkStation[],
+) {
+  await tx.employeeWorkStation.deleteMany({ where: { employeeId } });
+  if (stations.length === 0) return;
+  await tx.employeeWorkStation.createMany({
+    data: stations.map((station) => ({ employeeId, station })),
+  });
 }
 
 function formIncludesUnitAccessFields(formData: FormData): boolean {
@@ -388,6 +419,7 @@ export async function createEmployeeAction(formData: FormData) {
           allowedUnitIds,
         );
       }
+      await syncEmployeeWorkStationsTx(tx, onboarded.employeeId, hr.workStations);
       await syncEmployeeOrganization(tx, {
         employeeId: onboarded.employeeId,
         facilityId: session.facilityId,
@@ -395,6 +427,7 @@ export async function createEmployeeAction(formData: FormData) {
         additionalDepartmentIds: organization.additionalDepartmentIds,
         jobTitleId: organization.jobTitleId,
         teamMemberships: organization.teamMemberships,
+        jobRoleByDepartmentId: organization.jobRoleByDepartmentId,
       });
       return onboarded;
     });
@@ -498,6 +531,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
   const existing = await prisma.employee.findFirst({
     where: { id: parsed.employeeId, facilityId: session.facilityId },
     include: {
+      workStations: { select: { station: true } },
       employeeDepartments: { select: { departmentId: true } },
       teamMemberships: {
         where: { team: { status: "ACTIVE" } },
@@ -595,6 +629,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
           chrcNotes: existing.chrcNotes,
           shirtSize: existing.shirtSize,
           hrNotes: existing.hrNotes,
+          workStations: existing.workStations.map((row) => row.station),
           terminationDate: terminated ? (hr.terminationDate ?? existing.terminationDate) : null,
           chrcOffboardingCompletedAt: terminated ? existing.chrcOffboardingCompletedAt : null,
           chrcOffboardingNotes: terminated ? existing.chrcOffboardingNotes : null,
@@ -625,6 +660,9 @@ export async function updateEmployeeProfileAction(formData: FormData) {
         allowedUnitIds,
       );
     }
+    if (!profileEssentialsOnly) {
+      await syncEmployeeWorkStationsTx(tx, parsed.employeeId, hr.workStations);
+    }
     await syncEmployeeOrganization(tx, {
       employeeId: parsed.employeeId,
       facilityId: session.facilityId,
@@ -632,6 +670,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
       additionalDepartmentIds: organization.additionalDepartmentIds,
       jobTitleId: organization.jobTitleId,
       teamMemberships: organization.teamMemberships,
+      jobRoleByDepartmentId: organization.jobRoleByDepartmentId,
     });
 
     await tx.employee.update({
@@ -792,6 +831,7 @@ export async function updateEmployeeProfileAction(formData: FormData) {
     if (transitionToTerminated) {
       const fresh = await tx.employee.findUnique({
         where: { id: parsed.employeeId },
+        include: { workStations: { select: { station: true } } },
       });
       if (fresh) {
         const td = hr.terminationDate ?? new Date();
@@ -1026,6 +1066,7 @@ export async function updateEmployeeStatusAction(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     const existing = await tx.employee.findFirst({
       where: { id: employeeId, facilityId: session.facilityId },
+      include: { workStations: { select: { station: true } } },
     });
     if (!existing) {
       throw new Error("Employee not found.");
@@ -1066,6 +1107,7 @@ export async function updateEmployeeStatusAction(formData: FormData) {
 
       const fresh = await tx.employee.findUnique({
         where: { id: employeeId },
+        include: { workStations: { select: { station: true } } },
       });
       if (fresh) {
         const td = new Date();
@@ -1136,6 +1178,7 @@ export async function recordEmployeeSeparationAction(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     const existing = await tx.employee.findFirst({
       where: { id: parsed.employeeId, facilityId: session.facilityId },
+      include: { workStations: { select: { station: true } } },
     });
     if (!existing) {
       throw new Error("Employee not found.");
@@ -1176,6 +1219,7 @@ export async function recordEmployeeSeparationAction(formData: FormData) {
 
     const fresh = await tx.employee.findUnique({
       where: { id: parsed.employeeId },
+      include: { workStations: { select: { station: true } } },
     });
     if (!fresh) {
       throw new Error("Employee not found after update.");
@@ -1210,6 +1254,44 @@ export async function recordEmployeeSeparationAction(formData: FormData) {
         newValue: EmployeeStatus.TERMINATED,
       },
     });
+  });
+
+  revalidateEmployeeViews();
+}
+
+export async function setDefaultAssignmentAction(formData: FormData) {
+  const session = await requireFacilitySession();
+  requirePasswordSession(session);
+  requireAtLeastRole(session.role, "MANAGER");
+
+  const parsed = setDefaultAssignmentSchema.parse({
+    employeeId: formData.get("employeeId"),
+    unitId: formData.get("unitId"),
+    roleType: formData.get("roleType"),
+    isActive: formData.get("isActive") === "on",
+  });
+
+  const [employee, unit] = await Promise.all([
+    prisma.employee.findFirst({
+      where: { id: parsed.employeeId, facilityId: session.facilityId },
+      select: { id: true },
+    }),
+    prisma.unit.findFirst({
+      where: { id: parsed.unitId, facilityId: session.facilityId },
+      select: { id: true },
+    }),
+  ]);
+  if (!employee || !unit) {
+    throw new Error("Employee or unit not found.");
+  }
+
+  await prisma.defaultAssignment.create({
+    data: {
+      employeeId: parsed.employeeId,
+      unitId: parsed.unitId,
+      roleType: parsed.roleType,
+      isActive: parsed.isActive,
+    },
   });
 
   revalidateEmployeeViews();

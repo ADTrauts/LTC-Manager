@@ -20,9 +20,6 @@ export type RoomPickerFilter = {
   roomTypeKey?: string | null;
   /** Optional Facility Room Type id when catalog rows include it. */
   facilityRoomTypeId?: string | null;
-  neighborhoodId?: string | null;
-  floorName?: string | null;
-  query?: string | null;
 };
 
 function groupKeyForRoom(room: CycleScopeLocationOption): string {
@@ -63,10 +60,6 @@ export function groupRoomsForPicker(
       const extended = row as CycleScopeLocationOption & { facilityRoomTypeId?: string | null };
       if (extended.facilityRoomTypeId !== filter.facilityRoomTypeId) return false;
     }
-    if (filter?.neighborhoodId && row.neighborhoodId !== filter.neighborhoodId) return false;
-    if (filter?.floorName && row.floorName?.trim() !== filter.floorName) return false;
-    const query = filter?.query?.trim().toLowerCase();
-    if (query && !row.name.toLowerCase().includes(query)) return false;
     return true;
   });
 

@@ -8,9 +8,6 @@
 > - Cycles apply to explicit Department locations and Location Functions, not unit types ([LEG-D08](../legacy-retirement/DECISIONS.md)).
 > - `DIETARY_OPERATIONAL_CYCLES_ENABLED` already defaults on, and it retires: capabilities come with the installed Department ([LEG-D20](../legacy-retirement/DECISIONS.md)).
 > - The tab is **Operating Rhythm**, and "Milestones" are Key Points.
-> - Key Point locations are edited on that screen with **Edit locations**. The save stores the rooms that were checked. Floor, neighborhood, and room type only filter the list. A Cycle that applies to every responsible location is a separate choice and does include a place assigned later.
-> - A Service phase names its meal before Review can schedule it. That meal is not a location. The phase still uses the parent Cycle's locations.
-> - Scheduling a Cycle that is effective today prepares that day's Key Point rows for the selected rooms. A later change does not rewrite an earlier day. Opening the current day fills any rows still missing. A past day stays as stored.
 >
 > This guide is rewritten when LEG-02 moves meal timing.
 

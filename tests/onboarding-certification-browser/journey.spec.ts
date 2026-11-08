@@ -108,8 +108,13 @@ for (const width of [1280, 768]) test(`operator provision → two Products → X
     await manager.page.getByTestId("work-plan-applies-to-unit").selectOption(unit.id);
     await manager.page.getByTestId("work-plan-save-draft").click();
     await expect(manager.page.getByTestId("work-plan-message")).toContainText(/saved/i);
-    const published = { id: "retired" };
-    expect(published.id).toBe("retired");
+    expect(await db.departmentWorkPlan.count({ where: { facilityId: session.facilityId, status: "PUBLISHED" } })).toBe(0);
+    await manager.page.getByTestId("publish-work-plan").click();
+    await expect(manager.page.getByTestId("work-plan-message")).toContainText(/Published/);
+    const published = await db.departmentWorkPlan.findFirstOrThrow({ where: { facilityId: session.facilityId, status: "PUBLISHED" } });
+    // B remains unprepared; A can deliberately publish and run independently.
+    expect(await db.departmentWorkPlan.count({ where: { departmentId: plant.id } })).toBe(0);
+    expect(await db.departmentOperationalProfile.count({ where: { departmentId: plant.id } })).toBe(0);
     await worker.page.goto(`/unit/${unit.id}`);
     await expect(worker.page.getByTestId("employee-runtime-assignment")).toContainText("No confirmed assignment");
     await manager.page.goto("/staffing/assignments");
@@ -129,12 +134,12 @@ for (const width of [1280, 768]) test(`operator provision → two Products → X
     await expect(work).toBeVisible(); await work.getByRole("link").click();
     await worker.page.getByTestId("complete-work").click();
     await expect(worker.page.getByTestId("work-completion-notice")).toContainText(/confirmed|complete/i);
-    const occurrences = [{ id: "retired", status: "COMPLETED" }];
+    const occurrences = await db.departmentWorkOccurrence.findMany({ where: { facilityId: session.facilityId, workPlanId: published.id } });
     expect(occurrences).toHaveLength(1); expect(occurrences[0]!.status).toBe("COMPLETED");
     await applyFacilitySubscription({ facilityId: session.facilityId, status: "UNPAID", departmentKeys: ["DIETARY", "PLANT"] }, db);
     await worker.page.reload(); await expect(worker.page.getByTestId("complete-work")).toHaveCount(0);
     await applyFacilitySubscription({ facilityId: session.facilityId, status: "ACTIVE", departmentKeys: ["DIETARY", "PLANT"] }, db);
-    expect(occurrences).toEqual(occurrences);
+    expect(await db.departmentWorkOccurrence.findMany({ where: { facilityId: session.facilityId, workPlanId: published.id } })).toEqual(occurrences);
     expect(await db.department.count({ where: { facilityId: session.facilityId } })).toBe(2);
     await worker.page.goto(`/unit/${unit.id}`); await expect(worker.page.getByTestId("employee-runtime-work-item").filter({ hasText: "Check shared room supplies" })).toContainText(/complete/i);
     expect(await worker.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

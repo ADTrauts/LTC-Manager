@@ -63,7 +63,7 @@ export type LogAttachmentForResolve = {
   calendarDueTimeLocal: string | null;
   localDisplayLabel: string | null;
   localInstructions: string | null;
-  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY";
+  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY" | "OPERATIONAL_TYPE";
   assetId: string | null;
   spaceId: string | null;
   unitId: string | null;
@@ -99,6 +99,8 @@ function targetFromAttachment(row: LogAttachmentForResolve): LogAttachmentTarget
       return { kind: "DEPARTMENT", departmentId: row.targetDepartmentId! };
     case "FACILITY":
       return { kind: "FACILITY" };
+    case "OPERATIONAL_TYPE":
+      throw new Error("OPERATIONAL_TYPE attachments are not live requirements.");
   }
 }
 

@@ -76,6 +76,7 @@ export function planMealServiceDayExpectations(input: {
 
     const candidates = mealTimeNeighborhoodCandidates({
       locationMode: cycle.locationMode,
+      roomTypeKey: cycle.roomTypeKey,
       unitIds: cycle.unitIds,
       spaceIds: cycle.spaceIds,
       locations: input.locations,
@@ -87,10 +88,7 @@ export function planMealServiceDayExpectations(input: {
       configuredByUnit.set(row.unitId, row.configuredTime);
     }
 
-    // Selected locations show every neighborhood in that selection, including a
-    // missing time. Department-wide applicability only keeps configured times.
-    const instantiateAllCandidates =
-      cycle.locationMode === "EXPLICIT_UNITS" && configuredByUnit.size > 0;
+    const instantiateAllCandidates = cycle.locationMode === "ROOM_TYPE";
 
     const unitIds = instantiateAllCandidates
       ? candidates.map((row) => row.unitId)

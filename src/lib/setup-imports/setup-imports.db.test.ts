@@ -99,16 +99,17 @@ test("SQL: create/reuse is distinct from ONB-01 updates and rejects ambiguous, r
   assert.match((await f.preview("workforce",csv)).rows[0]!.message,/historical access|lifecycle/);
 }));
 
-test("SQL: one person joins two Departments and Teams without replacing HR or other relationships",{skip},()=>run(async db=>{
+test("SQL: one person joins two Departments/Teams/Job Roles without replacing HR or other relationships",{skip},()=>run(async db=>{
   const f=await fixture(db);
   const dietaryTeam=await db.departmentTeam.create({data:{facilityId:f.facility.id,departmentId:f.dietary.id,displayName:"Food team"}}),plantTeam=await db.departmentTeam.create({data:{facilityId:f.facility.id,departmentId:f.plant.id,displayName:"Plant team"}});
+  const dietaryRole=await db.departmentJobRole.create({data:{facilityId:f.facility.id,departmentId:f.dietary.id,displayName:"Food role",tier:"TEAM_MEMBER"}}),plantRole=await db.departmentJobRole.create({data:{facilityId:f.facility.id,departmentId:f.plant.id,displayName:"Plant role",tier:"TEAM_MEMBER"}});
   const title=await db.jobTitle.create({data:{facilityId:f.facility.id,name:"Shared staff"}});
-  const csv=f.workforce(f.email,`teamId,jobTitleId\n${dietaryTeam.id},${title.id}`),p=await f.preview("workforce",csv),r=await f.confirm(p,csv),eid=r.rows[0]!.result!.targetIds.employeeId!;
+  const csv=f.workforce(f.email,`teamId,jobRoleId,jobTitleId\n${dietaryTeam.id},${dietaryRole.id},${title.id}`),p=await f.preview("workforce",csv),r=await f.confirm(p,csv),eid=r.rows[0]!.result!.targetIds.employeeId!;
   await db.employee.update({where:{id:eid},data:{phone:"keep",hrNotes:"retained"}});
-  const rel=`employeeId,department,membership,teamId,teamPrimary\n${eid},PLANT,ADDITIONAL,${plantTeam.id},true\n`;
+  const rel=`employeeId,department,membership,teamId,teamPrimary,jobRoleId\n${eid},PLANT,ADDITIONAL,${plantTeam.id},true,${plantRole.id}\n`;
   const q=await f.preview("employee_departments",rel);assert.equal(q.rows[0]!.action,"add");const result=await f.confirm(q,rel);assert.equal(result.rows[0]!.result?.status,"committed");
-  const employee=await db.employee.findUniqueOrThrow({where:{id:eid},include:{employeeDepartments:true,teamMemberships:true}});
-  assert.equal(employee.primaryDepartmentId,f.dietary.id);assert.deepEqual(employee.employeeDepartments.map(x=>x.departmentId),[f.plant.id]);assert.equal(employee.teamMemberships.length,2);assert.equal(employee.jobTitleId,title.id);assert.equal(employee.hrNotes,"retained");assert.equal(employee.phone,"keep");assert.equal(employee.roleType,"STAFF");
+  const employee=await db.employee.findUniqueOrThrow({where:{id:eid},include:{employeeDepartments:true,teamMemberships:true,departmentJobRoles:true}});
+  assert.equal(employee.primaryDepartmentId,f.dietary.id);assert.deepEqual(employee.employeeDepartments.map(x=>x.departmentId),[f.plant.id]);assert.equal(employee.teamMemberships.length,2);assert.equal(employee.departmentJobRoles.length,2);assert.equal(employee.jobTitleId,title.id);assert.equal(employee.hrNotes,"retained");assert.equal(employee.phone,"keep");assert.equal(employee.roleType,"STAFF");
   assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:f.email}}),1);
   const again=await f.confirm(q);assert.equal(again.rows[0]!.result?.status,"committed");assert.equal(await db.setupImportResult.count({where:{batchId:q.batchId,phase:"IMPORT"}}),1);
 }));
@@ -120,6 +121,7 @@ test("SQL: Department location CSV shares one physical place and preserves exist
   await db.unitSpaceResponsibility.updateMany({where:{spaceId:f.room.id,departmentId:f.plant.id},data:{capabilities:["preserve-this-existing-setting"]}});
   const q=await f.preview("department_locations",`department,locationType,locationId\nPLANT,ROOM,${f.room.id}\n`);const reuse=await f.confirm(q,`department,locationType,locationId\nPLANT,ROOM,${f.room.id}\n`);assert.equal(reuse.rows[0]!.result?.status,"reused");
   assert.deepEqual((await db.unitSpaceResponsibility.findUniqueOrThrow({where:{spaceId_departmentId:{spaceId:f.room.id,departmentId:f.plant.id}}})).capabilities,["preserve-this-existing-setting"]);
+  assert.equal(await db.departmentOperationalProfile.count({where:{facilityId:f.facility.id,status:"ACTIVE"}}),0);
 }));
 
 test("SQL: stale source/review/actor/dependency and cross-Facility references cannot authorize creation",{skip},()=>run(async db=>{

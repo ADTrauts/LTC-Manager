@@ -8,6 +8,7 @@ import type { ChangePasswordState } from "@/app/account/security/change-password
 import { changeOwnUserPassword } from "@/lib/account-security/change-own-password";
 import { getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revokeAllPushSubscriptionsForUser } from "@/lib/notifications/push-subscription";
 import { revokeOwnSessions } from "@/lib/session-revocation";
 import { requireAuthenticatedUserSession } from "@/lib/user-session";
 
@@ -55,6 +56,7 @@ export async function changeOwnPasswordAction(
 
 export async function signOutEverywhereAction(): Promise<void> {
   const session = await requireAuthenticatedUserSession();
+  await revokeAllPushSubscriptionsForUser(prisma, { userId: session.uid, now: new Date() });
   await revokeOwnSessions(prisma, { kind: "user", id: session.uid });
 
   const jar = await cookies();

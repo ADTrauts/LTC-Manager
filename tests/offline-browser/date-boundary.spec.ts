@@ -81,14 +81,14 @@ for (const restore of ['idle', 'focus', 'visibilitychange'] as const) {
       // transport/store write). Exactly one pending command must survive.
       // Target 12 is unused by the earlier required conflict/replay journeys.
       // Boundary review never submits it, so all three cases remain independent.
-      await page.locator('[data-testid="space-key-time-actual"][data-target-order="12"]').click();
+      await page.locator('[data-testid="space-work-complete"][data-target-order="12"]').click();
       const sealed = await page.evaluate(async id => {
         const s = await import(String('/space-offline-store.js')); return (await s.envelopes()).find((r: {id:string}) => r.id === id);
       }, prepared.id);
       expect(sealed.commands).toHaveLength(1);
-      expect(JSON.stringify(sealed)).not.toContain(fx.canonical.spaceName);
+      expect(JSON.stringify(sealed)).not.toContain('Verify supplies');
       await page.waitForTimeout(1000);
-      await expect(page.locator('[data-testid="space-key-time-actual"][data-target-order="12"]')).toBeVisible();
+      await expect(page.getByTestId('space-work-instructions').first()).toBeVisible();
       const boundaryStarted = await page.evaluate(() => performance.now());
       await page.evaluate(time => sessionStorage.setItem('date-test-clock', String(time)), midnight);
       if (restore !== 'idle') await page.evaluate(event => {
@@ -112,7 +112,7 @@ for (const restore of ['idle', 'focus', 'visibilitychange'] as const) {
       const result = await page.evaluate(async id => {
         const s = await import(String('/space-offline-store.js')), r = (await s.envelopes()).find((r: {id:string}) => r.id === id);
         const secrets = Object.keys(sessionStorage).filter(k => k.startsWith(s.PREFIX));
-        try { await s.queue(r, { id: 'invalid-new-action', kind: 'KEY_TIME_ACTUAL' }); return { row: r, secrets, rejected: false }; }
+        try { await s.queue(r, { id: 'invalid-new-action', kind: 'WORK' }); return { row: r, secrets, rejected: false }; }
         catch { return { row: r, secrets, rejected: true }; }
       }, prepared.id);
       expect(result.secrets).toEqual([]);

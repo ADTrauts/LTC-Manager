@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { VssylLockup } from "@/components/brand/vssyl-lockup";
+import { completeBrowserSignOut } from "@/lib/notifications/browser-push-client";
 import { HarborSupportNotifications } from "@/components/harbor-console/harbor-support-notifications";
 import type { SupportStaffNotificationItem } from "@/lib/support/notifications";
 
@@ -77,7 +78,15 @@ export function HarborConsoleShell({
             <p className="text-sm font-medium">{staffName}</p>
             <p className="text-xs text-[var(--run-aside-muted)]">{staffRole === "OWNER" ? "Owner" : "Member"}</p>
           </div>
-          <form action="/api/console/auth/logout" method="post">
+          <form
+            action="/api/console/auth/logout"
+            method="post"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = event.currentTarget;
+              void completeBrowserSignOut(form.getAttribute("action") || "/api/console/auth/logout", "/console/login");
+            }}
+          >
             <button
               type="submit"
               className="text-xs font-medium text-[var(--run-aside-muted)] underline-offset-2 hover:underline"

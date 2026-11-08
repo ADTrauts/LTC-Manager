@@ -7,6 +7,8 @@ import { randomBytes } from "node:crypto";
 import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 
+import { DEPARTMENT_WORK_PRESET_KEYS } from "@/lib/department-work/work-presets";
+
 import { listConsoleCatalogItems, type ConsoleCatalogItem } from "./console-catalog";
 
 const databaseUrl =
@@ -293,7 +295,7 @@ test(
 );
 
 test(
-  "catalog records and customer-authored rows stay on their sources",
+  "catalog records, work presets, and customer-authored rows stay on their sources",
   { skip: skipReason },
   async () =>
     serial(async () => {
@@ -301,6 +303,7 @@ test(
     try {
       await prisma.$transaction(async (snapshot) => {
       const prisma = snapshot as unknown as PrismaClient;
+      const beforeRound = await item(prisma, "MECHANICAL_ROOM_ROUND");
       const beforeCoolerInstalls = await prisma.facilityCatalogInstall.count({
         where: { catalogStableKey: "cooler_temperature_log" },
       });
@@ -387,9 +390,75 @@ test(
         },
       });
 
+      const workA = await createOrgFacility(prisma, "work-a");
+      const workB = await createOrgFacility(prisma, "work-b");
+      const workDraftOnly = await createOrgFacility(prisma, "work-draft");
       const workCustomer = await createOrgFacility(prisma, "work-customer");
+      const deptA = await prisma.department.create({
+        data: { facilityId: workA.facility.id, key: "PLANT", name: "Plant Operations" },
+      });
+      const deptB = await prisma.department.create({
+        data: { facilityId: workB.facility.id, key: "PLANT", name: "Plant Operations" },
+      });
+      const deptDraft = await prisma.department.create({
+        data: { facilityId: workDraftOnly.facility.id, key: "PLANT", name: "Plant Operations" },
+      });
       const deptCustomer = await prisma.department.create({
         data: { facilityId: workCustomer.facility.id, key: "PLANT", name: "Plant Operations" },
+      });
+      await prisma.departmentWorkPlan.create({
+        data: {
+          facilityId: workA.facility.id,
+          departmentId: deptA.id,
+          stableKey: "MECHANICAL_ROOM_ROUND",
+          version: 1,
+          name: "Dietary Servery Opening",
+          status: "DRAFT",
+          presetKey: "MECHANICAL_ROOM_ROUND",
+        },
+      });
+      await prisma.departmentWorkPlan.create({
+        data: {
+          facilityId: workA.facility.id,
+          departmentId: deptA.id,
+          stableKey: "MECHANICAL_ROOM_ROUND",
+          version: 2,
+          name: "Dietary Servery Opening",
+          status: "PUBLISHED",
+          presetKey: "MECHANICAL_ROOM_ROUND",
+        },
+      });
+      await prisma.departmentWorkPlan.create({
+        data: {
+          facilityId: workB.facility.id,
+          departmentId: deptB.id,
+          stableKey: "MECHANICAL_ROOM_ROUND",
+          version: 1,
+          name: "Mechanical Room Round",
+          status: "PUBLISHED",
+          presetKey: "MECHANICAL_ROOM_ROUND",
+        },
+      });
+      await prisma.departmentWorkPlan.create({
+        data: {
+          facilityId: workDraftOnly.facility.id,
+          departmentId: deptDraft.id,
+          stableKey: "MECHANICAL_ROOM_ROUND",
+          version: 1,
+          name: "Mechanical Room Round",
+          status: "DRAFT",
+          presetKey: "MECHANICAL_ROOM_ROUND",
+        },
+      });
+      const customerKey = `work_customer_${workCustomer.suffix}`;
+      await prisma.departmentWorkPlan.create({
+        data: {
+          facilityId: workCustomer.facility.id,
+          departmentId: deptCustomer.id,
+          stableKey: customerKey,
+          name: "Customer Walk",
+          status: "PUBLISHED",
+        },
       });
       await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
       const knowledgeTitle = `Customer procedure ${workCustomer.suffix}`;
@@ -434,14 +503,31 @@ test(
       assert.equal(draft.statusLabel, "Published · Draft");
       assert.equal(items.some((row) => row.stableKey === procedureKey), false);
 
+      const round = items.find((row) => row.stableKey === "MECHANICAL_ROOM_ROUND");
+      assert.ok(round);
+      assert.equal(round.sourceType, "WORK_PRESET");
+      assert.equal(round.catalogFamily, "WORK");
+      assert.equal(round.categoryLabel, "Facility Plant Operations");
+      assert.equal(round.categoryKey, "PLANT");
+      assert.equal(round.versionDisplay, "\u2014");
+      assert.equal(round.statusLabel, "\u2014");
+      assert.equal(round.facilityInstallCount, beforeRound.facilityInstallCount + 3);
+      assert.equal(round.usageCount, (beforeRound.usageCount ?? 0) + 2);
+      assert.equal(round.name, "Mechanical Room Round");
+
+      assert.equal(
+        items.filter((row) => row.sourceType === "WORK_PRESET").length,
+        DEPARTMENT_WORK_PRESET_KEYS.length,
+      );
       assert.equal(items.filter((row) => row.sourceType === "DEPARTMENT_PRODUCT").length, 3);
+      assert.equal(items.some((row) => row.stableKey === customerKey), false);
       assert.equal(items.some((row) => row.stableKey === "EQUIPMENT_CONDITION_INSPECTION"), false);
       assert.equal(items.some((row) => row.name === knowledgeTitle), false);
       assert.equal(items.some((row) => row.name === "Plant Operations starter configuration"), false);
       assert.ok(items.some((row) => row.sourceType === "CATALOG_RECORD"));
       assert.deepEqual(
         [...new Set(items.map((row) => row.sourceType))].sort(),
-        ["CATALOG_RECORD", "DEPARTMENT_PRODUCT"],
+        ["CATALOG_RECORD", "DEPARTMENT_PRODUCT", "WORK_PRESET"],
       );
       }, { isolationLevel: "RepeatableRead", timeout: 60000 });
     } finally {

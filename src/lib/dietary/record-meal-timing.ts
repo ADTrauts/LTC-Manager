@@ -18,7 +18,10 @@ import { localHhMmFromInstant } from "@/lib/operational-cycles/key-time-day-expe
 import { hasPlatformCapability } from "@/lib/platform-capability";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
-import { dietaryTimingForLegacyControl } from "./meal-timing";
+import {
+  dietaryTimingForLegacyControl,
+  FOOD_SERVICE_AREA_FUNCTION_KEY,
+} from "./meal-timing";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -215,14 +218,17 @@ async function foodServiceAreaSpaceIds(
   client: DbClient,
   input: { facilityId: string; departmentId: string; unitId: string },
 ): Promise<string[]> {
-  const spaces = await client.unitSpace.findMany({
+  const bindings = await client.departmentRoomArchetypeBinding.findMany({
     where: {
-      facilityId: input.facilityId,
-      isActive: true,
-      responsibilities: { some: { departmentId: input.departmentId } },
-      OR: [{ unitId: input.unitId }, { unit: { parentUnitId: input.unitId } }],
+      profile: { departmentId: input.departmentId },
+      archetype: { key: FOOD_SERVICE_AREA_FUNCTION_KEY, isActive: true },
+      unitSpace: {
+        facilityId: input.facilityId,
+        isActive: true,
+        OR: [{ unitId: input.unitId }, { unit: { parentUnitId: input.unitId } }],
+      },
     },
-    select: { id: true },
+    select: { unitSpaceId: true },
   });
-  return [...new Set(spaces.map((row) => row.id))];
+  return [...new Set(bindings.map((row) => row.unitSpaceId))];
 }

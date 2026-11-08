@@ -1,7 +1,5 @@
 # 07 — Domain Location Link Matrix
 
-Phase 7B removed `DefaultAssignment` and `ScheduleEntry.unitId`. A shift does not place someone on a Unit. Today's place is `OperationalAssignment`.
-
 ## Current state: everything links to Unit
 
 All 19 FK references point to Unit. This document recommends which level each domain should ultimately target.

@@ -48,18 +48,22 @@ export async function applyAssignmentTemplate(
         .filter((id): id is string => Boolean(id)),
     ),
   ];
-  const qualifiedKeys = new Set<string>();
+  const jobRoleLabelByEmployeeId = new Map<string, string>();
   if (employeesToCreate.length > 0) {
-    const qualifications = await prisma.employeeOperationalRoleQualification.findMany({
+    const jobRoles = await prisma.employeeDepartmentJobRole.findMany({
       where: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
         employeeId: { in: employeesToCreate },
-        status: "ACTIVE",
+        departmentId: input.departmentId,
+        jobRole: { status: "ACTIVE" },
       },
-      select: { employeeId: true, roleKey: true },
+      select: {
+        employeeId: true,
+        jobRole: { select: { displayName: true } },
+      },
     });
-    for (const row of qualifications) qualifiedKeys.add(`${row.employeeId}:${row.roleKey}`);
+    for (const row of jobRoles) {
+      jobRoleLabelByEmployeeId.set(row.employeeId, row.jobRole.displayName);
+    }
   }
 
   for (const pos of input.positions) {
@@ -86,11 +90,6 @@ export async function applyAssignmentTemplate(
       skipped++;
       continue;
     }
-    if (!qualifiedKeys.has(`${employeeId}:${pos.roleKey}`)) {
-      warnings.push(`Skipped ${pos.roleKey}: employee is not eligible. Use an explicit assignment exception.`);
-      skipped++;
-      continue;
-    }
 
     const assignment = await prisma.operationalAssignment.create({
       data: {
@@ -99,7 +98,7 @@ export async function applyAssignmentTemplate(
         employeeId,
         serviceDate,
         roleKey: pos.roleKey,
-        roleLabel: roleDef.label,
+        roleLabel: jobRoleLabelByEmployeeId.get(employeeId) ?? roleDef.label,
         unitId: pos.unitId ?? null,
         templateItemId: pos.itemId ?? null,
         startsAt: pos.startsAtLocal ? parseLocalTime(input.serviceDate, pos.startsAtLocal) : null,

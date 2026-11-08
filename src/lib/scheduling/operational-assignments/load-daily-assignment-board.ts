@@ -36,7 +36,7 @@ export async function loadDailyAssignmentBoard(
     prisma.scheduleEntry.findMany({
       where: {
         date: { gte: dateStart, lte: dateEnd },
-        employee: { facilityId },
+        unit: { facilityId },
         ...(departmentId
           ? { employee: { employeeDepartments: { some: { departmentId } } } }
           : {}),
@@ -47,8 +47,10 @@ export async function loadDailyAssignmentBoard(
         shift: true,
         plannedStart: true,
         plannedEnd: true,
+        departmentId: true,
         calledOffAt: true,
         callOffReason: true,
+        unit: { select: { id: true, name: true } },
         employee: {
           select: {
             id: true,
@@ -135,7 +137,7 @@ export async function loadDailyAssignmentBoard(
       scheduledShift: entry.shift,
       plannedStart: entry.plannedStart,
       plannedEnd: entry.plannedEnd,
-      unitName: null,
+      unitName: entry.unit?.name ?? null,
       hasCallDown: callOffReason != null,
       callDownReason: callOffReason ? parseCallDownReason(callOffReason).displayReason : null,
     });
@@ -189,6 +191,14 @@ export async function loadDailyAssignmentBoard(
     employees,
     assignments: boardEntries,
     warnings,
+    callOffs: scheduleEntries
+      .filter((entry) => entry.calledOffAt)
+      .map((entry) => ({
+        employeeId: entry.employeeId,
+        departmentId: entry.departmentId,
+        plannedStart: entry.plannedStart,
+        plannedEnd: entry.plannedEnd,
+      })),
   };
 }
 

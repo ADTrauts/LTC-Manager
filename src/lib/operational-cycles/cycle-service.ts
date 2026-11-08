@@ -27,7 +27,6 @@ import {
 } from "./cycle-lifecycle";
 import { buildEvsDefaultCyclePlans } from "./defaults";
 import { dietaryStarterPlansToCreate } from "./dietary-starter";
-import { prepareCurrentKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
 import type { PublishedCycleOverlapCandidate } from "./validate-cycle";
 import { roomTypeIdentity } from "@/lib/facility-builder/space-type-presets";
 
@@ -48,6 +47,7 @@ import {
   validateDraftsForReviewPublish,
 } from "./review-publish-validation";
 import { mapCycleRow } from "./load-published-cycles";
+import { loadDepartmentOperationalTypeOptions } from "./load-operational-type-targets";
 import type { CycleDraftInput, KeyTimeGroupDefinition } from "./types";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -265,6 +265,23 @@ function milestoneTimeCreates(input: CycleDraftInput) {
   return rows;
 }
 
+function resolvedRoomTypeKey(
+  locationMode: CycleDraftInput["locationMode"],
+  roomTypeKey: string | null | undefined,
+): string | null {
+  if (locationMode !== "ROOM_TYPE") return null;
+  const key = roomTypeKey?.trim() ?? "";
+  return isStandardRoomTypeKey(key) ? key : null;
+}
+
+function resolvedOperationalTypeKeys(
+  locationMode: CycleDraftInput["locationMode"],
+  keys: readonly string[] | undefined,
+): string[] {
+  if (locationMode !== "OPERATIONAL_TYPES") return [];
+  return [...new Set((keys ?? []).map((key) => key.trim()).filter(Boolean))];
+}
+
 export async function loadScopeLocations(
   client: DbClient,
   facilityId: string,
@@ -358,12 +375,21 @@ async function assertDraftScope(
     locationMode: NonNullable<CycleDraftInput["locationMode"]>;
   },
 ) {
-  const locations = await loadScopeLocations(client, input.facilityId, input.departmentId);
+  const [locations, operationalTypes] = await Promise.all([
+    loadScopeLocations(client, input.facilityId, input.departmentId),
+    loadDepartmentOperationalTypeOptions({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      perspective: "working",
+    }),
+  ]);
   const errors = validateCycleScopeAgainstCatalog({
     locationMode: input.locationMode,
+    roomTypeKey: input.draft.roomTypeKey,
+    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
+    allowedOperationalTypeKeys: operationalTypes.map((type) => type.key),
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
-    keyTimeSpaceIds: (input.draft.keyTimeGroups ?? []).flatMap((group) => group.spaceIds ?? []),
     milestoneTimes: input.draft.milestoneTimes,
     cycleType: input.draft.cycleType,
     mealType: input.draft.mealType,
@@ -459,6 +485,7 @@ async function loadPublishedOverlapPeers(
     overnight: r.overnight,
     applicableDaysOfWeek: r.applicableDaysOfWeek,
     locationMode: r.locationMode,
+    applicableUnitTypes: r.applicableUnitTypes,
     unitIds: r.locations.map((l) => l.unitId).filter((id): id is string => Boolean(id)),
     effectiveFrom: toServiceDateKey(r.effectiveFrom),
     effectiveTo: r.effectiveTo ? toServiceDateKey(r.effectiveTo) : null,
@@ -502,9 +529,12 @@ export async function createDraft(
     mealType: input.draft.mealType,
     locationMode,
     locationInheritFromParent: locationInherit,
+    applicableUnitTypes: input.draft.applicableUnitTypes,
+    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     keyTimeGroups: input.draft.keyTimeGroups,
+    roomTypeKey: input.draft.roomTypeKey,
     expectedMilestones: input.draft.expectedMilestones,
   });
   if (!validation.valid) {
@@ -567,6 +597,13 @@ export async function createDraft(
       mealType: input.draft.mealType ?? null,
       locationMode,
       locationInheritFromParent: locationInherit,
+      applicableUnitTypes:
+        locationMode === "UNIT_TYPES" ? (input.draft.applicableUnitTypes ?? []) : [],
+      applicableOperationalTypeKeys: resolvedOperationalTypeKeys(
+        locationMode,
+        input.draft.applicableOperationalTypeKeys,
+      ),
+      roomTypeKey: resolvedRoomTypeKey(locationMode, input.draft.roomTypeKey),
       expectedMilestones:
         input.draft.cycleType === "SERVICE" ? (input.draft.expectedMilestones ?? []) : [],
       status: "DRAFT",
@@ -646,9 +683,12 @@ export async function updateDraft(
     mealType: input.draft.mealType,
     locationMode,
     locationInheritFromParent: locationInherit,
+    applicableUnitTypes: input.draft.applicableUnitTypes,
+    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     keyTimeGroups: input.draft.keyTimeGroups,
+    roomTypeKey: input.draft.roomTypeKey,
     expectedMilestones: input.draft.expectedMilestones,
   });
   if (!validation.valid) {
@@ -713,6 +753,13 @@ export async function updateDraft(
       mealType: input.draft.mealType ?? null,
       locationMode,
       locationInheritFromParent: locationInherit,
+      applicableUnitTypes:
+        locationMode === "UNIT_TYPES" ? (input.draft.applicableUnitTypes ?? []) : [],
+      applicableOperationalTypeKeys: resolvedOperationalTypeKeys(
+        locationMode,
+        input.draft.applicableOperationalTypeKeys,
+      ),
+      roomTypeKey: resolvedRoomTypeKey(locationMode, input.draft.roomTypeKey),
       expectedMilestones:
         input.draft.cycleType === "SERVICE" ? (input.draft.expectedMilestones ?? []) : [],
       lastChangedByUserId: input.actor.userId,
@@ -795,6 +842,9 @@ export async function duplicateCycle(
       mealType: source.mealType,
       locationMode: source.locationMode,
       locationInheritFromParent: source.locationInheritFromParent,
+      applicableUnitTypes: source.applicableUnitTypes,
+      applicableOperationalTypeKeys: source.applicableOperationalTypeKeys,
+      roomTypeKey: source.roomTypeKey,
       expectedMilestones: source.expectedMilestones,
       status: "DRAFT",
       createdByUserId: input.actor.userId,
@@ -1076,8 +1126,11 @@ export async function publishCycle(
       mealType: mapped.mealType,
       locationMode: mapped.locationMode,
       locationInheritFromParent: mapped.locationInheritFromParent,
+      applicableUnitTypes: mapped.applicableUnitTypes,
+      applicableOperationalTypeKeys: mapped.applicableOperationalTypeKeys,
       unitIds: mapped.unitIds,
       spaceIds: mapped.spaceIds,
+      roomTypeKey: mapped.roomTypeKey,
       expectedMilestones: mapped.expectedMilestones,
       keyTimeGroups:
         input.keyTimeGroups && input.keyTimeGroups.length > 0
@@ -1149,17 +1202,6 @@ export async function publishCycle(
             : "immediate_first_setup",
     },
   });
-
-  if (effectiveFromKey <= todayKey) {
-    await prepareCurrentKeyTimeDayExpectations(
-      {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        operationalDateKey: todayKey,
-      },
-      client,
-    );
-  }
 
   return published;
 }
@@ -1554,9 +1596,12 @@ export async function generateDietaryDefaultsDrafts(
         mealType: plan.mealType,
         locationMode: plan.locationMode,
         locationInheritFromParent: plan.locationInheritFromParent,
+        applicableUnitTypes: plan.applicableUnitTypes,
+        roomTypeKey: plan.roomTypeKey,
         expectedMilestones: plan.expectedMilestones,
         occurrenceTracking: plan.occurrenceTracking,
         keyPointGrain: plan.keyPointGrain,
+        applicableOperationalTypeKeys: plan.applicableOperationalTypeKeys,
         keyTimeGroups: (plan.dueLocals ?? []).map((dueLocal) => ({
           dueLocal,
           spaceIds: [],
@@ -1650,9 +1695,12 @@ export async function prepareDietaryMealTimingUpgrade(
         mealType: null,
         locationMode: keyPoint.locationMode,
         locationInheritFromParent: keyPoint.locationInheritFromParent,
+        applicableUnitTypes: keyPoint.applicableUnitTypes,
+        roomTypeKey: keyPoint.roomTypeKey,
         expectedMilestones: [],
         occurrenceTracking: keyPoint.occurrenceTracking,
         keyPointGrain: keyPoint.keyPointGrain,
+        applicableOperationalTypeKeys: keyPoint.applicableOperationalTypeKeys,
         keyTimeGroups: (keyPoint.dueLocals ?? []).map((dueLocal) => ({
           dueLocal,
           spaceIds: [],
@@ -1720,11 +1768,10 @@ export async function generateEvsDefaultsDrafts(
         applicableDaysOfWeek: plan.applicableDaysOfWeek,
         effectiveFrom: input.effectiveFrom,
         mealType: null,
-        locationMode:
-          plan.locationMode === "ALL_DEPARTMENT_UNITS" || plan.locationMode === "EXPLICIT_UNITS"
-            ? plan.locationMode
-            : "ALL_DEPARTMENT_UNITS",
+        locationMode: plan.locationMode,
         locationInheritFromParent: plan.locationInheritFromParent,
+        applicableUnitTypes: plan.applicableUnitTypes,
+        roomTypeKey: plan.roomTypeKey,
         expectedMilestones: [],
       },
     });

@@ -10,6 +10,7 @@ import { ACTIVE_DEPARTMENT_COOKIE } from "@/lib/department-nav";
 import { resolveDepartmentCarryoverForFacilitySwitch } from "@/lib/facility-access/switch-active-facility";
 import { PARTNER_ACTIVE_DEPARTMENT_COOKIE } from "@/lib/partner-operational-context";
 import { prisma } from "@/lib/prisma";
+import { safeAttentionReturn } from "@/lib/notifications/attention-click";
 import { readAuthenticatedUserIdentity } from "@/lib/user-session";
 
 function redirectTo(request: NextRequest, path: string) {
@@ -73,7 +74,8 @@ export async function POST(request: NextRequest) {
     internalDepartmentCarryover = carry.departmentCookieValue;
   }
 
-  const response = redirectTo(request, result.redirectPath);
+  const next = safeAttentionReturn(String(formData.get("next") ?? ""));
+  const response = redirectTo(request, next ?? result.redirectPath);
   applyContextTransitionCookies(
     response.cookies,
     {

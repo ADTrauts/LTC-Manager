@@ -242,6 +242,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
       "Vercel Cron. Daily PM occurrence materialization and PREVENTIVE Work Order generation. Bearer CRON_SECRET. Facility-local civil dates. No session.",
   },
   {
+    pattern: "/api/internal/scheduled-evaluation",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "platform",
+    notes:
+      "Scheduled Evaluation. Handler requires Bearer CRON_SECRET. No session and no facility id from the caller. Not on the Vercel cron schedule until the project plan accepts a sub-hour cron. Hobby is daily.",
+  },
+  {
     pattern: "/console/tickets/[ticketId]",
     match: "EXACT",
     surface: "PAGE",
@@ -334,6 +343,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
     notes: "Harbor Department Product detail. Read-only registry metadata and adoption.",
   },
+  {
+    pattern: "/console/catalog/work/[presetKey]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Harbor Work preset detail. Read-only preset metadata and Facility Work Plan usage.",
+  },
+
   // ── Partner Facility Dashboard (Phase 2D7) ────────────────────────────────
   {
     pattern: "/partner",
@@ -374,6 +393,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
     notes:
       "Partner operating rhythm (CDA-08). Cycles, phases, and key points for the active Department. The cycle covers the whole Department.",
+  },
+  {
+    pattern: "/partner/work",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PARTNER_SESSION" },
+    module: "partner-facility-session",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Partner work plans (CDA-08). A step may link an organization-owned Catalog Record.",
   },
   {
     pattern: "/partner/menus",
@@ -592,6 +621,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Resumable Facility setup workspace; authorized independently of journey completion.",
   },
   {
+    pattern: "/notifications",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "USER_SESSION" },
+    module: "notifications",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "In-app Attention Center for the signed-in User in the active Facility. Quick PIN and Harbor cannot enter. The page re-checks facility access and recipient ownership. It is not a navigation home.",
+  },
+  {
     pattern: "/account",
     match: "EXACT",
     surface: "PAGE",
@@ -618,6 +657,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "account",
     notes:
       "Global User password change and Sign out everywhere. Operates on User.id and increments User.sessionVersion. PIN and Harbor cannot.",
+  },
+  {
+    pattern: "/account/notifications",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "USER_SESSION" },
+    module: "notifications",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Personal browser-alert control for this device. A full User session may enable or disable its own push subscription. Quick PIN and Harbor cannot. The page does not send a notification.",
   },
   {
     pattern: "/help",
@@ -823,6 +872,27 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     featureFlag: "CANONICAL_LOGS",
   },
   {
+    pattern: "/staffing/work-plans",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "staffing",
+    featureFlag: "DIETARY_WORK_PLANS",
+    // BUILD · Work — Department Work Plan builder. Owned by Department Builder, not Staffing.
+    nav: { label: "Work", order: 250 },
+    notes:
+      "Department Work Plan Builder. Work Plans come with the Department.",
+  },
+  {
+    pattern: "/staffing/work-plans/[workPlanId]",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "staffing",
+    notes:
+      "Work Plan detail. Work Plans come with the Department.",
+  },
+  {
     pattern: "/staffing/log-book",
     match: "EXACT",
     surface: "PAGE",
@@ -946,9 +1016,16 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "employees",
     legacyArea: { key: "employees", label: "Employees", navOrder: 30, navVisible: true, critical: false },
-    // BUILD · Employee Builder — person, Job Title, Departments, Teams, operational eligibility, HR.
+    // BUILD · Employee Builder — workforce configuration (person, employment, department, job role, HR).
     // Today's staffing/attendance/assignments live in RUN Employees (/staffing).
     nav: { label: "Employee Builder", order: 230 },
+  },
+  {
+    pattern: "/employees/job-roles",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
+    module: "employees",
   },
   {
     pattern: "/employees/chrc-report",
@@ -1411,7 +1488,64 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     surface: "API",
     access: { kind: "PUBLIC" },
     module: "auth",
-    notes: "Clears the session cookie; must work when the existing session is already invalid.",
+    notes:
+      "Clears the session cookie; must work when the existing session is already invalid. When the body names this browser's push endpoint and a session is still present, that endpoint is revoked first.",
+  },
+  {
+    pattern: "/api/notifications/push-subscription",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "USER_SESSION" },
+    module: "notifications",
+    requiresDownstreamAuthorization: true,
+    notes: "Registers this browser's push endpoint for the signed-in User. Ignores any client-supplied user id.",
+  },
+  {
+    pattern: "/api/notifications/push-subscription/disable",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "USER_SESSION" },
+    module: "notifications",
+    requiresDownstreamAuthorization: true,
+    notes: "Revokes the signed-in User's active row for this browser endpoint.",
+  },
+  {
+    pattern: "/api/notifications/push-subscription/status",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "USER_SESSION" },
+    module: "notifications",
+    requiresDownstreamAuthorization: true,
+    notes: "Says whether this User owns the presented endpoint. Does not return the endpoint or keys.",
+  },
+  {
+    pattern: "/api/notifications/push-subscription/public-key",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "USER_SESSION" },
+    module: "notifications",
+    requiresDownstreamAuthorization: true,
+    notes: "Returns only the VAPID public key to a full User session. The private key stays on the server.",
+  },
+  {
+    pattern: "/api/notifications/push-subscription/release",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "notifications",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Revokes the active owner of the endpoint this browser holds. The handler requires a User, Quick PIN, or Harbor session and does not register a subscription.",
+  },
+  {
+    pattern: "/api/notifications/push-subscription/reconcile",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "notifications",
+    requiresDownstreamAuthorization: true,
+    notes:
+      "Keeps a local subscription only when the signed-in User already owns it. Quick PIN and Harbor release it. A mismatched User does not inherit it.",
   },
   {
     pattern: "/api/auth/device-facility",

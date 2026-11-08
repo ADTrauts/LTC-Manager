@@ -119,9 +119,8 @@ test("assignment create confirm employee @ci-gate: plan confirmation publishes A
     });
 
     const createForm = page.locator("form").filter({ hasText: "Create Assignment" });
-    await createForm.locator('select[name="roleKey"]').selectOption("SERVER");
-    await expect(createForm.locator(`select[name="employeeId"] option[value="${fx.staffEmployeeId}"]`)).toHaveCount(1);
     await createForm.locator('select[name="employeeId"]').selectOption({ value: fx.staffEmployeeId });
+    await createForm.locator('select[name="roleKey"]').selectOption({ index: 1 });
     await createForm.locator('select[name="unitId"]').selectOption({ value: fx.serveryUnitId });
     await createForm.locator('input[name="startsAt"]').fill("");
     await createForm.locator('input[name="endsAt"]').fill("");
@@ -217,10 +216,9 @@ test("quick PIN canonical SPACE offline Work and actual @ci-gate", async ({}, in
     await expect(page.getByTestId("employee-runtime-experience")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("employee-runtime-experience")).toHaveAttribute("data-grain", "space");
     await expect(page.getByTestId("employee-runtime-assignment")).not.toContainText("No confirmed assignment");
-    const operation = page.getByTestId("employee-runtime-operation");
-    await expect(operation).not.toContainText("No active");
-    await expect(operation).toContainText(new RegExp(`${fx.canonical.operationLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|\\d+ active operations`));
-    await expect(page.getByTestId("employee-runtime-work-item")).toHaveCount(0);
+    const work = page.getByTestId("employee-runtime-work-item").filter({ hasText: fx.canonical.workLabel });
+    await expect(work).toBeVisible();
+    await work.getByRole("link").click();
     await expectCanonicalOfflinePreparation(page);
     await page.evaluate(async () => { const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready; if (!reg.active) throw Error('Service worker not active'); });
     await page.reload();
@@ -228,8 +226,8 @@ test("quick PIN canonical SPACE offline Work and actual @ci-gate", async ({}, in
     await page.reload({waitUntil:'domcontentloaded'});
     await expect(page.getByTestId('space-offline-status')).toContainText('Offline — prepared');
     const i=info.project.name==='tablet'?1:0;
+    await page.locator(`[data-testid="space-work-complete"][data-target-order="${i}"]`).click();
     await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`).click();
-    await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i + 2}"]`).click();
     await expect(page.getByTestId('space-command-result')).toHaveCount(2);
     await page.reload();
     await expect(page.getByTestId('space-command-result')).toHaveCount(2);

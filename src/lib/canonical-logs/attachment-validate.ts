@@ -94,6 +94,8 @@ export function normalizeAttachmentTarget(input: AttachmentTargetInput): {
         targetDepartmentId: null,
         target: { kind: "FACILITY" },
       };
+    case "OPERATIONAL_TYPE":
+      throw new Error("OPERATIONAL_TYPE is not a writable attachment target.");
   }
 }
 

@@ -104,7 +104,7 @@ test("EXPLICIT_UNITS and UNIT_TYPES require selections", () => {
     locationMode: "UNIT_TYPES",
     applicableUnitTypes: [],
   });
-  assert.ok(types.errors.some((e) => e.code === "location_targeting_retired"));
+  assert.ok(types.errors.some((e) => e.code === "unit_types_required"));
 });
 
 test("same stableKey peers are ignored for publish overlap", () => {
@@ -325,7 +325,7 @@ test("ROOM_TYPE scope requires a standard Facility Room Type when legacy key is 
     mealType: "BREAKFAST",
   });
   assert.equal(custom.valid, false);
-  assert.ok(custom.errors.some((e) => e.code === "location_targeting_retired"));
+  assert.ok(custom.errors.some((e) => e.code === "room_type_required"));
 
   const ok = validateCycle({
     label: "Breakfast Service",
@@ -339,7 +339,7 @@ test("ROOM_TYPE scope requires a standard Facility Room Type when legacy key is 
     mealType: "BREAKFAST",
   });
   assert.equal(ok.valid, false);
-  assert.ok(ok.errors.some((e) => e.code === "location_targeting_retired"));
+  assert.ok(ok.errors.some((e) => e.code === "physical_location_retired"));
 });
 
 test("Ready and Service Started cannot be saved as Cycle milestones", () => {

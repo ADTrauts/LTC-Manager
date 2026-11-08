@@ -16,6 +16,7 @@ function userSession(role: AppJwtPayload["role"] = "MANAGER"): AppJwtPayload {
     email: "manager@example.test",
     facilityId: "facility-1",
     sessionVersion: 3,
+    jti: "11111111-1111-4111-8111-111111111111",
   } as FacilitySession;
 }
 

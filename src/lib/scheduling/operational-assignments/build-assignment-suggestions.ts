@@ -20,9 +20,9 @@ export function suggestEmployeeForPosition(input: {
   scheduledEmployees: AssignmentBoardEmployee[];
   existingAssignments: AssignmentBoardEntry[];
   alreadySuggestedIds: Set<string>;
-  /** When set, only these employees may be suggested for the role. */
-  eligibleEmployeeIds?: ReadonlySet<string>;
 }): SuggestionCandidate | null {
+  // roleKey is part of the public suggestion input for callers that filter by role; matching
+  // by role is not yet applied inside this helper.
   const { roleKey: _roleKey, unitId, scheduledEmployees, existingAssignments, alreadySuggestedIds } =
     input;
   void _roleKey;
@@ -34,10 +34,7 @@ export function suggestEmployeeForPosition(input: {
   );
 
   const available = scheduledEmployees.filter(
-    (e) =>
-      !e.hasCallDown &&
-      !alreadySuggestedIds.has(e.id) &&
-      (!input.eligibleEmployeeIds || input.eligibleEmployeeIds.has(e.id)),
+    (e) => !e.hasCallDown && !alreadySuggestedIds.has(e.id),
   );
 
   if (unitId) {

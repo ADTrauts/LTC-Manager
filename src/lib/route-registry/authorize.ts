@@ -11,6 +11,7 @@ export type RouteFeatureFlags = {
    * disappears when the capability is off.
    */
   dietaryOperationalEvidenceEnabled?: boolean;
+  dietaryWorkPlansEnabled?: boolean;
   canonicalLogsEnabled?: boolean;
 };
 
@@ -52,6 +53,8 @@ function featureEnabled(route: PlatformRoute, flags: RouteAuthorizationInput["fe
       // Absent → enabled: keeps the proxy's decision unchanged (the page's own guard remains the gate)
       // while letting the navigation projection hide the link when the capability is off.
       return flags.dietaryOperationalEvidenceEnabled ?? true;
+    case "DIETARY_WORK_PLANS":
+      return flags.dietaryWorkPlansEnabled ?? true;
     case "CANONICAL_LOGS":
       // Fail closed when unset — unlike Dietary flags, Canonical Logs must not appear in nav
       // or pass the proxy unless the caller explicitly supplies the live flag value.

@@ -1,6 +1,6 @@
 # Vssyl onboarding and setup audit
 
-Audit date: October 17, 2026. Scope: the current Vssyl application, VSSYL Console, the uploaded LTC Manager architecture, and the identity of the mothballed predecessor. The employee CSV column list below includes `workStations`, which Phase 7B removed.
+Audit date: October 17, 2026. Scope: the current Vssyl application, VSSYL Console, the uploaded LTC Manager architecture, and the identity of the mothballed predecessor.
 
 ## Decision brief
 

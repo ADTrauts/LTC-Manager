@@ -10,12 +10,14 @@ import {
   registerAuthFailure,
   resetAuthRateLimitBucket,
 } from "@/lib/auth-rate-limit";
+import { getAppSession } from "@/lib/auth";
 import {
   createHarborSessionToken,
   getHarborCookieOptions,
   HARBOR_INITIAL_SESSION_VERSION,
   HARBOR_SESSION_COOKIE,
 } from "@/lib/harbor-console/auth";
+import { revokePushForDepartingUser } from "@/lib/notifications/push-subscription";
 import { prisma } from "@/lib/prisma";
 
 const loginSchema = z.object({
@@ -89,6 +91,16 @@ export async function POST(request: Request) {
     staffRole: staff.role,
     sessionVersion: staff.sessionVersion ?? HARBOR_INITIAL_SESSION_VERSION,
   });
+
+  try {
+    const previous = await getAppSession();
+    await revokePushForDepartingUser(prisma, previous, null, new Date());
+  } catch {
+    return NextResponse.json(
+      { error: "Sign-in stopped. Browser alerts for the previous account are still active." },
+      { status: 503 },
+    );
+  }
 
   const response = NextResponse.json({ ok: true });
   response.cookies.set(HARBOR_SESSION_COOKIE, token, getHarborCookieOptions());

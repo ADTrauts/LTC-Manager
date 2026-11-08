@@ -8,6 +8,8 @@ type Props = {
 };
 
 export function SettingsPanel({ view }: Props) {
+  const meta = view.workingProfileMeta;
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -30,6 +32,39 @@ export function SettingsPanel({ view }: Props) {
             <dd className="mt-1 font-mono text-zinc-900">{view.department.key}</dd>
           </div>
         </dl>
+      </AppCard>
+
+      <AppCard title="Working profile">
+        {meta ? (
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Name
+              </dt>
+              <dd className="mt-1 text-zinc-900">{meta.name}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Baseline
+              </dt>
+              <dd className="mt-1 text-zinc-900">{meta.baselineKey ?? "custom"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Version
+              </dt>
+              <dd className="mt-1 text-zinc-900">v{meta.version}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Status
+              </dt>
+              <dd className="mt-1 text-zinc-900">{meta.status}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="text-sm text-zinc-600">No profile selected.</p>
+        )}
       </AppCard>
 
       <AppCard title="Related Build surfaces">

@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   isDepartmentAssetOperationsEnabled,
   isDepartmentJobFlowEnabled,
+  isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
 import {
   decideOperationalRequestAuthority,
@@ -29,8 +30,10 @@ function withEnv(name: string, value: string | undefined, fn: () => void) {
 
 test("shared engines stay on for Dietary, EVS, and Plant keys", () => {
   assert.equal(isDepartmentJobFlowEnabled("PLANT"), true);
+  assert.equal(isDepartmentWorkPlansEnabled("PLANT"), true);
   assert.equal(isDepartmentAssetOperationsEnabled("PLANT"), true);
   assert.equal(isDepartmentJobFlowEnabled("EVS"), true);
+  assert.equal(isDepartmentWorkPlansEnabled("DIETARY"), true);
   assert.equal(isDepartmentJobFlowEnabled(null), false);
 });
 

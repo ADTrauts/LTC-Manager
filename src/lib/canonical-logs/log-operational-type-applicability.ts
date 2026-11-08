@@ -31,7 +31,7 @@ export type LocationLogAttachmentRow = {
   catalogStableKey: string;
   catalogVersion: number;
   label: string;
-  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY";
+  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY" | "OPERATIONAL_TYPE";
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;

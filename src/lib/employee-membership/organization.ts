@@ -1,3 +1,8 @@
+import {
+  reconcileJobRolesAfterDepartmentRemoval,
+  syncEmployeeDepartmentJobRoles,
+} from "@/lib/department-job-roles";
+
 import type { DbClient } from "./department";
 import {
   resolveDepartmentMembershipIds,
@@ -25,8 +30,8 @@ export async function resolveFacilityJobTitleId(
 }
 
 /**
- * Atomically persist Department membership, Team membership, and Job Title.
- * Does not write RoleKey, operational eligibility, Unit access, or daily assignments.
+ * Atomically persist Department membership, Team membership, Job Title, and Job Roles.
+ * Does not write RoleKey, WorkStations, Unit access, or daily assignments.
  */
 export async function syncEmployeeOrganization(
   tx: DbClient,
@@ -37,6 +42,8 @@ export async function syncEmployeeOrganization(
     additionalDepartmentIds: readonly string[];
     jobTitleId: string | null;
     teamMemberships: readonly TeamMembershipInput[];
+    /** departmentId → jobRoleId | null. Omitted departments leave existing assignments untouched (except removed memberships). */
+    jobRoleByDepartmentId?: ReadonlyMap<string, string | null>;
   },
 ): Promise<{
   primaryDepartmentId: string | null;
@@ -49,11 +56,16 @@ export async function syncEmployeeOrganization(
     jobTitleId: input.jobTitleId,
   });
 
-  const { membership } = await syncEmployeeDepartmentMembership(tx, {
+  const { membership, removedDepartmentIds } = await syncEmployeeDepartmentMembership(tx, {
     employeeId: input.employeeId,
     facilityId: input.facilityId,
     primaryDepartmentId: input.primaryDepartmentId,
     additionalDepartmentIds: input.additionalDepartmentIds,
+  });
+
+  await reconcileJobRolesAfterDepartmentRemoval(tx, {
+    employeeId: input.employeeId,
+    removedDepartmentIds,
   });
 
   const departmentIds = new Set(
@@ -71,6 +83,20 @@ export async function syncEmployeeOrganization(
     departmentIds,
     memberships: input.teamMemberships,
   });
+
+  if (input.jobRoleByDepartmentId && input.jobRoleByDepartmentId.size > 0) {
+    const scoped = new Map<string, string | null>();
+    for (const [departmentId, jobRoleId] of input.jobRoleByDepartmentId) {
+      if (departmentIds.has(departmentId)) {
+        scoped.set(departmentId, jobRoleId);
+      }
+    }
+    await syncEmployeeDepartmentJobRoles(tx, {
+      employeeId: input.employeeId,
+      facilityId: input.facilityId,
+      assignments: scoped,
+    });
+  }
 
   await tx.employee.update({
     where: { id: input.employeeId },
