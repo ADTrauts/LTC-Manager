@@ -12,7 +12,7 @@
 | Item | Result |
 |---|---|
 | Starting HEAD | `a881e89` (Phase 0/1 docs commit) |
-| Ending HEAD | `a881e89` (Phase 2A + 2B changes remain in working tree; not committed) |
+| Ending HEAD | `3de0f41` (Phase 2A/2B checkpoint commit) |
 | ARR-002 | **Closed** for nav/authoring |
 | ARR-015 | **Closed** for plan writers (routes retained read-only) |
 | ARR-003 | **Open** — Job Flow still reads Work Plans |
