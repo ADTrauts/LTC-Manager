@@ -39,6 +39,7 @@ test("owner kinds cover the CDA architecture §4 table", () => {
   const expected: DepartmentOwnerKind[] = [
     "department",
     "workforceRecord",
+    "jobRole",
     "scheduleEntry",
     "callOffOverride",
     "operationalAssignment",
@@ -52,6 +53,7 @@ test("owner kinds cover the CDA architecture §4 table", () => {
     "roomArchetype",
     "roomBinding",
     "departmentTeam",
+    "departmentTeamCycle",
     "workPlan",
     "workOccurrence",
     "menu",
@@ -82,13 +84,7 @@ test("every owner resolver scopes its lookup to the facility and returns null wh
     "legacyLogTemplate",
     "evidenceTemplate",
     "inspectionDefinition",
-    "locationFunctionProfile",
-    "roomArchetype",
-    "roomBinding",
-    "workPlan",
-    "workOccurrence",
-    "logTypeDefault",
-    "logSuppression",
+    "departmentTeamCycle",
   ]);
   for (const kind of DEPARTMENT_OWNER_KINDS) {
     const { db, calls } = recordingDb();
@@ -106,6 +102,7 @@ test("every owner resolver scopes its lookup to the facility and returns null wh
 
 test("Department-owned records return their departmentId", async () => {
   const direct: DepartmentOwnerKind[] = [
+    "jobRole",
     "operationalAssignment",
     "assignmentPlan",
     "assignmentTemplate",
@@ -113,9 +110,14 @@ test("Department-owned records return their departmentId", async () => {
     "operationalCycle",
     "cycleDayExpectation",
     "keyTimeDayExpectation",
+    "locationFunctionProfile",
     "departmentTeam",
+    "workPlan",
+    "workOccurrence",
     "menu",
     "logAttachment",
+    "logTypeDefault",
+    "logSuppression",
     "evidenceRecord",
     "recordWaiver",
     "assetIssue",
@@ -125,6 +127,7 @@ test("Department-owned records return their departmentId", async () => {
     const { db } = recordingDb(
       Object.fromEntries(
         [
+          "departmentJobRole",
           "operationalAssignment",
           "operationalAssignmentPlan",
           "operationalAssignmentTemplate",
@@ -134,7 +137,7 @@ test("Department-owned records return their departmentId", async () => {
           "operationalCycleKeyTimeDayExpectation",
           "departmentOperationalProfile",
           "departmentTeam",
-          "departmentWorkPlan",
+                "departmentWorkPlan",
           "departmentWorkOccurrence",
           "menu",
           "logAttachment",
@@ -152,12 +155,19 @@ test("Department-owned records return their departmentId", async () => {
   }
 });
 
-test("retired profile and generic Work owners do not resolve a Department", async () => {
-  const { db, calls } = recordingDb({});
-  for (const kind of ["roomArchetype", "roomBinding", "workPlan", "workOccurrence"] as const) {
-    assert.equal(await resolveDepartmentOwner(db, kind, input), null, kind);
-  }
-  assert.equal(calls.length, 0);
+test("Location Function room types and bindings belong to the profile's Department", async () => {
+  const { db } = recordingDb({
+    departmentRoomArchetype: { profile: { departmentId: "dept_fn" } },
+    departmentRoomArchetypeBinding: { profile: { departmentId: "dept_evs" } },
+  });
+  assert.deepEqual(await resolveDepartmentOwner(db, "roomArchetype", input), {
+    kind: "department",
+    departmentId: "dept_fn",
+  });
+  assert.deepEqual(await resolveDepartmentOwner(db, "roomBinding", input), {
+    kind: "department",
+    departmentId: "dept_evs",
+  });
 });
 
 test("workforce records belong to each of their Departments", async () => {

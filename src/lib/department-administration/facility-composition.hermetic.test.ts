@@ -92,10 +92,7 @@ test("a room with no Experience rows is not incomplete", () => {
   assert.deepEqual(bare.cycles, []);
 });
 
-test("menu cycle matching does not load an operational type", () => {
-  const source = readFileSync(join(process.cwd(), "src/lib/menu-runtime-db.ts"), "utf8");
-  assert.equal(source.includes("loadSpaceOperationalTypeAssignments"), false);
-  assert.equal(source.includes("loadOperationalTypeKey"), false);
+test("menu cycle matching still resolves an ALL_DEPARTMENT_UNITS root for a room", () => {
   const root = {
     stableKey: "breakfast",
     nodeKind: "PERIOD",
@@ -122,20 +119,10 @@ test("menu cycle matching does not load an operational type", () => {
   );
 });
 
-test("Department Builder Facility does not author a Location Function", () => {
+test("Department Builder Facility panel does not author a Location Function", () => {
   const panel = readFileSync(
     join(process.cwd(), "src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx"),
     "utf8",
   );
-  const summary = readFileSync(
-    join(process.cwd(), "src/lib/department-administration/builder-context-summary.ts"),
-    "utf8",
-  );
-  const review = readFileSync(
-    join(process.cwd(), "src/lib/operational-review/compose-operational-review-day.ts"),
-    "utf8",
-  );
   assert.doesNotMatch(panel, /Location Function|bindLocationFunctionAction|publishLocationFunctionsAction/);
-  assert.equal(summary.includes("loadSpaceOperationalTypeAssignments"), false);
-  assert.equal(review.includes("selectHistoricalProfileForServiceDate"), false);
 });

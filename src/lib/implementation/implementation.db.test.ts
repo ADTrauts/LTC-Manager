@@ -31,7 +31,7 @@ async function fixture(db: PrismaClient, organizationId?: string) {
   const user = await db.user.create({ data: { email: `admin-${id}@example.com`, displayName: "Setup Administrator", facilityId: facility.id, primaryDepartmentId: plant.id, roleId: role.id, passwordHash: "existing-admin-password", emailVerifiedAt: new Date() } });
   const grant = await db.userFacilityAccess.create({ data: { userId: user.id, facilityId: facility.id, rolePeriods: { create: { roleKey: "FACILITY_ADMINISTRATOR", startsAt: new Date("2020-01-01") } } } });
   await db.employee.create({ data: { facilityId: facility.id, userId: user.id, email: user.email, firstName: "Setup", lastName: "Administrator", roleType: "FACILITY_ADMINISTRATOR", employmentType: "FULL_TIME", status: "ACTIVE", primaryDepartmentId: plant.id } });
-  const session = { uid: user.id, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "FACILITY_ADMINISTRATOR", facilityId: facility.id, primaryDepartmentId: plant.id, name: user.displayName, email: user.email, sessionVersion: 0 } as FacilitySession;
+  const session = { jti: randomUUID(), uid: user.id, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "FACILITY_ADMINISTRATOR", facilityId: facility.id, primaryDepartmentId: plant.id, name: user.displayName, email: user.email, sessionVersion: 0 } as FacilitySession;
   const floor = await db.unit.create({ data: { facilityId: facility.id, name: "Floor 1", unitType: "OTHER", hierarchyRole: "FLOOR" } });
   const unit = await db.unit.create({ data: { facilityId: facility.id, name: "Shared Wing", unitType: "OTHER", hierarchyRole: "NEIGHBORHOOD", parentUnitId: floor.id } });
   const room = await db.unitSpace.create({ data: { facilityId: facility.id, unitId: unit.id, name: "Shared Room", spaceType: "SERVICE_AREA" } });
@@ -94,7 +94,7 @@ test("SQL service: explicit receipt sharing preserves original actor and rejects
  const f=await setup(db,true);await approveQuote(db,f.c,f.id,f.order.id,f.order.digest);const text=f.workforce(),preview=await f.preview("workforce",text);await f.confirm(preview,text);
  await assert.rejects(()=>linkImport(db,f.s,f.id,preview.batchId),/original/);await linkImport(db,f.c,f.id,preview.batchId);
  const shared=await sharedResults(db,f.s,f.id);assert.equal(shared[0]!.actorKind,"user");assert.equal(shared[0]!.actorId,f.user.id);assert.equal(shared[0]!.receipts[0]!.status,"committed");assert.ok(!JSON.stringify(shared).includes("reviewedPlan"));
- const consoleWork={...f.session,uid:f.owner.id,authKind:"harbor_staff"} as FacilitySession;await assert.rejects(()=>getImportResults(db,consoleWork,preview.batchId),/actor/);
+ const consoleWork={ jti: randomUUID(),...f.session,uid:f.owner.id,authKind:"harbor_staff"} as FacilitySession;await assert.rejects(()=>getImportResults(db,consoleWork,preview.batchId),/actor/);
  const other=await fixture(db);await assert.rejects(()=>getEngagement(db,{kind:"customer",session:other.session},f.id));
  const next=await f.preview("department_locations",`department,locationType,locationId,kind\nPLANT,UNIT,${f.unit.id},PRIMARY\n`);await f.confirm(next,`department,locationType,locationId,kind\nPLANT,UNIT,${f.unit.id},PRIMARY\n`);
  await db.facilityDepartmentEntitlement.updateMany({where:{facilityId:f.facility.id,departmentKey:"PLANT"},data:{status:"REVOKED"}});await assert.rejects(()=>linkImport(db,f.c,f.id,next.batchId),/D09/);
@@ -132,7 +132,7 @@ test("SQL payment: mismatched amount/customer blocks reconciliation; positively 
 
 test("SQL service: staff shares its own receipts outside work; customer reads actual PlatformStaff execution",{skip},()=>run(async db=>{
  const f=await setup(db,true);await approveQuote(db,f.c,f.id,f.order.id,f.order.digest);
- const work={...f.session,uid:f.owner.id,email:f.owner.email,name:f.owner.displayName,authKind:"harbor_staff",primaryDepartmentId:undefined} as FacilitySession;
+ const work={ jti: randomUUID(),...f.session,uid:f.owner.id,email:f.owner.email,name:f.owner.displayName,authKind:"harbor_staff",primaryDepartmentId:undefined} as FacilitySession;
  const csv=f.workforce(),preview=await previewImport(db,work,{dataset:"workforce",text:csv,fileName:"workforce.csv",expectedFacilityId:f.facility.id});await confirmImport(db,work,{reviewToken:preview.reviewToken,expectedFacilityId:f.facility.id,text:csv,fileName:"workforce.csv",confirmedAccountRows:[]});
  await assert.rejects(()=>linkImport(db,f.c,f.id,preview.batchId),/original/);await linkImport(db,f.s,f.id,preview.batchId);const receipts=await sharedResults(db,f.c,f.id);assert.equal(receipts[0]!.actorKind,"harbor_staff");assert.equal(receipts[0]!.actorId,f.owner.id);assert.equal(receipts[0]!.outcomes[0]!.status,"committed");
  const event=await db.implementationEvent.findFirstOrThrow({where:{engagementId:f.id,kind:"IMPORT_SHARED"}});assert.equal(event.actorStaffId,f.owner.id);assert.equal(event.actorUserId,null);

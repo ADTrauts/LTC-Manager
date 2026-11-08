@@ -69,8 +69,8 @@ test("Phase 0 — flag OFF keeps legacy writers; flag ON fences competing writer
   assert.doesNotMatch(source("src/lib/operational-evidence/template-service.ts"), /OPERATIONAL_TEMPLATE/);
   assert.match(source("src/app/(protected)/unit/[unitId]/evidence-actions.ts"), /OPERATIONAL_TEMPLATE/);
   assert.match(source("src/lib/offline/process-sync-command.ts"), /LEGACY_TEMPLATE_EVIDENCE_FENCED/);
-  assert.equal(existsSync("src/lib/work/inspections/submit-inspection.ts"), false);
-  assert.equal(existsSync("src/lib/work/inspections/generate-due-inspection-work.ts"), false);
+  assert.doesNotMatch(source("src/lib/work/inspections/submit-inspection.ts"), /inspectionSubmission/);
+  assert.doesNotMatch(source("src/lib/work/inspections/generate-due-inspection-work.ts"), /inspectionDefinition/);
   const logsPage = source("src/app/(protected)/logs/page.tsx");
   assert.match(logsPage, /activeTab === "assignments"/);
   assert.match(logsPage, /activeTab === "templates" \|\| activeTab === "submit"/);

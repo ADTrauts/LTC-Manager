@@ -70,7 +70,7 @@ test(
         facilityId: facility.id,
         employeeId: employee.id,
         departmentId: dietary.id,
-        roleKeys: ["SERVER", "CASHIER"],
+        roleKeys: ["SERVER", "HOT_PREP"],
       });
       await replaceEmployeeOperationalQualifications(prisma, {
         facilityId: facility.id,
@@ -112,7 +112,7 @@ test(
         facilityId: facility.id,
         employeeId: employee.id,
         departmentId: dietary.id,
-        roleKeys: ["CASHIER"],
+        roleKeys: ["HOT_PREP"],
       });
       const historical = await prisma.operationalAssignment.findFirstOrThrow({
         where: { id: assignment.id },

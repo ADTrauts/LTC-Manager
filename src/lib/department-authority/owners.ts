@@ -53,6 +53,9 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
     return { kind: "workforce", primaryDepartmentId: row.primaryDepartmentId, departmentIds: [...departmentIds] };
   },
 
+  jobRole: async (db, { facilityId, id }) =>
+    owned(await db.departmentJobRole.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
+
   /** Shift. Legacy entries without a Department are judged by the employee's primary Department. */
   scheduleEntry: async (db, { facilityId, id }) => {
     const row = await db.scheduleEntry.findFirst({
@@ -98,18 +101,38 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
       }),
     ),
 
-  locationFunctionProfile: async () => null,
+  locationFunctionProfile: async (db, { facilityId, id }) =>
+    owned(
+      await db.departmentOperationalProfile.findFirst({ where: { id, facilityId }, select: departmentIdSelect }),
+    ),
 
-  roomArchetype: async () => null,
+  /** Room type inside a Location Function profile: the profile's Department. */
+  roomArchetype: async (db, { facilityId, id }) => {
+    const row = await db.departmentRoomArchetype.findFirst({
+      where: { id, profile: { facilityId } },
+      select: { profile: { select: departmentIdSelect } },
+    });
+    return owned(row?.profile ?? null);
+  },
 
-  roomBinding: async () => null,
+  roomBinding: async (db, { facilityId, id }) => {
+    const row = await db.departmentRoomArchetypeBinding.findFirst({
+      where: { id, profile: { facilityId } },
+      select: { profile: { select: departmentIdSelect } },
+    });
+    return owned(row?.profile ?? null);
+  },
 
   departmentTeam: async (db, { facilityId, id }) =>
     owned(await db.departmentTeam.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
 
-  workPlan: async () => null,
+  departmentTeamCycle: async () => null,
 
-  workOccurrence: async () => null,
+  workPlan: async (db, { facilityId, id }) =>
+    owned(await db.departmentWorkPlan.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
+
+  workOccurrence: async (db, { facilityId, id }) =>
+    owned(await db.departmentWorkOccurrence.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
 
   menu: async (db, { facilityId, id }) =>
     owned(await db.menu.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
@@ -117,9 +140,18 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
   logAttachment: async (db, { facilityId, id }) =>
     owned(await db.logAttachment.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
 
-  logTypeDefault: async () => null,
+  logTypeDefault: async (db, { facilityId, id }) =>
+    owned(
+      await db.departmentFacilityTypeLogDefault.findFirst({ where: { id, facilityId }, select: departmentIdSelect }),
+    ),
 
-  logSuppression: async () => null,
+  logSuppression: async (db, { facilityId, id }) =>
+    owned(
+      await db.departmentLocationLogSuppression.findFirst({
+        where: { id, space: { facilityId } },
+        select: departmentIdSelect,
+      }),
+    ),
 
   evidenceTemplate: async () => null,
 
