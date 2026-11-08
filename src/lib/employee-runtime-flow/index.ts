@@ -25,6 +25,8 @@ export {
 export {
   composeJobFlowItems,
   dedupeJobFlowItems,
+  isOneOffCompatibilityWork,
+  isPlanDerivedCompatibilityWork,
   jobFlowItemFromAssignmentException,
   jobFlowItemFromCompatibilityWork,
   jobFlowItemFromHarborEvidence,
@@ -41,6 +43,8 @@ export {
   jobFlowItemsFromWorkOrders,
   sortJobFlowItems,
   suppressPmDuplicatesAgainstWorkOrders,
+  withoutPlanDerivedCompatibilityWork,
+  type CompatibilityWorkSource,
   type JobFlowAssignmentExceptionSource,
   type JobFlowPreventiveMaintenanceSource,
   type JobFlowWorkOrderSource,

@@ -24,6 +24,13 @@ export type JobFlowOwnerKind =
   | "COMPATIBILITY_WORK";
 
 /**
+ * Discriminator for COMPATIBILITY_WORK only.
+ * Mirrors DepartmentWorkOccurrenceSourceKind — plan-derived vs one-off.
+ * Null for non-compatibility owners.
+ */
+export type CompatibilityWorkSource = "WORK_PLAN" | "ONE_OFF";
+
+/**
  * Owner-derived presentation band. Domains map their own states into this
  * band; Job Flow must not invent overdue when the owner did not.
  */
@@ -70,6 +77,11 @@ export type JobFlowItem = {
    * Must never be true for forward canonical owners.
    */
   compatibility: boolean;
+  /**
+   * Set only for COMPATIBILITY_WORK from WorkRequirement.sourceKind.
+   * Enables a later plan-derived cutover without a new owner kind.
+   */
+  compatibilitySource: CompatibilityWorkSource | null;
 };
 
 /** Assigned Plant Repair row already scoped by the loader (fail-closed). */
@@ -158,6 +170,8 @@ function workAttention(state: WorkRequirement["state"]): JobFlowItemAttention {
  * Does not create or publish Work Plans.
  */
 export function jobFlowItemFromCompatibilityWork(row: WorkRequirement): JobFlowItem {
+  const compatibilitySource: CompatibilityWorkSource =
+    row.sourceKind === "ONE_OFF" ? "ONE_OFF" : "WORK_PLAN";
   return {
     ownerKind: "COMPATIBILITY_WORK",
     ownerId: row.occurrenceId ?? row.occurrenceKey,
@@ -178,7 +192,26 @@ export function jobFlowItemFromCompatibilityWork(row: WorkRequirement): JobFlowI
     label: row.label,
     href: row.sourceHref,
     compatibility: true,
+    compatibilitySource,
   };
+}
+
+export function isPlanDerivedCompatibilityWork(item: JobFlowItem): boolean {
+  return item.ownerKind === "COMPATIBILITY_WORK" && item.compatibilitySource === "WORK_PLAN";
+}
+
+export function isOneOffCompatibilityWork(item: JobFlowItem): boolean {
+  return item.ownerKind === "COMPATIBILITY_WORK" && item.compatibilitySource === "ONE_OFF";
+}
+
+/**
+ * Cutover helper for a later approved phase — NOT wired into compose in 2C-2E.
+ * Removes plan-derived CompatWork while retaining one-off and all canonical owners.
+ */
+export function withoutPlanDerivedCompatibilityWork(
+  items: readonly JobFlowItem[],
+): JobFlowItem[] {
+  return items.filter((row) => !isPlanDerivedCompatibilityWork(row));
 }
 
 export function jobFlowItemsFromCompatibilityWork(
@@ -226,6 +259,7 @@ export function jobFlowItemFromHarborEvidence(row: EmployeeRuntimeEvidenceItem):
     label: row.displayName,
     href: row.href,
     compatibility: false,
+    compatibilitySource: null,
   };
 }
 
@@ -272,6 +306,7 @@ export function jobFlowItemFromTemplateEvidence(row: EvidenceRequirement): JobFl
     label: row.templateName,
     href: null,
     compatibility: false,
+    compatibilitySource: null,
   };
 }
 
@@ -325,6 +360,7 @@ export function jobFlowItemFromMilestone(row: EmployeeRuntimeMilestone): JobFlow
     label: row.label,
     href: row.href ?? null,
     compatibility: false,
+    compatibilitySource: null,
   };
 }
 
@@ -374,6 +410,7 @@ export function jobFlowItemFromWorkOrder(row: JobFlowWorkOrderSource): JobFlowIt
     label: row.title.trim() || row.repairCode,
     href: `/repairs/${row.id}`,
     compatibility: false,
+    compatibilitySource: null,
   };
 }
 
@@ -411,6 +448,7 @@ export function jobFlowItemFromPreventiveMaintenance(
     label: row.label,
     href: `/preventive-maintenance/${row.id}`,
     compatibility: false,
+    compatibilitySource: null,
   };
 }
 
@@ -442,6 +480,7 @@ export function jobFlowItemFromAssignmentException(
     label: row.label,
     href: row.href,
     compatibility: false,
+    compatibilitySource: null,
   };
 }
 

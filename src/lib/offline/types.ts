@@ -334,6 +334,8 @@ export type OfflineJobFlowItemSnapshot = {
   };
   href: string | null;
   compatibility: boolean;
+  /** WORK_PLAN | ONE_OFF for CompatWork; null otherwise. */
+  compatibilitySource: string | null;
   /** True when item is notice-only (e.g. call-off). */
   informational: boolean;
   /**

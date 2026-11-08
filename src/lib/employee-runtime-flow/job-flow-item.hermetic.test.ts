@@ -7,12 +7,15 @@ import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import {
   composeJobFlowItems,
   dedupeJobFlowItems,
+  isOneOffCompatibilityWork,
+  isPlanDerivedCompatibilityWork,
   jobFlowItemFromCompatibilityWork,
   jobFlowItemFromWorkOrder,
   jobFlowItemsFromAssignmentExceptions,
   jobFlowItemsFromPreventiveMaintenance,
   jobFlowItemsFromWorkOrders,
   suppressPmDuplicatesAgainstWorkOrders,
+  withoutPlanDerivedCompatibilityWork,
   type JobFlowPreventiveMaintenanceSource,
   type JobFlowWorkOrderSource,
 } from "./job-flow-item";
@@ -96,11 +99,61 @@ test("compatibility Work becomes an owner-referenced COMPATIBILITY_WORK item", (
   assert.equal(item.ownerKind, "COMPATIBILITY_WORK");
   assert.equal(item.ownerId, "db-occ-1");
   assert.equal(item.compatibility, true);
+  assert.equal(item.compatibilitySource, "WORK_PLAN");
   assert.equal(item.ownerState, "PAST_DUE_NOT_CONFIRMED");
   assert.equal(item.attention, "needs_attention");
   assert.equal(item.place.spaceId, "space-1");
   assert.equal(item.time.dueAt?.toISOString(), "2026-11-08T15:00:00.000Z");
   assert.equal(item.href, "/staffing/work-plans");
+});
+
+test("plan-derived and one-off CompatWork are distinguishable without changing ownerKind", () => {
+  const plan = jobFlowItemFromCompatibilityWork(
+    work({ occurrenceKey: "plan-1", label: "Plan task", state: "DUE", sourceKind: "WORK_PLAN" }),
+  );
+  const oneOff = jobFlowItemFromCompatibilityWork(
+    work({
+      occurrenceKey: "oo-1",
+      occurrenceId: "db-oo-1",
+      label: "Supervisor ask",
+      state: "DUE",
+      sourceKind: "ONE_OFF",
+    }),
+  );
+  assert.equal(plan.ownerKind, "COMPATIBILITY_WORK");
+  assert.equal(oneOff.ownerKind, "COMPATIBILITY_WORK");
+  assert.equal(isPlanDerivedCompatibilityWork(plan), true);
+  assert.equal(isOneOffCompatibilityWork(plan), false);
+  assert.equal(isOneOffCompatibilityWork(oneOff), true);
+  assert.equal(isPlanDerivedCompatibilityWork(oneOff), false);
+
+  const woItem = jobFlowItemFromWorkOrder(
+    wo({ id: "wo-1", title: "Sink", status: "ASSIGNED" }),
+  );
+  assert.equal(woItem.compatibilitySource, null);
+  assert.equal(isPlanDerivedCompatibilityWork(woItem), false);
+
+  const mixed = composeJobFlowItems({
+    compatibilityWork: [
+      work({ occurrenceKey: "plan-1", label: "Plan task", state: "DUE", sourceKind: "WORK_PLAN" }),
+      work({
+        occurrenceKey: "oo-1",
+        occurrenceId: "db-oo-1",
+        label: "Supervisor ask",
+        state: "DUE",
+        sourceKind: "ONE_OFF",
+      }),
+    ],
+    workOrders: [wo({ id: "wo-1", title: "Sink", status: "ASSIGNED" })],
+  });
+  assert.equal(mixed.length, 3);
+  const cutoverPreview = withoutPlanDerivedCompatibilityWork(mixed);
+  assert.equal(cutoverPreview.length, 2);
+  assert.equal(cutoverPreview.every((row) => !isPlanDerivedCompatibilityWork(row)), true);
+  assert.equal(cutoverPreview.some((row) => isOneOffCompatibilityWork(row)), true);
+  assert.equal(cutoverPreview.some((row) => row.ownerKind === "WORK_ORDER"), true);
+  // Live compose still includes plan-derived (cutover not activated).
+  assert.equal(mixed.some((row) => isPlanDerivedCompatibilityWork(row)), true);
 });
 
 test("empty optional contributors contribute zero items", () => {

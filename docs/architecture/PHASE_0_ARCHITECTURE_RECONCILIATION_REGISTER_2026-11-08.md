@@ -31,7 +31,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
-| ARR-003 | Job Flow still depends on generic Work — **2C-2D offline items additive; CompatWork + Work commands remain** | Confirmed conflict | Critical | 2C-2E → 5 |
+| ARR-003 | Job Flow still depends on generic Work — **2C-2E plan vs one-off separated; plan-derived still live** | Confirmed conflict | Critical | 2C-2F → 5 |
 | ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A) | Legacy debt + conflict | Critical | 2 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
@@ -96,14 +96,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Job Flow / Employee Runtime Flow |
-| Code evidence | Online UI + offline `jobFlowItemContext` present canonical items ([PHASE_2C2C](./PHASE_2C2C_UNIFIED_EMPLOYEE_JOB_FLOW_PRESENTATION.md), [PHASE_2C2D](./PHASE_2C2D_OFFLINE_JOB_FLOW_COMPATIBILITY.md)). `flow.work` / `workContext` still own Work completion. WO offline read-only. Expected Work + Dashboard + one-off remain. **RLS unwired from generic Work.** Design: [PHASE_2C1](./PHASE_2C1_JOB_FLOW_CONSUMER_AUDIT_AND_REHOMING_DESIGN_2026-11-08.md) |
+| Code evidence | CompatWork items carry `compatibilitySource` WORK_PLAN\|ONE_OFF ([PHASE_2C2E](./PHASE_2C2E_GENERIC_WORK_SOURCE_SEPARATION.md)); cutover helper exists but **not wired**. Plan-derived still in live Job Flow. Offline items + `workContext` remain. Expected Work + Dashboard + one-off remain. **RLS unwired from generic Work.** |
 | Governing decision | Foundation: Job Flow composes Assignment, Cycle, Records, WO/PM; 15A: must not require generic Work going forward |
-| Current vs expected | Expected: composition without generic Work. Current: items online+offline display with CompatWork execution path. Authoring closed (2B). 2C-2A–2D **PASS** / **PASS WITH GAPS**. |
+| Current vs expected | Expected: composition without generic Work. Current: source-separated CompatWork still contributing plan-derived rows. Authoring closed (2B). 2C-2A–2E **PASS** / **PASS WITH GAPS**. |
 | Risk | Critical — blocks Role Job Flows and timeline cleanliness |
-| Recommended action | PO decisions on WO offline execution + CompatWork reader retirement; do not drop schema yet |
+| Recommended action | PO-approved cutover to drop plan-derived Job Flow contribution after live impact verification; do not drop schema yet |
 | Dependencies | ARR-001, ARR-002 (authoring closed) |
-| Proposed phase | 2C-2E → 5 — **ARR-003 not closed** |
-| Verification needed | `employee-runtime-flow*.test.ts`, dietary job flow suites; offline sync; Dashboard capabilities |
+| Proposed phase | 2C-2F → 5 — **ARR-003 not closed** |
+| Verification needed | Live Work occupancy; employee Job Flow after filter; offline Work commands; Dashboard Expected Work |
 
 ### ARR-004 — Location Function / profile / archetype remain
 

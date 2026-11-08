@@ -235,6 +235,7 @@ export function serializeOfflineJobFlowItem(item: JobFlowItem): OfflineJobFlowIt
     },
     href: item.href,
     compatibility: item.compatibility,
+    compatibilitySource: item.compatibilitySource,
     informational: item.ownerKind === "ASSIGNMENT_EXCEPTION" || item.attention === "informational",
     offlineAction,
   };

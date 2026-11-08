@@ -157,6 +157,7 @@ test("unsupported jobFlowItem schemaVersion yields empty items", () => {
           time: { dueAt: null, windowStartLocal: null, windowEndLocal: null },
           href: null,
           compatibility: false,
+          compatibilitySource: null,
           informational: false,
           offlineAction: null,
         },
@@ -268,6 +269,7 @@ test("href alone does not grant offline Work Order completion", () => {
     label: "Leak",
     href: "/repairs/wo-x",
     compatibility: false,
+    compatibilitySource: null,
   };
   assert.equal(offlineActionForJobFlowItem(item), null);
 });
@@ -290,6 +292,7 @@ test("KEY_TIME Key Points are display-only; servery milestones remain actionable
       label: "Breakfast",
       href: null,
       compatibility: false,
+      compatibilitySource: null,
     }),
     null,
   );
@@ -310,6 +313,7 @@ test("KEY_TIME Key Points are display-only; servery milestones remain actionable
       label: "Servery Ready",
       href: null,
       compatibility: false,
+      compatibilitySource: null,
     }),
     "RECORD_SERVERY_READY",
   );
