@@ -199,10 +199,18 @@ Phase 9C closed the remaining integration gaps after the Phase 9B composition ba
 
 See [PHASE_9C_CERTIFICATION.md](./PHASE_9C_CERTIFICATION.md).
 
+## Phase 9D — PR certification
+
+Phase 9D pushed the branch, opened PR #7 against `main`, merged `origin/main` @ `e179c0d` while keeping explicit-space Coverage and org-only Teams, and certified all five required Verify jobs green at `fb59888`.
+
+See [PHASE_9D_CERTIFICATION.md](./PHASE_9D_CERTIFICATION.md). Not merged without separate authorization.
+
 ## Git
 
 - Branch: `department-builder/people-coverage-composition`
 - Baseline: `5f8683d38a35eb68fe03a3ce2f7804cb7b203bc8`
 - Phase 9B baseline commit: `c34c014`
+- Phase 9C tip: `910578e`
+- Phase 9D certified tip: `fb59888`
+- PR: https://github.com/ADTrauts/LTC-Manager/pull/7
 - Worktree: `/Users/andrewtrautman/Desktop/LTC Manager/ltc-manager-people-coverage`
-- Not pushed
