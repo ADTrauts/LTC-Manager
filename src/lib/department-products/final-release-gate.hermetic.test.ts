@@ -262,7 +262,7 @@ test("Build and Run IA nouns stay Product language", () => {
       recordsEnabled: true,
       maintenanceEnabled: true,
     }).map((row) => row.id),
-    ["overview", "locations", "operating-rhythm", "work", "maintenance", "people", "records"],
+    ["overview", "locations", "operating-rhythm", "maintenance", "people", "records"],
   );
   assert.deepEqual(
     maintenanceSubNavItems(true).map((row) => row.label),

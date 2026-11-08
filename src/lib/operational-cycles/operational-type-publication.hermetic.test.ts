@@ -242,7 +242,7 @@ test("runtime loaders must request runtime perspective; Build uses working", () 
   assert.match(builder, /perspective:\s*"working"/);
 });
 
-test("archetype key is copied on draft fork and is not writable on rename", () => {
+test("archetype key is copied on draft fork; rename writer is retired", () => {
   const service = readFileSync(
     join(process.cwd(), "src/lib/department-administration/profile-service.ts"),
     "utf8",
@@ -250,8 +250,8 @@ test("archetype key is copied on draft fork and is not writable on rename", () =
   assert.match(service, /key: archetype\.key/);
   const updateStart = service.indexOf("export async function updateRoomArchetype");
   const updateEnd = service.indexOf("export async function setArchetypeExperiences");
-  const update = service.slice(Math.max(0, updateStart - 160), updateEnd);
-  assert.match(update, /`key` is immutable identity/);
-  assert.doesNotMatch(update, /data\.key/);
-  assert.doesNotMatch(update, /key:\s*input/);
+  const update = service.slice(updateStart, updateEnd);
+  assert.ok(updateStart >= 0 && updateEnd > updateStart);
+  assert.match(update, /LOCATION_FUNCTION_AUTHORING_RETIRED/);
+  assert.doesNotMatch(update, /data\.key|key:\s*input/);
 });

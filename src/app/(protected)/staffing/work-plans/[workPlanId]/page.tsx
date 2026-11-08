@@ -11,12 +11,13 @@ import {
   isAnyStaffingOperationalFeatureEnabled,
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
-import { loadWorkPlanDetail } from "@/lib/department-work";
+import { GENERIC_WORK_AUTHORING_RETIRED, loadWorkPlanDetail } from "@/lib/department-work";
 
 type Props = {
   params: Promise<{ workPlanId: string }>;
 };
 
+/** Read-only Work Plan detail. Authoring retired in Phase 2B. */
 export default async function WorkPlanDetailPage({ params }: Props) {
   noStore();
   const session = await getSession();
@@ -51,29 +52,40 @@ export default async function WorkPlanDetailPage({ params }: Props) {
   const plan = detail.plan;
 
   return (
-    <section className="mx-auto max-w-4xl space-y-4" data-testid="work-plan-detail">
+    <section className="mx-auto max-w-4xl space-y-4" data-testid="work-plan-detail-retired">
       <PageHeader
         title={plan.name}
         subtitle={`${department.name} · ${plan.status} · v${plan.version} · ${plan.stableKey}`}
         compact
         actions={
           <Link href="/staffing/work-plans" className="text-sm underline-offset-2 hover:underline">
-            Back to Work Plans
+            Work (retired)
           </Link>
         }
       />
-      <StatusBadge variant={plan.status === "PUBLISHED" ? "success" : "neutral"}>
-        {plan.status}
-      </StatusBadge>
-      {plan.description ? <p className="text-sm text-zinc-700">{plan.description}</p> : null}
-      <ul className="divide-y rounded-md border bg-white" data-testid="work-plan-detail-items">
+      <p className="text-sm text-zinc-600" data-testid="work-plan-detail-retired-note">
+        {GENERIC_WORK_AUTHORING_RETIRED}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge
+          label={plan.status}
+          variant={
+            plan.status === "PUBLISHED"
+              ? "success"
+              : plan.status === "DRAFT"
+                ? "neutral"
+                : "warning"
+          }
+        />
+        <span className="text-sm text-zinc-500">{plan.items.length} steps · read-only</span>
+      </div>
+      <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white">
         {plan.items.map((item) => (
-          <li key={item.id} className="px-3 py-2 text-sm">
-            <div className="font-medium">{item.label}</div>
-            <div className="text-xs text-zinc-600">
-              {item.itemKey} · {item.completionMode} · {item.scheduleKind}
-              {item.procedureTitleSnapshot ? ` · Procedure: ${item.procedureTitleSnapshot}` : ""}
-            </div>
+          <li key={item.id} className="px-4 py-3 text-sm">
+            <p className="font-medium text-zinc-900">{item.label}</p>
+            {item.instructions ? (
+              <p className="mt-1 text-zinc-600">{item.instructions}</p>
+            ) : null}
           </li>
         ))}
       </ul>

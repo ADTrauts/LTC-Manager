@@ -50,17 +50,17 @@ test("food_service_area stays the identity when display wording changes", () => 
   assert.notEqual(adopted?.key, operationalTypeKeyFromName("Servery"));
 });
 
-test("Product adoption does not slug a local label into the key", () => {
+test("Product Location Function adoption writer is retired", () => {
   const source = readFileSync(
     join(process.cwd(), "src/lib/department-administration/profile-service.ts"),
     "utf8",
   );
   const start = source.indexOf("export async function adoptProductLocationFunction");
-  const end = source.indexOf("export async function createRoomArchetype");
+  const end = source.indexOf("export async function bindLocationFunction");
   const body = source.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.match(body, /resolveLocationFunctionAdoption/);
-  assert.doesNotMatch(body, /operationalTypeKeyFromName|uniqueOperationalTypeKey/);
+  assert.match(body, /LOCATION_FUNCTION_AUTHORING_RETIRED/);
+  assert.doesNotMatch(body, /operationalTypeKeyFromName|uniqueOperationalTypeKey|resolveLocationFunctionAdoption/);
 });
 
 function cycle(partial: Partial<OperationalCycleDefinition> & Pick<OperationalCycleDefinition, "stableKey" | "locationMode">): OperationalCycleDefinition {

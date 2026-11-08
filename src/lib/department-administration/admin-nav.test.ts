@@ -26,12 +26,15 @@ describe("Department Builder local navigation", () => {
         "overview",
         "locations",
         "operating-rhythm",
-        "work",
         "maintenance",
         "people",
         "records",
         "menus",
       ],
+    );
+    assert.equal(
+      DEPARTMENT_ADMIN_TABS.some((t) => t.id === ("work" as string)),
+      false,
     );
     assert.equal(
       DEPARTMENT_ADMIN_TABS.some((t) => t.id === ("room-types" as string)),
@@ -72,12 +75,13 @@ describe("Department Builder local navigation", () => {
     assert.equal(resolveDepartmentAdminTab("diagnostics"), "overview");
     assert.equal(resolveDepartmentAdminTab("versions"), "overview");
     assert.equal(resolveDepartmentAdminTab("settings"), "overview");
+    assert.equal(resolveDepartmentAdminTab("work"), "overview");
     assert.deepEqual([...DEPARTMENT_ADMIN_LEGACY_TABS], []);
     assert.deepEqual([...DEPARTMENT_ADMIN_DEFERRED_TABS], []);
   });
 
   it("keeps Operating Rhythm on the bar and omits Records and Menus until the product needs them", () => {
-    const base = ["overview", "locations", "operating-rhythm", "work", "people"];
+    const base = ["overview", "locations", "operating-rhythm", "people"];
     assert.deepEqual(
       departmentAdminTabsForFlags({ cyclesEnabled: true }).map((t) => t.id),
       base,

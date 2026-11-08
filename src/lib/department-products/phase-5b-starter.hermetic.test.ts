@@ -232,7 +232,7 @@ test("Facility Plant Operations registry is AVAILABLE customer copy without a bi
   assert.equal(plant.starters.workPresets, true);
   assert.match(plant.shortDescription ?? "", /Work Orders/);
   assert.ok(plant.customerCapabilities?.includes("Preventive Maintenance"));
-  assert.ok(plant.customerCapabilities?.includes("Recurring facility rounds"));
+  assert.equal(plant.customerCapabilities?.includes("Recurring facility rounds"), false);
   assert.equal(isDepartmentProductAvailableForInstall(plant), true);
   assert.equal(
     evaluateCustomerDepartmentOperability({
@@ -255,7 +255,8 @@ test("Facility Plant Operations registry is AVAILABLE customer copy without a bi
 test("starter installer copies once and never overwrites", () => {
   const installer = source("src/lib/department-products/plant-starter.ts");
   assert.match(installer, /already\.has\(id\)/);
-  assert.match(installer, /createDraftFromPreset/);
+  assert.match(installer, /GENERIC_WORK_AUTHORING_RETIRED/);
+  assert.doesNotMatch(installer, /createDraftFromPreset|createWorkDraftFromPreset/);
   assert.doesNotMatch(installer, /updateDraft|publishWorkPlan|publishTemplate/);
   assert.doesNotMatch(installer, /preventiveMaintenancePlan|asset\.create/);
 });

@@ -8,7 +8,6 @@ import {
   type DepartmentAdminTabId,
 } from "@/lib/department-administration";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
-import { getDepartmentProduct } from "@/lib/department-products";
 import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 
 export function plantMaintenanceTabs(input: {
@@ -41,13 +40,7 @@ export function PmBuilderShell({
   children: ReactNode;
   contentClassName?: string;
 }) {
-  const product = getDepartmentProduct(departmentKey);
-  const workEnabled =
-    departmentKey === "PLANT" ||
-    Boolean(product?.starters.workPresets) ||
-    context.publishedWorkPlanCount > 0 ||
-    context.draftWorkPlanCount > 0;
-  const tabs = plantMaintenanceTabs({ departmentKey, workEnabled });
+  const tabs = plantMaintenanceTabs({ departmentKey, workEnabled: false });
   const activeTab: DepartmentAdminTabId = "maintenance";
 
   return (

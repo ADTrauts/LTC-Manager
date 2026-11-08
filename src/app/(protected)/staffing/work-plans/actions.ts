@@ -1,161 +1,68 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { GENERIC_WORK_AUTHORING_RETIRED } from "@/lib/department-work";
+import type { WorkPlanDraftInput } from "@/lib/department-work";
 
-import { getSession, sessionUserIdForFk } from "@/lib/auth";
-import { requireDepartmentFeatureEnabled } from "@/lib/department-operations";
-import {
-  createDraft,
-  createDraftFromPreset,
-  createSuccessorDraft,
-  duplicateWorkPlan,
-  isDepartmentWorkPresetKey,
-  publishWorkPlan,
-  retireWorkPlan,
-  updateDraft,
-  type WorkPlanDraftInput,
-} from "@/lib/department-work";
-
-function actorFromSession(session: NonNullable<Awaited<ReturnType<typeof getSession>>>) {
-  return {
-    userId: sessionUserIdForFk(session),
-    label: session.name || session.email || null,
-  };
-}
-
-async function requireWorkPlans(departmentId: string) {
-  await requireDepartmentFeatureEnabled(
-    departmentId,
-    "workPlans",
-    "Work Plans are not enabled for this department.",
-  );
-}
-
-export async function createWorkPlanDraftAction(input: {
+/** @deprecated Generic Work Plan authoring retired (Phase 2B). */
+export async function createWorkPlanDraftAction(_input: {
   facilityId: string;
   departmentId: string;
   draft: WorkPlanDraftInput;
-}) {
-  await requireWorkPlans(input.departmentId);
-  const session = await getSession();
-  if (!session) throw new Error("Authentication required.");
-  const created = await createDraft(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    draft: input.draft,
-    actor: actorFromSession(session),
-  });
-  revalidatePath("/staffing/work-plans");
-  return { id: created.id };
+}): Promise<{ id: string }> {
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
-export async function createWorkPlanPresetDraftAction(input: {
+/** @deprecated Generic Work Plan authoring retired (Phase 2B). */
+export async function createWorkPlanPresetDraftAction(_input: {
   facilityId: string;
   departmentId: string;
   presetKey: string;
-}) {
-  await requireWorkPlans(input.departmentId);
-  if (!isDepartmentWorkPresetKey(input.presetKey)) {
-    throw new Error("Unknown Work Plan preset.");
-  }
-  const session = await getSession();
-  if (!session) throw new Error("Authentication required.");
-  const created = await createDraftFromPreset(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    presetKey: input.presetKey,
-    actor: actorFromSession(session),
-  });
-  revalidatePath("/staffing/work-plans");
-  return { id: created.id };
+}): Promise<{ id: string }> {
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
-export async function updateWorkPlanDraftAction(input: {
+/** @deprecated Generic Work Plan authoring retired (Phase 2B). */
+export async function updateWorkPlanDraftAction(_input: {
   facilityId: string;
   departmentId: string;
   workPlanId: string;
   draft: WorkPlanDraftInput;
-}) {
-  await requireWorkPlans(input.departmentId);
-  const session = await getSession();
-  if (!session) throw new Error("Authentication required.");
-  const updated = await updateDraft(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    workPlanId: input.workPlanId,
-    draft: input.draft,
-    actor: actorFromSession(session),
-  });
-  revalidatePath("/staffing/work-plans");
-  return { id: updated.id };
+}): Promise<{ id: string }> {
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
-export async function publishWorkPlanAction(input: {
+/** @deprecated Generic Work Plan authoring retired (Phase 2B). */
+export async function publishWorkPlanAction(_input: {
   facilityId: string;
   departmentId: string;
   workPlanId: string;
-}) {
-  await requireWorkPlans(input.departmentId);
-  const session = await getSession();
-  if (!session) throw new Error("Authentication required.");
-  await publishWorkPlan(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    workPlanId: input.workPlanId,
-    actor: actorFromSession(session),
-  });
-  revalidatePath("/staffing/work-plans");
+}): Promise<void> {
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
-export async function retireWorkPlanAction(input: {
+/** @deprecated Generic Work Plan authoring retired (Phase 2B). */
+export async function retireWorkPlanAction(_input: {
   facilityId: string;
   departmentId: string;
   workPlanId: string;
-}) {
-  await requireWorkPlans(input.departmentId);
-  const session = await getSession();
-  if (!session) throw new Error("Authentication required.");
-  await retireWorkPlan(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    workPlanId: input.workPlanId,
-    actor: actorFromSession(session),
-  });
-  revalidatePath("/staffing/work-plans");
+}): Promise<void> {
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
-export async function duplicateWorkPlanAction(input: {
+/** @deprecated Generic Work Plan authoring retired (Phase 2B). */
+export async function duplicateWorkPlanAction(_input: {
   facilityId: string;
   departmentId: string;
   workPlanId: string;
-}) {
-  await requireWorkPlans(input.departmentId);
-  const session = await getSession();
-  if (!session) throw new Error("Authentication required.");
-  const created = await duplicateWorkPlan(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    workPlanId: input.workPlanId,
-    actor: actorFromSession(session),
-  });
-  revalidatePath("/staffing/work-plans");
-  return { id: created.id };
+}): Promise<{ id: string }> {
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
-export async function createWorkPlanSuccessorAction(input: {
+/** @deprecated Generic Work Plan authoring retired (Phase 2B). */
+export async function createWorkPlanSuccessorAction(_input: {
   facilityId: string;
   departmentId: string;
   workPlanId: string;
-}) {
-  await requireWorkPlans(input.departmentId);
-  const session = await getSession();
-  if (!session) throw new Error("Authentication required.");
-  const created = await createSuccessorDraft(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    workPlanId: input.workPlanId,
-    actor: actorFromSession(session),
-  });
-  revalidatePath("/staffing/work-plans");
-  return { id: created.id };
+}): Promise<{ id: string }> {
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }

@@ -58,6 +58,7 @@ export {
 } from "./work-presets";
 
 export {
+  GENERIC_WORK_AUTHORING_RETIRED,
   createDraft,
   createDraftFromPreset,
   createSuccessorDraft,

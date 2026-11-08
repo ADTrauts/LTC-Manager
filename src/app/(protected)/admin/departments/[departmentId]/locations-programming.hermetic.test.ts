@@ -4,23 +4,24 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("Department Locations programming contracts", () => {
-  it("Locations actions use pattern authoring, not the full Profiles flag", () => {
+  it("Locations Location Function / Operational Type writers are retired", () => {
     const actions = readFileSync(
       join(process.cwd(), "src/app/(protected)/admin/departments/[departmentId]/actions.ts"),
       "utf8",
     );
+    assert.match(actions, /LOCATION_FUNCTION_AUTHORING_RETIRED/);
     const assignStart = actions.indexOf("export async function assignLocationOperationalTypeAction");
     const assignEnd = actions.indexOf(
       "export async function clearLocationOperationalTypeAction",
     );
     const assignBlock = actions.slice(assignStart, assignEnd);
-    assert.match(assignBlock, /ROLE_BINDING_RETIRED/);
+    assert.match(assignBlock, /LOCATION_FUNCTION_AUTHORING_RETIRED|RETIRED/);
     assert.doesNotMatch(assignBlock, /bindRoomToArchetype/);
     assert.doesNotMatch(assignBlock, /requireFeature\(/);
 
     const createStart = actions.indexOf("export async function createLocationOperationalTypeAction");
     const createBlock = actions.slice(createStart);
-    assert.match(createBlock, /ROLE_BINDING_RETIRED/);
+    assert.match(createBlock, /LOCATION_FUNCTION_AUTHORING_RETIRED|RETIRED/);
     assert.doesNotMatch(createBlock, /bindRoomToArchetype/);
   });
 

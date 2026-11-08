@@ -23,7 +23,7 @@ function source(path: string): string {
   return readFileSync(join(root, path), "utf8");
 }
 
-test("canonical setup binds a Product function and rejects an arbitrary key", () => {
+test("catalog adoption resolves Product keys; Location Function writers are retired", () => {
   const adopted = resolveLocationFunctionAdoption({
     productKey: "DIETARY",
     functionKey: "food_service_area",
@@ -43,17 +43,13 @@ test("canonical setup binds a Product function and rejects an arbitrary key", ()
   const bindStart = service.indexOf("export async function bindLocationFunction");
   const bindEnd = service.indexOf("export async function clearLocationFunction");
   const bind = service.slice(bindStart, bindEnd);
-  assert.match(bind, /resolveLocationFunctionAdoption/);
-  assert.match(bind, /adoptProductLocationFunction/);
-  assert.match(bind, /bindRoomToArchetype/);
-  assert.doesNotMatch(bind, /uniqueOperationalTypeKey/);
+  assert.match(bind, /LOCATION_FUNCTION_AUTHORING_RETIRED/);
+  assert.doesNotMatch(bind, /bindRoomToArchetype|uniqueOperationalTypeKey/);
   const actions = source("src/app/(protected)/admin/departments/[departmentId]/actions.ts");
-  const retired = actions.slice(
-    actions.indexOf("export async function assignLocationOperationalTypeAction"),
-    actions.indexOf("export async function clearLocationOperationalTypeAction"),
-  );
-  assert.match(retired, /ROLE_BINDING_RETIRED/);
-  assert.doesNotMatch(retired, /bindRoomToArchetype/);
+  assert.match(actions, /LOCATION_FUNCTION_AUTHORING_RETIRED/);
+  assert.match(actions, /export async function bindLocationFunctionAction/);
+  assert.match(actions, /export async function publishLocationFunctionsAction/);
+  assert.doesNotMatch(actions, /adoptProductLocationFunction|bindRoomToArchetype/);
 });
 
 test("a room keeps one current function and a later bind replaces it", () => {
@@ -235,10 +231,11 @@ test("the work gap clears when a published function matches a bound room", () =>
   assert.doesNotMatch(closed.find((row) => row.id === "work")?.description ?? "", /no bound room/);
 });
 
-test("Locations saves a Product function through the canonical action", () => {
+test("Locations does not author a Location Function", () => {
   const panel = source("src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx");
-  assert.match(panel, /bindLocationFunctionAction/);
-  assert.match(panel, /publishLocationFunctionsAction/);
-  assert.match(panel, /Location Function/);
-  assert.doesNotMatch(panel, /assignLocationOperationalTypeAction|Operational Type|Archetype/);
+  assert.doesNotMatch(
+    panel,
+    /bindLocationFunctionAction|publishLocationFunctionsAction|Location Function|Operational Type|Archetype/,
+  );
+  assert.match(panel, /Facility Builder/);
 });

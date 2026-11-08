@@ -110,16 +110,15 @@ describe("Food and Nutrition product identity", () => {
           name: "Facility Plant Operations",
           status: "AVAILABLE",
           description:
-            "Manage facility maintenance requests, Issues, Work Orders, Assets, recurring operational Work, and Preventive Maintenance in one operational workspace.",
+            "Manage facility maintenance requests, Issues, Work Orders, Assets, and Preventive Maintenance in one operational workspace.",
         },
       ],
     );
     assert.deepEqual(catalog[0]?.customerCapabilities, [
-      "Location Functions",
       "Operating Rhythm",
-      "Work",
       "Records",
       "Menus",
+      "People & Coverage",
       "Audit / Reports",
     ]);
     assert.equal(catalog[0]?.industry, "HEALTHCARE");

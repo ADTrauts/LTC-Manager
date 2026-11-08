@@ -1,226 +1,40 @@
 /**
- * Department Work Plan Builder service — publish/version/retire (Phase 11A).
- * Mirrors operational-evidence/template-service.ts patterns.
- * Published versions are immutable; edits create successor drafts.
+ * Department Work Plan service.
+ * Phase 2B: plan authoring/publish writers are retired (`GENERIC_WORK_AUTHORING_RETIRED`).
+ * Readers (`loadPublishedWorkPlansForDate`, builder loads) remain for Job Flow until Phase 2C.
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { randomBytes } from "node:crypto";
-
 import type { FacilitySession } from "@/lib/auth";
-import { operationPeriodWhere, operatorPeriodIdForCreate, withOperatorPeriod } from "@/lib/department-authority/operator-period";
-import { getLocationFunctionByKey } from "@/lib/department-products/location-functions";
+import { operationPeriodWhere, withOperatorPeriod } from "@/lib/department-authority/operator-period";
 import { prisma } from "@/lib/prisma";
 
-import {
-  requireWorkManage,
-  requireWorkPublish,
-  resolveWorkAuthority,
-} from "./authority";
-import {
-  buildWorkPlanPresetDraft,
-  isDepartmentWorkPresetKey,
-  unadoptedPresetLocationFunctions,
-  type DepartmentWorkPresetKey,
-} from "./work-presets";
-import type { WorkItemDraftInput, WorkPlanDraftInput } from "./types";
+import { resolveWorkAuthority } from "./authority";
+import type { DepartmentWorkPresetKey } from "./work-presets";
+import type { WorkPlanDraftInput } from "./types";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
-function cuidLike() {
-  return `c${randomBytes(12).toString("hex")}`;
-}
+/**
+ * Generic Department Work Plan authoring is retired (Phase 2B / ARR-002, ARR-015).
+ * Job Flow may still read published plans until Phase 2C. Occurrence completion stays.
+ */
+export const GENERIC_WORK_AUTHORING_RETIRED =
+  "Generic Work Plan authoring is retired. Configure Operating Rhythm, Records, Coverage, and Plant Work Orders or Preventive Maintenance instead.";
 
 export type WorkActor = {
   userId: string | null;
   label?: string | null;
 };
 
-async function appendPlanEvent(
-  client: DbClient,
-  input: {
-    workPlanId: string;
-    facilityId: string;
-    departmentId: string;
-    eventType: string;
-    actor: WorkActor;
-    detailJson?: Prisma.InputJsonValue;
-  },
-): Promise<void> {
-  await client.departmentWorkPlanEvent.create({
-    data: {
-      id: cuidLike(),
-      workPlanId: input.workPlanId,
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      eventType: input.eventType,
-      actorUserId: input.actor.userId,
-      actorLabel: input.actor.label ?? null,
-      detailJson: input.detailJson ?? undefined,
-    },
-  });
-}
-
-async function assertManage(
-  session: FacilitySession,
-  facilityId: string,
-  departmentId: string,
-) {
-  const authority = await resolveWorkAuthority(session, facilityId, departmentId);
-  requireWorkManage(authority);
-  return authority;
-}
-
-async function nextVersionForStableKey(
-  client: DbClient,
-  departmentId: string,
-  stableKey: string,
-): Promise<number> {
-  const latest = await client.departmentWorkPlan.findFirst({
-    where: { departmentId, stableKey },
-    orderBy: { version: "desc" },
-    select: { version: true },
-  });
-  return (latest?.version ?? 0) + 1;
-}
-
-function normalizeItemKey(item: WorkItemDraftInput, index: number): string {
-  const raw = item.itemKey?.trim();
-  if (raw) return raw;
-  const fromLabel = item.label
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "");
-  return fromLabel || `item_${index + 1}`;
-}
-
-function parseDateOnly(value: string | null | undefined): Date | null {
-  if (!value?.trim()) return null;
-  const key = value.trim().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-    throw new Error(`Invalid date "${value}". Use YYYY-MM-DD.`);
-  }
-  return new Date(`${key}T00:00:00.000Z`);
-}
-
-function validateDraft(draft: WorkPlanDraftInput): void {
-  if (!draft.name?.trim()) {
-    throw new Error("Work Plan name is required.");
-  }
-  if (!draft.items?.length) {
-    throw new Error("Work Plan requires at least one Work Item.");
-  }
-  const keys = new Set<string>();
-  for (let i = 0; i < draft.items.length; i++) {
-    const item = draft.items[i]!;
-    if (!item.label?.trim()) {
-      throw new Error(`Work Item ${i + 1} requires a label.`);
-    }
-    const key = normalizeItemKey(item, i);
-    if (keys.has(key)) {
-      throw new Error(`Duplicate Work Item key "${key}".`);
-    }
-    keys.add(key);
-    if (item.completionMode === "LINKED_EVIDENCE") {
-      if (!item.linkedTemplateStableKey?.trim() && !item.linkedTemplateId?.trim()) {
-        throw new Error(
-          `Work Item "${item.label}" uses LINKED_EVIDENCE and requires a linked template.`,
-        );
-      }
-    }
-    if (item.responsibilityMode === "EACH_ASSIGNED_EMPLOYEE") {
-      // Reserved structurally; allow in Builder draft for future EVS but warn via event only.
-    }
-  }
-}
-
-function itemCreateRows(items: WorkItemDraftInput[]) {
-  return items.map((item, index) => ({
-    id: cuidLike(),
-    itemKey: normalizeItemKey(item, index),
-    label: item.label.trim(),
-    instructions: item.instructions?.trim() || null,
-    displaySequence: item.displaySequence,
-    priority: item.priority ?? "ROUTINE",
-    completionMode: item.completionMode ?? "EXPLICIT_CONFIRMATION",
-    responsibilityMode: item.responsibilityMode ?? "UNIT_SHARED",
-    scheduleKind: item.scheduleKind ?? "OPERATIONAL_CYCLE",
-    cycleStableKeys: item.cycleStableKeys ?? [],
-    windowStartLocal: item.windowStartLocal?.trim() || null,
-    windowEndLocal: item.windowEndLocal?.trim() || null,
-    dueOffsetKind: item.dueOffsetKind ?? null,
-    dueOffsetMinutes: item.dueOffsetMinutes ?? null,
-    roleKeys: item.roleKeys ?? [],
-    unitId: item.unitId?.trim() || null,
-    spaceId: item.spaceId?.trim() || null,
-    assetId: item.assetId?.trim() || null,
-    knowledgeArticleId: item.knowledgeArticleId?.trim() || null,
-    linkedTemplateStableKey: item.linkedTemplateStableKey?.trim() || null,
-    linkedTemplateId: item.linkedTemplateId?.trim() || null,
-    supervisorVisible: item.supervisorVisible ?? true,
-  }));
-}
-
-function applicabilityCreateRows(draft: WorkPlanDraftInput) {
-  return (draft.applicabilities ?? []).map((row) => ({
-    id: cuidLike(),
-    kind: row.kind,
-    unitId: row.unitId?.trim() || null,
-    spaceId: row.spaceId?.trim() || null,
-    spaceType: row.spaceType ?? null,
-    assetId: row.assetId?.trim() || null,
-    assetType: row.assetType?.trim() || null,
-    operationalTypeKey: row.operationalTypeKey?.trim() || null,
-  }));
-}
-
 const planDetailInclude = {
   items: { orderBy: { displaySequence: "asc" as const } },
   applicabilities: true,
 } as const;
 
-async function enrichProcedureTitles(
-  client: DbClient,
-  facilityId: string,
-  items: ReturnType<typeof itemCreateRows>,
-) {
-  const articleIds = [
-    ...new Set(
-      items
-        .map((i) => i.knowledgeArticleId)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ];
-  if (articleIds.length === 0) return items;
-
-  const articles = await client.knowledgeArticle.findMany({
-    where: {
-      id: { in: articleIds },
-      facilityId,
-      status: "PUBLISHED",
-    },
-    select: { id: true, title: true },
-  });
-  const byId = new Map(articles.map((a) => [a.id, a.title]));
-
-  return items.map((item) => {
-    if (!item.knowledgeArticleId) {
-      return { ...item, procedureTitleSnapshot: null as string | null };
-    }
-    const title = byId.get(item.knowledgeArticleId);
-    if (!title) {
-      throw new Error(
-        `Procedure "${item.knowledgeArticleId}" is not a published KnowledgeArticle in this facility.`,
-      );
-    }
-    return { ...item, procedureTitleSnapshot: title };
-  });
-}
-
 export async function createDraft(
-  session: FacilitySession,
-  input: {
+  _session: FacilitySession,
+  _input: {
     facilityId: string;
     departmentId: string;
     draft: WorkPlanDraftInput;
@@ -228,59 +42,12 @@ export async function createDraft(
     client?: DbClient;
   },
 ) {
-  const client = input.client ?? prisma;
-  await assertManage(session, input.facilityId, input.departmentId);
-  validateDraft(input.draft);
-
-  const stableKey = input.draft.stableKey?.trim() || `work_${cuidLike()}`;
-  const version = await nextVersionForStableKey(client, input.departmentId, stableKey);
-  const itemRows = await enrichProcedureTitles(
-    client,
-    input.facilityId,
-    itemCreateRows(input.draft.items),
-  );
-
-  const created = await client.departmentWorkPlan.create({
-    data: {
-      id: cuidLike(),
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      operatorPeriodId: await operatorPeriodIdForCreate(client, {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-      }),
-      stableKey,
-      version,
-      name: input.draft.name.trim(),
-      description: input.draft.description?.trim() || null,
-      status: "DRAFT",
-      presetKey: input.draft.presetKey?.trim() || null,
-      effectiveStartDate: parseDateOnly(input.draft.effectiveStartDate),
-      effectiveEndDate: parseDateOnly(input.draft.effectiveEndDate),
-      weekdays: input.draft.weekdays ?? [],
-      createdByUserId: input.actor.userId,
-      lastChangedByUserId: input.actor.userId,
-      items: { create: itemRows },
-      applicabilities: { create: applicabilityCreateRows(input.draft) },
-    },
-    include: planDetailInclude,
-  });
-
-  await appendPlanEvent(client, {
-    workPlanId: created.id,
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    eventType: "CREATED_DRAFT",
-    actor: input.actor,
-    detailJson: { stableKey, version },
-  });
-
-  return created;
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
 export async function updateDraft(
-  session: FacilitySession,
-  input: {
+  _session: FacilitySession,
+  _input: {
     facilityId: string;
     departmentId: string;
     workPlanId: string;
@@ -289,74 +56,12 @@ export async function updateDraft(
     client?: DbClient;
   },
 ) {
-  const client = input.client ?? prisma;
-  await assertManage(session, input.facilityId, input.departmentId);
-
-  const existing = await client.departmentWorkPlan.findFirst({
-    where: {
-      id: input.workPlanId,
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-    },
-  });
-  if (!existing) throw new Error("Work Plan not found.");
-
-  if (existing.status === "PUBLISHED" || existing.status === "RETIRED") {
-    return createDraft(session, {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      actor: input.actor,
-      client,
-      draft: {
-        ...input.draft,
-        stableKey: existing.stableKey,
-        presetKey: input.draft.presetKey ?? existing.presetKey,
-      },
-    });
-  }
-
-  validateDraft(input.draft);
-  const itemRows = await enrichProcedureTitles(
-    client,
-    input.facilityId,
-    itemCreateRows(input.draft.items),
-  );
-
-  await client.departmentWorkItem.deleteMany({ where: { workPlanId: existing.id } });
-  await client.departmentWorkPlanApplicability.deleteMany({
-    where: { workPlanId: existing.id },
-  });
-
-  const updated = await client.departmentWorkPlan.update({
-    where: { id: existing.id },
-    data: {
-      name: input.draft.name.trim(),
-      description: input.draft.description?.trim() || null,
-      presetKey: input.draft.presetKey?.trim() || existing.presetKey,
-      effectiveStartDate: parseDateOnly(input.draft.effectiveStartDate),
-      effectiveEndDate: parseDateOnly(input.draft.effectiveEndDate),
-      weekdays: input.draft.weekdays ?? [],
-      lastChangedByUserId: input.actor.userId,
-      items: { create: itemRows },
-      applicabilities: { create: applicabilityCreateRows(input.draft) },
-    },
-    include: planDetailInclude,
-  });
-
-  await appendPlanEvent(client, {
-    workPlanId: updated.id,
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    eventType: "UPDATED_DRAFT",
-    actor: input.actor,
-  });
-
-  return updated;
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
 export async function duplicateWorkPlan(
-  session: FacilitySession,
-  input: {
+  _session: FacilitySession,
+  _input: {
     facilityId: string;
     departmentId: string;
     workPlanId: string;
@@ -364,75 +69,12 @@ export async function duplicateWorkPlan(
     client?: DbClient;
   },
 ) {
-  const client = input.client ?? prisma;
-  await assertManage(session, input.facilityId, input.departmentId);
-
-  const existing = await client.departmentWorkPlan.findFirst({
-    where: {
-      id: input.workPlanId,
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-    },
-    include: planDetailInclude,
-  });
-  if (!existing) throw new Error("Work Plan not found.");
-
-  return createDraft(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    actor: input.actor,
-    client,
-    draft: {
-      name: `${existing.name} (Copy)`,
-      description: existing.description,
-      presetKey: existing.presetKey,
-      // New lineage — do not reuse stableKey.
-      effectiveStartDate: existing.effectiveStartDate
-        ? existing.effectiveStartDate.toISOString().slice(0, 10)
-        : null,
-      effectiveEndDate: existing.effectiveEndDate
-        ? existing.effectiveEndDate.toISOString().slice(0, 10)
-        : null,
-      weekdays: existing.weekdays,
-      applicabilities: existing.applicabilities.map((a) => ({
-        kind: a.kind,
-        unitId: a.unitId,
-        spaceId: a.spaceId,
-        spaceType: a.spaceType,
-        assetId: a.assetId,
-        assetType: a.assetType,
-        operationalTypeKey: a.operationalTypeKey,
-      })),
-      items: existing.items.map((item) => ({
-        itemKey: item.itemKey,
-        label: item.label,
-        instructions: item.instructions,
-        displaySequence: item.displaySequence,
-        priority: item.priority,
-        completionMode: item.completionMode,
-        responsibilityMode: item.responsibilityMode,
-        scheduleKind: item.scheduleKind,
-        cycleStableKeys: item.cycleStableKeys,
-        windowStartLocal: item.windowStartLocal,
-        windowEndLocal: item.windowEndLocal,
-        dueOffsetKind: item.dueOffsetKind,
-        dueOffsetMinutes: item.dueOffsetMinutes,
-        roleKeys: item.roleKeys,
-        unitId: item.unitId,
-        spaceId: item.spaceId,
-        assetId: item.assetId,
-        knowledgeArticleId: item.knowledgeArticleId,
-        linkedTemplateStableKey: item.linkedTemplateStableKey,
-        linkedTemplateId: item.linkedTemplateId,
-        supervisorVisible: item.supervisorVisible,
-      })),
-    },
-  });
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
 export async function publishWorkPlan(
-  session: FacilitySession,
-  input: {
+  _session: FacilitySession,
+  _input: {
     facilityId: string;
     departmentId: string;
     workPlanId: string;
@@ -440,81 +82,12 @@ export async function publishWorkPlan(
     client?: DbClient;
   },
 ) {
-  const client = input.client ?? prisma;
-  const authority = await resolveWorkAuthority(session, input.facilityId, input.departmentId);
-  requireWorkPublish(authority);
-
-  const existing = await client.departmentWorkPlan.findFirst({
-    where: {
-      id: input.workPlanId,
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-    },
-    include: planDetailInclude,
-  });
-  if (!existing) throw new Error("Work Plan not found.");
-  if (existing.status !== "DRAFT") {
-    throw new Error("Only draft Work Plans can be published.");
-  }
-  if (existing.items.length === 0) {
-    throw new Error("Cannot publish a Work Plan with no items.");
-  }
-
-  const priorPublished = await client.departmentWorkPlan.findMany({
-    where: {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      stableKey: existing.stableKey,
-      status: "PUBLISHED",
-      id: { not: existing.id },
-    },
-  });
-
-  for (const prior of priorPublished) {
-    await client.departmentWorkPlan.update({
-      where: { id: prior.id },
-      data: {
-        status: "RETIRED",
-        retiredAt: new Date(),
-        retiredByUserId: input.actor.userId,
-        lastChangedByUserId: input.actor.userId,
-      },
-    });
-    await appendPlanEvent(client, {
-      workPlanId: prior.id,
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      eventType: "RETIRED_ON_SUPERSEDE",
-      actor: input.actor,
-      detailJson: { supersededBy: existing.id },
-    });
-  }
-
-  const published = await client.departmentWorkPlan.update({
-    where: { id: existing.id },
-    data: {
-      status: "PUBLISHED",
-      publishedAt: new Date(),
-      publishedByUserId: input.actor.userId,
-      lastChangedByUserId: input.actor.userId,
-    },
-    include: planDetailInclude,
-  });
-
-  await appendPlanEvent(client, {
-    workPlanId: published.id,
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    eventType: "PUBLISHED",
-    actor: input.actor,
-  });
-
-  return published;
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
 export async function createSuccessorDraft(
-  session: FacilitySession,
-  input: {
+  _session: FacilitySession,
+  _input: {
     facilityId: string;
     departmentId: string;
     workPlanId: string;
@@ -522,78 +95,12 @@ export async function createSuccessorDraft(
     client?: DbClient;
   },
 ) {
-  const client = input.client ?? prisma;
-  await assertManage(session, input.facilityId, input.departmentId);
-
-  const existing = await client.departmentWorkPlan.findFirst({
-    where: {
-      id: input.workPlanId,
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-    },
-    include: planDetailInclude,
-  });
-  if (!existing) throw new Error("Work Plan not found.");
-  if (existing.status !== "PUBLISHED" && existing.status !== "RETIRED") {
-    throw new Error("Successor drafts are created from published or retired plans.");
-  }
-
-  return createDraft(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    actor: input.actor,
-    client,
-    draft: {
-      name: existing.name,
-      description: existing.description,
-      stableKey: existing.stableKey,
-      presetKey: existing.presetKey,
-      effectiveStartDate: existing.effectiveStartDate
-        ? existing.effectiveStartDate.toISOString().slice(0, 10)
-        : null,
-      effectiveEndDate: existing.effectiveEndDate
-        ? existing.effectiveEndDate.toISOString().slice(0, 10)
-        : null,
-      weekdays: existing.weekdays,
-      applicabilities: existing.applicabilities.map((a) => ({
-        kind: a.kind,
-        unitId: a.unitId,
-        spaceId: a.spaceId,
-        spaceType: a.spaceType,
-        assetId: a.assetId,
-        assetType: a.assetType,
-        operationalTypeKey: a.operationalTypeKey,
-      })),
-      items: existing.items.map((item) => ({
-        itemKey: item.itemKey,
-        label: item.label,
-        instructions: item.instructions,
-        displaySequence: item.displaySequence,
-        priority: item.priority,
-        completionMode: item.completionMode,
-        responsibilityMode: item.responsibilityMode,
-        scheduleKind: item.scheduleKind,
-        cycleStableKeys: item.cycleStableKeys,
-        windowStartLocal: item.windowStartLocal,
-        windowEndLocal: item.windowEndLocal,
-        dueOffsetKind: item.dueOffsetKind,
-        dueOffsetMinutes: item.dueOffsetMinutes,
-        roleKeys: item.roleKeys,
-        unitId: item.unitId,
-        spaceId: item.spaceId,
-        assetId: item.assetId,
-        knowledgeArticleId: item.knowledgeArticleId,
-        linkedTemplateStableKey: item.linkedTemplateStableKey,
-        linkedTemplateId: item.linkedTemplateId,
-        supervisorVisible: item.supervisorVisible,
-      })),
-    },
-  });
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
 export async function retireWorkPlan(
-  session: FacilitySession,
-  input: {
+  _session: FacilitySession,
+  _input: {
     facilityId: string;
     departmentId: string;
     workPlanId: string;
@@ -601,46 +108,12 @@ export async function retireWorkPlan(
     client?: DbClient;
   },
 ) {
-  const client = input.client ?? prisma;
-  await assertManage(session, input.facilityId, input.departmentId);
-
-  const existing = await client.departmentWorkPlan.findFirst({
-    where: {
-      id: input.workPlanId,
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-    },
-  });
-  if (!existing) throw new Error("Work Plan not found.");
-  if (existing.status !== "PUBLISHED") {
-    throw new Error("Only published Work Plans can be retired.");
-  }
-
-  const retired = await client.departmentWorkPlan.update({
-    where: { id: existing.id },
-    data: {
-      status: "RETIRED",
-      retiredAt: new Date(),
-      retiredByUserId: input.actor.userId,
-      lastChangedByUserId: input.actor.userId,
-    },
-    include: planDetailInclude,
-  });
-
-  await appendPlanEvent(client, {
-    workPlanId: retired.id,
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    eventType: "RETIRED",
-    actor: input.actor,
-  });
-
-  return retired;
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
 export async function createDraftFromPreset(
-  session: FacilitySession,
-  input: {
+  _session: FacilitySession,
+  _input: {
     facilityId: string;
     departmentId: string;
     presetKey: DepartmentWorkPresetKey | string;
@@ -648,35 +121,7 @@ export async function createDraftFromPreset(
     client?: DbClient;
   },
 ) {
-  if (!isDepartmentWorkPresetKey(input.presetKey)) {
-    throw new Error(`Unknown Work Plan preset "${input.presetKey}".`);
-  }
-  const draft = buildWorkPlanPresetDraft(input.presetKey);
-  const client = input.client ?? prisma;
-  const adopted = await client.departmentRoomArchetype.findMany({
-    where: {
-      isActive: true,
-      profile: { facilityId: input.facilityId, departmentId: input.departmentId },
-    },
-    select: { key: true },
-  });
-  const missing = unadoptedPresetLocationFunctions(
-    draft,
-    adopted.map((row) => row.key),
-  );
-  if (missing.length > 0) {
-    const labels = missing.map((key) => getLocationFunctionByKey(key)?.label ?? key);
-    throw new Error(
-      `Adopt ${labels.join(", ")} before applying this Work preset. Room names do not assign a Location Function.`,
-    );
-  }
-  return createDraft(session, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    draft,
-    actor: input.actor,
-    client: input.client,
-  });
+  throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
 }
 
 /**

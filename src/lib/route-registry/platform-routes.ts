@@ -878,10 +878,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "staffing",
     featureFlag: "DIETARY_WORK_PLANS",
-    // BUILD · Work — Department Work Plan builder. Owned by Department Builder, not Staffing.
-    nav: { label: "Work", order: 250 },
+    // Phase 2B: generic Work Plan authoring retired. Route kept for read-only / deep-link notice.
     notes:
-      "Department Work Plan Builder. Work Plans come with the Department.",
+      "Retired generic Work Plan builder (Phase 2B). Existing plans remain readable for Job Flow until Phase 2C.",
   },
   {
     pattern: "/staffing/work-plans/[workPlanId]",
@@ -890,7 +889,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "staffing",
     notes:
-      "Work Plan detail. Work Plans come with the Department.",
+      "Retired Work Plan detail (Phase 2B). Compatibility read path only.",
   },
   {
     pattern: "/staffing/log-book",

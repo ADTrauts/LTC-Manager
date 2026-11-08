@@ -73,7 +73,11 @@ export type DepartmentProductDomainCapability = "dietary" | "evs" | "plant";
 export type DepartmentProductStarterRefs = {
   /** Configuration-time operating-rhythm starter. Plant has none. */
   cycleStarter?: "dietary" | "evs";
-  /** `listWorkPlanPresetSummaries(productKey)` — configuration-time. */
+  /**
+   * Compatibility: Product still declares Work preset catalogs for Harbor browse /
+   * historical install detection. Phase 2B closed applying those presets into new
+   * Work Plans (`GENERIC_WORK_AUTHORING_RETIRED`). Do not treat as forward capability.
+   */
   workPresets?: true;
   /** `OPERATIONAL_ROLE_REGISTRY` keyed by productKey — product-authoring. */
   assignmentRoles?: true;
@@ -127,11 +131,10 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     status: "AVAILABLE",
     shortDescription: "Food and nutrition operations for hospitals and long-term care.",
     customerCapabilities: [
-      "Location Functions",
       "Operating Rhythm",
-      "Work",
       "Records",
       "Menus",
+      "People & Coverage",
       "Audit / Reports",
     ],
     sortOrder: 10,
@@ -178,13 +181,12 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     sortOrder: 30,
     domainCapability: "plant",
     shortDescription:
-      "Manage facility maintenance requests, Issues, Work Orders, Assets, recurring operational Work, and Preventive Maintenance in one operational workspace.",
+      "Manage facility maintenance requests, Issues, Work Orders, Assets, and Preventive Maintenance in one operational workspace.",
     customerCapabilities: [
       "Maintenance Requests and triage",
       "Issues and Work Orders",
       "Asset maintenance history",
       "Preventive Maintenance",
-      "Recurring facility rounds",
       "Records and Procedures",
       "Labor, parts, and vendor expense capture",
     ],

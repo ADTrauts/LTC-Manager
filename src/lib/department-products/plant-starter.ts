@@ -9,7 +9,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import type { FacilitySession } from "@/lib/auth";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import {
-  createDraftFromPreset as createWorkDraftFromPreset,
+  GENERIC_WORK_AUTHORING_RETIRED,
   PLANT_WORK_PRESET_KEYS,
   type WorkActor,
 } from "@/lib/department-work";
@@ -121,6 +121,8 @@ export async function installPlantStarterConfiguration(
     client?: DbClient;
   },
 ): Promise<PlantStarterInstallResult> {
+  void session;
+  void input.actor;
   const catalog = new Map(listPlantStarterCatalog().map((row) => [row.id, row]));
   const selected = input.selectedIds.filter((id): id is PlantStarterItemId =>
     catalog.has(id as PlantStarterItemId),
@@ -128,7 +130,7 @@ export async function installPlantStarterConfiguration(
   const existing = await loadPlantStarterInstalledKeys(input);
   const already = new Set([...existing.workPresetKeys, ...existing.recordPresetKeys]);
 
-  let workAdded = 0;
+  const workAdded = 0;
   let recordAdded = 0;
   let alreadyExisted = 0;
 
@@ -140,16 +142,8 @@ export async function installPlantStarterConfiguration(
       continue;
     }
     if (item.kind === "work") {
-      await createWorkDraftFromPreset(session, {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        presetKey: id,
-        actor: input.actor,
-        client: input.client,
-      });
-      already.add(id);
-      workAdded += 1;
-      continue;
+      // Phase 2B: generic Work Plan presets cannot create new configurations.
+      throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
     }
     const catalogStableKey = PLANT_STARTER_CATALOG_KEYS[id];
     if (!catalogStableKey) continue;

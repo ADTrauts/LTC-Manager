@@ -17,8 +17,6 @@ import { requireDepartmentManage } from "@/lib/department-authority/access";
 import { loadDepartmentChangeAccess } from "@/lib/department-authority/changes";
 import { prisma } from "@/lib/prisma";
 
-import { resolveLocationFunctionAdoption } from "@/lib/department-products/location-functions";
-
 import { assertExperienceCatalogBaselinesNotWritable } from "./baseline";
 import {
   validateProfileForCertification,
@@ -35,7 +33,6 @@ import {
   assertPatternAuthoringAccess,
   assertProfileWriteAccess,
 } from "./profile-access";
-import { uniqueOperationalTypeKey } from "./operational-type";
 import type {
   ExperienceConfiguration,
   ProfileSnapshot,
@@ -43,7 +40,13 @@ import type {
   RoomContext,
   RoomExceptionSnapshot,
 } from "./profile-types";
-import { isRoomStagedOrUndesignated } from "./profile-types";
+
+/**
+ * Location Function / archetype authoring is retired (Phase 2A / ARR-026).
+ * Facility Builder owns places and responsibility. Engines use canonical place ids.
+ */
+export const LOCATION_FUNCTION_AUTHORING_RETIRED =
+  "Location Function authoring is retired. Assign Department responsibility in Facility Builder. Operating Rhythm, Records, Coverage, and Menus use canonical places.";
 
 export type ProfileActor = {
   userId: string | null;
@@ -456,57 +459,10 @@ export async function createNextDraftVersion(
 // ---------------------------------------------------------------------------
 
 export async function bindRoomToArchetype(
-  actor: ProfileActor,
-  input: { profileId: string; archetypeId: string; unitSpaceId: string },
+  _actor: ProfileActor,
+  _input: { profileId: string; archetypeId: string; unitSpaceId: string },
 ): Promise<{ bindingId: string }> {
-  const profile = await prisma.departmentOperationalProfile.findUniqueOrThrow({
-    where: { id: input.profileId },
-    select: { id: true, facilityId: true, departmentId: true, status: true },
-  });
-  assertPatternWrite(actor, profile.facilityId);
-  assertProfileEditable(profile.status);
-
-  const archetype = await prisma.departmentRoomArchetype.findUniqueOrThrow({
-    where: { id: input.archetypeId },
-    select: { profileId: true },
-  });
-  if (archetype.profileId !== profile.id) {
-    throw new Error("Archetype does not belong to the profile.");
-  }
-
-  const [room] = await loadRoomContexts(
-    profile.facilityId,
-    [input.unitSpaceId],
-    profile.departmentId,
-  ).then((rooms) => rooms.filter((r) => r.id === input.unitSpaceId));
-
-  if (!room) throw new Error("Room not found.");
-  if (room.facilityId !== profile.facilityId) {
-    throw new Error("Cross-facility room rejected.");
-  }
-  if (isRoomStagedOrUndesignated(room)) {
-    throw new Error("Staged/undesignated rooms cannot be bound.");
-  }
-  if (!room.assignedDepartmentIds.includes(profile.departmentId)) {
-    throw new Error("Room is not assigned to the department in Facility Builder.");
-  }
-
-  const binding = await prisma.departmentRoomArchetypeBinding.upsert({
-    where: {
-      profileId_unitSpaceId: {
-        profileId: profile.id,
-        unitSpaceId: input.unitSpaceId,
-      },
-    },
-    create: {
-      profileId: profile.id,
-      archetypeId: input.archetypeId,
-      unitSpaceId: input.unitSpaceId,
-    },
-    update: { archetypeId: input.archetypeId },
-  });
-
-  return { bindingId: binding.id };
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
 export async function addRoomExperienceException(
@@ -577,39 +533,17 @@ export async function addRoomExperienceException(
 }
 
 export async function clearRoomArchetypeBinding(
-  actor: ProfileActor,
-  input: { profileId: string; unitSpaceId: string },
+  _actor: ProfileActor,
+  _input: { profileId: string; unitSpaceId: string },
 ): Promise<void> {
-  const profile = await prisma.departmentOperationalProfile.findUniqueOrThrow({
-    where: { id: input.profileId },
-    select: { id: true, facilityId: true, status: true },
-  });
-  assertPatternWrite(actor, profile.facilityId);
-  assertProfileEditable(profile.status);
-
-  await prisma.departmentRoomArchetypeBinding.deleteMany({
-    where: { profileId: profile.id, unitSpaceId: input.unitSpaceId },
-  });
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
 export async function bindRoomsToArchetype(
-  actor: ProfileActor,
-  input: { profileId: string; archetypeId: string; unitSpaceIds: readonly string[] },
+  _actor: ProfileActor,
+  _input: { profileId: string; archetypeId: string; unitSpaceIds: readonly string[] },
 ): Promise<{ bound: number }> {
-  const uniqueIds = [...new Set(input.unitSpaceIds.filter(Boolean))];
-  if (uniqueIds.length === 0) {
-    throw new Error("Select at least one location.");
-  }
-  let bound = 0;
-  for (const unitSpaceId of uniqueIds) {
-    await bindRoomToArchetype(actor, {
-      profileId: input.profileId,
-      archetypeId: input.archetypeId,
-      unitSpaceId,
-    });
-    bound += 1;
-  }
-  return { bound };
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
 /** From-scratch DRAFT for departments without a system baseline. */
@@ -859,204 +793,65 @@ export async function moveAreaExperience(
 // Draft Archetype editing
 // ---------------------------------------------------------------------------
 
-/**
- * Persist a Product Location Function on a draft profile.
- * The stored key is the Product functionKey. The facility label is not slugified.
- * An existing row with that key is left unchanged.
- */
+/** @deprecated Location Function authoring retired (Phase 2A). */
 export async function adoptProductLocationFunction(
-  actor: ProfileActor,
-  input: {
+  _actor: ProfileActor,
+  _input: {
     profileId: string;
     productKey: string;
     functionKey: string;
     displayName?: string | null;
   },
 ): Promise<{ archetypeId: string; alreadyAdopted: boolean }> {
-  const adoption = resolveLocationFunctionAdoption({
-    productKey: input.productKey,
-    functionKey: input.functionKey,
-    displayName: input.displayName,
-  });
-  if (!adoption) {
-    throw new Error("That Location Function is not part of this Department Product.");
-  }
-  const profile = await loadEditablePatternProfile(actor, input.profileId);
-  const existing = await prisma.departmentRoomArchetype.findFirst({
-    where: { profileId: profile.id, key: adoption.key },
-    select: { id: true },
-  });
-  if (existing) return { archetypeId: existing.id, alreadyAdopted: true };
-  const created = await createRoomArchetype(actor, {
-    profileId: profile.id,
-    key: adoption.key,
-    name: adoption.name,
-    description: adoption.description,
-  });
-  return { archetypeId: created.archetypeId, alreadyAdopted: false };
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
-/**
- * Bind one Product Location Function to one physical room on the working draft.
- * Forks a draft from the published profile when needed. Does not publish.
- * One room has one function on a profile; a later bind replaces it.
- */
+/** @deprecated Location Function authoring retired (Phase 2A). */
 export async function bindLocationFunction(
-  actor: ProfileActor,
-  input: {
+  _actor: ProfileActor,
+  _input: {
     facilityId: string;
     departmentId: string;
     unitSpaceId: string;
     functionKey: string;
   },
 ): Promise<{ profileId: string; bindingId: string; functionKey: string }> {
-  const department = await prisma.department.findFirst({
-    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
-    select: { id: true, key: true },
-  });
-  if (!department) throw new Error("Department not found.");
-  const adoption = resolveLocationFunctionAdoption({
-    productKey: department.key,
-    functionKey: input.functionKey,
-  });
-  if (!adoption) {
-    throw new Error("That Location Function is not part of this Department Product.");
-  }
-  const draft = await ensureWorkingDraftForPatterns(actor, {
-    facilityId: input.facilityId,
-    departmentId: department.id,
-  });
-  const adopted = await adoptProductLocationFunction(actor, {
-    profileId: draft.profileId,
-    productKey: department.key,
-    functionKey: adoption.key,
-  });
-  const bound = await bindRoomToArchetype(actor, {
-    profileId: draft.profileId,
-    archetypeId: adopted.archetypeId,
-    unitSpaceId: input.unitSpaceId,
-  });
-  return {
-    profileId: draft.profileId,
-    bindingId: bound.bindingId,
-    functionKey: adoption.key,
-  };
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
-/** Remove this department's current function from a room on the working draft. */
+/** @deprecated Location Function authoring retired (Phase 2A). */
 export async function clearLocationFunction(
-  actor: ProfileActor,
-  input: { facilityId: string; departmentId: string; unitSpaceId: string },
+  _actor: ProfileActor,
+  _input: { facilityId: string; departmentId: string; unitSpaceId: string },
 ): Promise<{ profileId: string }> {
-  const department = await prisma.department.findFirst({
-    where: { id: input.departmentId, facilityId: input.facilityId, isActive: true },
-    select: { id: true },
-  });
-  if (!department) throw new Error("Department not found.");
-  const room = await prisma.unitSpace.findFirst({
-    where: { id: input.unitSpaceId, facilityId: input.facilityId },
-    select: { id: true },
-  });
-  if (!room) throw new Error("Room not found.");
-  const draft = await ensureWorkingDraftForPatterns(actor, {
-    facilityId: input.facilityId,
-    departmentId: department.id,
-  });
-  await clearRoomArchetypeBinding(actor, {
-    profileId: draft.profileId,
-    unitSpaceId: room.id,
-  });
-  return { profileId: draft.profileId };
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
-/**
- * Certify and activate the working Location Function draft.
- * The previous ACTIVE profile is retired in the same activation and stays readable.
- */
+/** @deprecated Location Function authoring retired (Phase 2A). */
 export async function publishLocationFunctionDraft(
-  actor: ProfileActor,
-  input: { facilityId: string; departmentId: string },
+  _actor: ProfileActor,
+  _input: { facilityId: string; departmentId: string },
 ): Promise<{ profileId: string }> {
-  const draft = await prisma.departmentOperationalProfile.findFirst({
-    where: {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      status: "DRAFT",
-    },
-    select: { id: true },
-  });
-  if (!draft) throw new Error("There is no Location Function draft to publish.");
-  const certified = await certifyProfile(actor, draft.id);
-  if (!certified.certifiable) {
-    throw new Error(
-      certified.errors.map((error) => error.message).join("; ") ||
-        "Location Functions could not be published.",
-    );
-  }
-  await activateProfile(actor, draft.id);
-  return { profileId: draft.id };
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
+/** @deprecated Location Function authoring retired (Phase 2A). */
 export async function createRoomArchetype(
-  actor: ProfileActor,
-  input: {
+  _actor: ProfileActor,
+  _input: {
     profileId: string;
     key?: string;
     name: string;
     description?: string | null;
   },
 ): Promise<{ archetypeId: string }> {
-  const profile = await loadEditablePatternProfile(actor, input.profileId);
-  const name = input.name.trim();
-  if (!name) throw new Error("Operational type name is required.");
-
-  const existing = await prisma.departmentRoomArchetype.findMany({
-    where: { profileId: profile.id },
-    select: { key: true, name: true },
-  });
-  const nameTaken = existing.some(
-    (row) => row.name.trim().toLowerCase() === name.toLowerCase(),
-  );
-  if (nameTaken) {
-    throw new Error(`An operational type named “${name}” already exists.`);
-  }
-
-  // Explicit key is the identity. Slug-from-name remains only when no key is supplied
-  // (legacy custom departments). Product adoption always passes functionKey.
-  const key = input.key?.trim()
-    ? input.key.trim().toLowerCase().replace(/\s+/g, "_")
-    : uniqueOperationalTypeKey(
-        name,
-        existing.map((row) => row.key),
-      );
-  if (!/^[a-z][a-z0-9_]{0,63}$/.test(key)) {
-    throw new Error("Operational type key must be lowercase snake_case.");
-  }
-  if (existing.some((row) => row.key === key)) {
-    throw new Error("An operational type with that key already exists.");
-  }
-
-  const maxSort = await prisma.departmentRoomArchetype.aggregate({
-    where: { profileId: profile.id },
-    _max: { sortOrder: true },
-  });
-
-  const archetype = await prisma.departmentRoomArchetype.create({
-    data: {
-      profileId: profile.id,
-      key,
-      name,
-      description: input.description?.trim() || null,
-      sortOrder: (maxSort._max.sortOrder ?? 0) + 10,
-    },
-  });
-  return { archetypeId: archetype.id };
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
-/** Display-name / active-flag edit. `key` is immutable identity and is never written. */
+/** @deprecated Location Function authoring retired (Phase 2A). */
 export async function updateRoomArchetype(
-  actor: ProfileActor,
-  input: {
+  _actor: ProfileActor,
+  _input: {
     profileId: string;
     archetypeId: string;
     name?: string;
@@ -1064,57 +859,13 @@ export async function updateRoomArchetype(
     isActive?: boolean;
   },
 ): Promise<void> {
-  const profile = await loadEditablePatternProfile(actor, input.profileId);
-  const archetype = await prisma.departmentRoomArchetype.findUniqueOrThrow({
-    where: { id: input.archetypeId },
-    select: { profileId: true },
-  });
-  if (archetype.profileId !== profile.id) {
-    throw new Error("Archetype does not belong to the profile.");
-  }
-
-  const data: {
-    name?: string;
-    description?: string | null;
-    isActive?: boolean;
-  } = {};
-  if (input.name !== undefined) {
-    const name = input.name.trim();
-    if (!name) throw new Error("Name is required.");
-    const existing = await prisma.departmentRoomArchetype.findMany({
-      where: { profileId: profile.id },
-      select: { id: true, name: true },
-    });
-    const nameTaken = existing.some(
-      (row) =>
-        row.id !== input.archetypeId &&
-        row.name.trim().toLowerCase() === name.toLowerCase(),
-    );
-    if (nameTaken) {
-      throw new Error(`A configuration named “${name}” already exists.`);
-    }
-    data.name = name;
-  }
-  if (input.description !== undefined) {
-    data.description = input.description?.trim() || null;
-  }
-  if (input.isActive !== undefined) {
-    data.isActive = input.isActive;
-  }
-
-  await prisma.departmentRoomArchetype.update({
-    where: { id: input.archetypeId },
-    data,
-  });
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
-/**
- * Replace the archetype's Experience selections. All areaExperienceIds must
- * belong to the same profile. Empty array clears selections.
- */
+/** @deprecated Location Function authoring retired (Phase 2A). */
 export async function setArchetypeExperiences(
-  actor: ProfileActor,
-  input: {
+  _actor: ProfileActor,
+  _input: {
     profileId: string;
     archetypeId: string;
     selections: readonly {
@@ -1124,48 +875,7 @@ export async function setArchetypeExperiences(
     }[];
   },
 ): Promise<void> {
-  const profile = await loadEditablePatternProfile(actor, input.profileId);
-  const archetype = await prisma.departmentRoomArchetype.findUniqueOrThrow({
-    where: { id: input.archetypeId },
-    select: { profileId: true },
-  });
-  if (archetype.profileId !== profile.id) {
-    throw new Error("Archetype does not belong to the profile.");
-  }
-
-  const profileAreaExperiences = await prisma.departmentAreaExperience.findMany({
-    where: { area: { profileId: profile.id } },
-    select: { id: true },
-  });
-  const allowed = new Set(profileAreaExperiences.map((e) => e.id));
-  const seen = new Set<string>();
-  for (const selection of input.selections) {
-    if (!allowed.has(selection.areaExperienceId)) {
-      throw new Error("Archetype selection references an Experience outside the profile.");
-    }
-    if (seen.has(selection.areaExperienceId)) {
-      throw new Error("Duplicate Experience in archetype selection.");
-    }
-    seen.add(selection.areaExperienceId);
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.departmentArchetypeExperience.deleteMany({
-      where: { archetypeId: input.archetypeId },
-    });
-    let index = 0;
-    for (const selection of input.selections) {
-      index += 1;
-      await tx.departmentArchetypeExperience.create({
-        data: {
-          archetypeId: input.archetypeId,
-          areaExperienceId: selection.areaExperienceId,
-          isActive: selection.isActive ?? true,
-          sortOrder: selection.sortOrder ?? index * 10,
-        },
-      });
-    }
-  });
+  throw new Error(LOCATION_FUNCTION_AUTHORING_RETIRED);
 }
 
 /** Retire an ACTIVE profile without activating a replacement. */

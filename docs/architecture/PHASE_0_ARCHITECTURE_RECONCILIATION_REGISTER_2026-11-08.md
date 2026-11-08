@@ -30,9 +30,9 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | ID | Title | Category | Risk | Proposed phase |
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
-| ARR-002 | Department Builder Work tab still primary navigation | Confirmed conflict | Critical | 2 |
+| ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
 | ARR-003 | Job Flow still depends on generic Work Plans | Confirmed conflict | Critical | 2 → 5 |
-| ARR-004 | Location Function / profile / archetype schema + readers remain | Legacy debt + conflict | Critical | 2 |
+| ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A) | Legacy debt + conflict | Critical | 2 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
 | ARR-007 | Constitution / Domain Model long-form still name retired owners | Documentation drift | High | 1 |
@@ -43,7 +43,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | ARR-012 | Independent PM cron beside Scheduled Evaluation | Legitimate design | Low | — |
 | ARR-013 | Marketplace kinds beyond Records forms not built | Future enhancement | Medium | Future |
 | ARR-014 | EVS DEVELOPMENT vs shared engine surfaces | Legitimate + gap | Medium | Product release |
-| ARR-015 | Partner `/partner/work` and staffing work-plans routes | Legacy debt | Medium | 2 |
+| ARR-015 | Partner/staffing Work Plan authoring — **closed Phase 2B**; routes read-only | Closed (writers) | Medium → mitigated | 2B done |
 | ARR-016 | Runtime Location State still carries operational-type sidecars | Legacy debt | High | 2 |
 | ARR-017 | Multiple Records due calculators | Legitimate design | Low | 4 projection only |
 | ARR-018 | Historical Operational Type selectors in Review | Legacy debt | Medium | 2 |
@@ -54,10 +54,10 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | ARR-023 | Experience / Operational Area projection leftovers | Legacy debt | Medium | 2 |
 | ARR-024 | Nov 4 eligibility doc vs restored Job Role tables | Documentation drift | High | 1 → 2 |
 | ARR-025 | Operations Engine retired successfully (positive control) | Legitimate / complete | Low | — |
-| ARR-026 | Department Locations still writes Location Function bind/publish | Confirmed conflict | Critical | 2 |
+| ARR-026 | Department Locations LF bind/publish — **authoring closed Phase 2A** | Closed (writers) | Critical → mitigated | 2A done |
 | ARR-027 | Inspection due-at DST policy diverges from Operational Time | Confirmed conflict | Medium | 3 |
 | ARR-028 | `employee-units` uses server-local midnight for “today” | Implementation gap | Medium | 3 |
-| ARR-029 | Facility-composition tests deny LF writes that Locations panel still mounts | Documentation/test drift | High | 1 → 2 |
+| ARR-029 | Facility-composition vs Locations panel LF writes — **reconciled Phase 2A** | Closed (authoring) | High → mitigated | 2A done |
 
 ---
 
@@ -82,14 +82,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Department Builder |
-| Code evidence | `DEPARTMENT_ADMIN_TABS` includes `work`; `page.tsx` mounts `DepartmentWorkPanel`; `departmentAdminTabsForFlags` defaults `workEnabled` true |
+| Code evidence | **Closed Phase 2B (2026-11-08):** `work` removed from `DEPARTMENT_ADMIN_TABS`; retired redirect → overview; page no longer mounts authoring panel; `workEnabled` ignored. See [PHASE_2B_GENERIC_WORK_AUTHORING_CLOSED_2026-11-08.md](./PHASE_2B_GENERIC_WORK_AUTHORING_CLOSED_2026-11-08.md) |
 | Governing decision | 16 § Retired core section; 01A Amendment D |
-| Current vs expected | Expected: no Work section. Current: primary tab |
-| Risk | Critical |
-| Recommended action | Remove tab only after Job Flow and other consumers re-homed or deleted; keep redirects if needed |
+| Current vs expected | Expected: no Work section. **Nav/authoring closed.** Job Flow still reads plans (ARR-003) |
+| Risk | Critical authoring/nav **closed**; runtime reader risk remains ARR-003 |
+| Recommended action | ~~Remove tab~~ Done. Proceed to Phase 2C Job Flow rewiring before schema drop |
 | Dependencies | ARR-001, ARR-003 |
-| Proposed phase | 2 |
-| Verification needed | Nav hermetic tests; partner/work; staffing/work-plans |
+| Proposed phase | 2 — **authoring/nav complete (2B)** |
+| Verification needed | Phase 2B hermetics; partner/work; staffing/work-plans retired pages |
 
 ### ARR-003 — Job Flow depends on Work Plans
 
@@ -264,28 +264,28 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Generic Work consumers |
-| Code evidence | `/staffing/work-plans` is the authoring home linked from Department Builder Work panel; `/partner/work` still adds/publishes plans; Harbor `/console/catalog/work/[presetKey]` still exposes work preset detail; BUILD nav still labels Work |
+| Code evidence | **Closed Phase 2B:** staffing + partner plan create/publish actions return `GENERIC_WORK_AUTHORING_RETIRED`; pages are retired read-only; Build Home card and BUILD nav label removed. Harbor WORK_PRESET catalog browse remains read-only (preset metadata). Occurrence runtime actions intentionally retained |
 | Governing decision | Work retirement |
-| Current vs expected | Surfaces should redirect or disappear after dependency removal |
-| Risk | Medium → High for partner/console teaching retired capability |
-| Recommended action | Include every write path in Work consumer trace before UI removal |
+| Current vs expected | **Authoring closed.** Routes remain as retired/read-only until ARR-003 clears readers |
+| Risk | Authoring risk **mitigated**; Harbor browse still lists preset metadata (compatibility) |
+| Recommended action | ~~Close writers~~ Done. Remove Harbor WORK_PRESET browse after 2C if unused |
 | Dependencies | ARR-002, ARR-003 |
-| Proposed phase | 2 |
-| Verification needed | authorize/navigation tests; partner work actions |
+| Proposed phase | 2 — **authoring complete (2B)** |
+| Verification needed | Phase 2B hermetics; partner work actions |
 
 ### ARR-026 — Locations still writes Location Function bind/publish
 
 | Field | Content |
 |---|---|
 | Affected domain | Department Builder → Locations / Facility lens |
-| Code evidence | `locations-panel.tsx` mounts `bindLocationFunctionAction` / `publishLocationFunctionsAction`; `actions.ts` + `profile-service.ts` (`adoptProductLocationFunction`, `bindLocationFunction`); write-manifest still classifies those actions |
+| Code evidence | **Closed Phase 2A (2026-11-08):** `locations-panel.tsx` no longer mounts bind/publish; `actions.ts` + `profile-service` LF/OT/archetype writers return/throw `LOCATION_FUNCTION_AUTHORING_RETIRED`; write-manifest classifies those actions `LEGACY`. See [PHASE_2A_LOCATION_FUNCTION_AUTHORING_CLOSED_2026-11-08.md](./PHASE_2A_LOCATION_FUNCTION_AUTHORING_CLOSED_2026-11-08.md) |
 | Governing decision | 16 §4.3–4.4 — Facility section must not author Location Function; Facility authoring path closed in Phase 5B narrative |
-| Current vs expected | Expected: composition-only over responsibility. Current: live bind/publish on Locations |
-| Risk | Critical — keeps creating the retired indirection |
-| Recommended action | Close write path in Phase 2 after confirming no required seed depends on it; keep read composition of responsibility + other owners |
+| Current vs expected | Expected: composition-only over responsibility. **Authoring closed.** Readers/schema remain (ARR-004) |
+| Risk | Critical authoring path **closed**; residual reader risk tracked under ARR-004 |
+| Recommended action | ~~Close write path~~ Done. Keep read composition of responsibility + other owners until ARR-004 |
 | Dependencies | ARR-004, ARR-029 |
-| Proposed phase | 2 |
-| Verification needed | Locations UI hermetic; facility-composition vs locations-panel conflict |
+| Proposed phase | 2 — **authoring complete (2A)** |
+| Verification needed | ~~Locations UI hermetic; facility-composition vs locations-panel conflict~~ Phase 2A hermetics pass |
 
 ### ARR-027 — Inspection due-at DST policy diverges from Operational Time
 
@@ -320,14 +320,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Certification evidence for LF elimination |
-| Code evidence | `facility-composition.hermetic.test.ts` asserts panel source does not match Location Function bind/publish; `locations-panel.tsx` still imports and mounts those actions |
+| Code evidence | **Closed Phase 2A (2026-11-08):** `locations-panel.tsx` no longer matches Location Function bind/publish; facility-composition panel authoring assertion now agrees. Remaining facility-composition failures are reader/composition expectations (ARR-004), not authoring |
 | Governing decision | Elimination audit Phase 5B / 16 Facility composition |
-| Current vs expected | Tests encode closed authoring; Locations panel still open |
-| Risk | High false confidence |
-| Recommended action | Reconcile which panel is canonical; update or fail tests against the live panel in Phase 2 |
+| Current vs expected | **Authoring conflict resolved.** Reader composition assertions may still fail independently |
+| Risk | Authoring false-confidence risk **closed** |
+| Recommended action | ~~Reconcile panel~~ Done for authoring. Track reader assertions under ARR-004 |
 | Dependencies | ARR-026 |
-| Proposed phase | 1 annotate / 2 fix |
-| Verification needed | Run both hermetic files against HEAD |
+| Proposed phase | 2 — **authoring complete (2A)** |
+| Verification needed | Phase 2A + facility-composition panel assertion |
 
 ### ARR-016 — Runtime Location State operational-type sidecars
 

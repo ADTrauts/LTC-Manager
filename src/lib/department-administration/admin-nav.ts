@@ -1,7 +1,8 @@
 /**
  * Department Builder — local navigation.
- * Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
- * Menus appear only when the Department Product offers Menus.
+ * Overview, Locations, Operating Rhythm, People & Coverage, Records.
+ * Maintenance (Plant), Menus when the Product offers them.
+ * Generic Work is retired (Phase 2B); old `?tab=work` redirects to Overview.
  *
  * Retired tab ids still resolve so old links land on the owning section.
  */
@@ -15,17 +16,12 @@ export const DEPARTMENT_ADMIN_TABS = [
   {
     id: "locations",
     label: "Locations",
-    description: "Physical places and Location Functions",
+    description: "Physical places assigned in Facility Builder",
   },
   {
     id: "operating-rhythm",
     label: "Operating Rhythm",
     description: "Operational Cycles, phases, and key points",
-  },
-  {
-    id: "work",
-    label: "Work",
-    description: "Work plans for this department",
   },
   {
     id: "maintenance",
@@ -56,6 +52,7 @@ export type DepartmentAdminPrimaryTabId = (typeof DEPARTMENT_ADMIN_TABS)[number]
  * Cycles configure under Operating Rhythm. Teams configure under People & Coverage.
  */
 export const DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT = {
+  work: "overview",
   coverage: "people",
   cycles: "operating-rhythm",
   teams: "people",
@@ -119,7 +116,9 @@ export function departmentAdminTabsForFlags(input: {
   cyclesEnabled?: boolean;
   /** Locations always available when the department detail page is reachable. */
   locationsEnabled?: boolean;
-  /** Omit Work when this Product has no work plans and no work presets. */
+  /**
+   * @deprecated Generic Work tab retired (Phase 2B). Ignored; Work never appears.
+   */
   workEnabled?: boolean;
   /** Canonical Record requirements. Omit when the record engine is off. */
   recordsEnabled?: boolean;
@@ -129,14 +128,13 @@ export function departmentAdminTabsForFlags(input: {
   maintenanceEnabled?: boolean;
 }): (typeof DEPARTMENT_ADMIN_TABS)[number][] {
   void input.cyclesEnabled;
+  void input.workEnabled;
   const locationsEnabled = input.locationsEnabled ?? true;
-  const workEnabled = input.workEnabled ?? true;
   const recordsEnabled = input.recordsEnabled ?? false;
   const menusEnabled = input.menusEnabled ?? false;
   const maintenanceEnabled = input.maintenanceEnabled ?? false;
   return DEPARTMENT_ADMIN_TABS.filter((tab) => {
     if (tab.id === "locations") return locationsEnabled;
-    if (tab.id === "work") return workEnabled;
     if (tab.id === "maintenance") return maintenanceEnabled;
     if (tab.id === "records") return recordsEnabled;
     if (tab.id === "menus") return menusEnabled;

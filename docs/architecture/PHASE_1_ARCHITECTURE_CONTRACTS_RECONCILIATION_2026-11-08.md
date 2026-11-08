@@ -99,7 +99,7 @@ Documentation-only resolution means governing text no longer conflicts. **Code d
 | ARR-019 | Build guide supersession; hub copy remains code (Phase 2) |
 | ARR-020 | Elimination audit supersession note |
 | ARR-024 | Eligibility supersession note |
-| ARR-029 | Documented as test/panel conflict; fix remains Phase 2 |
+| ARR-029 | Documented as test/panel conflict; **closed in Phase 2A** (panel no longer authors LF) |
 
 Also recorded: progressive configuration principle; temporal constraints; Builder→engine ownership summary; four architectural states.
 
@@ -109,12 +109,12 @@ Also recorded: progressive configuration principle; temporal constraints; Builde
 
 | ID | Remains | Proposed phase |
 |---|---|---|
-| ARR-002 | Work tab still primary nav | 2 |
-| ARR-003 | Job Flow reads Work Plans | 2 → 5 |
-| ARR-004 / 016 / 018 / 023 | LF/profile/archetype/Experience readers | 2 |
+| ARR-002 | Work tab/nav authoring — **closed Phase 2B** | 2B done |
+| ARR-003 | Job Flow reads Work Plans | 2C → 5 |
+| ARR-004 / 016 / 018 / 023 | LF/profile/archetype/Experience readers (writers closed 2A) | 2 |
 | ARR-008 | Job Role beside qualifications | 2 |
-| ARR-015 | Partner/staffing/Harbor Work surfaces | 2 |
-| ARR-026 | Locations bind/publish still writes | 2 |
+| ARR-015 | Partner/staffing Work Plan writers — **closed Phase 2B** | 2B done |
+| ARR-026 | Locations bind/publish — **closed Phase 2A** | 2A done |
 | ARR-009 / 010 | SE host cron / Web Push | 3 foundation / 6 activation |
 | ARR-011 | `CANONICAL_LOGS_ENABLED` default | Launch / 7 |
 | ARR-027 / 028 | DST fork; server-local midnight | 3 |

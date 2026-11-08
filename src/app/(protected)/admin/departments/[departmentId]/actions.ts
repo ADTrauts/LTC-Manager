@@ -1,483 +1,138 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { z } from "zod";
-
-import type { AppRole } from "@/lib/access";
-import {
-  clearRoomArchetypeBinding,
-  adoptProductLocationFunction,
-  bindLocationFunction,
-  clearLocationFunction,
-  publishLocationFunctionDraft,
-  createRoomArchetype,
-  ensureWorkingDraftForPatterns,
-  loadProfile,
-  toProfileSnapshot,
-  updateRoomArchetype,
-  type ProfileActor,
-} from "@/lib/department-administration/profile-service";
-import { departmentArchetypeForRoomType } from "@/lib/department-administration/room-types";
-import { isDepartmentProductKey } from "@/lib/department-products/registry";
-import type { AuthMethod } from "@/lib/auth";
-import { requireFacilitySession } from "@/lib/facility-context";
-import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/load-facility-catalog";
-import { prisma } from "@/lib/prisma";
-
-function actorFromSession(session: {
-  uid: string;
-  role: string;
-  facilityId: string;
-  authMethod?: AuthMethod;
-}): ProfileActor {
-  return {
-    userId: session.uid,
-    role: session.role as AppRole,
-    facilityId: session.facilityId,
-    authMethod: session.authMethod ?? "PASSWORD",
-  };
-}
-
-function revalidateDepartmentAdmin(departmentId: string) {
-  revalidatePath(`/admin/departments/${departmentId}`);
-  revalidatePath("/admin/departments");
-}
-
-async function assertDepartmentInFacility(
-  departmentId: string,
-  session: Awaited<ReturnType<typeof requireFacilitySession>>,
-): Promise<{ id: string; key: string }> {
-  const department = await prisma.department.findFirst({
-    where: { id: departmentId, facilityId: session.facilityId, isActive: true },
-    select: { id: true, key: true },
-  });
-  if (!department || !(await isCustomerDepartmentAccessAllowed(prisma, session, departmentId))) throw new Error("Department commercial access is unavailable.");
-  return department;
-}
-
-async function assertProfileInFacility(
-  profileId: string,
-  session: Awaited<ReturnType<typeof requireFacilitySession>>,
-): Promise<{ id: string; departmentId: string }> {
-  const profile = await prisma.departmentOperationalProfile.findFirst({
-    where: { id: profileId, facilityId: session.facilityId },
-    select: { id: true, departmentId: true },
-  });
-  if (!profile) throw new Error("Profile not found.");
-  await assertDepartmentInFacility(profile.departmentId, session);
-  return profile;
-}
+import { LOCATION_FUNCTION_AUTHORING_RETIRED } from "@/lib/department-administration/profile-service";
 
 export type ActionResult =
   | { ok: true; message?: string; profileId?: string }
   | { ok: false; message: string; errors?: string[] };
 
-export async function createOperationalTypeAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const functionKey = String(formData.get("functionKey") ?? "").trim();
-    if (!functionKey) {
-      return {
-        ok: false,
-        message:
-          "Choose a Location Function from the Department Product. A label does not create an identity.",
-      };
-    }
-    const department = await assertDepartmentInFacility(departmentId, session);
-    if (!isDepartmentProductKey(department.key)) {
-      return {
-        ok: false,
-        message: "Location Functions are adopted from a Department Product.",
-      };
-    }
-    const draft = await ensureWorkingDraftForPatterns(actorFromSession(session), {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    const adopted = await adoptProductLocationFunction(actorFromSession(session), {
-      profileId: draft.profileId,
-      productKey: department.key,
-      functionKey,
-      displayName: String(formData.get("name") ?? ""),
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: adopted.alreadyAdopted
-        ? "That Location Function is already adopted."
-        : "Location Function adopted.",
-      profileId: draft.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not adopt Location Function.",
-    };
-  }
+const RETIRED: ActionResult = {
+  ok: false,
+  message: LOCATION_FUNCTION_AUTHORING_RETIRED,
+};
+
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
+export async function createOperationalTypeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  void formData;
+  return RETIRED;
 }
 
-export async function bindLocationFunctionAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    const functionKey = String(formData.get("functionKey") ?? "").trim();
-    await assertDepartmentInFacility(departmentId, session);
-    const actor = actorFromSession(session);
-    if (!functionKey) {
-      const cleared = await clearLocationFunction(actor, {
-        facilityId: session.facilityId,
-        departmentId,
-        unitSpaceId,
-      });
-      revalidateDepartmentAdmin(departmentId);
-      return {
-        ok: true,
-        message: "Location Function cleared. Publish before Run uses this change.",
-        profileId: cleared.profileId,
-      };
-    }
-    const bound = await bindLocationFunction(actor, {
-      facilityId: session.facilityId,
-      departmentId,
-      unitSpaceId,
-      functionKey,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: "Location Function saved on the draft. Publish before Run uses it.",
-      profileId: bound.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not save Location Function.",
-    };
-  }
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
+export async function bindLocationFunctionAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  void formData;
+  return RETIRED;
 }
 
-export async function publishLocationFunctionsAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    await assertDepartmentInFacility(departmentId, session);
-    const published = await publishLocationFunctionDraft(actorFromSession(session), {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: "Location Functions are published. Run uses this configuration.",
-      profileId: published.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not publish Location Functions.",
-    };
-  }
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
+export async function publishLocationFunctionsAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  void formData;
+  return RETIRED;
 }
 
-export async function ensurePatternDraftAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    await assertDepartmentInFacility(departmentId, session);
-    const draft = await ensureWorkingDraftForPatterns(actorFromSession(session), {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: draft.created
-        ? "Draft operational configuration created."
-        : "Draft operational configuration is ready.",
-      profileId: draft.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not prepare operational types.",
-    };
-  }
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
+export async function ensurePatternDraftAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  void formData;
+  return RETIRED;
 }
 
-const ROLE_BINDING_RETIRED =
-  "Role bindings are retired. Program the room from Teams (membership + cycle need).";
-
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
 export async function bindRoomsToOperationalTypeAction(
   formData: FormData,
 ): Promise<ActionResult> {
   void formData;
-  return { ok: false, message: ROLE_BINDING_RETIRED };
+  return RETIRED;
 }
 
-export async function clearRoomOperationalTypeAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    await assertDepartmentInFacility(departmentId, session);
-    const actor = actorFromSession(session);
-    const draft = await ensureWorkingDraftForPatterns(actor, {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    await clearRoomArchetypeBinding(actor, {
-      profileId: draft.profileId,
-      unitSpaceId,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return { ok: true, message: "Operational type removed. Location remains assigned." };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not remove operational type.",
-    };
-  }
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
+export async function clearRoomOperationalTypeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  void formData;
+  return RETIRED;
 }
 
-export async function renameOperationalTypeAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const archetypeKey = z.string().min(1).max(64).parse(String(formData.get("archetypeKey") ?? "").trim());
-    const name = z.string().min(1).max(120).parse(String(formData.get("name") ?? "").trim());
-    await assertDepartmentInFacility(departmentId, session);
-    const actor = actorFromSession(session);
-    const draft = await ensureWorkingDraftForPatterns(actor, {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    const loaded = await loadProfile(draft.profileId);
-    const archetype = loaded.archetypes.find((row) => row.key === archetypeKey);
-    if (!archetype) {
-      throw new Error("That operational type was not found on the draft.");
-    }
-    await updateRoomArchetype(actor, {
-      profileId: draft.profileId,
-      archetypeId: archetype.id,
-      name,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return { ok: true, message: `Operational type renamed to “${name}”.`, profileId: draft.profileId };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not rename operational type.",
-    };
-  }
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
+export async function renameOperationalTypeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  void formData;
+  return RETIRED;
 }
 
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
 export async function updateRoomTypeDepartmentUseAction(
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const roomTypeKey = z.string().min(1).max(120).parse(String(formData.get("roomTypeKey") ?? "").trim());
-    const description = z
-      .string()
-      .max(1000)
-      .parse(String(formData.get("description") ?? "").trim());
-    const department = await assertDepartmentInFacility(departmentId, session);
-    if (roomTypeKey.startsWith("custom:")) {
-      throw new Error("Reusable configuration is not available for custom Room Types yet.");
-    }
-    const actor = actorFromSession(session);
-    const draft = await ensureWorkingDraftForPatterns(actor, {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    const loaded = await loadProfile(draft.profileId);
-    const snapshot = toProfileSnapshot(loaded);
-    const archetype = departmentArchetypeForRoomType({
-      departmentKey: department.key,
-      roomTypeKey,
-      profile: snapshot,
-    });
-    if (!archetype) {
-      throw new Error("Set up department configuration for this Room Type first.");
-    }
-    await updateRoomArchetype(actor, {
-      profileId: draft.profileId,
-      archetypeId: archetype.id,
-      description,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: "About this Room Type saved.",
-      profileId: draft.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not save department use.",
-    };
-  }
+  void formData;
+  return RETIRED;
 }
 
-export async function createArchetypeAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const profileId = z.string().cuid().parse(formData.get("profileId"));
-    const key = z.string().min(1).max(64).parse(formData.get("key"));
-    const name = z.string().min(1).max(120).parse(formData.get("name"));
-    const description = z.string().max(500).optional().parse(formData.get("description") || undefined);
-    const profile = await assertProfileInFacility(profileId, session);
-    const department = await prisma.department.findFirst({
-      where: { id: profile.departmentId, facilityId: session.facilityId },
-      select: { key: true },
-    });
-    if (isDepartmentProductKey(department?.key)) {
-      const adopted = await adoptProductLocationFunction(actorFromSession(session), {
-        profileId,
-        productKey: department.key,
-        functionKey: key,
-        displayName: name,
-      });
-      revalidateDepartmentAdmin(profile.departmentId);
-      return {
-        ok: true,
-        message: adopted.alreadyAdopted
-          ? "That Location Function is already adopted."
-          : "Location Function adopted.",
-        profileId: adopted.archetypeId,
-      };
-    }
-    const result = await createRoomArchetype(actorFromSession(session), {
-      profileId,
-      key,
-      name,
-      description: description ?? null,
-    });
-    revalidateDepartmentAdmin(profile.departmentId);
-    return { ok: true, message: "Archetype created.", profileId: result.archetypeId };
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Create failed." };
-  }
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
+export async function createArchetypeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  void formData;
+  return RETIRED;
 }
 
-export async function updateArchetypeAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const profileId = z.string().cuid().parse(formData.get("profileId"));
-    const archetypeId = z.string().cuid().parse(formData.get("archetypeId"));
-    const name = formData.get("name");
-    const description = formData.get("description");
-    const isActiveRaw = formData.get("isActive");
-    const profile = await assertProfileInFacility(profileId, session);
-    await updateRoomArchetype(actorFromSession(session), {
-      profileId,
-      archetypeId,
-      name: typeof name === "string" && name.length > 0 ? name : undefined,
-      description:
-        description === null || description === undefined
-          ? undefined
-          : String(description),
-      isActive:
-        isActiveRaw === "true" ? true : isActiveRaw === "false" ? false : undefined,
-    });
-    revalidateDepartmentAdmin(profile.departmentId);
-    return { ok: true, message: "Archetype updated." };
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Update failed." };
-  }
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
+export async function updateArchetypeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  void formData;
+  return RETIRED;
 }
 
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
 export async function bindRoomAction(formData: FormData): Promise<ActionResult> {
   void formData;
-  return { ok: false, message: ROLE_BINDING_RETIRED };
+  return RETIRED;
 }
 
-export async function clearRoomBindingAction(formData: FormData): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const profileId = z.string().cuid().parse(formData.get("profileId"));
-    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    const profile = await assertProfileInFacility(profileId, session);
-    await clearRoomArchetypeBinding(actorFromSession(session), {
-      profileId,
-      unitSpaceId,
-    });
-    revalidateDepartmentAdmin(profile.departmentId);
-    return { ok: true, message: "Room mapping cleared." };
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Clear failed." };
-  }
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
+export async function clearRoomBindingAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  void formData;
+  return RETIRED;
 }
 
-/**
- * Locations programming — Operational Type assign/clear/create.
- * Uses pattern authoring access (password Manager+).
- */
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
 export async function ensureLocationOperationalTypesAction(
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    await assertDepartmentInFacility(departmentId, session);
-    const draft = await ensureWorkingDraftForPatterns(actorFromSession(session), {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return {
-      ok: true,
-      message: "Operational Types are ready to assign.",
-      profileId: draft.profileId,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not prepare Operational Types.",
-    };
-  }
+  void formData;
+  return RETIRED;
 }
 
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
 export async function assignLocationOperationalTypeAction(
   formData: FormData,
 ): Promise<ActionResult> {
   void formData;
-  return { ok: false, message: ROLE_BINDING_RETIRED };
+  return RETIRED;
 }
 
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
 export async function clearLocationOperationalTypeAction(
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    const session = await requireFacilitySession();
-    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
-    const unitSpaceId = z.string().cuid().parse(formData.get("unitSpaceId"));
-    await assertDepartmentInFacility(departmentId, session);
-    const actor = actorFromSession(session);
-    const draft = await ensureWorkingDraftForPatterns(actor, {
-      facilityId: session.facilityId,
-      departmentId,
-    });
-    await clearRoomArchetypeBinding(actor, {
-      profileId: draft.profileId,
-      unitSpaceId,
-    });
-    revalidateDepartmentAdmin(departmentId);
-    return { ok: true, message: "Operational Type cleared.", profileId: draft.profileId };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Could not clear Operational Type.",
-    };
-  }
+  void formData;
+  return RETIRED;
 }
 
+/** @deprecated Location Function authoring retired (Phase 2A / ARR-026). */
 export async function createLocationOperationalTypeAction(
   formData: FormData,
 ): Promise<ActionResult> {
   void formData;
-  return { ok: false, message: ROLE_BINDING_RETIRED };
+  return RETIRED;
 }

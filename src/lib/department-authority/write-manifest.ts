@@ -73,10 +73,10 @@ export const WRITE_MANIFEST: WriteManifest = {
     "addPartnerKeyPointAction",
     "publishPartnerCycleAction",
   ]),
-  [`${APP}/partner/work/actions.ts`]: {
-    addPartnerWorkPlanAction: department("department"),
-    publishPartnerWorkPlanAction: department("workPlan"),
-  },
+  [`${APP}/partner/work/actions.ts`]: each(legacy("workPlan"), [
+    "addPartnerWorkPlanAction",
+    "publishPartnerWorkPlanAction",
+  ]),
   [`${APP}/partner/assets/actions.ts`]: each(department("department"), ["addPartnerAssetAction"]),
   [`${APP}/partner/menus/actions.ts`]: {
     addPartnerMenuAction: department("department"),
@@ -202,28 +202,24 @@ export const WRITE_MANIFEST: WriteManifest = {
     "unblockPartnerUserAction",
   ]),
 
-  [`${DEPARTMENT_ADMIN}/actions.ts`]: {
-    ...each(legacy("locationFunctionProfile"), [
-      "createArchetypeAction",
-      "updateArchetypeAction",
-    ]),
-    bindRoomAction: department("roomArchetype"),
-    clearRoomBindingAction: department("roomBinding"),
-    ...each(department("department"), [
-      "createOperationalTypeAction",
-      "bindLocationFunctionAction",
-      "publishLocationFunctionsAction",
-      "ensurePatternDraftAction",
-      "bindRoomsToOperationalTypeAction",
-      "clearRoomOperationalTypeAction",
-      "renameOperationalTypeAction",
-      "updateRoomTypeDepartmentUseAction",
-      "ensureLocationOperationalTypesAction",
-      "assignLocationOperationalTypeAction",
-      "clearLocationOperationalTypeAction",
-      "createLocationOperationalTypeAction",
-    ]),
-  },
+  [`${DEPARTMENT_ADMIN}/actions.ts`]: each(legacy("locationFunctionProfile"), [
+    "createArchetypeAction",
+    "updateArchetypeAction",
+    "bindRoomAction",
+    "clearRoomBindingAction",
+    "createOperationalTypeAction",
+    "bindLocationFunctionAction",
+    "publishLocationFunctionsAction",
+    "ensurePatternDraftAction",
+    "bindRoomsToOperationalTypeAction",
+    "clearRoomOperationalTypeAction",
+    "renameOperationalTypeAction",
+    "updateRoomTypeDepartmentUseAction",
+    "ensureLocationOperationalTypesAction",
+    "assignLocationOperationalTypeAction",
+    "clearLocationOperationalTypeAction",
+    "createLocationOperationalTypeAction",
+  ]),
   [`${DEPARTMENT_ADMIN}/coverage-actions.ts`]: {
     createCoverageExpectationAction: department("department"),
     ...each(department("assignmentTemplate"), [
@@ -362,16 +358,15 @@ export const WRITE_MANIFEST: WriteManifest = {
       "completeKeyTimeExpectationAction",
     ]),
   },
-  [`${PROTECTED}/staffing/work-plans/actions.ts`]: {
-    ...each(department("department"), ["createWorkPlanDraftAction", "createWorkPlanPresetDraftAction"]),
-    ...each(department("workPlan"), [
-      "updateWorkPlanDraftAction",
-      "publishWorkPlanAction",
-      "retireWorkPlanAction",
-      "duplicateWorkPlanAction",
-      "createWorkPlanSuccessorAction",
-    ]),
-  },
+  [`${PROTECTED}/staffing/work-plans/actions.ts`]: each(legacy("workPlan"), [
+    "createWorkPlanDraftAction",
+    "createWorkPlanPresetDraftAction",
+    "updateWorkPlanDraftAction",
+    "publishWorkPlanAction",
+    "retireWorkPlanAction",
+    "duplicateWorkPlanAction",
+    "createWorkPlanSuccessorAction",
+  ]),
   [`${PROTECTED}/staffing/work-plans/work-runtime-actions.ts`]: {
     createOneOffWorkAction: department("department"),
     ...each(department("workOccurrence"), [

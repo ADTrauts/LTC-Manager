@@ -102,7 +102,7 @@ test("Unit/Space Report a problem mounts Request intake, not Issue create", () =
   assert.match(form, /RequesterStatusPanel/);
 });
 
-test("Plant Builder exposes Work and Maintenance without Menus", () => {
+test("Plant Builder exposes Maintenance without generic Work or Menus", () => {
   const tabs = departmentAdminTabsForFlags({
     workEnabled: true,
     recordsEnabled: true,
@@ -110,7 +110,7 @@ test("Plant Builder exposes Work and Maintenance without Menus", () => {
   });
   assert.deepEqual(
     tabs.map((row) => row.id),
-    ["overview", "locations", "operating-rhythm", "work", "maintenance", "people", "records"],
+    ["overview", "locations", "operating-rhythm", "maintenance", "people", "records"],
   );
   const page = source("src/app/(protected)/admin/departments/[departmentId]/page.tsx");
   assert.match(page, /view\.department\.key === "PLANT"/);

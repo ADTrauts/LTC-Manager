@@ -21,7 +21,7 @@ export const BUILD_HUB_DESCRIPTIONS: Record<string, string> = {
   "/admin/facility/builder":
     "Physical structure and identity — floors, neighborhoods, rooms, spaces, and the location hierarchy.",
   "/build/departments":
-    "Configure the selected Department — Overview, Locations, Operating Rhythm, Work, People & Coverage, and Records.",
+    "Configure the selected Department — Overview, Locations, Operating Rhythm, People & Coverage, and Records.",
   "/admin/departments":
     "Manage installed Department Products and add Departments to this facility.",
   "/employees":
@@ -34,7 +34,7 @@ export const BUILD_HUB_DESCRIPTIONS: Record<string, string> = {
   "/staffing/templates":
     "Phase 9C operational templates (compatibility). Prefer BUILD · Logs for Catalog Attachments when Canonical Logs are enabled.",
   "/staffing/work-plans":
-    "Author department work plans that schedule recurring operational work.",
+    "Generic Work Plans are retired. Existing plans remain readable until Job Flow is rewired.",
   "/admin/knowledge":
     "Local procedure notes for this facility. Harbor-published procedures install under Logs.",
 };
@@ -59,7 +59,7 @@ export const BUILD_PAGE_INTROS: Record<string, string> = {
   "/build/logs":
     "Install a published log, checklist, inspection, or procedure onto this facility, then place it.",
   "/staffing/work-plans":
-    "Author department work plans that schedule recurring operational work.",
+    "Generic Work Plans are retired. Use Operating Rhythm, Records, Coverage, and Plant Maintenance.",
   "/admin/knowledge":
     "Manage SOPs, instructions, policies, job aids, and reference materials.",
   "/admin/inspections":
