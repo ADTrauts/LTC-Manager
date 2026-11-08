@@ -298,6 +298,57 @@ export type OfflineRuntimeBundle = {
     }>;
     lastSyncedAt: string;
   } | null;
+  /**
+   * Phase 2C-2D — additive canonical Job Flow item snapshot.
+   * Optional: older bundles omit this field and keep work/evidence/milestone slices.
+   * Snapshot only — never grants new lifecycle authority offline.
+   */
+  jobFlowItemContext?: OfflineJobFlowItemContext | null;
+};
+
+/** Additive schema for offline Job Flow items (v1). */
+export const OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION = 1 as const;
+
+export type OfflineJobFlowItemAction =
+  | "COMPLETE_OPERATIONAL_TASK"
+  | "SUBMIT_OPERATIONAL_EVIDENCE"
+  | "RECORD_SERVERY_READY"
+  | "RECORD_MEAL_SERVICE_STARTED"
+  | null;
+
+export type OfflineJobFlowItemSnapshot = {
+  ownerKind: string;
+  ownerId: string;
+  label: string;
+  ownerState: string;
+  attention: string;
+  place: {
+    unitId: string | null;
+    spaceId: string | null;
+    assetId: string | null;
+  };
+  time: {
+    dueAt: string | null;
+    windowStartLocal: string | null;
+    windowEndLocal: string | null;
+  };
+  href: string | null;
+  compatibility: boolean;
+  /** True when item is notice-only (e.g. call-off). */
+  informational: boolean;
+  /**
+   * Supported offline command type, or null when display-only.
+   * Never inferred solely from href — must match OFFLINE_COMMAND_TYPES.
+   */
+  offlineAction: OfflineJobFlowItemAction;
+};
+
+export type OfflineJobFlowItemContext = {
+  schemaVersion: typeof OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION;
+  lastSyncedAt: string;
+  /** Facility service date captured with the snapshot. */
+  snapshotOperationalDate: string;
+  items: OfflineJobFlowItemSnapshot[];
 };
 
 export type OfflineMilestoneProjection = {

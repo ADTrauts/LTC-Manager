@@ -11,7 +11,7 @@
 | | |
 |---|---|
 | Starting HEAD (2C-2B checkpoint) | `bf83128ca4cbb5597194fbfa299fe8e49c7392c5` |
-| Ending HEAD | Working tree on top of `bf83128` (commit when approved) |
+| Ending HEAD | `ebaac8b` (committed after certification) |
 | Prior | `99a90ab` (2C-2A), `78dcd3d` (2C-1), `3de0f41` (2A/2B) |
 
 Preflight: 2C-2B verified (59 hermetics), committed as `bf83128`. `.neon` excluded.

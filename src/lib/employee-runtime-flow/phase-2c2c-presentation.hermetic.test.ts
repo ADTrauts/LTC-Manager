@@ -473,5 +473,7 @@ test("compatibility fences remain closed; offline serialize still reads parallel
     "utf8",
   );
   assert.match(offline, /flow\.work/);
-  assert.equal(offline.includes("flow.items"), false);
+  // Phase 2C-2D adds additive jobFlowItemContext from flow.items; Work commands stay on workContext.
+  assert.match(offline, /flow\.items/);
+  assert.match(offline, /serializeEmployeeRuntimeJobFlowItemContext/);
 });

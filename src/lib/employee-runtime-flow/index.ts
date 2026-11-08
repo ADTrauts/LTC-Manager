@@ -67,9 +67,13 @@ export {
   type AdaptEmployeeRuntimeFlowToJobFlowInput,
 } from "./to-job-flow";
 export {
+  offlineActionForJobFlowItem,
+  readOfflineJobFlowItems,
   serializeEmployeeRuntimeEvidenceContext,
   serializeEmployeeRuntimeJobFlowContext,
+  serializeEmployeeRuntimeJobFlowItemContext,
   serializeEmployeeRuntimeWorkContext,
+  serializeOfflineJobFlowItem,
 } from "./serialize-offline";
 export { loadFrontlineEmployeeAssignments } from "./load-assignments";
 export { loadAssignedEmployeeSpaceRefs } from "./load-assigned-space-refs";

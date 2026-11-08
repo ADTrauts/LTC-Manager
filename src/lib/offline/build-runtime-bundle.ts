@@ -4,6 +4,7 @@ import type { MealType, PrismaClient } from "@prisma/client";
 
 import type { FacilitySession } from "@/lib/auth";
 import {
+  getFacilityLocalTodayWindow,
   getFacilityServiceDate,
   loadFacilityTimezone,
   toServiceDateKey,
@@ -27,9 +28,12 @@ import {
   adaptEmployeeRuntimeFlowToJobFlow,
   composeEmployeeRuntimeFlow,
   loadAssignedEmployeeSpaceRefs,
+  loadAssignedWorkOrdersForJobFlow,
   loadFrontlineEmployeeAssignments,
+  loadOwnCallOffAssignmentExceptions,
   serializeEmployeeRuntimeEvidenceContext,
   serializeEmployeeRuntimeJobFlowContext,
+  serializeEmployeeRuntimeJobFlowItemContext,
   serializeEmployeeRuntimeWorkContext,
 } from "@/lib/employee-runtime-flow";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
@@ -524,6 +528,7 @@ export async function buildRuntimeBundle(
   let jobFlowContext: OfflineRuntimeBundle["jobFlowContext"] = null;
   let evidenceContext: OfflineRuntimeBundle["evidenceContext"] = null;
   let workContext: OfflineRuntimeBundle["workContext"] = null;
+  let jobFlowItemContext: OfflineRuntimeBundle["jobFlowItemContext"] = null;
   const jobFlowEnabled = isDepartmentJobFlowEnabled(dietary.key);
   const oaEnabled = true;
   const canonicalLogsEnabled = isCanonicalLogsEnabled();
@@ -629,6 +634,24 @@ export async function buildRuntimeBundle(
           })
         : [];
 
+    const serviceDayStartsAt = getFacilityLocalTodayWindow(facilityTimezone, now).start;
+    const [assignedWorkOrders, ownCallOffExceptions] = await Promise.all([
+      dietary.key === "PLANT"
+        ? loadAssignedWorkOrdersForJobFlow({
+            facilityId: input.session.facilityId,
+            departmentId: dietary.id,
+            employeeId: actor.employeeId,
+            serviceDayStartsAt,
+          })
+        : Promise.resolve([]),
+      loadOwnCallOffAssignmentExceptions({
+        facilityId: input.session.facilityId,
+        departmentId: dietary.id,
+        employeeId: actor.employeeId,
+        now,
+      }),
+    ]);
+
     const flow = composeEmployeeRuntimeFlow({
       operationalAssignmentsEnabled: oaEnabled,
       canonicalLogsEnabled,
@@ -641,6 +664,9 @@ export async function buildRuntimeBundle(
       states: loadedStates.states,
       templateEvidence,
       workRequirements: workRequirementsRaw,
+      workOrders: assignedWorkOrders,
+      preventiveMaintenance: [],
+      assignmentExceptions: ownCallOffExceptions,
       deviceBoundUnitId: input.deviceBoundUnitId,
       offline: {
         bundleRevision: serverRevision,
@@ -666,6 +692,10 @@ export async function buildRuntimeBundle(
     });
     evidenceContext = serializeEmployeeRuntimeEvidenceContext(flow, issuedAt.toISOString());
     workContext = serializeEmployeeRuntimeWorkContext(flow, issuedAt.toISOString());
+    jobFlowItemContext = serializeEmployeeRuntimeJobFlowItemContext(flow, {
+      lastSyncedAt: issuedAt.toISOString(),
+      snapshotOperationalDate: serviceDateKey,
+    });
   }
 
   // Leftover evidence-only producer: template compatibility when Job Flow is off
@@ -939,6 +969,7 @@ export async function buildRuntimeBundle(
     assetContext,
     workContext,
     plantWorkOrderContext,
+    jobFlowItemContext,
   };
 
   const issuance = await client.offlineBundleIssuance.create({
