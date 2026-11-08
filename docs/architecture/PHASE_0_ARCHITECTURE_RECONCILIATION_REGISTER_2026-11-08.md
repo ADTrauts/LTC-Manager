@@ -31,7 +31,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
-| ARR-003 | Job Flow still depends on generic Work — **2C-2F CONDITIONAL GO; plan-derived still live; cutover not activated** | Confirmed conflict | Critical | 2C-2G → 5 |
+| ARR-003 | Job Flow still depends on generic Work — **2C-2G-1 GO gate; prod occupancy 0; filter not activated** | Confirmed conflict | Critical | 2C-2G-2 → 5 |
 | ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A) | Legacy debt + conflict | Critical | 2 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
@@ -70,12 +70,12 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Affected domain | Generic Work; Location Function / Department profile |
 | Code evidence | Migration `20261103140000_retire_generic_work_and_profiles`; restore `20261106214500_restore_schema_after_premature_retirement`; HEAD commit `e179c0d` message: restore objects still required by running app; schema still has `DepartmentWorkPlan*`, `DepartmentOperationalProfile`, `DepartmentRoomArchetype*` |
 | Governing decision | [01A](../product/01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md), [16](../product/16_DEPARTMENT_BUILDER_ARCHITECTURE.md), [Work retirement](../legacy-retirement/DEPARTMENT_WORK_RETIREMENT_2026-11-01.md) |
-| Current vs expected | Expected: retired before release. Current: schema + app paths live again after empty recreate. **2C-2F local DB finding:** configured loopback Postgres has retire **applied** and restore **pending** — `DepartmentWork*` tables absent while Prisma schema expects them. This is deployment/schema integrity lag on the inspected local environment, **not** successful Work retirement and **not** production certification. Production was not inspected. |
-| Risk | Critical — dual architecture; future drops unsafe without re-trace; local/dev environments may be unusable against HEAD until restore is applied |
-| Recommended action | Treat restore as emergency compatibility. Re-run full reader/writer trace before any new drop. Do not edit applied migrations. Remediate lagging DBs by applying pending forward migrations (including restore) only when explicitly authorized — not as part of cutover verification alone |
+| Current vs expected | Expected: retired before release. Current: schema + app paths live again after empty recreate. **2C-2G-1:** Production (`ltc-manager` Neon) has retire+restore applied and Work tables empty (empty recreate). Local still has retire applied / restore pending. Staging never applied retire/restore and remains migration-behind. Restore does not recover dropped rows. |
+| Risk | Critical — dual architecture; future drops unsafe without re-trace; local/staging hygiene lag; historical Work rows on production lost at retire unless backup/PITR exists |
+| Recommended action | Treat restore as emergency compatibility. Re-run full reader/writer trace before any new drop. Do not edit applied migrations. Remediate lagging DBs only when explicitly authorized. Treat pre-restore Work data recovery as a separate ops question |
 | Dependencies | ARR-002, ARR-003, ARR-004, ARR-005 |
 | Proposed phase | Phase 1 (document truth) then Phase 2 (traced removal) |
-| Verification needed | Inventory every Prisma client access to restored models; compare production row usefulness (test data only) on a fully migrated authorized host |
+| Verification needed | Inventory every Prisma client access to restored models; [2C-2G-1 gate](./PHASE_2C2G1_DATABASE_INTEGRITY_AND_CUTOVER_GATE.md) verified production Work occupancy = 0 |
 
 ### ARR-002 — Department Builder Work tab still live
 
@@ -96,14 +96,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Job Flow / Employee Runtime Flow |
-| Code evidence | CompatWork items carry `compatibilitySource` WORK_PLAN\|ONE_OFF ([PHASE_2C2E](./PHASE_2C2E_GENERIC_WORK_SOURCE_SEPARATION.md)); cutover helper exists but **not wired**. Plan-derived still in live Job Flow. Offline items + `workContext` remain. Expected Work + Dashboard + one-off remain. **RLS unwired from generic Work.** Shadow cutover verified hermetically ([PHASE_2C2F](./PHASE_2C2F_WORK_CUTOVER_READINESS.md)). |
+| Code evidence | CompatWork items carry `compatibilitySource` WORK_PLAN\|ONE_OFF ([PHASE_2C2E](./PHASE_2C2E_GENERIC_WORK_SOURCE_SEPARATION.md)); cutover helper exists but **not wired**. Plan-derived still in live Job Flow composition path. Offline items + `workContext` remain. **RLS unwired from generic Work.** Shadow verified ([PHASE_2C2F](./PHASE_2C2F_WORK_CUTOVER_READINESS.md)); production occupancy verified empty ([PHASE_2C2G1](./PHASE_2C2G1_DATABASE_INTEGRITY_AND_CUTOVER_GATE.md)). |
 | Governing decision | Foundation: Job Flow composes Assignment, Cycle, Records, WO/PM; 15A: must not require generic Work going forward |
-| Current vs expected | Expected: composition without generic Work. Current: source-separated CompatWork still contributing plan-derived rows. Authoring closed (2B). 2C-2A–2F **PASS** / **PASS WITH GAPS**. Cutover readiness: **CONDITIONAL GO** (occupancy UNVERIFIED on authorized migrated DB; PO decisions pending). |
-| Risk | Critical — blocks Role Job Flows and timeline cleanliness |
-| Recommended action | Do not activate filter until PO authorizes after schema-compatible occupancy verification; retain one-off; do not drop schema yet |
-| Dependencies | ARR-001, ARR-002 (authoring closed); local/dev DB restore lag elevates ARR-001 hygiene |
-| Proposed phase | 2C-2G → 5 — **ARR-003 not closed**; cutover not activated |
-| Verification needed | Occupancy on fully migrated intended environment; employee Job Flow after authorized filter; offline Work command receipts; Dashboard Expected Work |
+| Current vs expected | Expected: composition without generic Work. Current: helper ready; live path still includes plan-derived when present. Authoring closed (2B). Production published plans / open plan occurrences = **0**. Gate: **GO** for separate PO authorization. |
+| Risk | Critical architecturally; **current operational employee impact of filtering is none** on verified production |
+| Recommended action | Await explicit PO authorization for 2C-2G-2 wire-up; retain one-off; keep completion receipts; do not drop schema yet |
+| Dependencies | ARR-001, ARR-002 (authoring closed) |
+| Proposed phase | 2C-2G-2 → 5 — **ARR-003 not closed**; cutover not activated |
+| Verification needed | PO authorization; post-wire employee Job Flow check; offline Work command receipts; later Dashboard Expected Work |
 
 ### ARR-004 — Location Function / profile / archetype remain
 
