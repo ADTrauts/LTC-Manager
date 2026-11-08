@@ -2,7 +2,7 @@
 
 **Status:** Current domain relationships. Authority for the platform map is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md).  
 **Rule:** Product language follows [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md). Persistence names below are compatibility, not a second model.  
-**Amended:** October 26, 2026. The [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026) is the plug-in contract. This document owns the business relationships.
+**Amended:** October 26, 2026; Phase 1 reconciliation November 8, 2026 ([01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md)). The [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026) plus Nov 1–2 and Phase 1 amendments are the plug-in contract. This document owns the business relationships.
 
 ---
 
@@ -20,11 +20,11 @@
 | **User authorization (partner)** | Not implemented in Phase 2A. Partner relationship + Department scope do **not** grant any user Facility access. |
 | **Department Product** | Vssyl-owned operational product (Food and Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
-| **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Work preset, Operating Rhythm starter or Menu template. Included or Paid. Runs on Platform engines. Today only Records forms exist as items (`CatalogLogDefinition`). |
+| **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Operating Rhythm starter, or Menu template. Included or Paid. Runs on Platform engines. Today only Records forms exist as Catalog items (`CatalogLogDefinition`). Work presets are not a forward Marketplace kind. |
 | **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. Operational records stay facility/department-scoped even when the operator differs from the parent Organization. |
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
 | **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
-| **Location Function** | Product `functionKey` bound to an existing room on a Department profile. Stored as `DepartmentRoomArchetype.key`. Not a room name, a label slug, or a physical room type. |
+| **Location Function** | **Retired / compatibility-only.** Historical Product `functionKey` bound on a Department profile (`DepartmentRoomArchetype.key`). Not forward architecture. Engines use canonical place ids and Department responsibility instead ([01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md)). |
 | **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). Email/password authenticates the global `User`. Workspace eligibility is available contexts, not a facility-native vs organization-only identity class. |
 | **User home Facility** | Optional `User.facilityId` presentation marker. Not login authority and not the active Facility. |
 | **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
@@ -164,10 +164,9 @@ Disruption path
 
 | Concern | Authoritative owner |
 |---------|---------------------|
-| What kind of operational location is this for a Department? | Location Function on that Department’s profile (`functionKey`) |
-| Where does published Work apply? | Published Work Plan applicability, including a Location Function key when the plan uses one |
-| What window is active (what is happening now)? | Published Operational Cycle and Phase effective now. Build uses the working profile; Run uses ACTIVE. No published Cycle means no window, never a meal-time guess (foundation round, October 20, 2026). |
-| What was expected on a past service date? | Audit / Reports, using the profile and requirement segment effective that day |
+| Which places may this Department use? | Facility Builder Department responsibility on canonical Units / UnitSpaces. Not Location Function. |
+| What window is active (what is happening now)? | Published Operational Cycle and Phase effective now. No published applicable Cycle means no window (`NOT_CONFIGURED`), never a meal-time guess (foundation round, October 20, 2026). |
+| What was expected on a past service date? | Audit / Reports, using each owning engine’s historically effective configuration (Cycle versions, LogAttachment intervals, Coverage template intervals, etc.) — not a Department profile as a history bus |
 | Where should the supervisor look first? | The Dashboard |
 | What should **I** do next (manager)? | The Dashboard |
 | What do I do **at this unit**? | The "my work" view (below), for this place |
@@ -175,8 +174,8 @@ Disruption path
 | Whether a Record was required | Derived expected slot from the requirement segment effective that day |
 | Does this Department have a capability? | Its installed Department Product, plus a valid license when enforcement is on. Not a deployment switch ([Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026)). |
 | Which Marketplace items does this Department use? | Its added items. Today: `FacilityCatalogInstall` plus `LogAttachment` for Records forms. |
-| What Work is expected? | Published Work Plans (derived requirements). Assignment does not create Work. |
-| What is **my** work? | One "my work" view: Work Plan items for my assigned places, or for the place I'm signed into when I have no Assignment; Records due there; work orders and preventive maintenance assigned to me. Each source keeps its own store. The view is **Job Flow**, in every Department. |
+| What generic Work is expected? | **None in forward architecture.** Residual Work Plans are compatibility-only until Phase 2 removal. Do not invent Task/Activity replacements. |
+| What is **my** work? | **Job Flow** composition: Assignment context (or signed-in place when none), current Cycle/Phase window, Records due, assigned work orders and preventive maintenance. Each source keeps its own store. Live code may still also read Work Plans (gap). |
 | Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks that whole shift absent. `calledOffAt` is when the absence was recorded. It does not start a partial shift. |
 | Who covers this location or Work right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. A called-off shift in the same Department stops that Employee's overlapping Assignment from counting toward Coverage. The Assignment row stays. |
 | Who is supervising this Department and location right now? | The Assignment whose role is that Department's supervisor-rounding responsibility, for the service window that contains now, at the most specific covering location. A call-off on the shift removes that Employee. The Supervisor role and the Department head do not answer it |
@@ -211,11 +210,14 @@ Homes **must not** invent alternate truth for the rows above.
 | Location | `Unit` |
 | Needs Attention | internal `blocked` on readiness. Also a notification priority. Name which scale. See [16](./16_NOTIFICATIONS_AND_ATTENTION.md#three-different-scales) |
 | Issue | `Repair` table + `/repairs` routes still present |
-| Location Function | `DepartmentRoomArchetype.key` / historical “Operational Type” |
+| Location Function (retired) | `DepartmentRoomArchetype.key` / historical “Operational Type” — compatibility only |
 | Records | `OperationalEvidenceRecord`; “Evidence” is internal |
 | Audit / Reports | `/reports`; internal code may say Review |
 | Key Point | `KEY_TIME` |
 | Facility | sometimes called “Site” in older vision docs |
+| Work Order | Persistence `Repair` |
+| Operational eligibility | `EmployeeOperationalRoleQualification` + `OPERATIONAL_ROLE_REGISTRY` |
+| Department Job Role (retired) | `DepartmentJobRole` — compatibility only after Nov 6 restore |
 
 Constitution prefers **product terms** in UI and docs; schema renames are optional later.
 
@@ -226,7 +228,9 @@ Constitution prefers **product terms** in UI and docs; schema renames are option
 1. **Site vs Facility** — vision docs say Site; shipped model is Facility. Prefer Facility until a deliberate rename.  
 2. **Issue vs Repair** — dual language remains; destination URLs still mixed.  
 3. **Operation engine** — retired September 25, 2026. Its tables were dropped in LEG-06. "What's happening now" is the published Cycle and Phase.
-4. **Task** — removed. Work never needs Task rows. The table was dropped in LEG-06.
+4. **Task** — removed. Do not recreate Task or generic Work. The Task table was dropped in LEG-06.
 5. **Unit vs Location** — UI prefers "Location"; model is `Unit`. UnitSpace is the room. See `docs/location-architecture/`.
-6. **Location Function vs Operational Type** — code and some Build labels still say Operational Type or Archetype. The product word is Location Function. The older profile editor is removed.
-7. **Capability switches** — retired in LEG-05 (LEG-D20). Cycles, Job Flow, evidence, Work Plans, assets, and Assignments come with the Department. `CANONICAL_LOGS_ENABLED` remains a code flag. The record-engine rollout table was dropped in LEG-06.
+6. **Location Function / Operational Type / archetype** — **retired.** Residual schema and Locations bind/publish remain after the Nov 6 restore (Phase 0 ARR-001/004/026). Phase 2 removes them.
+7. **Capability switches** — retired in LEG-05 (LEG-D20). Shared engines come with the installed Department. `CANONICAL_LOGS_ENABLED` remains a code flag. The record-engine rollout table was dropped in LEG-06.
+8. **Generic Work Plans** — retired as architecture; still present in schema and Job Flow until Phase 2.
+9. **Department Job Role** — retired as architecture; still present beside operational qualifications until Phase 2.

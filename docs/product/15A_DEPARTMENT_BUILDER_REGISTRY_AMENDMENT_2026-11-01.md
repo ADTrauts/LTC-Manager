@@ -2,9 +2,11 @@
 
 **Status:** Binding amendment to [15 — Platform Primitives & Engines Registry](./15_PLATFORM_PRIMITIVES_AND_ENGINES_REGISTRY.md)  
 **Decision date:** November 1, 2026  
-**Authority:** [Product Constitution amendment](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md) and [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md)
+**Authority:** [Product Constitution amendment](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md), [01B Phase 1](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md), and [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md)
 
 This amendment exists because the October 29 registry still contains generic Work / Work Plan rows and the older Department Builder shape. Those rows are migration-era documentation after the November 1 product-owner decision. They must not be extended.
+
+**Supersession — November 6–8, 2026.** Schema/models for Work and profiles were restored for compatibility (`e179c0d`). Registry Phase 1 edits mark those rows **Retired / compatibility-only**. Presence in Prisma is not permission to reuse them as owners.
 
 ---
 

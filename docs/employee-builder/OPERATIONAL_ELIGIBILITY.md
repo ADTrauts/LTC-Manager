@@ -24,4 +24,6 @@ Cashier and Barista are registry roles because retail coverage counts them apart
 
 Today's eligibility is the current ACTIVE row. Revoking it keeps that row and does not rewrite an Assignment or a Coverage need. Eligibility is not effective-dated in this release. Assignment history remains the snapshotted role key and label.
 
-Phase 7B removed Department Job Role, its capability keys, Default Assignment, the workstation eligibility map, `EmployeeDepartment.roleType`, and `ScheduleEntry.roleType` / `unitId`. Those were duplicate role identities. Do not restore them. Schedule shows the person's name, Job Title, primary Team, Department, and scheduled time. Placement stays on the Assignment.
+Phase 7B removed Department Job Role, its capability keys, Default Assignment, the workstation eligibility map, `EmployeeDepartment.roleType`, and `ScheduleEntry.roleType` / `unitId`. Those were duplicate role identities. Do not restore them as forward design. Schedule should show the person's name, Job Title, primary Team, Department, and scheduled time. Placement stays on the Assignment.
+
+**Supersession — November 6–8, 2026 (Phase 0 ARR-024 / Phase 1):** The compatibility restore (`e179c0d`) and related schema work reintroduced `DepartmentJobRole` / related structures while operational qualifications also exist. Forward architecture still retires Department Job Role ([01B](../product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md)). Residual `/employees/job-roles` is compatibility debt for Phase 2 traced removal — not a second eligibility system.

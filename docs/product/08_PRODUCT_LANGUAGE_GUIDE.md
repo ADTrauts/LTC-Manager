@@ -2,7 +2,9 @@
 
 **Status:** Canonical terminology for UI, docs, and AI prompts  
 **Rule:** Prefer one term. Avoid synonym drift.  
-**Plug-in contract:** [Current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), including the [October 29, 2026 amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-29-2026). Words that must stay apart are defined there and repeated in the domain table below.
+**Plug-in contract:** [Current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), including the [October 29, 2026 amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-29-2026), [01A](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md), and [01B Phase 1](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md). Words that must stay apart are defined there and repeated in the domain table below.
+
+**Retired terms (do not teach as forward product language):** Location Function, Operational Type (as Department room classification), Work Plan / Expected Work / Recurring shared Work (generic), Department Job Role capabilities. Residual UI copy may still say these until Phase 2; treat them as compatibility debt.
 
 ---
 
@@ -89,7 +91,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Self-operated / Vendor-run** | Derived from the operator: the facility's own company, or another company. Never a stored switch. | A persisted operating-model switch |
 | **Vssyl Console** | Vssyl's own desk at `/console`. It creates a customer facility, creates a partner company, invites that company's first people, and publishes Catalog forms. | A customer workspace; Harbor as the product name |
 | **Marketplace** | Where a facility adds ready-made content inside a Department it already installed. The items run on Platform engines. | A second catalog; a new Department Product; a store of engines |
-| **Marketplace item** | A Records form, Work preset, Operating Rhythm starter, or Menu template. Included or Paid. | A Department; a license |
+| **Marketplace item** | A Records form, Operating Rhythm starter, or Menu template. Included or Paid. Work presets are not forward Marketplace items. | A Department; a license; generic Work |
 | **Facility Administrator** | The one person who governs the facility account. Views a self-operated Department unless they are its head. Sees a vendor-run Department as a summary plus compliance Records. | Several Facility Administrators; operating every Department |
 | **Department head / GM** | The person who runs one Department | The Facility Administrator by default |
 | **Operator period** | The dates one company runs a Department | A permanent operator flag |
@@ -97,7 +99,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Department** | Facility-installed instance / operational ownership | Line of business |
 | **Enabled** | `Department.isActive` — admitted to shared operations | Operationally active, configured, ready, healthy |
 | **Operating rhythm** | Recurring Operational Cycles the department runs | Shift, schedule ceremony, setup steps |
-| **Location Function** | Product-owned `functionKey` bound by the facility to an existing room. Persistence is `DepartmentRoomArchetype.key` on the Department profile. | Operational Type, Archetype, room name, physical room type, label slug |
+| **Location Function** | **Retired.** Do not use in new UI. Historical: Product `functionKey` on a Department profile. Forward: Department responsibility + canonical Unit/UnitSpace ids on each engine. | Operational Type, Archetype, room classification, function key as a live target |
 | **Operational Cycle** | Root recurring window (persisted as root PERIOD) | Peer “Breakfast Cleanup” as a top-level operation, meal milestone engine |
 | **Phase** | One interval inside an Operational Cycle (persisted as nested PERIOD) | Sub-operation, peer cycle |
 | **Key Point** | Instant on a Cycle (persisted as `KEY_TIME`). Overdue means REQUIRED, past the expected facility-local minute, with no actual. The attention event id is `milestone.overdue` | Key Time in current product language, Work, a Record, calling an untracked planned time overdue |
@@ -108,7 +110,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Audit / Reports** | Expected versus actual for a service date or range. Route may remain `/reports`. | Review as a workspace |
 | **People & Coverage** | Department Builder section for teams and coverage | Teams as a peer top-level product, a second people system |
 | **Participating location** | Room explicitly attached to a cycle | Department-responsible room *(responsibility ≠ participation)* |
-| **Work applicability** | Where a Work Plan’s expected Work may exist | Assignment, cycle participation, department responsibility *(each is separate)* |
+| **Work applicability** | **Retired with generic Work.** Do not use for new design. | Assignment, cycle participation, department responsibility *(each remains separate)* |
 | **Menu** | Department-owned food offering identity plus its content | Facility singleton, Operational Cycle, recipe catalog |
 | **Menu applicability** | Explicit Department locations and canonical Operational Cycles where a Menu may be used, including the Menu period mapped to each Cycle | Live “all locations” rules, neighborhood inheritance, binding a published cycle row id |
 | **Menu Runtime resolution** | Exact location + date-effective root Operational Cycle occurrence + facility service date + ACTIVE applicability + stored `menuPeriodKey` + rotation | Winner/priority, location inheritance, MealType matching, wall-clock “current meal”, historical snapshots, temperature/log integration |
@@ -118,11 +120,11 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Room / Space** | Area within a unit; model is `UnitSpace` | Location *(reserve for section level; see `docs/location-architecture/`)* |
 | **Location / Unit** | Place of work — UI “Location”, model often `Unit` | Room *(unless truly a resident room entity)* |
 | **Operation** | Time-bound service commitment | Shift *(shifts are coverage; operations are service windows)* |
-| **Expected Work** | What the operation needs doing today, derived from published Work Plans | Tasks due, inbox, job list |
-| **Work Plan** | Recurring expected Work configuration | Job, checklist catalog |
-| **Recurring Work** | Shared Work Plans / rounds and walkthroughs | Treating rounds as Preventive Maintenance; treating Work Orders as shared Work |
-| **My Work** | Person-scoped Work | Today's Work *(Today is the operation; My Work is mine)* |
-| **Task** | Work Engine projection | Ticket *(unless issue context)* |
+| **Expected Work** | **Retired** as a generic platform concept. Prefer Records due, Work Orders, PM, or Rhythm timing. | Tasks due, inbox, job list, catch-all work |
+| **Work Plan** | **Retired / compatibility-only.** Residual `DepartmentWorkPlan` configuration until Phase 2. | Job, checklist catalog, forward shared Work |
+| **Recurring Work** | Do not use as a platform noun. Say Records rounds, Operating Rhythm, or Preventive Maintenance as appropriate. | Treating rounds as Preventive Maintenance; treating Work Orders as shared Work |
+| **Job Flow / My Work** | Person-scoped **composition** of Assignment, Cycle window, Records due, and assigned maintenance — stores nothing | Today's Work as a peer home; a MyWorkItem table; requiring generic Work Plans |
+| **Task** | **Retired.** Not a forward projection. | Ticket *(unless issue context)*; recreating generic Work |
 | **Request** | Intake: someone is asking for maintenance attention | Treating a Request as the problem itself or as a Work Order |
 | **Issue** | A known undesirable condition. May exist without an Asset or a Work Order. Creating one can inform the on-duty supervisor as an Update. That Update is not an assignment, and the Issue's priority is not the notification's priority | Ticket, Incident *(unless safety-legal context)*; collapsing Issue into Request or Repair |
 | **Work Order** | Facility Plant Operations accepted maintenance work with a persistent lifecycle. Priority, response requirement, deadline, and assignee are separate facts on this Work Order | Generic shared Work; Repair as the manager-facing noun |

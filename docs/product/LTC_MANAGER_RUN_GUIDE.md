@@ -3,6 +3,8 @@
 **Mode:** RUN — *Operate today.*
 **Companion docs:** `LTC_MANAGER_BUILD_RUN_INFORMATION_ARCHITECTURE_2026-08-08.md`, `LTC_MANAGER_BUILD_GUIDE.md`, `LTC_MANAGER_ADMIN_BOUNDARY.md`
 
+> **Phase 1 supersession (November 8, 2026).** Binding Run ownership is the Constitution + [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md). Job Flow is a composition (Assignment, Cycle window, Records due, assigned WO/PM) and must not invent results from missing optional configuration. Generic Work Plan items in Job Flow are compatibility debt until Phase 2. Progressive configuration: no published Cycle → `NOT_CONFIGURED`, not overdue.
+
 ---
 
 ## What RUN is
