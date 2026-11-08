@@ -1,9 +1,9 @@
 /**
- * Phase 2C-2A — canonical Job Flow item contract.
+ * Phase 2C-2A/2B — canonical Job Flow item contract.
  *
  * Job Flow is a composition of owner-referenced facts. It does not persist
  * items, invent overdue state, or replace domain lifecycles. Compatibility Work
- * is an explicit transitional owner kind until Phase 2C-2B+ removes it.
+ * is an explicit transitional owner kind until later phases remove it.
  */
 
 import type { WorkRequirement } from "@/lib/department-work/types";
@@ -72,6 +72,43 @@ export type JobFlowItem = {
   compatibility: boolean;
 };
 
+/** Assigned Plant Repair row already scoped by the loader (fail-closed). */
+export type JobFlowWorkOrderSource = {
+  id: string;
+  repairCode: string;
+  title: string;
+  status: string;
+  dueAt: Date | null;
+  unitId: string;
+  spaceId: string | null;
+  assetId: string | null;
+  /** When set, this WO is the actionable owner for that PM occurrence. */
+  pmOccurrenceId: string | null;
+  workOrderKind: string;
+};
+
+export type JobFlowAssignmentExceptionSource = {
+  id: string;
+  kind: "CALL_OFF" | "ASSIGNMENT_REVISION";
+  label: string;
+  ownerState: string;
+  unitId: string | null;
+  href: string | null;
+};
+
+/** Pre-WO PM occurrence. Intentionally unused while WO is the execution owner. */
+export type JobFlowPreventiveMaintenanceSource = {
+  id: string;
+  label: string;
+  status: string;
+  unitId: string | null;
+  spaceId: string | null;
+  assetId: string | null;
+  /** When a WO already exists for this occurrence, omit the PM item. */
+  activeWorkOrderId: string | null;
+  dueAt: Date | null;
+};
+
 function emptyTime(): JobFlowItemTime {
   return {
     windowStartsAt: null,
@@ -81,6 +118,15 @@ function emptyTime(): JobFlowItemTime {
     windowEndLocal: null,
   };
 }
+
+const ATTENTION_ORDER: Record<JobFlowItemAttention, number> = {
+  needs_attention: 0,
+  due_now: 1,
+  upcoming: 2,
+  informational: 3,
+  completed: 4,
+  not_applicable: 5,
+};
 
 function workAttention(state: WorkRequirement["state"]): JobFlowItemAttention {
   switch (state) {
@@ -235,21 +281,49 @@ export function jobFlowItemsFromTemplateEvidence(
   return rows.map(jobFlowItemFromTemplateEvidence);
 }
 
-/** Operating Rhythm Key Point / milestone already projected on RLS. */
+function milestoneAttention(statusKey: string): JobFlowItemAttention {
+  switch (statusKey) {
+    case "overdue":
+    case "completed_late":
+      return "needs_attention";
+    case "due":
+    case "not_recorded":
+      return "due_now";
+    case "upcoming":
+    case "adjusted":
+      return "upcoming";
+    case "completed_on_time":
+      return "completed";
+    default:
+      return "informational";
+  }
+}
+
+/**
+ * Stable Key Point identity uses place + cycle + kind — not transient status.
+ * Owner state / attention still reflect the domain statusKey.
+ */
 export function jobFlowItemFromMilestone(row: EmployeeRuntimeMilestone): JobFlowItem {
+  const cycleKey = row.cycleStableKey?.trim() || "legacy";
   return {
     ownerKind: "OPERATING_RHYTHM_KEY_POINT",
-    ownerId: `${row.spaceId}:${row.kind}:${row.statusKey}`,
+    ownerId: `${row.spaceId}:${cycleKey}:${row.kind}`,
     place: {
       unitId: null,
       spaceId: row.spaceId,
       assetId: null,
     },
-    time: emptyTime(),
+    time: {
+      windowStartsAt: null,
+      windowEndsAt: null,
+      dueAt: null,
+      windowStartLocal: row.expectedLocal ?? row.adjustedLocal ?? null,
+      windowEndLocal: null,
+    },
     ownerState: row.statusKey,
-    attention: "informational",
+    attention: milestoneAttention(row.statusKey),
     label: row.label,
-    href: null,
+    href: row.href ?? null,
     compatibility: false,
   };
 }
@@ -260,29 +334,167 @@ export function jobFlowItemsFromMilestones(
   return rows.map(jobFlowItemFromMilestone);
 }
 
-/**
- * Plant Work Order / PM adapters — progressive empty until 2C-2B wires loaders.
- * Call sites may pass rows later without changing the contract.
- */
+function workOrderAttention(status: string): JobFlowItemAttention {
+  switch (status) {
+    case "COMPLETED":
+    case "CANCELLED":
+      return "completed";
+    case "WAITING_ON_VENDOR":
+    case "ON_HOLD":
+      return "informational";
+    case "OPEN":
+    case "ASSIGNED":
+    case "IN_PROGRESS":
+      return "due_now";
+    default:
+      return "informational";
+  }
+}
+
+export function jobFlowItemFromWorkOrder(row: JobFlowWorkOrderSource): JobFlowItem {
+  return {
+    ownerKind: "WORK_ORDER",
+    ownerId: row.id,
+    place: {
+      unitId: row.unitId,
+      spaceId: row.spaceId,
+      assetId: row.assetId,
+    },
+    time: {
+      windowStartsAt: null,
+      windowEndsAt: null,
+      dueAt: row.dueAt,
+      windowStartLocal: null,
+      windowEndLocal: null,
+    },
+    ownerState: row.pmOccurrenceId
+      ? `${row.status}:pm:${row.pmOccurrenceId}`
+      : row.status,
+    attention: workOrderAttention(row.status),
+    label: row.title.trim() || row.repairCode,
+    href: `/repairs/${row.id}`,
+    compatibility: false,
+  };
+}
+
 export function jobFlowItemsFromWorkOrders(
-  _rows: readonly { id: string; label: string }[],
+  rows: readonly JobFlowWorkOrderSource[],
 ): JobFlowItem[] {
-  void _rows;
-  return [];
+  return rows.map(jobFlowItemFromWorkOrder);
+}
+
+/**
+ * PM occurrence items only when no active Work Order owns execution.
+ * Loaders currently pass [] — PM-generated WOs appear solely as WORK_ORDER.
+ */
+export function jobFlowItemFromPreventiveMaintenance(
+  row: JobFlowPreventiveMaintenanceSource,
+): JobFlowItem | null {
+  if (row.activeWorkOrderId) return null;
+  return {
+    ownerKind: "PREVENTIVE_MAINTENANCE",
+    ownerId: row.id,
+    place: {
+      unitId: row.unitId,
+      spaceId: row.spaceId,
+      assetId: row.assetId,
+    },
+    time: {
+      windowStartsAt: null,
+      windowEndsAt: null,
+      dueAt: row.dueAt,
+      windowStartLocal: null,
+      windowEndLocal: null,
+    },
+    ownerState: row.status,
+    attention: row.status === "COMPLETED" || row.status === "SKIPPED" ? "completed" : "due_now",
+    label: row.label,
+    href: `/preventive-maintenance/${row.id}`,
+    compatibility: false,
+  };
 }
 
 export function jobFlowItemsFromPreventiveMaintenance(
-  _rows: readonly { id: string; label: string }[],
+  rows: readonly JobFlowPreventiveMaintenanceSource[],
 ): JobFlowItem[] {
-  void _rows;
-  return [];
+  const items: JobFlowItem[] = [];
+  for (const row of rows) {
+    const item = jobFlowItemFromPreventiveMaintenance(row);
+    if (item) items.push(item);
+  }
+  return items;
+}
+
+export function jobFlowItemFromAssignmentException(
+  row: JobFlowAssignmentExceptionSource,
+): JobFlowItem {
+  return {
+    ownerKind: "ASSIGNMENT_EXCEPTION",
+    ownerId: row.id,
+    place: {
+      unitId: row.unitId,
+      spaceId: null,
+      assetId: null,
+    },
+    time: emptyTime(),
+    ownerState: row.ownerState,
+    attention: row.kind === "CALL_OFF" ? "needs_attention" : "informational",
+    label: row.label,
+    href: row.href,
+    compatibility: false,
+  };
 }
 
 export function jobFlowItemsFromAssignmentExceptions(
-  _rows: readonly { id: string; label: string }[],
+  rows: readonly JobFlowAssignmentExceptionSource[],
 ): JobFlowItem[] {
-  void _rows;
-  return [];
+  return rows.map(jobFlowItemFromAssignmentException);
+}
+
+/** Stable owner identity — first wins; later duplicates are dropped. */
+export function dedupeJobFlowItems(items: readonly JobFlowItem[]): JobFlowItem[] {
+  const seen = new Set<string>();
+  const out: JobFlowItem[] = [];
+  for (const item of items) {
+    const key = `${item.ownerKind}:${item.ownerId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+/**
+ * Drop PREVENTIVE_MAINTENANCE rows whose occurrence already has a WORK_ORDER
+ * in the same composition (pmOccurrenceId encoded in WO ownerState).
+ */
+export function suppressPmDuplicatesAgainstWorkOrders(
+  items: readonly JobFlowItem[],
+): JobFlowItem[] {
+  const pmCoveredByWo = new Set<string>();
+  for (const item of items) {
+    if (item.ownerKind !== "WORK_ORDER") continue;
+    const match = /^[^:]+:pm:(.+)$/.exec(item.ownerState);
+    if (match?.[1]) pmCoveredByWo.add(match[1]);
+  }
+  if (pmCoveredByWo.size === 0) return [...items];
+  return items.filter(
+    (item) =>
+      !(item.ownerKind === "PREVENTIVE_MAINTENANCE" && pmCoveredByWo.has(item.ownerId)),
+  );
+}
+
+export function sortJobFlowItems(items: readonly JobFlowItem[]): JobFlowItem[] {
+  return [...items].sort((a, b) => {
+    const band = ATTENTION_ORDER[a.attention] - ATTENTION_ORDER[b.attention];
+    if (band !== 0) return band;
+    const aDue = a.time.dueAt?.getTime() ?? Number.POSITIVE_INFINITY;
+    const bDue = b.time.dueAt?.getTime() ?? Number.POSITIVE_INFINITY;
+    if (aDue !== bDue) return aDue - bDue;
+    const kind = a.ownerKind.localeCompare(b.ownerKind);
+    if (kind !== 0) return kind;
+    return a.ownerId.localeCompare(b.ownerId);
+  });
 }
 
 /** Compose the transitional unified list from currently available flow slices. */
@@ -291,14 +503,18 @@ export function composeJobFlowItems(input: {
   harborEvidence?: readonly EmployeeRuntimeEvidenceItem[];
   templateEvidence?: readonly EvidenceRequirement[];
   milestones?: readonly EmployeeRuntimeMilestone[];
+  workOrders?: readonly JobFlowWorkOrderSource[];
+  preventiveMaintenance?: readonly JobFlowPreventiveMaintenanceSource[];
+  assignmentExceptions?: readonly JobFlowAssignmentExceptionSource[];
 }): JobFlowItem[] {
-  return [
+  const merged = [
     ...jobFlowItemsFromCompatibilityWork(input.compatibilityWork ?? []),
     ...jobFlowItemsFromHarborEvidence(input.harborEvidence ?? []),
     ...jobFlowItemsFromTemplateEvidence(input.templateEvidence ?? []),
     ...jobFlowItemsFromMilestones(input.milestones ?? []),
-    ...jobFlowItemsFromWorkOrders([]),
-    ...jobFlowItemsFromPreventiveMaintenance([]),
-    ...jobFlowItemsFromAssignmentExceptions([]),
+    ...jobFlowItemsFromWorkOrders(input.workOrders ?? []),
+    ...jobFlowItemsFromPreventiveMaintenance(input.preventiveMaintenance ?? []),
+    ...jobFlowItemsFromAssignmentExceptions(input.assignmentExceptions ?? []),
   ];
+  return sortJobFlowItems(dedupeJobFlowItems(suppressPmDuplicatesAgainstWorkOrders(merged)));
 }

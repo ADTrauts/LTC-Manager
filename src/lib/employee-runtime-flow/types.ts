@@ -77,6 +77,12 @@ export type EmployeeRuntimeMilestone = {
   kind: RuntimeMilestoneKind;
   label: string;
   statusKey: string;
+  /** Published Cycle stable key when the milestone is a Key Point. */
+  cycleStableKey?: string | null;
+  expectedLocal?: string | null;
+  adjustedLocal?: string | null;
+  actualLocal?: string | null;
+  href?: string | null;
 };
 
 export type EmployeeRuntimeIssue = {

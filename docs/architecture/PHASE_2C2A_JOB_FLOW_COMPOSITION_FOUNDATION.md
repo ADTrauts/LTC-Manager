@@ -11,7 +11,7 @@
 | | |
 |---|---|
 | Starting HEAD | `78dcd3d` (Phase 2C-1 documentation commit) |
-| Ending HEAD | `78dcd3d` (implementation in working tree at report time; commit when approved) |
+| Ending HEAD | `99a90ab` (committed after certification) |
 | Prior authoring checkpoint | `3de0f41` (Phase 2A/2B) |
 
 ---

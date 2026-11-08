@@ -26,6 +26,7 @@ import type {
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   facilityLocalDateToServiceDate,
+  getFacilityLocalTodayWindow,
   getFacilityServiceDate,
   loadFacilityTimezone,
   toServiceDateKey,
@@ -45,6 +46,11 @@ import { prisma } from "@/lib/prisma";
 import { composeEmployeeRuntimeFlow } from "./compose";
 import { loadAssignedEmployeeSpaceRefs } from "./load-assigned-space-refs";
 import { loadFrontlineEmployeeAssignments } from "./load-assignments";
+import {
+  loadAssignedWorkOrdersForJobFlow,
+  loadOwnCallOffAssignmentExceptions,
+} from "./load-canonical-contributors";
+import type { JobFlowAssignmentExceptionSource } from "./job-flow-item";
 import type { EmployeeRuntimeFlow } from "./types";
 
 export type LoadEmployeeRuntimeFlowInput = {
@@ -307,6 +313,39 @@ export async function loadEmployeeRuntimeFlow(
     select: { status: true },
   });
 
+  const serviceDayStartsAt = getFacilityLocalTodayWindow(timezone, now).start;
+
+  const [assignedWorkOrders, ownCallOffExceptions] = await Promise.all([
+    department.key === "PLANT"
+      ? loadAssignedWorkOrdersForJobFlow({
+          facilityId: input.facilityId,
+          departmentId: input.departmentId,
+          employeeId: input.employeeId,
+          serviceDayStartsAt,
+        })
+      : Promise.resolve([]),
+    loadOwnCallOffAssignmentExceptions({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      employeeId: input.employeeId,
+      now,
+    }),
+  ]);
+
+  const assignmentExceptions: JobFlowAssignmentExceptionSource[] = [...ownCallOffExceptions];
+  if (revision.changed) {
+    const revisedId =
+      assignments.current?.id ?? assignments.upcoming?.id ?? "assignment-revision";
+    assignmentExceptions.push({
+      id: `assignment-revision:${revisedId}`,
+      kind: "ASSIGNMENT_REVISION",
+      label: "Your Assignment was updated",
+      ownerState: "ASSIGNMENT_REVISION",
+      unitId: assignments.current?.unitId ?? assignments.upcoming?.unitId ?? null,
+      href: null,
+    });
+  }
+
   const flow = composeEmployeeRuntimeFlow({
     operationalAssignmentsEnabled: oaEnabled,
     canonicalLogsEnabled,
@@ -319,6 +358,10 @@ export async function loadEmployeeRuntimeFlow(
     states: loadedStates.states,
     templateEvidence,
     workRequirements: workRequirementsRaw,
+    workOrders: assignedWorkOrders,
+    // PM stays empty: actionable execution is the generated Work Order.
+    preventiveMaintenance: [],
+    assignmentExceptions,
     deviceBoundUnitId: input.deviceBoundUnitId ?? input.unitId ?? null,
     offline: { stale: input.offlineStale ?? false },
   });

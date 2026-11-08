@@ -24,10 +24,14 @@ export {
 } from "./types";
 export {
   composeJobFlowItems,
+  dedupeJobFlowItems,
+  jobFlowItemFromAssignmentException,
   jobFlowItemFromCompatibilityWork,
   jobFlowItemFromHarborEvidence,
   jobFlowItemFromMilestone,
+  jobFlowItemFromPreventiveMaintenance,
   jobFlowItemFromTemplateEvidence,
+  jobFlowItemFromWorkOrder,
   jobFlowItemsFromAssignmentExceptions,
   jobFlowItemsFromCompatibilityWork,
   jobFlowItemsFromHarborEvidence,
@@ -35,7 +39,16 @@ export {
   jobFlowItemsFromPreventiveMaintenance,
   jobFlowItemsFromTemplateEvidence,
   jobFlowItemsFromWorkOrders,
+  sortJobFlowItems,
+  suppressPmDuplicatesAgainstWorkOrders,
+  type JobFlowAssignmentExceptionSource,
+  type JobFlowPreventiveMaintenanceSource,
+  type JobFlowWorkOrderSource,
 } from "./job-flow-item";
+export {
+  loadAssignedWorkOrdersForJobFlow,
+  loadOwnCallOffAssignmentExceptions,
+} from "./load-canonical-contributors";
 
 export {
   composeEmployeeRuntimeFlow,
