@@ -425,12 +425,23 @@ test("Employee Runtime Flow compose attaches items while preserving work array",
     spaceRefs: [],
     states: [],
     templateEvidence: [],
-    workRequirements: [work({ occurrenceKey: "w-signed-in", label: "Check", state: "DUE" })],
+    workRequirements: [
+      work({
+        occurrenceKey: "w-signed-in",
+        label: "Check",
+        state: "DUE",
+        sourceKind: "ONE_OFF",
+        occurrenceId: "db-signed",
+      }),
+      work({ occurrenceKey: "w-plan", label: "Plan check", state: "DUE", sourceKind: "WORK_PLAN" }),
+    ],
     workOrders: [wo({ id: "wo-signed", title: "Assigned WO", status: "ASSIGNED" })],
   });
   assert.equal(flow.assignmentAvailability, "no_confirmed_assignment");
-  assert.equal(flow.work.length, 1);
+  assert.equal(flow.work.length, 2);
   assert.equal(flow.items.filter((row) => row.ownerKind === "COMPATIBILITY_WORK").length, 1);
+  assert.equal(flow.items.filter(isOneOffCompatibilityWork).length, 1);
+  assert.equal(flow.items.filter(isPlanDerivedCompatibilityWork).length, 0);
   assert.equal(flow.items.filter((row) => row.ownerKind === "WORK_ORDER").length, 1);
 });
 

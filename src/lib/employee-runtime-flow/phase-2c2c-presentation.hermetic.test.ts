@@ -60,12 +60,13 @@ function work(
     state: WorkRequirement["state"];
   },
 ): WorkRequirement {
+  const sourceKind = partial.sourceKind ?? "ONE_OFF";
   return {
     occurrenceKey: partial.occurrenceKey,
-    workPlanId: "wp",
-    workPlanStableKey: "wp",
-    workPlanVersion: 1,
-    workPlanName: "Plan",
+    workPlanId: sourceKind === "WORK_PLAN" ? "wp" : "",
+    workPlanStableKey: sourceKind === "WORK_PLAN" ? "wp" : "one_off",
+    workPlanVersion: sourceKind === "WORK_PLAN" ? 1 : 0,
+    workPlanName: sourceKind === "WORK_PLAN" ? "Plan" : "One-off Work",
     workItemId: "item",
     workItemKey: "item",
     label: partial.label,
@@ -90,14 +91,19 @@ function work(
     linkedTemplateStableKey: partial.linkedTemplateStableKey ?? null,
     linkedTemplateId: null,
     state: partial.state,
-    occurrenceId: partial.occurrenceId ?? null,
+    occurrenceId:
+      partial.occurrenceId ?? (sourceKind === "ONE_OFF" ? `db-${partial.occurrenceKey}` : null),
     occurrenceStatus: null,
     assignedEmployeeId: null,
     completedByLabel: null,
     completedAt: null,
     evidenceRecordId: null,
-    sourceKind: "WORK_PLAN",
-    sourceHref: "/staffing/work-plans",
+    sourceKind,
+    sourceHref:
+      partial.sourceHref ??
+      (sourceKind === "WORK_PLAN"
+        ? "/staffing/work-plans"
+        : `/staffing/operations?work=${partial.occurrenceKey}`),
   };
 }
 

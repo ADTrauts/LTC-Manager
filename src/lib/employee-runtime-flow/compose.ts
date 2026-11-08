@@ -19,6 +19,7 @@ import {
 } from "./evidence";
 import {
   composeJobFlowItems,
+  withoutPlanDerivedCompatibilityWork,
   type JobFlowAssignmentExceptionSource,
   type JobFlowPreventiveMaintenanceSource,
   type JobFlowWorkOrderSource,
@@ -229,6 +230,8 @@ export function composeEmployeeRuntimeFlow(
 
   if (!input.currentAssignment && !input.upcomingAssignment) {
     const signedIn = emptyFlow(input, "no_confirmed_assignment", mismatch);
+    // Keep full WorkRequirement list for offline workContext / completion keys.
+    // Employee Job Flow items exclude plan-derived CompatWork (2C-2G-2).
     const work = filterWorkToAssignedSpaces(input.workRequirements, null);
     return {
       ...signedIn,
@@ -237,12 +240,14 @@ export function composeEmployeeRuntimeFlow(
         unitId: input.deviceBoundUnitId ?? null,
       },
       work,
-      items: composeJobFlowItems({
-        compatibilityWork: work,
-        workOrders: input.workOrders,
-        preventiveMaintenance: input.preventiveMaintenance,
-        assignmentExceptions: input.assignmentExceptions,
-      }),
+      items: withoutPlanDerivedCompatibilityWork(
+        composeJobFlowItems({
+          compatibilityWork: work,
+          workOrders: input.workOrders,
+          preventiveMaintenance: input.preventiveMaintenance,
+          assignmentExceptions: input.assignmentExceptions,
+        }),
+      ),
     };
   }
 
@@ -262,19 +267,23 @@ export function composeEmployeeRuntimeFlow(
     evidenceMode === "template"
       ? filterTemplateEvidenceToAssignedSpaces(input.templateEvidence, spaceFilter)
       : [];
+  // flow.work retains plan-derived rows for offline workContext + deep-link enrichment.
+  // flow.items / next exclude WORK_PLAN CompatWork (2C-2G-2 cutover).
   const work = filterWorkToAssignedSpaces(input.workRequirements, spaceFilter);
   const milestones = collectMilestones(states);
   const issues = collectIssues(states);
   const locationNext = earliestLocationNext(states);
-  const items = composeJobFlowItems({
-    compatibilityWork: work,
-    harborEvidence,
-    templateEvidence,
-    milestones,
-    workOrders: input.workOrders,
-    preventiveMaintenance: input.preventiveMaintenance,
-    assignmentExceptions: input.assignmentExceptions,
-  });
+  const items = withoutPlanDerivedCompatibilityWork(
+    composeJobFlowItems({
+      compatibilityWork: work,
+      harborEvidence,
+      templateEvidence,
+      milestones,
+      workOrders: input.workOrders,
+      preventiveMaintenance: input.preventiveMaintenance,
+      assignmentExceptions: input.assignmentExceptions,
+    }),
+  );
   const next = resolveEmployeeNextAction({
     items,
     work,

@@ -1,6 +1,6 @@
 /**
  * Phase 2C-2F — shadow comparison for plan-derived Work cutover.
- * Does NOT wire withoutPlanDerivedCompatibilityWork into live compose.
+ * Helper behavior remains hermetically certified; 2C-2G-2 wires it into compose.
  */
 
 import assert from "node:assert/strict";
@@ -217,7 +217,7 @@ test("shadow next-action: drops plan-derived overdue without inventing overdue o
   assert.equal(proposedNext.label, "One-off due");
 });
 
-test("shadow empty config remains valid; live compose still includes plan-derived", () => {
+test("shadow empty config remains valid; live compose excludes plan-derived", () => {
   const flow = composeEmployeeRuntimeFlow({
     operationalAssignmentsEnabled: true,
     canonicalLogsEnabled: true,
@@ -231,11 +231,10 @@ test("shadow empty config remains valid; live compose still includes plan-derive
       work({ occurrenceKey: "p1", label: "Plan", state: "DUE", sourceKind: "WORK_PLAN" }),
     ],
   });
-  assert.equal(flow.items.filter(isPlanDerivedCompatibilityWork).length, 1);
-  const shadow = withoutPlanDerivedCompatibilityWork(flow.items);
-  assert.equal(shadow.length, 0);
+  assert.equal(flow.items.filter(isPlanDerivedCompatibilityWork).length, 0);
+  assert.equal(flow.work.filter((row) => row.sourceKind === "WORK_PLAN").length, 1);
   const emptyNext = resolveEmployeeNextAction({
-    items: shadow,
+    items: flow.items,
     work: [],
     evidence: [],
     milestones: [],
@@ -246,12 +245,12 @@ test("shadow empty config remains valid; live compose still includes plan-derive
   assert.equal(emptyNext.kind, "none");
 });
 
-test("cutover not activated in live composition or loaders", () => {
+test("cutover is activated in compose only; loaders and present stay filter-free", () => {
   const root = process.cwd();
   const compose = readFileSync(join(root, "src/lib/employee-runtime-flow/compose.ts"), "utf8");
   const load = readFileSync(join(root, "src/lib/employee-runtime-flow/load-flow.ts"), "utf8");
   const present = readFileSync(join(root, "src/lib/employee-runtime-flow/present.ts"), "utf8");
-  assert.equal(compose.includes("withoutPlanDerivedCompatibilityWork"), false);
+  assert.equal(compose.includes("withoutPlanDerivedCompatibilityWork"), true);
   assert.equal(load.includes("withoutPlanDerivedCompatibilityWork"), false);
   assert.equal(present.includes("withoutPlanDerivedCompatibilityWork"), false);
 });

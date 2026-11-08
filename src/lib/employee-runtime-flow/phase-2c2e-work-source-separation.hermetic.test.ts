@@ -1,6 +1,6 @@
 /**
- * Phase 2C-2E — plan-derived vs one-off CompatWork separation (cutover readiness).
- * Does not activate plan-derived removal from live compose.
+ * Phase 2C-2E — plan-derived vs one-off CompatWork separation.
+ * Live item cutover is activated in 2C-2G-2; this suite still certifies sourceKind.
  */
 
 import assert from "node:assert/strict";
@@ -16,7 +16,6 @@ import {
   isOneOffCompatibilityWork,
   isPlanDerivedCompatibilityWork,
   jobFlowItemFromCompatibilityWork,
-  withoutPlanDerivedCompatibilityWork,
 } from "./job-flow-item";
 import { serializeEmployeeRuntimeJobFlowItemContext } from "./serialize-offline";
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
@@ -113,7 +112,7 @@ test("source discriminator is stable and cannot confuse occurrence types", () =>
   assert.equal(oneOff.href?.includes("operations"), true);
 });
 
-test("live compose still includes plan-derived Work; cutover helper would drop only those", () => {
+test("live compose excludes plan-derived items; flow.work retains both for offline/completion", () => {
   const flow = composeEmployeeRuntimeFlow({
     operationalAssignmentsEnabled: true,
     canonicalLogsEnabled: true,
@@ -135,15 +134,11 @@ test("live compose still includes plan-derived Work; cutover helper would drop o
     ],
   });
   assert.equal(flow.work.length, 2);
-  assert.equal(flow.items.filter(isPlanDerivedCompatibilityWork).length, 1);
+  assert.equal(flow.items.filter(isPlanDerivedCompatibilityWork).length, 0);
   assert.equal(flow.items.filter(isOneOffCompatibilityWork).length, 1);
-
-  const afterCutover = withoutPlanDerivedCompatibilityWork(flow.items);
-  assert.equal(afterCutover.filter(isPlanDerivedCompatibilityWork).length, 0);
-  assert.equal(afterCutover.filter(isOneOffCompatibilityWork).length, 1);
 });
 
-test("offline snapshot carries compatibilitySource; Work commands stay on workContext path", () => {
+test("offline item snapshot omits plan-derived; Work commands stay on workContext path", () => {
   const items = composeJobFlowItems({
     compatibilityWork: [
       work({ occurrenceKey: "p1", label: "Plan", state: "DUE", sourceKind: "WORK_PLAN" }),
@@ -182,21 +177,21 @@ test("offline snapshot carries compatibilitySource; Work commands stay on workCo
   });
   assert.ok(ctx);
   assert.equal(
-    ctx.items.find((row) => row.ownerId === "p1" || row.compatibilitySource === "WORK_PLAN")
-      ?.compatibilitySource,
-    "WORK_PLAN",
+    ctx.items.find((row) => row.compatibilitySource === "WORK_PLAN"),
+    undefined,
   );
   assert.equal(
     ctx.items.find((row) => row.compatibilitySource === "ONE_OFF")?.compatibilitySource,
     "ONE_OFF",
   );
+  assert.equal(flow.work.filter((row) => row.sourceKind === "WORK_PLAN").length, 1);
   void items;
 });
 
-test("authoring fences remain closed; cutover helper is not wired into compose", () => {
+test("authoring fences remain closed; cutover helper is wired into compose", () => {
   const root = process.cwd();
   const compose = readFileSync(join(root, "src/lib/employee-runtime-flow/compose.ts"), "utf8");
-  assert.equal(compose.includes("withoutPlanDerivedCompatibilityWork"), false);
+  assert.equal(compose.includes("withoutPlanDerivedCompatibilityWork"), true);
   assert.match(
     readFileSync(
       join(root, "src/lib/department-work/phase-2b-generic-work-authoring.hermetic.test.ts"),

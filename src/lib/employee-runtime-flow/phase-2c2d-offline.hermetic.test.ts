@@ -87,8 +87,12 @@ function work(
     completedByLabel: null,
     completedAt: null,
     evidenceRecordId: null,
-    sourceKind: "WORK_PLAN",
-    sourceHref: "/staffing/work-plans",
+    sourceKind: partial.sourceKind ?? "ONE_OFF",
+    sourceHref:
+      partial.sourceHref ??
+      (partial.sourceKind === "WORK_PLAN"
+        ? "/staffing/work-plans"
+        : `/staffing/operations?work=${partial.occurrenceKey}`),
   };
 }
 
@@ -177,7 +181,16 @@ test("canonical items serialize once with correct offlineAction flags", () => {
     spaceRefs: [],
     states: [],
     templateEvidence: [],
-    workRequirements: [work({ occurrenceKey: "w1", label: "Wipe", state: "DUE" })],
+    workRequirements: [
+      work({
+        occurrenceKey: "w1",
+        occurrenceId: "db-w1",
+        label: "Wipe",
+        state: "DUE",
+        sourceKind: "ONE_OFF",
+      }),
+      work({ occurrenceKey: "plan-w", label: "Plan wipe", state: "DUE", sourceKind: "WORK_PLAN" }),
+    ],
     workOrders: [
       {
         id: "wo-1",
@@ -227,6 +240,11 @@ test("canonical items serialize once with correct offlineAction flags", () => {
   const workItem = ctx.items.find((row) => row.ownerKind === "COMPATIBILITY_WORK");
   assert.equal(workItem?.offlineAction, "COMPLETE_OPERATIONAL_TASK");
   assert.equal(workItem?.compatibility, true);
+  assert.equal(workItem?.compatibilitySource, "ONE_OFF");
+  assert.equal(
+    ctx.items.filter((row) => row.compatibilitySource === "WORK_PLAN").length,
+    0,
+  );
 
   const wo = ctx.items.find((row) => row.ownerKind === "WORK_ORDER");
   assert.ok(wo);
@@ -245,11 +263,14 @@ test("canonical items serialize once with correct offlineAction flags", () => {
     }
   }
 
-  // Legacy Work command payload still present alongside items
+  // Legacy Work command payload still present alongside items (may include plan-derived).
   const workCtx = serializeEmployeeRuntimeWorkContext(flow, "t");
   assert.ok(workCtx);
-  assert.equal(workCtx.requirements.length, 1);
-  assert.equal(workCtx.requirements[0]?.occurrenceKey, "w1");
+  assert.equal(workCtx.requirements.length, 2);
+  assert.equal(
+    workCtx.requirements.map((row) => row.occurrenceKey).sort().join(","),
+    "plan-w,w1",
+  );
 });
 
 test("href alone does not grant offline Work Order completion", () => {

@@ -205,8 +205,10 @@ export function isOneOffCompatibilityWork(item: JobFlowItem): boolean {
 }
 
 /**
- * Cutover helper for a later approved phase — NOT wired into compose in 2C-2E.
+ * Employee Job Flow cutover filter (Phase 2C-2G-2).
  * Removes plan-derived CompatWork while retaining one-off and all canonical owners.
+ * Wired into `composeEmployeeRuntimeFlow` item composition / next-action only.
+ * Does not mutate `flow.work` (legacy offline workContext may still list plan rows).
  */
 export function withoutPlanDerivedCompatibilityWork(
   items: readonly JobFlowItem[],
