@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import { readOfflineJobFlowItems } from "@/lib/employee-runtime-flow/serialize-offline";
 import { getOfflineRuntimeSnapshot } from "@/lib/offline/sync-engine";
 import type { OfflineJobFlowItemSnapshot } from "@/lib/offline/types";
-import { readOfflineJobFlowItems } from "@/lib/employee-runtime-flow";
 
 type OfflineJobFlowSnapshot = {
   state: string;

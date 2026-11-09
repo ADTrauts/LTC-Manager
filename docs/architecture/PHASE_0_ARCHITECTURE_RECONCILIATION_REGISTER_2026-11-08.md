@@ -31,7 +31,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
-| ARR-003 | Job Flow still depends on generic Work — **R2: hermetic+SQL PASS; offline E2E blocked by stale fixtures; schema remain** | Mitigated presentation; compatibility open | High | Deploy / fixture rewrite / schema |
+| ARR-003 | Job Flow still depends on generic Work — **R3: offline fixtures + SPACE CI-gate PASS (isolated projects); ONE_OFF/historical/schema remain** | Mitigated presentation; compatibility open | High | Deploy / schema |
 | ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A) | Legacy debt + conflict | Critical | 2 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
@@ -98,12 +98,12 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Affected domain | Job Flow / Employee Runtime Flow |
 | Code evidence | Phase 2C implementation complete through 2H-3 at `0d706e6`. Final integration cert: [PHASE_2C_FINAL_INTEGRATION_CERTIFICATION.md](./PHASE_2C_FINAL_INTEGRATION_CERTIFICATION.md) — **PASS WITH GAPS / CONDITIONAL**. Forward presentation consumers reconciled; ONE_OFF + offline commands + historical readers + Prisma Work models remain. Authoring closed (2B). |
 | Governing decision | Foundation: Job Flow composes Assignment, Cycle, Records, WO/PM; 15A: must not require generic Work going forward |
-| Current vs expected | Expected: composition without generic Work. Current: **forward plan-derived presentation retired (hermetic certified)**; browser/offline device cert pending; schema persistence outstanding. Deploy not authorized. |
-| Risk | Device/browser certification and schema retirement debt; presentation conflict mitigated |
-| Recommended action | Deploy only after CONDITIONAL gates; retain one-off; keep completion receipts; do not drop schema yet; optional EVS canonical sequencing decision |
+| Current vs expected | Expected: composition without generic Work. Current: **forward plan-derived presentation retired**; **R3 offline/canonical fixtures repaired** and SPACE offline CI-gate certified on disposable DBs (tablet + chromium isolated). ONE_OFF + offline commands + historical readers + Prisma Work models remain. Deploy not authorized. |
+| Risk | Schema retirement debt; combined dual-project offline isolation gap; presentation conflict mitigated |
+| Recommended action | Deploy only after CONDITIONAL gates + new R3 candidate SHA; retain one-off; keep completion receipts; do not drop schema yet; optional EVS canonical sequencing decision |
 | Dependencies | ARR-001, ARR-002 (authoring closed) |
-| Proposed phase | Deploy / device / schema — **ARR-003 not closed** (forward retirement vs schema retirement distinguished) |
-| Verification needed | Deploy approval; rewrite offline/canonical fixtures (2A/2B-safe) then offline CI-gate; browser smoke. Harbor/EVS SQL passed on disposable DB in [PHASE_2C_RELEASE_R2](./PHASE_2C_RELEASE_R2_EXECUTION_VALIDATION.md). CDA R1 closed. |
+| Proposed phase | Deploy / schema — **ARR-003 not closed** (ONE_OFF, historical, offline-command, and persistence compatibility remain) |
+| Verification needed | Deploy approval; [PHASE_2C_RELEASE_R3](./PHASE_2C_RELEASE_R3_OFFLINE_FIXTURE_AND_BROWSER_CERTIFICATION.md) offline CI-gate PASS WITH GAPS. Harbor/EVS SQL reconfirmed on disposable DB. CDA R1 closed. Do not close ARR-003 while compatibility remains. |
 
 ### ARR-004 — Location Function / profile / archetype remain
 

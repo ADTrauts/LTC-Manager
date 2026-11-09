@@ -68,7 +68,6 @@ export default async function WorkPlanDetailPage({ params }: Props) {
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge
-          label={plan.status}
           variant={
             plan.status === "PUBLISHED"
               ? "success"
@@ -76,7 +75,9 @@ export default async function WorkPlanDetailPage({ params }: Props) {
                 ? "neutral"
                 : "warning"
           }
-        />
+        >
+          {plan.status}
+        </StatusBadge>
         <span className="text-sm text-zinc-500">{plan.items.length} steps · read-only</span>
       </div>
       <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white">

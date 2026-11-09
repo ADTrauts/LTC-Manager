@@ -75,10 +75,13 @@ export async function authorize(tx: Tx, s: FacilitySession, scope: SpaceScope, d
     const assigned = assignment.unitId === scope.unitId && ((assignment.scopeKind || "UNIT") === "UNIT" || loaded.locationsByAssignmentId.get(assignment.id)?.some(l => l.unitSpaceId === scope.spaceId));
     if (!assigned)
         fail("This Space is not in your confirmed assignment.");
-    await tx.$queryRaw `SELECT "id" FROM "DepartmentOperationalProfile" WHERE "departmentId"=${scope.departmentId} FOR SHARE`;
-    const binding = await tx.departmentRoomArchetypeBinding.findFirst({ where: { unitSpaceId: scope.spaceId, profile: { facilityId: s.facilityId, departmentId: scope.departmentId, status: "ACTIVE" }, archetype: { isActive: true } }, include: { profile: true, archetype: true } });
-    if (!binding)
-        fail("Publish an applicable Location Function before offline preparation.");
+    // Phase 2A/2C R3: Department Space responsibility replaces retired Location Function binding.
+    await tx.$queryRaw `SELECT "id" FROM "UnitSpaceResponsibility" WHERE "spaceId"=${scope.spaceId} AND "departmentId"=${scope.departmentId} FOR SHARE`;
+    const responsibility = await tx.unitSpaceResponsibility.findFirst({
+        where: { spaceId: scope.spaceId, departmentId: scope.departmentId },
+    });
+    if (!responsibility)
+        fail("Confirm Department responsibility for this Space before offline preparation.");
     // Published configuration remains locked through domain write and receipt.
     await tx.$queryRaw `SELECT "id" FROM "DepartmentWorkPlan" WHERE "departmentId"=${scope.departmentId} FOR SHARE`;
     await tx.$queryRaw `SELECT "id" FROM "DepartmentOperationalCycle" WHERE "departmentId"=${scope.departmentId} FOR SHARE`;
@@ -92,11 +95,28 @@ export async function authorize(tx: Tx, s: FacilitySession, scope: SpaceScope, d
     const until = Math.min(+now + LIMITS.leaseMs, s.exp ? s.exp * 1000 : Infinity, assignment.endsAt ? +new Date(assignment.endsAt) : Infinity, authorityEnd);
     if (until <= +now)
         fail("Current authority expired.");
-    return { employee, assignment, assignmentDigest: digest({ assignment, timezone: facility.timezone, bindingId: binding.id, profileId: binding.profileId, archetypeId: binding.archetypeId }), operationalDate, facility, space, until };
+    return {
+        employee,
+        assignment,
+        assignmentDigest: digest({
+            assignment,
+            timezone: facility.timezone,
+            responsibilityId: responsibility.id,
+            spaceId: scope.spaceId,
+            departmentId: scope.departmentId,
+        }),
+        operationalDate,
+        facility,
+        space,
+        until,
+    };
 }
 async function catalog(tx: Tx, s: FacilitySession, scope: SpaceScope, device: Device, now: Date, dateKey?: string) {
     const context = await authorize(tx, s, scope, device, now, dateKey);
-    const work = await resolveUnitWorkRequirements({ client: tx, facilityId: s.facilityId, departmentId: scope.departmentId, unitId: scope.unitId, operationalDate: facilityLocalDateToServiceDate(context.operationalDate), operationalDateKey: context.operationalDate, now, facilityTimezone: context.facility.timezone });
+    const workRaw = await resolveUnitWorkRequirements({ client: tx, facilityId: s.facilityId, departmentId: scope.departmentId, unitId: scope.unitId, operationalDate: facilityLocalDateToServiceDate(context.operationalDate), operationalDateKey: context.operationalDate, now, facilityTimezone: context.facility.timezone });
+    // Phase 2C-2H-2 / R3: newly issued SPACE bundles omit WORK_PLAN. Keep completed
+    // ONE_OFF rows so target-order identity and "already confirmed" display remain stable.
+    const work = workRaw.filter((row) => row.sourceKind === "ONE_OFF");
     const cycles = await loadPublishedCyclesWithKeyTimesForDate(s.facilityId, scope.departmentId, context.operationalDate, tx);
     await materializeKeyTimeDayExpectations({ facilityId: s.facilityId, departmentId: scope.departmentId, operationalDateKey: context.operationalDate, now, createIfMissing: true }, tx);
     const keys = await tx.operationalCycleKeyTimeDayExpectation.findMany({ where: { facilityId: s.facilityId, departmentId: scope.departmentId, spaceId: scope.spaceId, serviceDate: facilityLocalDateToServiceDate(context.operationalDate) }, orderBy: { id: "asc" } });

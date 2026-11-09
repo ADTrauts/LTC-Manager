@@ -198,12 +198,14 @@ async function main() {
     const grep =
       process.env.OFFLINE_BROWSER_GREP ||
       (process.env.OFFLINE_BROWSER_CI_GATE === "1" ? "@ci-gate" : undefined);
+    const project = process.env.OFFLINE_BROWSER_PROJECT?.trim();
     const pwArgs = [
       "playwright",
       "test",
       "-c",
       "tests/playwright.offline.config.ts",
       ...(grep ? ["--grep", grep] : []),
+      ...(project ? ["--project", project] : []),
     ];
 
     const pw = spawnSync("npx", pwArgs, {
