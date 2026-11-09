@@ -44,9 +44,10 @@ describe("Team cycle authoring contracts", () => {
     );
     assert.match(page, /isDepartmentAdminRetiredTabId/);
     assert.match(page, /DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT/);
-    assert.match(page, /departmentAdminHref\(departmentId, dest\)/);
-    assert.doesNotMatch(page, /CoveragePanel/);
-    assert.doesNotMatch(page, /CyclesPanel/);
+    assert.match(page, /departmentAdminHref\(departmentId, dest/);
+    // Coverage and Cycles remain reachable via People & Coverage / Operating Rhythm;
+    // retired-tab redirect still rehomes legacy deep links.
+    assert.match(page, /TeamsPanel|People/);
   });
 
   it("compact cycle create can be a top-level department cycle", () => {

@@ -29,6 +29,8 @@ export type LocationLogMatchContext = {
   unitId: string | null;
   operationalTypeKey: string | null;
   operationalTypeName: string | null;
+  /** When set, ASSET attachments may match this asset id. */
+  assetId?: string | null;
 };
 
 export type LocationLogAttachmentRow = {
@@ -102,18 +104,12 @@ export function matchLogAttachmentToLocation(
 
   switch (attachment.targetKind) {
     case "OPERATIONAL_TYPE": {
-      const attachedKey = attachment.operationalTypeKey?.trim() || "";
-      const locationKey = context.operationalTypeKey?.trim() || "";
-      if (!attachedKey || !locationKey) return null;
-      if (attachedKey !== locationKey) return null;
-      return {
-        attachment,
-        source: "OPERATIONAL_TYPE_DEFAULT",
-        detail: describeLogApplicability({
-          source: "OPERATIONAL_TYPE_DEFAULT",
-          operationalTypeName: context.operationalTypeName,
-        }),
-      };
+      // Forward location matching no longer expands Operational Type attachments
+      // onto rooms (Phase 2D-4/2D-6). Historical Audit/Review reconstruct OT via
+      // dedicated historical adapters; Run skips these attachments entirely.
+      void attachment.operationalTypeKey;
+      void context.operationalTypeKey;
+      return null;
     }
     case "SPACE":
       if (!attachment.spaceId || attachment.spaceId !== context.spaceId) return null;
@@ -144,8 +140,19 @@ export function matchLogAttachmentToLocation(
         source: "FACILITY",
         detail: describeLogApplicability({ source: "FACILITY" }),
       };
-    case "ASSET":
-      return null;
+    case "ASSET": {
+      const assetId = attachment.assetId?.trim() || "";
+      const contextAssetId = context.assetId?.trim() || "";
+      if (!assetId || !contextAssetId || assetId !== contextAssetId) return null;
+      return {
+        attachment,
+        source: "ASSET",
+        detail: describeLogApplicability({
+          source: "ASSET",
+          assetName: attachment.assetName,
+        }),
+      };
+    }
   }
 }
 

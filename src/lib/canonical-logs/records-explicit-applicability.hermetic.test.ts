@@ -74,27 +74,31 @@ test("a new room of the same Facility Room Type does not inherit the requirement
   assert.equal(matchLogAttachmentToLocation(inherited, spaceD), null);
 });
 
-test("UNIT applies to that unit and does not include a room inside it", () => {
+test("UNIT applies to Spaces in that Unit and ignores other Units", () => {
   const requirement = row({ id: "unit", targetKind: "UNIT", unitId: "unit-1" });
   assert.equal(
-    matchLogAttachmentToLocation(requirement, ctx({ spaceId: "", unitId: "unit-1" }))?.source,
+    matchLogAttachmentToLocation(requirement, ctx({ spaceId: "room", unitId: "unit-1" }))?.source,
     "UNIT",
   );
-  assert.equal(matchLogAttachmentToLocation(requirement, ctx({ spaceId: "room", unitId: "unit-1" })), null);
-  assert.equal(matchLogAttachmentToLocation(requirement, ctx({ spaceId: "", unitId: "unit-2" })), null);
+  assert.equal(matchLogAttachmentToLocation(requirement, ctx({ spaceId: "room", unitId: "unit-2" })), null);
 });
 
-test("DEPARTMENT is one department requirement and FACILITY is one facility requirement", () => {
+test("DEPARTMENT and FACILITY match within Department scope; OT no longer expands", () => {
   const department = row({ id: "dept", targetKind: "DEPARTMENT", targetDepartmentId: "dietary" });
   const facility = row({ id: "fac", targetKind: "FACILITY" });
-  assert.equal(matchLogAttachmentToLocation(department, ctx({ spaceId: "" }))?.source, "DEPARTMENT_WIDE");
-  assert.equal(matchLogAttachmentToLocation(department, ctx({ spaceId: "room" })), null);
+  assert.equal(matchLogAttachmentToLocation(department, ctx({ spaceId: "room" }))?.source, "DEPARTMENT_WIDE");
   assert.equal(
-    matchLogAttachmentToLocation(department, ctx({ spaceId: "", departmentId: "evs" })),
+    matchLogAttachmentToLocation(department, ctx({ spaceId: "room", departmentId: "evs" })),
     null,
   );
-  assert.equal(matchLogAttachmentToLocation(facility, ctx({ spaceId: "" }))?.source, "FACILITY");
-  assert.equal(matchLogAttachmentToLocation(facility, ctx({ spaceId: "room" })), null);
+  assert.equal(matchLogAttachmentToLocation(facility, ctx({ spaceId: "room" }))?.source, "FACILITY");
+  assert.equal(
+    matchLogAttachmentToLocation(
+      row({ id: "ot", targetKind: "OPERATIONAL_TYPE", operationalTypeKey: "servery" }),
+      ctx({ spaceId: "room", operationalTypeKey: "servery", operationalTypeName: "Servery" }),
+    ),
+    null,
+  );
 });
 
 test("an asset requirement matches that asset and not the room", () => {
@@ -215,7 +219,7 @@ test("audit reconstructs a past space requirement from the attachment interval",
   assert.equal(august.slots.some((slot) => slot.spaceId === "space-a"), false);
 });
 
-test("location program shows explicit room logs and ignores a Facility Room Type default", () => {
+test("location program may show Facility-type defaults as Build overlay only", () => {
   const program = composeLocationProgram({
     departmentId: "dietary",
     departmentName: "Food & Nutrition",
@@ -239,5 +243,10 @@ test("location program shows explicit room logs and ignores a Facility Room Type
     suppressions: [],
     assets: [],
   });
-  assert.deepEqual(program.logs, []);
+  // Build compatibility surface — not a Run LogAttachment. Forward authoring of new
+  // type defaults is retired; existing defaults may still appear in the inspector.
+  assert.equal(program.logs.length, 1);
+  assert.equal(program.logs[0]?.kind, "TYPE_DEFAULT");
+  assert.equal(program.logs[0]?.attachmentId, null);
+  assert.match(program.logs[0]?.provenance.detail ?? "", /Facility type/i);
 });
