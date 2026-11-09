@@ -20,7 +20,6 @@ import {
   type ResolveApplicableMenusInput,
 } from "@/lib/menu-runtime";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import type { CycleUnitScope } from "@/lib/operational-cycles/types";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -129,6 +128,10 @@ async function loadUnitCycleScope(unitId: string): Promise<CycleUnitScope | null
   };
 }
 
+/**
+ * Forward Menu Runtime no longer reads the OT assignment hub.
+ * Callers may still pass an explicit operationalTypeKey for historical/compat tests.
+ */
 async function loadOperationalTypeKey(input: {
   facilityId: string;
   departmentId: string;
@@ -136,13 +139,7 @@ async function loadOperationalTypeKey(input: {
   provided?: string | null;
 }): Promise<string | null> {
   if (input.provided !== undefined) return input.provided;
-  const assignments = await loadSpaceOperationalTypeAssignments({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    spaceIds: [input.spaceId],
-    perspective: "runtime",
-  });
-  return assignments.get(input.spaceId)?.key ?? null;
+  return null;
 }
 
 export async function loadMenuRuntimeCandidates(input: {

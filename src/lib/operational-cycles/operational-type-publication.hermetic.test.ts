@@ -223,7 +223,7 @@ test("retired Operational Type fails safely with no physical or UnitType fallbac
   assert.equal(match, null);
 });
 
-test("runtime loaders must request runtime perspective; Build uses working", () => {
+test("Phase 2D-4: forward Run/offline drop OT hub; Build may still use working perspective", () => {
   const runtimeFiles = [
     "src/lib/operational-cycles/load-run-operation-presentation.ts",
     "src/lib/operational-cycles/load-employee-cycle-context.ts",
@@ -232,8 +232,7 @@ test("runtime loaders must request runtime perspective; Build uses working", () 
   ];
   for (const file of runtimeFiles) {
     const source = readFileSync(join(process.cwd(), file), "utf8");
-    assert.match(source, /perspective:\s*"runtime"/, file);
-    assert.doesNotMatch(source, /perspective:\s*"working"/, file);
+    assert.doesNotMatch(source, /loadSpaceOperationalTypeAssignments/, file);
   }
   const builder = readFileSync(
     join(process.cwd(), "src/lib/operational-cycles/load-cycle-builder.ts"),

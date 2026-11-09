@@ -11,7 +11,7 @@ function source(rel: string) {
   return readFileSync(join(process.cwd(), rel), "utf8");
 }
 
-test("Run loaders read Location Functions from the shared runtime resolver", () => {
+test("Phase 2D-4: forward Run/offline loaders no longer call the OT assignment hub", () => {
   const files = [
     "src/lib/operational-cycles/load-supervisor-cycle-overview.ts",
     "src/lib/operational-cycles/load-employee-cycle-context.ts",
@@ -19,12 +19,21 @@ test("Run loaders read Location Functions from the shared runtime resolver", () 
     "src/lib/offline/build-runtime-bundle.ts",
     "src/lib/canonical-logs/load-run-requirements.ts",
     "src/lib/canonical-logs/load-target-run-logs.ts",
+    "src/lib/menu-runtime-db.ts",
+    "src/lib/dietary/record-meal-timing.ts",
   ];
   for (const file of files) {
     const text = source(file);
-    assert.equal(text.includes("loadSpaceOperationalTypeAssignments"), true, file);
-    assert.match(text, /perspective:\s*"runtime"/, file);
+    assert.equal(text.includes("loadSpaceOperationalTypeAssignments"), false, file);
   }
+  assert.doesNotMatch(
+    source("src/lib/dietary/record-meal-timing.ts"),
+    /departmentRoomArchetypeBinding|FOOD_SERVICE_AREA_FUNCTION_KEY/,
+  );
+  assert.match(
+    source("src/lib/dietary/record-meal-timing.ts"),
+    /departmentOperationalCycleKeyTimeGroupRoom/,
+  );
   assert.equal(
     source("src/lib/scheduling/operational-assignments/build-coverage-summary.ts").includes(
       "loadSpaceOperationalTypeAssignments",

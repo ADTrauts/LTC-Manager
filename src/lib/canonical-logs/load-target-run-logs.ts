@@ -1,7 +1,7 @@
 /**
  * Canonical RUN Logs for a single Attachment target (Asset / Room / Unit / Department).
- * Direct target attachments stay on that target. A room also receives Record
- * requirements whose Location Function matches its published runtime binding.
+ * Direct target attachments stay on that target.
+ * Forward Run does not expand OPERATIONAL_TYPE via profile/archetype bindings.
  * Room does not mix Asset Logs from the same space.
  */
 
@@ -12,7 +12,6 @@ import type { FacilitySession } from "@/lib/auth";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { parseInspectionSections } from "@/lib/canonical-logs/inspection-score";
 import { dayBefore } from "@/lib/operational-cycles/cycle-lifecycle";
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -27,10 +26,7 @@ import {
 import { presentHistoryTable, type TargetRunLogHistoryTable } from "./history-presentation";
 import { loadPublishedCyclesForLogsDateRange } from "./load-published-cycles-for-logs";
 import { groupLogicalLogAttachments } from "./logical-attachment";
-import {
-  dedupeLocationLogRequirements,
-  expandOperationalTypeSpaces,
-} from "./log-operational-type-applicability";
+import { dedupeLocationLogRequirements } from "./log-operational-type-applicability";
 import {
   resolveLogRequirementsForAttachment,
   type LogAttachmentForResolve,
@@ -484,42 +480,15 @@ export async function loadTargetRunLogs(input: {
   };
 }
 
-async function loadRuntimeOperationalTypeAttachmentsForTarget(input: {
+/**
+ * Forward Run no longer expands OPERATIONAL_TYPE attachments via the OT hub.
+ * Explicit SPACE attachments remain the canonical room-level source.
+ * Historical OT rows stay available to Review/Audit compatibility readers.
+ */
+async function loadRuntimeOperationalTypeAttachmentsForTarget(_input: {
   client: PrismaClient;
   facilityId: string;
   target: RunTargetRef;
 }) {
-  if (input.target.kind !== "SPACE") return [];
-
-  const departments = await input.client.department.findMany({
-    where: { facilityId: input.facilityId, isActive: true },
-    select: { id: true },
-  });
-  const matched: Array<{ departmentId: string; operationalTypeKey: string }> = [];
-  for (const department of departments) {
-    const assignments = await loadSpaceOperationalTypeAssignments({
-      facilityId: input.facilityId,
-      departmentId: department.id,
-      spaceIds: [input.target.id],
-      perspective: "runtime",
-    });
-    const key = assignments.get(input.target.id)?.key ?? null;
-    const boundHere = expandOperationalTypeSpaces(assignments, key);
-    if (key && boundHere.includes(input.target.id)) {
-      matched.push({ departmentId: department.id, operationalTypeKey: key });
-    }
-  }
-  if (matched.length === 0) return [];
-
-  return input.client.logAttachment.findMany({
-    where: {
-      facilityId: input.facilityId,
-      targetKind: "OPERATIONAL_TYPE",
-      OR: matched.map((row) => ({
-        departmentId: row.departmentId,
-        operationalTypeKey: row.operationalTypeKey,
-      })),
-    },
-    include: attachmentInclude,
-  });
+  return [];
 }

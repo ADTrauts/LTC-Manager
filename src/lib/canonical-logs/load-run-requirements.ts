@@ -13,12 +13,7 @@ import {
   toServiceDateKey,
 } from "@/lib/operational-time";
 
-import { loadSpaceOperationalTypeAssignments } from "@/lib/operational-cycles/load-operational-type-targets";
-
-import {
-  dedupeLocationLogRequirements,
-  expandOperationalTypeSpaces,
-} from "./log-operational-type-applicability";
+import { dedupeLocationLogRequirements } from "./log-operational-type-applicability";
 import { loadPublishedCyclesForLogsOnDate } from "./load-published-cycles-for-logs";
 import { parseCatalogEvidenceRules } from "./evidence-rules";
 import { parseInspectionSections } from "./inspection-score";
@@ -167,22 +162,6 @@ export async function loadFacilityRunLogRequirements(
     calculations: ReturnType<typeof parseCalculations>;
   }> = [];
   const spaceLabels = new Map<string, string>();
-  const runtimeAssignmentsByDepartment = new Map<
-    string,
-    Awaited<ReturnType<typeof loadSpaceOperationalTypeAssignments>>
-  >();
-
-  async function runtimeAssignments(departmentId: string) {
-    const cached = runtimeAssignmentsByDepartment.get(departmentId);
-    if (cached) return cached;
-    const loaded = await loadSpaceOperationalTypeAssignments({
-      facilityId: input.facilityId,
-      departmentId,
-      perspective: "runtime",
-    });
-    runtimeAssignmentsByDepartment.set(departmentId, loaded);
-    return loaded;
-  }
 
   async function rememberSpaceLabels(spaceIds: readonly string[]) {
     const missing = spaceIds.filter((id) => !spaceLabels.has(id));
@@ -250,42 +229,10 @@ export async function loadFacilityRunLogRequirements(
       continue;
     }
 
+    // Forward Run no longer expands OPERATIONAL_TYPE via profile/archetype bindings.
+    // Historical OT attachments remain readable for Review/Audit; they do not invent
+    // SPACE requirements. Re-home as explicit SPACE/UNIT/… attachments to restore Run.
     if (attachment.targetKind === "OPERATIONAL_TYPE") {
-      const assignments = await runtimeAssignments(attachment.departmentId);
-      const spaceIds = expandOperationalTypeSpaces(assignments, attachment.operationalTypeKey);
-      await rememberSpaceLabels(spaceIds);
-      for (const spaceId of spaceIds) {
-        const resolved = resolveLogRequirementsForAttachment({
-          attachment: {
-            ...attachment,
-            resolvedSpaceId: spaceId,
-            catalogDefinition: catalogForResolve(attachment),
-          },
-          operationalDateKey,
-          now,
-          facilityTimezone: timezone,
-          publishedCycles: publishedCyclesByDepartment.get(attachment.departmentId) ?? [],
-          existingRecords,
-        });
-        for (const req of resolved) {
-          if (req.productState === "NEEDS_SETUP" && !isManager) continue;
-          collected.push(req);
-          presented.push({
-            requirement: req,
-            catalogDefinitionName: attachment.catalogDefinition.name,
-            localDisplayLabel: attachment.localDisplayLabel,
-            localInstructions: attachment.localInstructions,
-            catalogInstructions: attachment.catalogDefinition.instructions,
-            targetLabel: spaceLabels.get(spaceId) ?? targetLabel,
-            rules: parseCatalogEvidenceRules(attachment.catalogDefinition.rulesJson),
-            sections: parseInspectionSections(attachment.catalogDefinition.sectionsJson),
-            passingScore: attachment.catalogDefinition.passingScore,
-            criticalFailureForcesFailure: attachment.catalogDefinition.criticalFailureForcesFailure,
-            repeatingGroups: parseRepeatingGroups(attachment.catalogDefinition.repeatingGroupsJson),
-            calculations: parseCalculations(attachment.catalogDefinition.calculationsJson),
-          });
-        }
-      }
       continue;
     }
 

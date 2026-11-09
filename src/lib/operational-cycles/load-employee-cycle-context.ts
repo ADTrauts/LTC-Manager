@@ -17,10 +17,6 @@ import {
   type KeyTimeDayTiming,
   type KeyTimeStatus,
 } from "./key-time-day-expectation";
-import {
-  loadSpaceOperationalTypeAssignments,
-  operationalTypeKeysForSpaces,
-} from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import {
   materializeMealServiceDayExpectations,
@@ -154,16 +150,8 @@ export async function loadEmployeeCycleContext(input: {
       ],
       spaceIds: row.childSpaces.map((space) => space.id),
     };
-    const runtimeFunctions = await loadSpaceOperationalTypeAssignments({
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      spaceIds: unit.spaceIds,
-      perspective: "runtime",
-    });
-    unit.childOperationalTypeKeys = operationalTypeKeysForSpaces(
-      runtimeFunctions,
-      unit.spaceIds ?? [],
-    );
+    // Forward employee cycle context uses explicit cycle locations — not OT hub keys.
+    unit.childOperationalTypeKeys = [];
     const ownerIds = timingOwnerUnitIds(unit);
     const unitTimings = timingsForOwnerUnits(mealMaterialized.timings, ownerIds);
     if (unitTimings.length > 0) {

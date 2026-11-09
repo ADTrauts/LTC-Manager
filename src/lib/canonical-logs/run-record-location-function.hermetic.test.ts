@@ -309,24 +309,24 @@ test("F. explicit room and department requirements stay on their own targets", (
   const target = source("src/lib/canonical-logs/load-target-run-logs.ts");
   assert.match(book, /const spaceIds = \[null\]/);
   assert.match(target, /targetRunAttachmentWhere/);
-  assert.match(target, /kind !== "SPACE"/);
+  assert.match(target, /Forward Run does not expand OPERATIONAL_TYPE/);
+  assert.doesNotMatch(target, /loadSpaceOperationalTypeAssignments/);
 });
 
-test("Run, Cycles, Work, and Audit share the Location Function room filter", () => {
+test("Phase 2D-4: forward Records/Cycles drop OT hub; historical Audit/Work may still expand", () => {
   const runRequirements = source("src/lib/canonical-logs/load-run-requirements.ts");
   const targetRun = source("src/lib/canonical-logs/load-target-run-logs.ts");
   const audit = source("src/lib/audit/audit-records.ts");
   const work = source("src/lib/department-work/load-runtime-work.ts");
   const cycles = source("src/lib/operational-cycles/load-supervisor-cycle-overview.ts");
-  for (const text of [runRequirements, targetRun, work, cycles]) {
-    assert.match(text, /loadSpaceOperationalTypeAssignments/);
-    assert.match(text, /perspective:\s*"runtime"/);
-    assert.doesNotMatch(text, /perspective:\s*"working"/);
+  for (const text of [runRequirements, targetRun, cycles]) {
+    assert.doesNotMatch(text, /loadSpaceOperationalTypeAssignments/);
   }
-  assert.match(runRequirements, /expandOperationalTypeSpaces/);
-  assert.match(targetRun, /expandOperationalTypeSpaces/);
+  assert.match(runRequirements, /OPERATIONAL_TYPE/);
+  assert.match(targetRun, /Forward Run no longer expands OPERATIONAL_TYPE/);
+  assert.match(work, /loadSpaceOperationalTypeAssignments/);
   assert.match(audit, /expandOperationalTypeSpaces/);
   assert.match(audit, /selectHistoricalProfileForServiceDate/);
-  assert.doesNotMatch(runRequirements, /unitType|spaceType/);
-  assert.doesNotMatch(targetRun, /unitType|spaceType/);
+  assert.doesNotMatch(runRequirements, /expandOperationalTypeSpaces/);
+  assert.doesNotMatch(targetRun, /expandOperationalTypeSpaces/);
 });

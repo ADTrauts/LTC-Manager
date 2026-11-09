@@ -32,7 +32,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
 | ARR-003 | Job Flow still depends on generic Work — **Phase 2C deployed `7973254` / `dpl_2fjfVAJporEGaDtFwzRVd9TgQhKS` (WITH GAPS); ONE_OFF/historical/schema remain** | Mitigated presentation; compatibility open | High | Deploy / schema |
-| ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A; **2D-1/2D-2 docs; 2D-3 room foundation local — ARR-004 still open**) | Legacy debt + conflict | Critical | 2D-4…2D-6 |
+| ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A; **2D-3 foundation + 2D-4 Run/Menu/meal/offline OT removed — ARR-004 still open**) | Legacy debt + conflict | Critical | 2D-5…2D-6 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
 | ARR-007 | Constitution / Domain Model long-form still name retired owners | Documentation drift | High | 1 |
@@ -110,14 +110,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Facility composition; Cycles/Records/Coverage historical paths; product starters |
-| Code evidence | Schema models present post restore; hub `loadSpaceOperationalTypeAssignments`; ~10 Run consumers + Coverage/Review/Audit/Menu/Team/Dietary meal-timing readers. **Phase 2D-1:** [PHASE_2D1…](./PHASE_2D1_LOCATION_CLASSIFICATION_DEPENDENCY_AUDIT.md). **Phase 2D-2:** [PHASE_2D2…](./PHASE_2D2_CANONICAL_ROOM_DEPARTMENT_CONFIGURATION_CONTRACT.md). **Phase 2D-3:** [PHASE_2D3…](./PHASE_2D3_FACILITY_DEPARTMENT_ROOM_FOUNDATION.md) — `UnitSpaceResponsibility.notes` (local migration on disposable DB only); Locations inspect layers; Room Type copy fixed. Production occupancy unchanged (migration not deployed). |
-| Governing decision | 01A Amendment B (Nov 2 supersession); 16 §4.3–4.4; elimination audit; Phase 2A closed writers (ARR-026); **PO Phase 2D-2 architecture** + 2D-3 note lifecycle (membership-bound descriptive metadata, not ops) |
-| Current vs expected | Expected: engines store canonical place ids only; no function key; Room Type never implies ops. Current: **authoring closed**; **room-definition foundation implemented locally**; **readers still wired** to empty profile/OT bus; Facility-type log defaults remain a compatibility type-composition path |
-| Risk | Critical if schema dropped early; High for silent empty Run expansion if readers removed without rehome |
-| Recommended action | **Do not close ARR-004.** Next: **2D-4** Records/OR/Menu/meal-timing/offline OT → **2D-5** Coverage/Teams/residuals → **2D-6** cert. Deploy 2D-3 migration only when explicitly authorized. **No DROP** until separately authorized after cert. |
+| Code evidence | Schema + hub retained. **Phase 2D-4:** [PHASE_2D4…](./PHASE_2D4_CANONICAL_OPERATIONAL_READER_RECONCILIATION.md) removed OT hub from Records Run, OR presentation/employee/supervisor, Menu Runtime, offline cycle resolve; meal timing uses Key Time group rooms (not `food_service_area`). Remaining: Work runtime, Coverage/Teams options, Build guidance, Dashboard viewer-team-scope, historical Audit. Coverage template `spaceId` was added then **dropped by restore** — still absent. |
+| Governing decision | 01A Amendment B; 16 §4.3–4.4; 2D-2 architecture; 2D-3 notes; 2D-4 explicit domain targeting for listed Run consumers |
+| Current vs expected | Expected: engines store canonical place ids only. Current: **listed forward Run/offline/menu/meal paths rehomed**; Coverage/Teams/Work/Build guidance still OT-aware; Facility-type log defaults still Build-compose by Room Type |
+| Risk | Critical if schema dropped early; residual OT readers can still confuse forward design if treated as SoT |
+| Recommended action | **Do not close ARR-004.** Next: **2D-5** Coverage explicit Space + Teams + residual CFG → **2D-6** cert. Deploy 2D-3 notes migration + 2D-4 code only with PO approval after offline CI-gate. **No DROP** until separately authorized after cert. |
 | Dependencies | ARR-001, ARR-016, ARR-018, ARR-023, ARR-026, ARR-029 |
-| Proposed phase | **2D-4…2D-6** (2D-3 local foundation complete; readers still open) |
-| Verification needed | 2D-3 report; 2D-4 reader rehomes; 2D-6 hermetic/SQL/browser/offline/auth layered isolation |
+| Proposed phase | **2D-5…2D-6** (2D-4 local reader reconciliation complete for authorized scope) |
+| Verification needed | 2D-4 report; offline browser CI-gate before deploy; 2D-6 layered auth isolation |
 
 ### ARR-005 — Phase 6 tests vs restored schema
 
