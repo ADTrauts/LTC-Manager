@@ -230,7 +230,8 @@ export function composeEmployeeRuntimeFlow(
 
   if (!input.currentAssignment && !input.upcomingAssignment) {
     const signedIn = emptyFlow(input, "no_confirmed_assignment", mismatch);
-    // Keep full WorkRequirement list for offline workContext / completion keys.
+    // Keep full WorkRequirement list for completion-key enrichment / sync.
+    // Newly issued workContext advertising is ONE_OFF-only (2C-2H-2).
     // Employee Job Flow items exclude plan-derived CompatWork (2C-2G-2).
     const work = filterWorkToAssignedSpaces(input.workRequirements, null);
     return {
@@ -267,7 +268,8 @@ export function composeEmployeeRuntimeFlow(
     evidenceMode === "template"
       ? filterTemplateEvidenceToAssignedSpaces(input.templateEvidence, spaceFilter)
       : [];
-  // flow.work retains plan-derived rows for offline workContext + deep-link enrichment.
+  // flow.work retains plan-derived rows for sync/completion enrichment.
+  // Newly issued workContext advertising is ONE_OFF-only (2C-2H-2).
   // flow.items / next exclude WORK_PLAN CompatWork (2C-2G-2 cutover).
   const work = filterWorkToAssignedSpaces(input.workRequirements, spaceFilter);
   const milestones = collectMilestones(states);

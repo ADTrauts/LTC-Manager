@@ -35,6 +35,8 @@ import {
   serializeEmployeeRuntimeJobFlowContext,
   serializeEmployeeRuntimeJobFlowItemContext,
   serializeEmployeeRuntimeWorkContext,
+  filterWorkRequirementsForOfflinePresentation,
+  serializeOfflineWorkContextRequirements,
 } from "@/lib/employee-runtime-flow";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
@@ -837,41 +839,16 @@ export async function buildRuntimeBundle(
         assignmentContext?.scopeKind === "SPACES"
           ? new Set(assignmentContext.assignedLocations?.map((l) => l.unitSpaceId) ?? [])
           : null;
-      const scoped = workRequirements.filter((r) => {
-        if (
-          !["DUE", "CURRENT", "UPCOMING", "PAST_DUE_NOT_CONFIRMED", "SAVED_ON_THIS_TABLET"].includes(
-            r.state,
-          )
-        ) {
-          return false;
-        }
+      const spaceScoped = workRequirements.filter((r) => {
         if (assignedSpaceIds == null) return true;
         // SPACES scope: only assigned rooms — never the full unit Work catalog.
         return r.spaceId != null && assignedSpaceIds.has(r.spaceId);
       });
-      workContext = {
-        requirements: scoped.map((r) => ({
-          occurrenceKey: r.occurrenceKey,
-          label: r.label,
-          state: r.state,
-          priority: r.priority,
-          completionMode: r.completionMode,
-          workPlanStableKey: r.workPlanStableKey,
-          workPlanVersion: r.workPlanVersion,
-          workItemKey: r.workItemKey,
-          workPlanId: r.workPlanId,
-          workItemId: r.workItemId,
-          instructions: r.instructions,
-          knowledgeArticleId: r.knowledgeArticleId,
-          procedureTitle: r.procedureTitle,
-          dueAt: r.dueAt?.toISOString() ?? null,
-          cycleStableKey: r.cycleStableKey,
-          windowStartLocal: r.windowStartLocal,
-          windowEndLocal: r.windowEndLocal,
-          assignedEmployeeId: r.assignedEmployeeId,
-        })),
-        lastSyncedAt: issuedAt.toISOString(),
-      };
+      // Phase 2C-2H-2: same ONE_OFF-only advertising as EmployeeRuntimeFlow serializer.
+      workContext = serializeOfflineWorkContextRequirements(
+        filterWorkRequirementsForOfflinePresentation(spaceScoped),
+        issuedAt.toISOString(),
+      );
     } catch {
       workContext = null;
     }

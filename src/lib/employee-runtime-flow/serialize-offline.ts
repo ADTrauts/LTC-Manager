@@ -6,6 +6,7 @@
  * workContext / evidenceContext / milestones remain for command execution.
  */
 
+import type { WorkRequirement } from "@/lib/department-work/types";
 import type {
   OfflineJobFlowItemAction,
   OfflineJobFlowItemContext,
@@ -151,18 +152,37 @@ export function serializeEmployeeRuntimeEvidenceContext(
   return null;
 }
 
-export function serializeEmployeeRuntimeWorkContext(
-  flow: EmployeeRuntimeFlow,
+const OFFLINE_WORK_PRESENTATION_STATES = [
+  "DUE",
+  "CURRENT",
+  "UPCOMING",
+  "PAST_DUE_NOT_CONFIRMED",
+  "SAVED_ON_THIS_TABLET",
+] as const;
+
+/**
+ * Phase 2C-2H-2 — new offline workContext advertising.
+ * ONE_OFF remains actionable; WORK_PLAN is omitted from newly issued presentation.
+ * Does not mutate `flow.work`. Completion sync still accepts valid legacy commands.
+ */
+export function filterWorkRequirementsForOfflinePresentation(
+  rows: readonly WorkRequirement[],
+): WorkRequirement[] {
+  return rows.filter((row) => {
+    if (!OFFLINE_WORK_PRESENTATION_STATES.includes(row.state as (typeof OFFLINE_WORK_PRESENTATION_STATES)[number])) {
+      return false;
+    }
+    // Authoritative discriminator only — do not infer from missing plan ids.
+    return row.sourceKind === "ONE_OFF";
+  });
+}
+
+export function serializeOfflineWorkContextRequirements(
+  rows: readonly WorkRequirement[],
   lastSyncedAt: string,
-): NonNullable<OfflineRuntimeBundle["workContext"]> | null {
-  if (flow.device.mismatch) return null;
-  const scoped = flow.work.filter((row) =>
-    ["DUE", "CURRENT", "UPCOMING", "PAST_DUE_NOT_CONFIRMED", "SAVED_ON_THIS_TABLET"].includes(
-      row.state,
-    ),
-  );
+): NonNullable<OfflineRuntimeBundle["workContext"]> {
   return {
-    requirements: scoped.map((row) => ({
+    requirements: rows.map((row) => ({
       occurrenceKey: row.occurrenceKey,
       label: row.label,
       state: row.state,
@@ -184,6 +204,15 @@ export function serializeEmployeeRuntimeWorkContext(
     })),
     lastSyncedAt,
   };
+}
+
+export function serializeEmployeeRuntimeWorkContext(
+  flow: EmployeeRuntimeFlow,
+  lastSyncedAt: string,
+): NonNullable<OfflineRuntimeBundle["workContext"]> | null {
+  if (flow.device.mismatch) return null;
+  const scoped = filterWorkRequirementsForOfflinePresentation(flow.work);
+  return serializeOfflineWorkContextRequirements(scoped, lastSyncedAt);
 }
 
 /**

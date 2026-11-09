@@ -253,7 +253,10 @@ export type OfflineRuntimeBundle = {
     lastSyncedAt: string;
   } | null;
   /**
-   * Scoped Work requirements for DUE/CURRENT/UPCOMING only — never full catalog.
+   * Scoped Work requirements for offline presentation (DUE/CURRENT/UPCOMING…).
+   * Phase 2C-2H-2: newly issued bundles advertise ONE_OFF only (not WORK_PLAN).
+   * Older cached bundles may still list plan-derived rows; sync still accepts
+   * valid COMPLETE_OPERATIONAL_TASK payloads without requiring workContext membership.
    * Unit rebind does not retarget occurrence keys in queued commands.
    */
   workContext?: {

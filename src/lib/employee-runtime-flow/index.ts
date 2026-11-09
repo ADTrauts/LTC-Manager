@@ -71,6 +71,7 @@ export {
   type AdaptEmployeeRuntimeFlowToJobFlowInput,
 } from "./to-job-flow";
 export {
+  filterWorkRequirementsForOfflinePresentation,
   offlineActionForJobFlowItem,
   readOfflineJobFlowItems,
   serializeEmployeeRuntimeEvidenceContext,
@@ -78,6 +79,7 @@ export {
   serializeEmployeeRuntimeJobFlowItemContext,
   serializeEmployeeRuntimeWorkContext,
   serializeOfflineJobFlowItem,
+  serializeOfflineWorkContextRequirements,
 } from "./serialize-offline";
 export { loadFrontlineEmployeeAssignments } from "./load-assignments";
 export { loadAssignedEmployeeSpaceRefs } from "./load-assigned-space-refs";

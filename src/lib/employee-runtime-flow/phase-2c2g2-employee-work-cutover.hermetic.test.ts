@@ -224,7 +224,7 @@ test("empty plan-only configuration stays valid; no invented overdue", () => {
   assert.equal(flow.next.kind, "none");
 });
 
-test("offline item snapshot filtered; legacy workContext may still list plan-derived", () => {
+test("offline item snapshot and workContext both omit plan-derived advertising", () => {
   const flow = composeEmployeeRuntimeFlow({
     operationalAssignmentsEnabled: true,
     canonicalLogsEnabled: true,
@@ -258,9 +258,11 @@ test("offline item snapshot filtered; legacy workContext may still list plan-der
     "COMPLETE_OPERATIONAL_TASK",
   );
 
+  // flow.work stays unfiltered; presentation workContext is ONE_OFF-only (2C-2H-2).
+  assert.equal(flow.work.some((row) => row.occurrenceKey === "plan-a"), true);
   const workCtx = serializeEmployeeRuntimeWorkContext(flow, "2026-11-08T12:00:00.000Z");
   assert.ok(workCtx);
-  assert.equal(workCtx.requirements.some((row) => row.occurrenceKey === "plan-a"), true);
+  assert.equal(workCtx.requirements.some((row) => row.occurrenceKey === "plan-a"), false);
   assert.equal(workCtx.requirements.some((row) => row.occurrenceKey === "oo-a"), true);
 });
 

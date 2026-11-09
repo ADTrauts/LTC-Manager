@@ -263,14 +263,11 @@ test("canonical items serialize once with correct offlineAction flags", () => {
     }
   }
 
-  // Legacy Work command payload still present alongside items (may include plan-derived).
+  // Phase 2C-2H-2: newly issued workContext advertises ONE_OFF only (not WORK_PLAN).
   const workCtx = serializeEmployeeRuntimeWorkContext(flow, "t");
   assert.ok(workCtx);
-  assert.equal(workCtx.requirements.length, 2);
-  assert.equal(
-    workCtx.requirements.map((row) => row.occurrenceKey).sort().join(","),
-    "plan-w,w1",
-  );
+  assert.equal(workCtx.requirements.length, 1);
+  assert.equal(workCtx.requirements[0]?.occurrenceKey, "w1");
 });
 
 test("href alone does not grant offline Work Order completion", () => {
