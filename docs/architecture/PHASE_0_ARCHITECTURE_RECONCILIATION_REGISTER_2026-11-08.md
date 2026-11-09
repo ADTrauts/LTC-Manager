@@ -31,7 +31,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
-| ARR-003 | Job Flow still depends on generic Work — **2C final cert: forward presentation retired; ONE_OFF/offline/schema remain** | Mitigated presentation; compatibility open | High | Deploy / device / schema |
+| ARR-003 | Job Flow still depends on generic Work — **R2: hermetic+SQL PASS; offline E2E blocked by stale fixtures; schema remain** | Mitigated presentation; compatibility open | High | Deploy / fixture rewrite / schema |
 | ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A) | Legacy debt + conflict | Critical | 2 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
@@ -103,7 +103,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Recommended action | Deploy only after CONDITIONAL gates; retain one-off; keep completion receipts; do not drop schema yet; optional EVS canonical sequencing decision |
 | Dependencies | ARR-001, ARR-002 (authoring closed) |
 | Proposed phase | Deploy / device / schema — **ARR-003 not closed** (forward retirement vs schema retirement distinguished) |
-| Verification needed | Deploy approval; browser/offline smoke; optional Harbor SQL on disposable DB. CDA qualifications write-manifest gap closed in [PHASE_2C_RELEASE_R1](./PHASE_2C_RELEASE_R1_CDA_MANIFEST_CORRECTION.md). |
+| Verification needed | Deploy approval; rewrite offline/canonical fixtures (2A/2B-safe) then offline CI-gate; browser smoke. Harbor/EVS SQL passed on disposable DB in [PHASE_2C_RELEASE_R2](./PHASE_2C_RELEASE_R2_EXECUTION_VALIDATION.md). CDA R1 closed. |
 
 ### ARR-004 — Location Function / profile / archetype remain
 
