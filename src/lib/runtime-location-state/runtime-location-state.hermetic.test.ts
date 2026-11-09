@@ -1036,7 +1036,7 @@ test("performance contract: compose is in-memory over N spaces with no per-space
   assert.equal(input.runModelsByDepartmentId.size, 1);
 });
 
-test("evidence OT applicability expands to matching spaces only; SPACE attachment stays direct", () => {
+test("evidence OT applicability does not expand forward; SPACE attachment stays direct", () => {
   const attachmentBase = {
     stableKey: "att_food",
     facilityId: "fac-1",
@@ -1117,7 +1117,8 @@ test("evidence OT applicability expands to matching spaces only; SPACE attachmen
 
   const servery = resolved.get("servery-a") ?? [];
   const retail = resolved.get("retail-1") ?? [];
-  assert.ok(servery.some((row) => row.attachmentId === "att-ot"));
+  // Forward Run no longer invents OT-expanded requirements (2D-4/2D-6).
+  assert.equal(servery.some((row) => row.attachmentId === "att-ot"), false);
   assert.equal(servery.some((row) => row.attachmentId === "att-space"), false);
   assert.ok(retail.some((row) => row.attachmentId === "att-space"));
   assert.equal(retail.some((row) => row.attachmentId === "att-ot"), false);
