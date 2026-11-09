@@ -1,6 +1,10 @@
 /**
  * Phase 11C — Deterministic EVS location / work sequencing for Job Flow.
  * Explicitly NOT route optimization.
+ *
+ * Phase 2C-2H-3: retired WORK_PLAN requirements do not influence order.
+ * ONE_OFF incomplete Work may still bump rooms; otherwise Assignment sortOrder.
+ * Does not invent Records / Work Order / Operating Rhythm urgency.
  */
 
 import type { WorkRequirement } from "@/lib/department-work/types";
@@ -11,6 +15,13 @@ const PRIORITY_RANK: Record<string, number> = {
   TIME_SENSITIVE: 1,
   ROUTINE: 2,
 };
+
+/** Forward sequencing inputs — authoritative sourceKind only. */
+export function workRequirementsForLocationSequencing(
+  rows: readonly WorkRequirement[],
+): WorkRequirement[] {
+  return rows.filter((row) => row.sourceKind === "ONE_OFF");
+}
 
 export type SequencedLocationWork = {
   unitSpaceId: string;
@@ -38,7 +49,7 @@ export function buildDeterministicLocationSequence(input: {
   currentSpaceId?: string | null;
 }): DeterministicSequence {
   const workBySpace = new Map<string, WorkRequirement[]>();
-  for (const req of input.workRequirements) {
+  for (const req of workRequirementsForLocationSequencing(input.workRequirements)) {
     if (!req.spaceId) continue;
     const list = workBySpace.get(req.spaceId) ?? [];
     list.push(req);
@@ -85,7 +96,7 @@ export function buildDeterministicLocationSequence(input: {
     queue,
     all: sequenced,
     sequencingNote:
-      "Order follows Room display order, priority, and due time. This is not an optimized walking route.",
+      "Order follows Room display order, then one-off priority and due time when present. This is not an optimized walking route.",
   };
 }
 

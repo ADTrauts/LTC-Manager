@@ -50,8 +50,9 @@ export function PlantStarterPanel({
   }
 
   function onInstall() {
+    // Phase 2C-2H-3: Work Plan presets are not newly installable.
     const selectedIds = items
-      .filter((item) => !item.alreadyAdded && selected[item.id])
+      .filter((item) => item.kind !== "work" && !item.alreadyAdded && selected[item.id])
       .map((item) => item.id);
     setError(null);
     startTransition(async () => {
@@ -68,9 +69,11 @@ export function PlantStarterPanel({
     });
   }
 
-  const work = items.filter((item) => item.kind === "work");
+  const historicalWork = items.filter((item) => item.kind === "work" && item.alreadyAdded);
   const records = items.filter((item) => item.kind === "record");
-  const selectable = items.filter((item) => !item.alreadyAdded && selected[item.id]).length;
+  const selectable = items.filter(
+    (item) => item.kind !== "work" && !item.alreadyAdded && selected[item.id],
+  ).length;
 
   return (
     <section className="space-y-3 rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="plant-starter-panel">
@@ -91,29 +94,24 @@ export function PlantStarterPanel({
 
       {open ? (
         <div className="space-y-4" data-testid="plant-starter-review">
-          <fieldset className="space-y-2">
-            <legend className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Recurring Work
-            </legend>
-            {work.map((item) => (
-              <label key={item.id} className="flex items-start gap-2 text-sm text-zinc-800">
-                <input
-                  type="checkbox"
-                  checked={item.alreadyAdded || Boolean(selected[item.id])}
-                  disabled={item.alreadyAdded || pending}
-                  onChange={() => toggle(item.id, item.alreadyAdded)}
-                  data-testid={`starter-work-${item.id}`}
-                />
-                <span>
-                  <span className="font-medium">{item.title}</span>
-                  {item.alreadyAdded ? (
-                    <span className="ml-2 text-xs text-zinc-500">Already added</span>
-                  ) : null}
-                  <span className="block text-xs text-zinc-600">{item.description}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          {historicalWork.length > 0 ? (
+            <div className="space-y-2" data-testid="plant-starter-historical-work">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Recurring Work (historical)
+              </p>
+              <p className="text-xs text-zinc-600">
+                Generic Work Plan presets are retired and cannot be newly installed.
+              </p>
+              <ul className="space-y-1 text-sm text-zinc-800">
+                {historicalWork.map((item) => (
+                  <li key={item.id}>
+                    <span className="font-medium">{item.title}</span>
+                    <span className="ml-2 text-xs text-zinc-500">Already on file</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <fieldset className="space-y-2">
             <legend className="text-xs font-semibold uppercase tracking-wide text-zinc-500">

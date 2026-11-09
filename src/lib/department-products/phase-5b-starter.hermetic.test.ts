@@ -185,7 +185,7 @@ test("Getting Started starter step is optional and does not mark unrelated items
   assert.match(starter?.statusLabel ?? "", /Optional/);
   assert.equal(starter?.actionLabel, "Add starter configuration");
   assert.equal(starter?.href, "/build/departments/dept-plant?starter=1");
-  assert.equal(before.find((row) => row.id === "work")?.status, "optional");
+  assert.equal(before.find((row) => row.id === "work"), undefined);
   assert.equal(before.find((row) => row.id === "records")?.status, "optional");
   assert.equal(before.find((row) => row.id === "assets")?.status, "needed");
   assert.equal(before.find((row) => row.id === "pm")?.status, "optional");
@@ -203,7 +203,7 @@ test("Getting Started starter step is optional and does not mark unrelated items
     canInstallStarter: true,
   });
   assert.equal(partial.find((row) => row.id === "starter")?.statusLabel, "Partially added");
-  assert.equal(partial.find((row) => row.id === "work")?.status, "optional");
+  assert.equal(partial.find((row) => row.id === "work"), undefined);
   assert.equal(partial.find((row) => row.id === "pm")?.status, "optional");
 
   const added = presentPlantGettingStarted({
@@ -219,6 +219,8 @@ test("Getting Started starter step is optional and does not mark unrelated items
   });
   assert.equal(added.find((row) => row.id === "starter")?.status, "ready");
   assert.equal(added.find((row) => row.id === "starter")?.statusLabel, "Added");
+  assert.equal(added.find((row) => row.id === "work")?.title, "Historical Work Plans");
+  assert.equal(added.find((row) => row.id === "work")?.href, "/staffing/work-plans");
   assert.equal(added.find((row) => row.id === "pm")?.status, "optional");
   assert.equal(added.find((row) => row.id === "operate")?.status, "ready");
 });

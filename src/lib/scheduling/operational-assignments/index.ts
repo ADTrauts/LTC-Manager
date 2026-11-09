@@ -54,6 +54,7 @@ export {
 export {
   buildDeterministicLocationSequence,
   formatAssignedScopeSummary,
+  workRequirementsForLocationSequencing,
   type DeterministicSequence,
 } from "./location-sequencing";
 export {

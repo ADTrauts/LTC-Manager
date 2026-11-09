@@ -130,10 +130,16 @@ describe("Overview guidance derivation", () => {
     assert.equal(formatLocationGuidance(12).status, "12 assigned");
     assert.equal(formatPeopleGuidance(0).status, "No people assigned");
     assert.equal(formatPeopleGuidance(18).status, "18 assigned");
-    assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).status, "No recurring work configured");
-    assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).applicable, true);
-    assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).status, "No recurring work configured");
-    assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 3, draftWorkPlanCount: 2 }).status, "3 live work plans · 2 drafts not live");
+    assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).applicable, false);
+    assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).applicable, false);
+    assert.equal(
+      formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 3, draftWorkPlanCount: 2 }).status,
+      "3 historical work plans · 2 drafts (not live)",
+    );
+    assert.equal(
+      formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 3, draftWorkPlanCount: 2 }).actionLabel,
+      "View historical work →",
+    );
     assert.equal(formatRecordsGuidance(0).status, "No records required yet");
     assert.equal(formatRecordsGuidance(8).status, "8 record requirements");
   });
@@ -159,14 +165,14 @@ describe("Overview guidance derivation", () => {
         ["locations", "18 assigned"],
         ["rhythm", "Breakfast, Lunch, and Dinner live"],
         ["people", "92 assigned"],
-        ["work", "3 live work plans"],
+        ["work", "3 historical work plans"],
         ["records", "8 record requirements"],
       ],
     );
     assert.doesNotMatch(JSON.stringify(rows), /67%|setup complete|configurationStatus/i);
   });
 
-  it("points Work at Locations when published operational types have no matching rooms", () => {
+  it("shows historical Work without configure prompts when plans exist", () => {
     const rows = presentOverviewGuidance({
       departmentId: "dept1",
       departmentKey: "DIETARY",
@@ -184,9 +190,29 @@ describe("Overview guidance derivation", () => {
       classifiedOperationalTypeKeys: ["main_kitchen", "retail"],
     });
     const work = rows.find((row) => row.id === "work")!;
-    assert.match(work.description, /no bound room/);
-    assert.match(work.href, /locations/);
-    assert.equal(work.actionLabel, "Configure locations →");
+    assert.match(work.title, /historical/i);
+    assert.match(work.description, /retired/i);
+    assert.equal(work.href, "/staffing/work-plans");
+    assert.equal(work.actionLabel, "View historical work →");
+    assert.doesNotMatch(work.actionLabel, /Configure/i);
+  });
+
+  it("omits Work overview row when no plans exist", () => {
+    const rows = presentOverviewGuidance({
+      departmentId: "dept1",
+      departmentKey: "PLANT",
+      departmentName: "Plant",
+      locationCount: 4,
+      currentRootLabels: [],
+      draftRootCount: 0,
+      scheduledCount: 0,
+      scheduledEffectiveFrom: null,
+      memberCount: 2,
+      publishedWorkPlanCount: 0,
+      draftWorkPlanCount: 0,
+      placedLogCount: 0,
+    });
+    assert.equal(rows.some((row) => row.id === "work"), false);
   });
 
   it("does not persist readiness language in Overview or All Departments", () => {

@@ -54,7 +54,6 @@ export function presentPlantOverviewCounts(input: PlantOverviewFactCounts): Arra
 }
 
 export function presentPlantGettingStarted(input: PlantGettingStartedInput): PlantGettingStartedItem[] {
-  const workHref = departmentAdminHref(input.departmentId, "work");
   const recordsHref = departmentAdminHref(input.departmentId, "records");
   const peopleHref = departmentAdminHref(input.departmentId, "people");
   const locationsHref = departmentAdminHref(input.departmentId, "locations");
@@ -88,7 +87,7 @@ export function presentPlantGettingStarted(input: PlantGettingStartedInput): Pla
           ? presentPlantStarterPresenceLabel("added")
           : input.starterPresence === "partial"
             ? presentPlantStarterPresenceLabel("partial")
-            : "Optional — add recurring Work and Record examples",
+            : "Optional — add Record examples",
       href: input.canInstallStarter === false ? null : plantStarterHref(input.departmentId),
       actionLabel:
         input.canInstallStarter === false
@@ -97,7 +96,19 @@ export function presentPlantGettingStarted(input: PlantGettingStartedInput): Pla
             ? "Review starter configuration"
             : "Add starter configuration",
     },
-    item(6, "work", "Configure recurring Work", input.workPlanCount > 0, workHref, "Open Work", true),
+    // Phase 2C-2H-3: Work Plan install retired — historical awareness only when plans exist.
+    ...(input.workPlanCount > 0
+      ? [
+          item(
+            6,
+            "work",
+            "Historical Work Plans",
+            true,
+            "/staffing/work-plans",
+            "View historical work",
+          ),
+        ]
+      : []),
     item(7, "records", "Confirm Records", input.recordCount > 0, recordsHref, "Open Records", true),
     {
       id: "procedures",

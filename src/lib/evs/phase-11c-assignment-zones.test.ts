@@ -351,14 +351,23 @@ test("phase11c hermetic: deterministic sequencing is not route optimization", ()
       unitName: "East",
     },
   ];
-  const work = [
+  const planDerived = [
     stubWork({ spaceId: "s3", label: "Routine wipe", priority: "ROUTINE", state: "CURRENT" }),
     stubWork({ spaceId: "s2", label: "Urgent spill", priority: "URGENT", state: "CURRENT" }),
     stubWork({ spaceId: "s1", label: "Done room", priority: "ROUTINE", state: "COMPLETED" }),
   ];
-  const seq = buildDeterministicLocationSequence({ locations, workRequirements: work });
+  // Phase 2C-2H-3: WORK_PLAN no longer influences order — Assignment sortOrder wins.
+  const planSeq = buildDeterministicLocationSequence({
+    locations,
+    workRequirements: planDerived,
+  });
+  assert.equal(planSeq.now?.unitSpaceId, "s1");
+  assert.equal(planSeq.next, null);
+
+  const oneOff = planDerived.map((row) => ({ ...row, sourceKind: "ONE_OFF" as const }));
+  const seq = buildDeterministicLocationSequence({ locations, workRequirements: oneOff });
   assert.match(seq.sequencingNote, /not an optimized walking route/i);
-  assert.equal(seq.now?.unitSpaceId, "s2", "urgent incomplete wins over lower sortOrder");
+  assert.equal(seq.now?.unitSpaceId, "s2", "urgent incomplete ONE_OFF wins over lower sortOrder");
   assert.equal(seq.next?.unitSpaceId, "s3");
   assert.ok(seq.all.every((row) => row.unitSpaceId !== "route-optimizer"));
 

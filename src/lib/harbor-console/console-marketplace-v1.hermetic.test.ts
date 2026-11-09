@@ -111,7 +111,12 @@ test("create actions stay Records-only", () => {
     "New catalog record",
   );
   assert.equal(marketplaceCreateAction(resolveMarketplaceBrowse({ family: "departments" }, empty)), null);
-  assert.equal(marketplaceCreateAction(resolveMarketplaceBrowse({ family: "work" }, empty)), null);
+  // Retired family=work normalizes to all → Records create affordance, not Work install.
+  assert.equal(
+    marketplaceCreateAction(resolveMarketplaceBrowse({ family: "work" }, empty))?.label,
+    "New catalog record",
+  );
+  assert.equal(resolveMarketplaceBrowse({ family: "work" }, empty).family, "all");
 });
 
 test("projection and detail stay free of Marketplace persistence and Knowledge leaks", () => {

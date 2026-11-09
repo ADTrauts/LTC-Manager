@@ -176,10 +176,10 @@ test("family and subtype filters stay on the unified projection", () => {
       "equipment_inspection",
       "PLANT",
       "HEALTHCARE_FOOD_NUTRITION",
-      "MECHANICAL_ROOM_ROUND",
       "opening_checklist",
     ],
   );
+  assert.equal(all.some((row) => row.sourceType === "WORK_PRESET"), false);
 
   const departments = filterMarketplaceItems(
     catalog,
@@ -205,8 +205,13 @@ test("family and subtype filters stay on the unified projection", () => {
   );
   assert.deepEqual(inspections.map((row) => row.name), ["Equipment Inspection"]);
 
+  // Retired family=work query is ignored (falls back to all) and WORK_PRESET stays hidden.
   const work = filterMarketplaceItems(catalog, resolveMarketplaceBrowse({ family: "work" }, catalog));
-  assert.deepEqual(work.map((row) => row.stableKey), ["MECHANICAL_ROOM_ROUND"]);
+  assert.equal(work.some((row) => row.sourceType === "WORK_PRESET"), false);
+  assert.deepEqual(
+    work.map((row) => row.stableKey),
+    all.map((row) => row.stableKey),
+  );
 });
 
 test("search crosses families and composed filters stay on one list", () => {
@@ -214,7 +219,7 @@ test("search crosses families and composed filters stay on one list", () => {
     catalog,
     resolveMarketplaceBrowse({ q: "PLANT" }, catalog),
   );
-  assert.deepEqual(plantSearch.map((row) => row.stableKey), ["PLANT", "MECHANICAL_ROOM_ROUND"]);
+  assert.deepEqual(plantSearch.map((row) => row.stableKey), ["PLANT"]);
 
   const coolerSearch = filterMarketplaceItems(
     catalog,
@@ -226,7 +231,7 @@ test("search crosses families and composed filters stay on one list", () => {
     catalog,
     resolveMarketplaceBrowse({ q: "Mechanical" }, catalog),
   );
-  assert.deepEqual(mechanical.map((row) => row.name), ["Mechanical Room Round"]);
+  assert.deepEqual(mechanical.map((row) => row.name), []);
 
   const composed = filterMarketplaceItems(
     catalog,
@@ -240,7 +245,6 @@ test("search crosses families and composed filters stay on one list", () => {
 
 test("status and category filters are family-scoped", () => {
   assert.deepEqual(marketplaceStatusOptions({ family: "all" }), []);
-  assert.deepEqual(marketplaceStatusOptions({ family: "work" }), []);
   assert.deepEqual([...marketplaceStatusOptions({ family: "departments" })], [
     "AVAILABLE",
     "DEVELOPMENT",
@@ -270,10 +274,8 @@ test("status and category filters are family-scoped", () => {
     marketplaceCategoryOptions(catalog, { family: "records", type: "log" }).map((row) => row.label),
     ["Sanitation", "Temperature"],
   );
-  assert.deepEqual(
-    marketplaceCategoryOptions(catalog, { family: "work", type: null }).map((row) => row.label),
-    ["Facility Plant Operations"],
-  );
+  // Retired work family is not a MarketplaceFamilyKey; legacy query normalizes to all.
+  assert.equal(resolveMarketplaceBrowse({ family: "work" }, catalog).family, "all");
 });
 
 test("invalid browse params normalize and family changes drop incompatible filters", () => {
@@ -345,7 +347,7 @@ test("install, usage, type, empty, and create presentation stay source-specific"
   );
   assert.equal(
     marketplaceEmptyCopy(resolveMarketplaceBrowse({ family: "work" }, [])),
-    "No Work presets match these filters.",
+    "No Marketplace items are available.",
   );
   assert.equal(
     marketplaceEmptyCopy(resolveMarketplaceBrowse({ q: "missing" }, catalog)),
@@ -357,7 +359,7 @@ test("install, usage, type, empty, and create presentation stay source-specific"
     label: "New catalog record",
   });
   assert.equal(marketplaceCreateAction(resolveMarketplaceBrowse({ family: "departments" }, catalog)), null);
-  assert.equal(marketplaceCreateAction(resolveMarketplaceBrowse({ family: "work" }, catalog)), null);
+  assert.equal(marketplaceCreateAction(resolveMarketplaceBrowse({ family: "work" }, catalog))?.href, "/console/catalog/new");
   assert.deepEqual(marketplaceCreateAction(resolveMarketplaceBrowse({ family: "records", type: "log" }, catalog)), {
     href: "/console/catalog/new?type=log",
     label: "New catalog log",

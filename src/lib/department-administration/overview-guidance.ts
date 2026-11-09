@@ -145,44 +145,39 @@ export function formatPeopleGuidance(memberCount: number): {
   };
 }
 
+/**
+ * Phase 2C-2H-3: generic Work Plan authoring is retired.
+ * Empty departments omit the Work overview row (no configure prompt).
+ * Existing plan counts stay as historical read-only awareness only.
+ */
 export function formatWorkGuidance(input: {
   departmentKey: string;
   publishedWorkPlanCount: number;
   draftWorkPlanCount: number;
 }): { applicable: boolean; status: string; actionLabel: string } {
-  const product = getDepartmentProduct(input.departmentKey);
-  const hasPresets = Boolean(product?.starters.workPresets);
-  if (
-    !hasPresets &&
-    input.departmentKey !== "PLANT" &&
-    input.publishedWorkPlanCount === 0 &&
-    input.draftWorkPlanCount === 0
-  ) {
-    return { applicable: false, status: "", actionLabel: "" };
-  }
   if (input.publishedWorkPlanCount === 0 && input.draftWorkPlanCount === 0) {
-    return {
-      applicable: true,
-      status: "No recurring work configured",
-      actionLabel: "Configure work →",
-    };
+    return { applicable: false, status: "", actionLabel: "" };
   }
   const parts: string[] = [];
   if (input.publishedWorkPlanCount > 0) {
     parts.push(
       input.publishedWorkPlanCount === 1
-        ? "1 live work plan"
-        : `${input.publishedWorkPlanCount} live work plans`,
+        ? "1 historical work plan"
+        : `${input.publishedWorkPlanCount} historical work plans`,
     );
   }
   if (input.draftWorkPlanCount > 0) {
     parts.push(
       input.draftWorkPlanCount === 1
-        ? "1 draft not live"
-        : `${input.draftWorkPlanCount} drafts not live`,
+        ? "1 draft (not live)"
+        : `${input.draftWorkPlanCount} drafts (not live)`,
     );
   }
-  return { applicable: true, status: parts.join(" · "), actionLabel: "Configure work →" };
+  return {
+    applicable: true,
+    status: parts.join(" · "),
+    actionLabel: "View historical work →",
+  };
 }
 
 export function hasUnmatchedPublishedOperationalTypes(input: {
@@ -259,18 +254,14 @@ export function presentOverviewGuidance(input: OverviewGuidanceInput): OverviewG
   ];
 
   if (work.applicable) {
-    const unmatchedTypes = hasUnmatchedPublishedOperationalTypes(input);
     rows.push({
       id: "work",
-      title: "Work",
+      title: "Work (historical)",
       status: work.status,
-      description: unmatchedTypes
-        ? "Published work targets a Location Function with no bound room."
-        : "Work plans for this department. Assignment does not define the work.",
-      href: unmatchedTypes
-        ? departmentAdminHref(input.departmentId, "locations")
-        : departmentAdminHref(input.departmentId, "work"),
-      actionLabel: unmatchedTypes ? "Configure locations →" : work.actionLabel,
+      description:
+        "Generic Work Plan authoring is retired. Existing plans remain listed read-only.",
+      href: "/staffing/work-plans",
+      actionLabel: work.actionLabel,
       testId: "overview-work-summary",
     });
   }

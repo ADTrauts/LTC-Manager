@@ -23,14 +23,17 @@ export const MARKETPLACE_BROWSE_PATH = "/console/catalog";
 
 const MAX_QUERY_LENGTH = 200;
 
+/** Phase 2C-2H-3: Work family removed from customer discovery (WORK_PRESET retired). */
 export const MARKETPLACE_FAMILIES = [
   { key: "all", label: "All" },
   { key: "departments", label: "Departments" },
   { key: "records", label: "Records" },
-  { key: "work", label: "Work" },
 ] as const;
 
 export type MarketplaceFamilyKey = (typeof MARKETPLACE_FAMILIES)[number]["key"];
+
+/** Legacy query value — not advertised; resolves to empty discovery. */
+export const RETIRED_MARKETPLACE_WORK_FAMILY = "work" as const;
 
 export const MARKETPLACE_RECORD_TYPES = [
   { key: "all", label: "All" },
@@ -54,7 +57,6 @@ export const MARKETPLACE_DEPARTMENT_STATUSES = ["AVAILABLE", "DEVELOPMENT", "RET
 const FAMILY_TO_CATALOG: Record<Exclude<MarketplaceFamilyKey, "all">, ConsoleCatalogFamily> = {
   departments: "DEPARTMENTS",
   records: "RECORDS",
-  work: "WORK",
 };
 
 const TYPE_TO_SUBTYPE: Record<MarketplaceRecordTypeKey, ConsoleCatalogRecordSubtype> = {
@@ -263,6 +265,8 @@ export function filterMarketplaceItems(
   return sortMarketplaceItems(
     items.filter(
       (item) =>
+        // Phase 2C-2H-3: never advertise retired WORK_PRESET in Marketplace browse.
+        item.sourceType !== "WORK_PRESET" &&
         matchesFamily(item, query.family) &&
         matchesSubtype(item, query) &&
         (query.status == null || item.statusLabel === query.status) &&
@@ -306,18 +310,17 @@ export function marketplaceEmptyCopy(query: MarketplaceBrowseQuery): string {
   }
   if (query.family === "departments") return "No Department Products match these filters.";
   if (query.family === "records") return "No catalog Records match these filters.";
-  if (query.family === "work") return "No Work presets match these filters.";
   if (query.status || query.category) return "No Marketplace items match these filters.";
   return "No Marketplace items are available.";
 }
 
-/** Record, Department, and Work rows open their source detail routes. */
+/** Record and Department rows open their source detail routes. */
 export function marketplaceRowHref(item: ConsoleCatalogItem): string | null {
   return item.detailHref || null;
 }
 
 export function marketplaceCreateAction(query: MarketplaceBrowseQuery): MarketplaceCreateAction | null {
-  if (query.family === "departments" || query.family === "work") return null;
+  if (query.family === "departments") return null;
   if (query.family === "records" && query.type === "log") {
     return { href: "/console/catalog/new?type=log", label: "New catalog log" };
   }

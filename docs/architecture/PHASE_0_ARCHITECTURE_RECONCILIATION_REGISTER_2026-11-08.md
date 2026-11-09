@@ -31,7 +31,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
-| ARR-003 | Job Flow still depends on generic Work — **2C-2H-2 new offline advertising omits WORK_PLAN; persistence/sequencing/Harbor remain** | Confirmed conflict | Critical | 5 (sequencing/Harbor/schema) |
+| ARR-003 | Job Flow still depends on generic Work — **2C-2H-3 forward presentation consumers reconciled; ONE_OFF + offline + persistence remain** | Confirmed conflict → mitigated presentation | Critical → High | Schema / deploy / device cert |
 | ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A) | Legacy debt + conflict | Critical | 2 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
@@ -96,14 +96,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Job Flow / Employee Runtime Flow |
-| Code evidence | Employee items cut over ([PHASE_2C2G2](./PHASE_2C2G2_EMPLOYEE_WORK_CUTOVER.md)). Dashboard/supervisor plan-derived retired ([PHASE_2C2H1](./PHASE_2C2H1_DASHBOARD_SUPERVISOR_WORK_RECONCILIATION.md)). Newly issued offline `workContext` advertises ONE_OFF only; `flow.work` unfiltered; sync still accepts legacy WORK_PLAN completions ([PHASE_2C2H2](./PHASE_2C2H2_OFFLINE_WORK_PRESENTATION_RECONCILIATION.md)). Persistence + Harbor + location-sequencing remain. Authoring closed (2B). |
+| Code evidence | Employee/Dashboard/supervisor/offline cutovers ([PHASE_2C2G2](./PHASE_2C2G2_EMPLOYEE_WORK_CUTOVER.md), [PHASE_2C2H1](./PHASE_2C2H1_DASHBOARD_SUPERVISOR_WORK_RECONCILIATION.md), [PHASE_2C2H2](./PHASE_2C2H2_OFFLINE_WORK_PRESENTATION_RECONCILIATION.md)). Final forward consumers reconciled: sequencing ignores WORK_PLAN; Harbor WORK_PRESET browse removed; partner Work nav hidden; Builder/Plant configure prompts retired ([PHASE_2C2H3](./PHASE_2C2H3_FINAL_ACTIVE_WORK_CONSUMER_RECONCILIATION.md)). ONE_OFF + offline sync + historical readers + Prisma Work models remain. Authoring closed (2B). |
 | Governing decision | Foundation: Job Flow composes Assignment, Cycle, Records, WO/PM; 15A: must not require generic Work going forward |
-| Current vs expected | Expected: composition without generic Work. Current: **employee + Dashboard + supervisor + new-offline plan-derived presentation retired locally**; history/sequencing/Harbor/persistence remain. Deploy not authorized. |
-| Risk | Remaining persistence and secondary-reader debt; primary presentation surfaces aligned |
-| Recommended action | Separate deploy approval; sequencing/Harbor cleanup; retain one-off; keep completion receipts; do not drop schema yet |
+| Current vs expected | Expected: composition without generic Work. Current: **forward plan-derived presentation retired locally**; ONE_OFF temporary; offline legacy commands; historical readers; schema persistence. Deploy not authorized. |
+| Risk | Persistence/schema and device certification debt; presentation conflict largely mitigated |
+| Recommended action | Phase 2C integration certification + deploy approval; retain one-off; keep completion receipts; do not drop schema yet; optional EVS canonical sequencing decision |
 | Dependencies | ARR-001, ARR-002 (authoring closed) |
-| Proposed phase | 5 (sequencing/Harbor/schema) — **ARR-003 not closed** |
-| Verification needed | Production deploy approval; device offline certification; location-sequencing / Harbor follow-ups |
+| Proposed phase | Integration cert / deploy / schema — **ARR-003 not closed** |
+| Verification needed | Production deploy approval; device offline certification; optional EVS sequencing product decision |
 
 ### ARR-004 — Location Function / profile / archetype remain
 

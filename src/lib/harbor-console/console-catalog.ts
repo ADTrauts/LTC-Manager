@@ -622,14 +622,20 @@ async function loadWorkPresetItems(client: Db): Promise<ConsoleCatalogItem[]> {
 }
 
 /**
- * Live projection. Query count is fixed per source family, not per product,
- * record, preset, or facility. Harbor session checks stay on the Console page.
+ * Live Marketplace discovery projection.
+ * Phase 2C-2H-3: WORK_PRESET is omitted from browse/discovery. Historical preset
+ * definitions and `/console/catalog/work/[presetKey]` detail remain for staff URLs.
+ * Harbor session checks stay on the Console page.
  */
 export async function listConsoleCatalogItems(client: Db): Promise<ConsoleCatalogItem[]> {
-  const [departments, records, work] = await Promise.all([
+  const [departments, records] = await Promise.all([
     loadDepartmentProductItems(client),
     loadCatalogRecordItems(client),
-    loadWorkPresetItems(client),
   ]);
-  return [...departments, ...records, ...work];
+  return [...departments, ...records];
+}
+
+/** Historical WORK_PRESET projection for direct detail / staff tooling — not Marketplace browse. */
+export async function listConsoleWorkPresetCatalogItems(client: Db): Promise<ConsoleCatalogItem[]> {
+  return loadWorkPresetItems(client);
 }
