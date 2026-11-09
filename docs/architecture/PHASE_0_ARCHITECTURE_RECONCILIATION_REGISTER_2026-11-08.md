@@ -32,7 +32,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
 | ARR-003 | Job Flow still depends on generic Work — **Phase 2C deployed `7973254` / `dpl_2fjfVAJporEGaDtFwzRVd9TgQhKS` (WITH GAPS); ONE_OFF/historical/schema remain** | Mitigated presentation; compatibility open | High | Deploy / schema |
-| ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A; **2D-3…2D-5 forward Coverage/Teams/Dashboard Team-scope/Build OT guidance rehomed — ARR-004 still open**) | Legacy debt + conflict | Critical | 2D-6 cert / DROP later |
+| ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A; **2D-3…2D-6 forward readers rehomed + integrated cert PASS WITH GAPS — ARR-004 still open; no DROP**) | Legacy debt + conflict | Critical | DROP later (separate auth) |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
 | ARR-007 | Constitution / Domain Model long-form still name retired owners | Documentation drift | High | 1 |
@@ -110,14 +110,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Facility composition; Cycles/Records/Coverage historical paths; product starters |
-| Code evidence | Schema + hub retained. **2D-4:** [PHASE_2D4…](./PHASE_2D4_CANONICAL_OPERATIONAL_READER_RECONCILIATION.md) Run/Menu/meal/offline. **2D-5:** [PHASE_2D5…](./PHASE_2D5_COVERAGE_TEAMS_LEGACY_READER_RECONCILIATION.md) re-adds Coverage `spaceId` (`20261109180000_…`); forward Coverage authoring is Space/Unit; Teams + viewer-team-scope drop OT expansion; Cycle LF UI + Facility-type log-default authoring retired. Remaining: Work runtime, historical Audit/Review, runtime-location-state sidecars, hub module, OT columns for compat. |
-| Governing decision | 01A Amendment B; 16 §4.3–4.4; 2D-2 architecture; 2D-3 notes; 2D-4/2D-5 explicit domain targeting |
-| Current vs expected | Expected: engines store canonical place ids only. Current: **forward Coverage/Teams/Dashboard Team-scope/Build OT authoring rehomed**; historical OT match + Work + hub remain |
+| Code evidence | Schema + hub retained. **2D-4…2D-5** rehomed forward Run/Menu/meal/offline/Coverage/Teams/Dashboard Team-scope/Build OT guidance. **2D-6:** [PHASE_2D6…](./PHASE_2D6_INTEGRATED_CERTIFICATION_AND_DEPLOYMENT_GATE.md) integrated cert **PASS WITH GAPS** (build/tsc, offline tablet+chromium 18/18, migration expand rehearsal, Key Time prod rooms OK, Dashboard static/hermetic auth audit — live 8-persona matrix not re-run). Remaining: Work runtime OT loader, historical Audit/Review, Facility-type Build overlay, hub/OT columns. |
+| Governing decision | 01A Amendment B; 16 §4.3–4.4; 2D-2 architecture; 2D-3 notes; 2D-4/2D-5 explicit domain targeting; 2D-6 cert gate |
+| Current vs expected | Expected: engines store canonical place ids only. Current: **forward readers certified explicit**; historical OT match + Work + hub remain |
 | Risk | Critical if schema dropped early; residual historical/Work readers must not be treated as forward SoT |
-| Recommended action | **Do not close ARR-004.** Next: **2D-6** certification (offline browser, prod build, layered Dashboard auth). Deploy notes + Coverage `spaceId` migrations only with PO approval. **No DROP** until separately authorized after cert. |
+| Recommended action | **Do not close ARR-004.** Deploy notes + Coverage `spaceId` migrations + 2D app only with **explicit PO approval**. Accept or close live Dashboard multi-role verification gap before promote. **No DROP** until separately authorized. |
 | Dependencies | ARR-001, ARR-016, ARR-018, ARR-023, ARR-026, ARR-029 |
-| Proposed phase | **2D-6** (2D-5 local Coverage/Teams/Build reconciliation complete for authorized scope) |
-| Verification needed | 2D-5 report; offline browser CI-gate; 2D-6 layered auth isolation; migration order notes→coverage space |
+| Proposed phase | **Post-2D-6** — PO deploy decision / later DROP program |
+| Verification needed | 2D-6 report; production expand-then-deploy only after PO approval |
 
 ### ARR-005 — Phase 6 tests vs restored schema
 
