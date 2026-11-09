@@ -31,7 +31,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
-| ARR-003 | Job Flow still depends on generic Work — **2C-2G-2 employee items cut over; other readers remain** | Confirmed conflict | Critical | 2C-2H → 5 |
+| ARR-003 | Job Flow still depends on generic Work — **2C-2H-1 Dashboard/supervisor plan-derived retired; offline+persistence remain** | Confirmed conflict | Critical | 2C-2H-2 → 5 |
 | ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A) | Legacy debt + conflict | Critical | 2 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
@@ -96,14 +96,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Job Flow / Employee Runtime Flow |
-| Code evidence | Employee `flow.items` / next exclude plan-derived CompatWork via `withoutPlanDerivedCompatibilityWork` in compose ([PHASE_2C2G2](./PHASE_2C2G2_EMPLOYEE_WORK_CUTOVER.md)). ONE_OFF retained. `flow.work` + offline `workContext` may still list plan-derived. Dashboard / supervisor / Harbor / location sequencing readers remain. Authoring closed (2B). |
+| Code evidence | Employee items cut over ([PHASE_2C2G2](./PHASE_2C2G2_EMPLOYEE_WORK_CUTOVER.md)). Dashboard `work.expected` never admitted; Expected Work presenter filters WORK_PLAN; supervisor exceptions ONE_OFF-only ([PHASE_2C2H1](./PHASE_2C2H1_DASHBOARD_SUPERVISOR_WORK_RECONCILIATION.md)). ONE_OFF + offline `workContext` + persistence + Harbor/location-sequencing remain. Authoring closed (2B). |
 | Governing decision | Foundation: Job Flow composes Assignment, Cycle, Records, WO/PM; 15A: must not require generic Work going forward |
-| Current vs expected | Expected: composition without generic Work. Current: **employee Job Flow items cut over locally**; other Work consumers + legacy offline context remain. Production occupancy was 0 at 2C-2G-1. Deploy not authorized by 2C-2G-2. |
-| Risk | Critical architecturally for remaining readers; employee presentation path no longer depends on plan-derived rows |
-| Recommended action | Separate deploy approval; then 2C-2H Dashboard/supervisor/offline trim; retain one-off; keep completion receipts; do not drop schema yet |
+| Current vs expected | Expected: composition without generic Work. Current: **employee + Dashboard + supervisor plan-derived presentation retired locally**; offline/history/sequencing/Harbor remain. Deploy not authorized. |
+| Risk | Remaining offline and persistence debt; operational plan-derived UI pressure reduced |
+| Recommended action | Separate deploy approval; 2C-2H-2 offline trim + sequencing/Harbor cleanup; retain one-off; keep completion receipts; do not drop schema yet |
 | Dependencies | ARR-001, ARR-002 (authoring closed) |
-| Proposed phase | 2C-2H → 5 — **ARR-003 not closed** |
-| Verification needed | Production deploy approval; post-deploy employee Job Flow; offline Work command receipts; Dashboard Expected Work retirement |
+| Proposed phase | 2C-2H-2 → 5 — **ARR-003 not closed** |
+| Verification needed | Production deploy approval; offline Work command receipts; location-sequencing / Harbor follow-ups |
 
 ### ARR-004 — Location Function / profile / archetype remain
 

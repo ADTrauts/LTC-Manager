@@ -183,6 +183,14 @@ const betweenRun = {
   nextOperation: breakfastRun.nextOperation,
 };
 
+/** Presenter mechanic tests remapped to ONE_OFF — WORK_PLAN rows are filtered in 2C-2H-1. */
+function asOneOff(requirements: WorkRequirement[]): WorkRequirement[] {
+  return requirements.map((row) => ({
+    ...row,
+    sourceKind: "ONE_OFF" as const,
+  }));
+}
+
 function present(
   requirements: WorkRequirement[],
   overrides: Partial<Parameters<typeof presentExpectedWorkFromRequirements>[0]> = {},
@@ -190,10 +198,10 @@ function present(
   return presentExpectedWorkFromRequirements({
     facilityId: "f1",
     departmentId: "dietary",
-    requirements,
+    requirements: asOneOff(requirements),
     runPresentation: breakfastRun,
     workCapabilityEnabled: true,
-    hasPublishedWorkPlans: true,
+    hasPublishedWorkPlans: false,
     canConfirmWork: true,
     canManageWorkPlans: false,
     workPlansHref: "/staffing/work-plans",
@@ -388,8 +396,8 @@ test("draft Work is excluded because the presenter only receives published proje
   assert.equal(requirements.length, 0);
   const view = present(requirements, { hasPublishedWorkPlans: false, canManageWorkPlans: true });
   assert.equal(todaysExpectedWorkHasVisibleWork(view), false);
-  assert.equal(view.configureHref, "/staffing/work-plans");
-  assert.equal(view.configureLabel, "Configure recurring work");
+  assert.equal(view.configureHref, null);
+  assert.equal(view.configureLabel, null);
 });
 
 test("stale unmatched cycle keys do not fabricate current Work", () => {
@@ -537,7 +545,7 @@ test("Manager-only configuration guidance; Supervisor and Quick PIN do not get B
     canManageWorkPlans: pinManager.canManage,
     canConfirmWork: pinManager.canComplete,
   });
-  assert.equal(managerView.configureHref, "/staffing/work-plans");
+  assert.equal(managerView.configureHref, null);
   assert.equal(supervisorView.configureHref, null);
   assert.equal(pinView.configureHref, null);
 });
@@ -619,4 +627,23 @@ test("presenter does not hardcode Dietary and does not require Job Flow", () => 
   );
   assert.doesNotMatch(src, /DIETARY|isDepartmentJobFlowEnabled|isDietaryJobFlowEnabled/);
   assert.doesNotMatch(src, /UNASSIGNED_WORK|FAILED_WORK|NO_EMPLOYEE|MISSED_TASK/);
+});
+
+test("plan-derived requirements are filtered from Expected Work presentation", () => {
+  const planDerived = resolveMealSupport(atBreakfast);
+  assert.ok(planDerived.every((row) => row.sourceKind === "WORK_PLAN"));
+  const view = presentExpectedWorkFromRequirements({
+    facilityId: "f1",
+    departmentId: "dietary",
+    requirements: planDerived,
+    runPresentation: breakfastRun,
+    workCapabilityEnabled: true,
+    hasPublishedWorkPlans: true,
+    canConfirmWork: true,
+    canManageWorkPlans: true,
+    workPlansHref: "/staffing/work-plans",
+  });
+  assert.equal(todaysExpectedWorkHasVisibleWork(view), false);
+  assert.equal(view.configureHref, null);
+  assert.equal(view.hasPublishedWorkPlans, false);
 });

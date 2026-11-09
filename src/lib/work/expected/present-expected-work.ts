@@ -182,13 +182,10 @@ function uniqueByOccurrenceKey(requirements: readonly WorkRequirement[]): WorkRe
 export function presentExpectedWorkFromRequirements(
   input: PresentExpectedWorkInput,
 ): TodaysExpectedWorkView {
-  const configureHref =
-    input.workCapabilityEnabled &&
-    !input.hasPublishedWorkPlans &&
-    input.canManageWorkPlans &&
-    input.workPlansHref
-      ? input.workPlansHref
-      : null;
+  // Phase 2C-2H-1: plan-derived requirements are not forward Dashboard expectations.
+  // One-off rows may still be presented if a compatibility caller supplies them.
+  // Work Plan authoring is retired — never advertise /staffing/work-plans configuration.
+  const configureHref = null;
 
   if (!input.workCapabilityEnabled) {
     return {
@@ -202,10 +199,15 @@ export function presentExpectedWorkFromRequirements(
     };
   }
 
+  const filteredInput: PresentExpectedWorkInput = {
+    ...input,
+    requirements: input.requirements.filter((row) => row.sourceKind === "ONE_OFF"),
+  };
+
   const requirements = uniqueByOccurrenceKey(
-    input.requirements.filter((requirement) => !OMIT_STATES.has(requirement.state)),
+    filteredInput.requirements.filter((requirement) => !OMIT_STATES.has(requirement.state)),
   );
-  const currentOperations = input.runPresentation?.currentOperations ?? [];
+  const currentOperations = filteredInput.runPresentation?.currentOperations ?? [];
   const currentKeyToGroup = new Map<string, (typeof currentOperations)[number]>();
   for (const operation of currentOperations) {
     for (const key of operation.cycleStableKeys) {
@@ -217,7 +219,7 @@ export function presentExpectedWorkFromRequirements(
   const currentByOperation = new Map<string, WorkRequirement[]>();
   const other: WorkRequirement[] = [];
   const upcomingReqs: WorkRequirement[] = [];
-  const nextKey = input.runPresentation?.nextOperation?.cycleStableKey ?? null;
+  const nextKey = filteredInput.runPresentation?.nextOperation?.cycleStableKey ?? null;
 
   for (const requirement of requirements) {
     if (!requirement.cycleStableKey) {
@@ -247,7 +249,7 @@ export function presentExpectedWorkFromRequirements(
         operationLabel: operation.parentLabel,
         windowLabel: operation.windowLabel,
         cycleStableKeys: operation.cycleStableKeys,
-        locations: groupByLocation(rows, input),
+        locations: groupByLocation(rows, filteredInput),
       };
     })
     .filter((group): group is NonNullable<typeof group> => Boolean(group));
@@ -261,28 +263,28 @@ export function presentExpectedWorkFromRequirements(
       cycleStableKeys: [
         ...new Set(rows.map((row) => row.cycleStableKey).filter((key): key is string => Boolean(key))),
       ],
-      locations: groupByLocation(rows, input),
+      locations: groupByLocation(rows, filteredInput),
     });
   }
 
-  const next = input.runPresentation?.nextOperation ?? null;
+  const next = filteredInput.runPresentation?.nextOperation ?? null;
   const upcoming =
     next && upcomingReqs.length
       ? {
           operationLabel: next.label,
           windowLabel: next.windowLabel,
-          locations: groupByLocation(upcomingReqs, input),
+          locations: groupByLocation(upcomingReqs, filteredInput),
         }
       : null;
 
   return {
     workCapabilityEnabled: true,
-    hasPublishedWorkPlans: input.hasPublishedWorkPlans,
+    hasPublishedWorkPlans: false,
     currentGroups,
-    otherWork: groupByLocation(other, input),
+    otherWork: groupByLocation(other, filteredInput),
     upcoming,
     configureHref,
-    configureLabel: configureHref ? "Configure recurring work" : null,
+    configureLabel: null,
   };
 }
 

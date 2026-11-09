@@ -83,7 +83,9 @@ function capabilities(
   return [departmentId, { departmentId, departmentKey, productKey: null, has: new Set(has), notConfigured }];
 }
 
-const EVERYTHING = DASHBOARD_CAPABILITIES.filter((capability) => capability !== "records.legacy");
+const EVERYTHING = DASHBOARD_CAPABILITIES.filter(
+  (capability) => capability !== "records.legacy" && capability !== "work.expected",
+);
 const FULL: DashboardCapabilityMap = new Map([
   capabilities(FN.id, FN.key, EVERYTHING),
   capabilities(PLANT.id, PLANT.key, EVERYTHING),
@@ -144,7 +146,6 @@ test("scope kinds and authority: each band sees the catalog's cards", () => {
       "call_offs",
       "coverage",
       "department_setup",
-      "expected_work",
       "handoff",
       "hr_alerts",
       "maintenance_open",
@@ -162,6 +163,7 @@ test("scope kinds and authority: each band sees the catalog's cards", () => {
       "timeline",
     ],
   );
+  assert.equal(ids(leader).includes("expected_work"), false);
 
   const manager = listEligibleCards(viewer({ role: "MANAGER", authority: "MANAGER", scope: department() }), FULL);
   assert.deepEqual(
@@ -281,7 +283,7 @@ test("route flags: a card whose required link is closed is not eligible", () => 
 
   const manager = (routeFlags: RouteFeatureFlags) =>
     ids(listEligibleCards(viewer({ role: "MANAGER", authority: "MANAGER", scope: department(), routeFlags }), FULL));
-  assert.equal(manager({ ...ALL_FLAGS, dietaryWorkPlansEnabled: false }).includes("expected_work"), false);
+  assert.equal(manager(ALL_FLAGS).includes("expected_work"), false);
   assert.equal(
     manager({ ...ALL_FLAGS, dietaryOperationalEvidenceEnabled: false }).includes("records_due"),
     false,

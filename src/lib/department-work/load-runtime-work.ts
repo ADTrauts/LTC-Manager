@@ -572,7 +572,10 @@ export async function loadSupervisorWorkExceptions(input: {
   facilityTimezone?: string | null;
 }): Promise<SupervisorWorkExceptionItem[]> {
   const requirements = await resolveUnitWorkRequirements(input);
+  // Phase 2C-2H-1: plan-derived Work Plan exceptions are not forward operational
+  // expectations. One-off supervisor Work remains.
   return requirements
+    .filter((r) => r.sourceKind === "ONE_OFF")
     .filter(
       (r) =>
         r.state === "PAST_DUE_NOT_CONFIRMED" ||

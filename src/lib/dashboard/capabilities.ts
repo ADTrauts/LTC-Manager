@@ -60,7 +60,8 @@ export type DepartmentDashboardCapabilities = {
 export const NOT_CONFIGURED_MESSAGES = {
   "locations.runtime": "No locations are assigned to this Department.",
   "cycles.published": "No Operating Rhythm is published.",
-  "work.expected": "No Work Plans are published.",
+  // Retained for layout/type compatibility; work.expected is never admitted (Phase 2C-2H-1).
+  "work.expected": "Generic Work Plans are retired from the Dashboard.",
   "coverage.planned": "No coverage plan is set.",
   "people.roster": "No employees are in this Department.",
   "records.legacy": "This Department still uses legacy Records.",
@@ -68,18 +69,18 @@ export const NOT_CONFIGURED_MESSAGES = {
   menus: "No Menu is assigned to this Department's locations.",
 } as const satisfies Partial<Record<DashboardCapability, string>>;
 
-type SetupCapability = Exclude<keyof typeof NOT_CONFIGURED_MESSAGES, "records.legacy">;
+type SetupCapability = Exclude<keyof typeof NOT_CONFIGURED_MESSAGES, "records.legacy" | "work.expected">;
 
 /**
  * Setup steps each Department type declares in the Dashboard contract. Legacy Records add a
  * reason for every Department (DSH-D19). Custom Departments have no Product declaration, so they
- * get the shared people and Work steps only.
+ * get the shared people step (Work Plan setup retired in Phase 2C-2H-1).
  */
 const SETUP_EXPECTATIONS: Readonly<Record<DepartmentProductKey | "CUSTOM", readonly SetupCapability[]>> = {
-  HEALTHCARE_FOOD_NUTRITION: ["locations.runtime", "cycles.published", "work.expected", "coverage.planned", "menus"],
+  HEALTHCARE_FOOD_NUTRITION: ["locations.runtime", "cycles.published", "coverage.planned", "menus"],
   PLANT: ["plant.maintenance"],
   EVS: [],
-  CUSTOM: ["work.expected", "coverage.planned", "people.roster"],
+  CUSTOM: ["coverage.planned", "people.roster"],
 };
 
 /** Facts for one Department. `null` means the source failed, so the capability stays absent. */
@@ -122,13 +123,13 @@ export function deriveDepartmentDashboardCapabilities(
   const key = facts.departmentKey;
   const product = getDepartmentProduct(key);
   const cyclesAdmitted = isDashboardEngineAdmitted("cycles", key, facts.plantRuntimeEnabled);
-  const workPlansAdmitted = isDashboardEngineAdmitted("workPlans", key, facts.plantRuntimeEnabled);
   const isPlant = hasPlantDomainCapabilities(key);
 
   const has = new Set<DashboardCapability>();
   if (facts.hasRuntimeLocations === true) has.add("locations.runtime");
   if (cyclesAdmitted && facts.hasPublishedCycles === true) has.add("cycles.published");
-  if (workPlansAdmitted && facts.hasPublishedWorkPlans === true) has.add("work.expected");
+  // Phase 2C-2H-1: never admit plan-derived Expected Work. One-off Work stays on
+  // /staffing/operations — not as a Dashboard expectation capability.
   if (facts.hasCoveragePlan === true) has.add("coverage.planned");
   if (facts.hasRoster === true) has.add("people.roster");
   if (facts.recordEngine === "CANONICAL") has.add("records.canonical");
@@ -142,7 +143,6 @@ export function deriveDepartmentDashboardCapabilities(
   const missing: Record<SetupCapability, boolean> = {
     "locations.runtime": facts.hasRuntimeLocations === false,
     "cycles.published": cyclesAdmitted && facts.hasPublishedCycles === false,
-    "work.expected": workPlansAdmitted && facts.hasPublishedWorkPlans === false,
     "coverage.planned": facts.hasCoveragePlan === false,
     "people.roster": facts.hasRoster === false,
     "plant.maintenance": isPlant && !facts.plantRuntimeEnabled,
@@ -210,7 +210,7 @@ export async function resolveDepartmentDashboardCapabilities(
     .filter((department) => departmentProductOffersMenus(department.key))
     .map((department) => department.id);
 
-  const [locations, cycles, workPlans, coverage, roster, rollouts, requestRoutes, menus] = await Promise.all([
+  const [locations, cycles, coverage, roster, rollouts, requestRoutes, menus] = await Promise.all([
     departmentsWith(async () =>
       (
         await db.unitSpaceResponsibility.findMany({
@@ -247,25 +247,6 @@ export async function resolveDepartmentDashboardCapabilities(
         .filter((row) => isApplicableWeekday(row.applicableDaysOfWeek, viewer.serviceDate))
         .map((row) => row.departmentId),
     ),
-    departmentsWith(async () => {
-      const weekday = serviceDate.getUTCDay();
-      return (
-        await db.departmentWorkPlan.findMany({
-          where: {
-            facilityId,
-            departmentId: { in: ids },
-            status: "PUBLISHED",
-            AND: [
-              { OR: [{ effectiveStartDate: null }, { effectiveStartDate: { lte: serviceDate } }] },
-              { OR: [{ effectiveEndDate: null }, { effectiveEndDate: { gte: serviceDate } }] },
-            ],
-          },
-          select: { departmentId: true, weekdays: true },
-        })
-      )
-        .filter((row) => row.weekdays.length === 0 || row.weekdays.includes(weekday))
-        .map((row) => row.departmentId);
-    }),
     departmentsWith(async () => {
       const [templates, assignments] = await Promise.all([
         db.operationalAssignmentTemplate.findMany({
@@ -359,7 +340,8 @@ export async function resolveDepartmentDashboardCapabilities(
         plantRuntimeEnabled,
         hasRuntimeLocations: presence(locations, department.id),
         hasPublishedCycles: presence(cycles, department.id),
-        hasPublishedWorkPlans: presence(workPlans, department.id),
+        // Always false for admission — plan-derived Expected Work retired (2C-2H-1).
+        hasPublishedWorkPlans: false,
         hasCoveragePlan: presence(coverage, department.id),
         hasRoster: presence(roster, department.id),
         recordEngine:
