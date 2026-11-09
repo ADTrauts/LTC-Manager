@@ -108,7 +108,9 @@ const itemSchema = z.object({
   itemId: z.string().min(1).optional(),
   roleKey: z.string().min(1),
   requiredCount: z.coerce.number().int().min(1).max(50),
-  operationalTypeKeys: z.array(z.string().min(1)),
+  locationScope: z.enum(["UNIT", "SPACE"]),
+  unitId: z.string().min(1).optional(),
+  spaceId: z.string().min(1).optional(),
   cycleStableKeys: z.array(z.string().min(1)),
 });
 
@@ -123,7 +125,9 @@ export async function upsertCoverageExpectationItemAction(
       itemId: optionalText(formData.get("itemId")) ?? undefined,
       roleKey: formData.get("roleKey"),
       requiredCount: formData.get("requiredCount") ?? 1,
-      operationalTypeKeys: parseKeys(formData, "operationalTypeKeys"),
+      locationScope: String(formData.get("locationScope") ?? "SPACE"),
+      unitId: optionalText(formData.get("unitId")) ?? undefined,
+      spaceId: optionalText(formData.get("spaceId")) ?? undefined,
       cycleStableKeys: parseKeys(formData, "cycleStableKeys"),
     });
     const updated = await upsertCoverageExpectationItem(session, {
@@ -132,7 +136,9 @@ export async function upsertCoverageExpectationItemAction(
       itemId: parsed.itemId,
       roleKey: parsed.roleKey,
       requiredCount: parsed.requiredCount,
-      operationalTypeKeys: parsed.operationalTypeKeys,
+      unitId: parsed.locationScope === "UNIT" ? parsed.unitId ?? null : null,
+      spaceId: parsed.locationScope === "SPACE" ? parsed.spaceId ?? null : null,
+      operationalTypeKeys: [],
       cycleStableKeys: parsed.cycleStableKeys,
     });
     revalidateCoverage(parsed.departmentId);

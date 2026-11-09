@@ -171,6 +171,7 @@ export async function loadCoverageSlotSnapshot(
         roleLabel: item.roleLabel,
         requiredCount: item.requiredCount,
         unitId: item.unitId,
+        spaceId: item.spaceId,
         applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
         applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       })),

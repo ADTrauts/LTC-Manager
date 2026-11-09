@@ -384,22 +384,21 @@ export function CycleEditorFields({
     (defaults.milestoneTimes ?? []).some((row) => row.milestone === "SERVICE_STARTED") ||
     defaults.locationMode === "ROOM_TYPE" ||
     (defaults.expectedMilestones ?? []).includes("SERVICE_STARTED");
-  const [appliesTo, setAppliesTo] = useState<CycleUserScope>(() =>
-    userFacingScopeFromMode(
+  const [appliesTo, setAppliesTo] = useState<CycleUserScope>(() => {
+    const mode =
       (defaults.locationMode as
         | "ALL_DEPARTMENT_UNITS"
         | "UNIT_TYPES"
         | "EXPLICIT_UNITS"
         | "ROOM_TYPE"
-        | "OPERATIONAL_TYPES") ?? "OPERATIONAL_TYPES",
-    ),
-  );
+        | "OPERATIONAL_TYPES") ?? "EXPLICIT_UNITS";
+    const scope = userFacingScopeFromMode(mode);
+    // Forward authoring no longer offers class-based location targeting.
+    return scope === "operational_types" ? "specific" : scope;
+  });
   const [roomTypeKey, setRoomTypeKey] = useState(defaults.roomTypeKey ?? "servery");
   const [unitIds, setUnitIds] = useState<string[]>(defaults.unitIds ?? []);
   const [spaceIds, setSpaceIds] = useState<string[]>(defaults.spaceIds ?? []);
-  const [operationalTypeKeys, setOperationalTypeKeys] = useState<string[]>(
-    defaults.applicableOperationalTypeKeys ?? [],
-  );
   const [cycleType, setCycleType] = useState(defaults.cycleType ?? "SERVICE");
   const [mealType, setMealType] = useState(
     defaults.mealType ?? (showMeal && !inheritedMealType ? "BREAKFAST" : defaults.mealType ?? ""),
@@ -421,7 +420,6 @@ export function CycleEditorFields({
     : locationModeFromUserScope(appliesTo);
   const locations = catalog?.locations ?? [];
   const roomTypes = catalog?.roomTypes ?? [];
-  const operationalTypes = catalog?.operationalTypes ?? [];
   const [roomTypeFilterId, setRoomTypeFilterId] = useState("");
   const neighborhoods = locations.filter((row) => row.kind === "neighborhood");
   const rooms = locations.filter((row) => row.kind === "room");
@@ -664,17 +662,6 @@ export function CycleEditorFields({
                       <input
                         type="radio"
                         name="appliesTo"
-                        value="operational_types"
-                        checked={appliesTo === "operational_types"}
-                        onChange={() => setAppliesTo("operational_types")}
-                        data-testid="cycle-applies-operational-types"
-                      />
-                      Location Functions
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-zinc-800">
-                      <input
-                        type="radio"
-                        name="appliesTo"
                         value="specific"
                         checked={appliesTo === "specific"}
                         onChange={() => setAppliesTo("specific")}
@@ -683,50 +670,13 @@ export function CycleEditorFields({
                       Specific rooms
                     </label>
                   </div>
-                  {appliesTo === "operational_types" ? (
-                    <div className="space-y-2" data-testid="cycle-operational-types">
-                      <p className="text-[11px] text-zinc-500">
-                        Apply this Cycle to every room bound to these Location Functions.
-                        This is not Physical Room Type.
-                      </p>
-                      {operationalTypes.length === 0 ? (
-                        <p className="text-xs text-zinc-500" data-testid="cycle-operational-types-empty">
-                          No Location Functions yet. Adopt them under Locations, then return
-                          here.
-                        </p>
-                      ) : (
-                        <div className="space-y-1 rounded-md border border-zinc-200 bg-white p-2">
-                          {operationalTypes.map((type) => (
-                            <label
-                              key={type.key}
-                              className="flex items-center gap-2 text-sm text-zinc-800"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={operationalTypeKeys.includes(type.key)}
-                                onChange={(event) => {
-                                  setOperationalTypeKeys((prev) =>
-                                    event.target.checked
-                                      ? [...prev, type.key]
-                                      : prev.filter((key) => key !== type.key),
-                                  );
-                                }}
-                                data-testid={`cycle-operational-type-${type.key}`}
-                              />
-                              {type.name}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                      <input
-                        type="hidden"
-                        name="applicableOperationalTypeKeys"
-                        value={operationalTypeKeys.join(",")}
-                      />
-                    </div>
-                  ) : (
-                    <input type="hidden" name="applicableOperationalTypeKeys" value="" />
-                  )}
+                  {(defaults.applicableOperationalTypeKeys?.length ?? 0) > 0 ? (
+                    <p className="text-[11px] text-amber-800" data-testid="cycle-legacy-ot-notice">
+                      This draft previously used a retired location class. Choose specific rooms
+                      below; class-based targeting is no longer offered for new configuration.
+                    </p>
+                  ) : null}
+                  <input type="hidden" name="applicableOperationalTypeKeys" value="" />
                   {appliesTo === "specific" ? (
                     <>
                       <p className="text-[11px] text-zinc-500">

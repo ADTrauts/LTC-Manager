@@ -30,14 +30,6 @@ function parseSpaceIds(raw: FormDataEntryValue | null): string[] {
     .filter(Boolean);
 }
 
-function parseOperationalTypeKeys(formData: FormData): string[] {
-  return formData
-    .getAll("operationalTypeKeys")
-    .flatMap((value) => (typeof value === "string" ? value.split(",") : []))
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
 function optionalId(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();
@@ -55,7 +47,6 @@ const createSchema = z.object({
   description: z.string().max(500).optional(),
   managerEmployeeId: z.string().cuid().nullable(),
   spaceIds: z.array(z.string().min(1)),
-  operationalTypeKeys: z.array(z.string().min(1)),
 });
 
 export async function createDepartmentTeamAction(formData: FormData): Promise<TeamActionResult> {
@@ -67,7 +58,6 @@ export async function createDepartmentTeamAction(formData: FormData): Promise<Te
       description: optionalId(formData.get("description")) ?? undefined,
       managerEmployeeId: optionalId(formData.get("managerEmployeeId")),
       spaceIds: parseSpaceIds(formData.get("spaceIds")),
-      operationalTypeKeys: parseOperationalTypeKeys(formData),
     });
     const team = await createDepartmentTeam(session, {
       facilityId: session.facilityId,
@@ -76,7 +66,6 @@ export async function createDepartmentTeamAction(formData: FormData): Promise<Te
       description: parsed.description ?? null,
       managerEmployeeId: parsed.managerEmployeeId,
       spaceIds: parsed.spaceIds,
-      operationalTypeKeys: parsed.operationalTypeKeys,
     });
     revalidateTeams(parsed.departmentId);
     return { ok: true, message: "Team created.", teamId: team.id };
@@ -91,7 +80,6 @@ const updateSchema = z.object({
   description: z.string().max(500).optional(),
   managerEmployeeId: z.string().cuid().nullable(),
   spaceIds: z.array(z.string().min(1)),
-  operationalTypeKeys: z.array(z.string().min(1)),
 });
 
 export async function updateDepartmentTeamAction(formData: FormData): Promise<TeamActionResult> {
@@ -103,7 +91,6 @@ export async function updateDepartmentTeamAction(formData: FormData): Promise<Te
       description: optionalId(formData.get("description")) ?? undefined,
       managerEmployeeId: optionalId(formData.get("managerEmployeeId")),
       spaceIds: parseSpaceIds(formData.get("spaceIds")),
-      operationalTypeKeys: parseOperationalTypeKeys(formData),
     });
     const team = await updateDepartmentTeam(session, {
       facilityId: session.facilityId,
@@ -112,7 +99,7 @@ export async function updateDepartmentTeamAction(formData: FormData): Promise<Te
       description: parsed.description ?? null,
       managerEmployeeId: parsed.managerEmployeeId,
       spaceIds: parsed.spaceIds,
-      operationalTypeKeys: parsed.operationalTypeKeys,
+      // Leave historical OT keys untouched; forward footprint is room membership only.
     });
     revalidateTeams(team.departmentId);
     return { ok: true, message: "Team saved.", teamId: team.id };

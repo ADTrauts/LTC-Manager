@@ -1,7 +1,12 @@
 /**
  * Resolve which coverage expectation items apply to a location / cycle.
- * Operational Type matching is dynamic: one item covers all rooms whose
- * runtime-effective ACTIVE (or working, in Build) OT key matches.
+ *
+ * Forward targeting (Phase 2D-5):
+ * 1. Explicit spaceId → match that Space only
+ * 2. Explicit unitId (no spaceId) → match Spaces in that Unit
+ *
+ * Legacy OT keys remain for historical compatibility when neither space nor unit is set.
+ * Room Type and Department responsibility never invent Coverage.
  */
 
 import type {
@@ -28,13 +33,28 @@ export function matchCoverageItemToLocation(
   item: CoverageExpectationItemInput,
   context: CoverageLocationContext,
 ): CoverageProvenanceSource | null {
-  const locationKey = context.operationalTypeKey?.trim() || "";
-  const otKeys = item.applicableOperationalTypeKeys.map((key) => key.trim()).filter(Boolean);
-  if (locationKey && otKeys.includes(locationKey)) {
-    return "OPERATIONAL_TYPE_DEFAULT";
+  const spaceId = item.spaceId?.trim() || "";
+  if (spaceId) {
+    return spaceId === context.spaceId ? "EXPLICIT_LOCATION" : null;
   }
-  if (otKeys.length === 0 && item.unitId && context.unitId && item.unitId === context.unitId) {
-    return "EXPLICIT_LOCATION";
+
+  const otKeys = item.applicableOperationalTypeKeys.map((key) => key.trim()).filter(Boolean);
+  // Forward Unit-wide: empty OT keys, unitId set. Expands to each Space in that Unit
+  // for the space-grained episode system. Do not combine with OT keys.
+  if (item.unitId) {
+    if (otKeys.length > 0) return null;
+    if (context.unitId && item.unitId === context.unitId) {
+      return "EXPLICIT_LOCATION";
+    }
+    return null;
+  }
+
+  // Historical compatibility only: OT keys with no explicit Space or Unit.
+  if (otKeys.length > 0) {
+    const locationKey = context.operationalTypeKey?.trim() || "";
+    if (locationKey && otKeys.includes(locationKey)) {
+      return "OPERATIONAL_TYPE_DEFAULT";
+    }
   }
   return null;
 }
@@ -113,6 +133,7 @@ function toResolved(
     operationalTypeName:
       source === "OPERATIONAL_TYPE_DEFAULT" ? context.operationalTypeName : null,
     unitId: item.unitId,
+    spaceId: item.spaceId?.trim() || null,
     provenance: source,
     detail: describeCoverageApplicability({
       source,
@@ -127,7 +148,7 @@ export function dedupeResolvedExpectations(
   const seen = new Set<string>();
   const out: ResolvedCoverageExpectation[] = [];
   for (const row of rows) {
-    const key = `${row.templateId}:${row.roleKey}:${row.cycleStableKey ?? ""}:${row.provenance}`;
+    const key = `${row.templateId}:${row.roleKey}:${row.cycleStableKey ?? ""}:${row.provenance}:${row.spaceId ?? ""}:${row.unitId ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(row);
@@ -139,16 +160,38 @@ export function dedupeResolvedExpectations(
   });
 }
 
+/**
+ * Forward Coverage authoring no longer accepts Operational Type / Location Function keys.
+ * Historical rows may still carry them for compatibility matching only.
+ */
 export function validateCoverageOperationalTypeKeys(input: {
   submittedKeys: readonly string[];
-  allowedKeys: ReadonlySet<string>;
+  allowedKeys?: ReadonlySet<string>;
 }): string[] {
   const unique = [...new Set(input.submittedKeys.map((key) => key.trim()).filter(Boolean))];
-  const invalid = unique.filter((key) => !input.allowedKeys.has(key));
-  if (invalid.length > 0) {
-    throw new Error("Coverage Operational Types must belong to this Department.");
+  if (unique.length > 0) {
+    throw new Error(
+      "Coverage no longer targets Operational Types. Choose the Unit or rooms this coverage need applies to.",
+    );
   }
-  return unique;
+  void input.allowedKeys;
+  return [];
+}
+
+/** Forward items must target exactly one of: a Space, or a Unit (not both). */
+export function validateCoverageLocationTarget(input: {
+  spaceId?: string | null;
+  unitId?: string | null;
+}): { spaceId: string | null; unitId: string | null } {
+  const spaceId = input.spaceId?.trim() || null;
+  const unitId = input.unitId?.trim() || null;
+  if (spaceId && unitId) {
+    throw new Error("Choose either a specific Space or a Unit-wide target, not both.");
+  }
+  if (!spaceId && !unitId) {
+    throw new Error("Choose a Unit or a specific Space for this coverage need.");
+  }
+  return { spaceId, unitId };
 }
 
 export function validateCoverageCycleStableKeys(input: {

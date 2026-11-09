@@ -118,15 +118,11 @@ function TeamFormFields({
     managerEmployeeId: string | null;
     managerLabel: string | null;
     spaceIds: string[];
-    operationalTypeKeys: string[];
   };
 }) {
   const [spaceIds, setSpaceIds] = useState<string[]>(defaults?.spaceIds ?? []);
   return (
     <div className="space-y-5">
-      {defaults?.operationalTypeKeys.map((key) => (
-        <input key={key} type="hidden" name="operationalTypeKeys" value={key} />
-      ))}
       <section className="space-y-3">
         <TextInput
           name="displayName"
@@ -154,8 +150,8 @@ function TeamFormFields({
       <section className="space-y-2">
         <h3 className="text-xs font-medium text-zinc-500">Rooms this team works</h3>
         <p className="text-xs text-zinc-500">
-          Choose specific rooms, or filter by Facility Room Type to select all rooms of that
-          type. Membership is assigned in Employee Builder — this is not today’s assignment.
+          Choose specific rooms. Room Type may help you filter the list, but membership is only
+          the rooms you select. Employee membership is assigned in Employee Builder — this is not today’s assignment.
         </p>
         <p className="text-sm text-zinc-700">
           {spaceIds.length} {spaceIds.length === 1 ? "Room" : "Rooms"} selected
@@ -325,7 +321,6 @@ export function TeamsWorkspace({
                           managerEmployeeId: selected.managerEmployeeId,
                           managerLabel: selected.managerLabel,
                           spaceIds: selected.rooms.map((room) => room.spaceId),
-                          operationalTypeKeys: selected.applicableOperationalTypeKeys,
                         }}
                       />
                       <div className="mt-4">

@@ -1972,13 +1972,14 @@ model UnitSpace {
   zoneMemberships            DepartmentOperationalZoneLocation[]
   teamMemberships            DepartmentTeamRoomMembership[]
   logSuppressions            DepartmentLocationLogSuppression[]
-  assignmentLocations        OperationalAssignmentLocation[]
-  operationalCycleLocations  DepartmentOperationalCycleLocation[]
-  menuLocationApplicability  MenuLocationApplicability[]
-  keyTimeGroupRooms          DepartmentOperationalCycleKeyTimeGroupRoom[]
-  keyTimeDayExpectations     OperationalCycleKeyTimeDayExpectation[]
-  createdAt                  DateTime                                     @default(now())
-  updatedAt                  DateTime                                     @updatedAt
+  assignmentLocations              OperationalAssignmentLocation[]
+  assignmentTemplateItems          OperationalAssignmentTemplateItem[]
+  operationalCycleLocations        DepartmentOperationalCycleLocation[]
+  menuLocationApplicability        MenuLocationApplicability[]
+  keyTimeGroupRooms                DepartmentOperationalCycleKeyTimeGroupRoom[]
+  keyTimeDayExpectations           OperationalCycleKeyTimeDayExpectation[]
+  createdAt                        DateTime                                     @default(now())
+  updatedAt                        DateTime                                     @updatedAt
 
   @@index([facilityId])
   @@index([unitId, isActive, sortOrder])
@@ -4032,7 +4033,10 @@ model OperationalAssignmentTemplateItem {
   roleLabel                            String
   unitId                               String?
   unit                                 Unit?                         @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  /// DepartmentRoomArchetype.key targets. Empty = no OT inheritance (legacy unit/direct only).
+  /// Explicit Space target. Prefer XOR with unitId for forward authoring.
+  spaceId                              String?
+  space                                UnitSpace?                    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  /// Legacy OT keys — compatibility only. Forward Coverage uses spaceId or unitId.
   applicableOperationalTypeKeys        String[]                      @default([])
   /// DepartmentOperationalCycle.stableKey targets. Empty = no cycle constraint (legacy).
   applicableOperationalCycleStableKeys String[]                      @default([])
@@ -4046,6 +4050,7 @@ model OperationalAssignmentTemplateItem {
   updatedAt                            DateTime                      @updatedAt
 
   @@index([templateId, sortOrder])
+  @@index([spaceId])
 }
 
 /// Which credential surface a rate-limit bucket protects.

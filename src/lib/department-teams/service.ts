@@ -1,10 +1,11 @@
 /**
- * Department Teams — enduring organizational subgroups inside one Department.
+ * Department Teams — enduring organizational grouping of people inside one Department.
  *
  * Build configuration only. Does not write Zones, Cycles, WorkStations,
  * Department responsibility, Employee membership, or OperationalAssignment.
- * Team → Operational Type keys persist immediately (same as room membership).
- * Run consumers must resolve those keys through ACTIVE Operational Types only.
+ * Forward location footprint is explicit DepartmentTeamRoomMembership only.
+ * Legacy applicableOperationalTypeKeys may remain on historical rows but do not
+ * expand Team rooms for Run or Dashboard scope.
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -144,7 +145,7 @@ async function resolveTeamRoomWrites(
   client: DbClient,
   input: { facilityId: string; departmentId: string; spaceIds: readonly string[] },
 ): Promise<string[]> {
-  const unique = [...new Set(input.spaceIds.filter(Boolean))];
+  const unique = [...new Set((input.spaceIds ?? []).filter(Boolean))];
   const allowed = await loadAllowedTeamSpaceIds(client, {
     facilityId: input.facilityId,
     departmentId: input.departmentId,
@@ -156,33 +157,20 @@ async function resolveTeamRoomWrites(
 }
 
 async function resolveTeamOperationalTypeWrites(
-  client: DbClient,
+  _client: DbClient,
   input: {
     facilityId: string;
     departmentId: string;
     operationalTypeKeys: readonly string[];
   },
 ): Promise<string[]> {
-  const options = await loadDepartmentOperationalTypeOptions({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    perspective: "working",
-  });
-  const existing = await client.departmentRoomArchetype.findMany({
-    where: {
-      key: { in: [...input.operationalTypeKeys] },
-      profile: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        status: { in: ["DRAFT", "CERTIFIED", "ACTIVE"] },
-      },
-    },
-    select: { key: true },
-  });
-  const allowed = new Set([...options.map((row) => row.key), ...existing.map((row) => row.key)]);
+  void _client;
+  void input.facilityId;
+  void input.departmentId;
+  // Forward Team authoring no longer accepts OT keys. Historical keys stay on the row
+  // unless a caller explicitly passes an empty list (clear) or omitted (leave unchanged).
   return validateTeamOperationalTypeKeys({
     submittedKeys: input.operationalTypeKeys,
-    allowedKeys: allowed,
   });
 }
 
@@ -508,11 +496,13 @@ export async function createDepartmentTeam(
       departmentId: input.departmentId,
       spaceIds: input.spaceIds,
     });
-    const operationalTypeKeys = await resolveTeamOperationalTypeWrites(tx, {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      operationalTypeKeys: input.operationalTypeKeys ?? [],
-    });
+    if ((input.operationalTypeKeys ?? []).length > 0) {
+      await resolveTeamOperationalTypeWrites(tx, {
+        facilityId: input.facilityId,
+        departmentId: input.departmentId,
+        operationalTypeKeys: input.operationalTypeKeys ?? [],
+      });
+    }
     const displayOrder = await nextDisplayOrder(tx, input.departmentId);
     const created = await tx.departmentTeam.create({
       data: {
@@ -522,7 +512,7 @@ export async function createDepartmentTeam(
         description,
         displayOrder,
         managerEmployeeId,
-        applicableOperationalTypeKeys: operationalTypeKeys,
+        applicableOperationalTypeKeys: [],
         roomMemberships: {
           create: spaceIds.map((spaceId) => ({ spaceId })),
         },
@@ -582,6 +572,7 @@ export async function updateDepartmentTeam(
         : { disconnect: true };
     }
     if (input.operationalTypeKeys !== undefined) {
+      // Only allow clearing legacy OT keys (empty). Non-empty submissions are rejected.
       data.applicableOperationalTypeKeys = await resolveTeamOperationalTypeWrites(tx, {
         facilityId: existing.facilityId,
         departmentId: existing.departmentId,

@@ -1,7 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { getRolesForDepartment } from "@/lib/scheduling/assignment-roles";
-import { loadDepartmentOperationalTypeOptions } from "@/lib/operational-cycles/load-operational-type-targets";
 import { toServiceDateKey } from "@/lib/operational-time";
 import { prisma } from "@/lib/prisma";
 
@@ -30,7 +29,9 @@ const TEMPLATE_SELECT = {
       applicableOperationalTypeKeys: true,
       applicableOperationalCycleStableKeys: true,
       unitId: true,
+      spaceId: true,
       unit: { select: { name: true } },
+      space: { select: { name: true } },
     },
   },
 } as const;
@@ -57,7 +58,9 @@ export function toCoverageExpectationView(row: {
     applicableOperationalTypeKeys: string[];
     applicableOperationalCycleStableKeys: string[];
     unitId: string | null;
+    spaceId?: string | null;
     unit: { name: string } | null;
+    space?: { name: string } | null;
   }>;
 }): CoverageExpectationView {
   return {
@@ -79,6 +82,8 @@ export function toCoverageExpectationView(row: {
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       unitId: item.unitId,
       unitName: item.unit?.name ?? null,
+      spaceId: item.spaceId ?? null,
+      spaceName: item.space?.name ?? null,
     })),
   };
 }
@@ -120,22 +125,45 @@ export async function loadCoverageCatalog(input: {
   departmentId: string;
   departmentKey: string;
 }): Promise<CoverageCatalog> {
-  const [operationalTypes, cycleRows] = await Promise.all([
-    loadDepartmentOperationalTypeOptions({
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      perspective: "working",
-    }),
+  const [cycleRows, spaces] = await Promise.all([
     loadCoverageCycleOptions(input),
+    prisma.unitSpace.findMany({
+      where: {
+        facilityId: input.facilityId,
+        isActive: true,
+        responsibilities: { some: { departmentId: input.departmentId } },
+      },
+      select: {
+        id: true,
+        name: true,
+        unitId: true,
+        unit: { select: { id: true, name: true } },
+      },
+      orderBy: [{ name: "asc" }],
+    }),
   ]);
+
+  const unitById = new Map<string, { id: string; name: string }>();
+  for (const space of spaces) {
+    if (space.unit?.id) {
+      unitById.set(space.unit.id, { id: space.unit.id, name: space.unit.name });
+    }
+  }
 
   return {
     roles: getRolesForDepartment(input.departmentKey).map((role) => ({
       key: role.key,
       label: role.label,
     })),
-    operationalTypes,
+    operationalTypes: [],
     cycles: cycleRows,
+    units: [...unitById.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    spaces: spaces.map((space) => ({
+      id: space.id,
+      name: space.name,
+      unitId: space.unitId,
+      unitName: space.unit?.name ?? null,
+    })),
   };
 }
 

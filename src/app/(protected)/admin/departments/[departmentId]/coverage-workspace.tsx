@@ -19,6 +19,7 @@ import { StatusBadge } from "@/components/design-system";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
 import type {
   CoverageCatalog,
+  CoverageExpectationItemView,
   CoverageExpectationView,
 } from "@/lib/scheduling/coverage-expectations/views";
 
@@ -35,6 +36,19 @@ function statusVariant(status: CoverageExpectationView["status"]): "neutral" | "
   if (status === "PUBLISHED") return "success";
   if (status === "RETIRED") return "warning";
   return "neutral";
+}
+
+function formatLocation(item: CoverageExpectationItemView): string {
+  if (item.spaceId) {
+    return item.spaceName ? `Space · ${item.spaceName}` : "Space-specific";
+  }
+  if (item.unitId) {
+    return item.unitName ? `Unit-wide · ${item.unitName}` : "Unit-wide";
+  }
+  if (item.applicableOperationalTypeKeys.length > 0) {
+    return `Legacy Operational Type · ${item.applicableOperationalTypeKeys.join(", ")}`;
+  }
+  return "No location configured";
 }
 
 export function CoverageWorkspace({
@@ -85,7 +99,7 @@ export function CoverageWorkspace({
       {expectations.length === 0 && !adding ? (
         <EmptyState
           title="No coverage expectations yet"
-          description="Define which operational responsibilities are required for each Operational Type and Operational Cycle."
+          description="Define which operational responsibilities are required for a Unit or a specific Space during each Operational Cycle."
           action={
             canManage ? (
               <Button type="button" onClick={() => setAdding(true)} data-testid="add-coverage-empty">
@@ -208,7 +222,7 @@ function ExpectationEditor({
                   {item.roleLabel} × {item.requiredCount}
                 </p>
                 <p className="text-xs text-zinc-500">
-                  {item.applicableOperationalTypeKeys.join(", ") || "No Operational Type"}
+                  {formatLocation(item)}
                   {" · "}
                   {item.applicableOperationalCycleStableKeys.join(", ") || "No cycle"}
                 </p>
@@ -272,88 +286,112 @@ function RequirementForm({
   templateId: string;
   catalog: CoverageCatalog;
 }) {
-  const [operationalTypeKeys, setOperationalTypeKeys] = useState<string[]>([]);
   const [cycleStableKeys, setCycleStableKeys] = useState<string[]>([]);
+  const [locationScope, setLocationScope] = useState<"UNIT" | "SPACE">("SPACE");
 
   return (
     <div data-testid="coverage-requirement-form">
-    <DepartmentAdminActionForm
-      action={upsertCoverageExpectationItemAction}
-      className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3"
-    >
-      <input type="hidden" name="departmentId" value={departmentId} />
-      <input type="hidden" name="templateId" value={templateId} />
-      <Select name="roleKey" label="Responsibility" required data-testid="coverage-role-select">
-        <option value="">Select a responsibility</option>
-        {catalog.roles.map((role) => (
-          <option key={role.key} value={role.key}>
-            {role.label}
-          </option>
-        ))}
-      </Select>
-      <TextInput
-        name="requiredCount"
-        label="Required"
-        type="number"
-        min={1}
-        max={50}
-        defaultValue="1"
-        required
-      />
-      <section className="space-y-1" data-testid="coverage-operational-types">
-        <p className="text-xs font-medium text-zinc-700">Operational Types</p>
-        {catalog.operationalTypes.length === 0 ? (
-          <p className="text-xs text-zinc-500">No Operational Types are configured yet.</p>
-        ) : (
-          catalog.operationalTypes.map((type) => (
-            <label key={type.key} className="flex items-center gap-2 text-sm text-zinc-800">
+      <DepartmentAdminActionForm
+        action={upsertCoverageExpectationItemAction}
+        className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3"
+      >
+        <input type="hidden" name="departmentId" value={departmentId} />
+        <input type="hidden" name="templateId" value={templateId} />
+        <Select name="roleKey" label="Responsibility" required data-testid="coverage-role-select">
+          <option value="">Select a responsibility</option>
+          {catalog.roles.map((role) => (
+            <option key={role.key} value={role.key}>
+              {role.label}
+            </option>
+          ))}
+        </Select>
+        <TextInput
+          name="requiredCount"
+          label="Required"
+          type="number"
+          min={1}
+          max={50}
+          defaultValue="1"
+          required
+        />
+        <section className="space-y-2" data-testid="coverage-location-scope">
+          <p className="text-xs font-medium text-zinc-700">Location</p>
+          <div className="flex flex-wrap gap-3 text-sm text-zinc-800">
+            <label className="flex items-center gap-2">
               <input
-                type="checkbox"
-                name="operationalTypeKeys"
-                value={type.key}
-                checked={operationalTypeKeys.includes(type.key)}
-                onChange={() =>
-                  setOperationalTypeKeys((current) =>
-                    current.includes(type.key)
-                      ? current.filter((key) => key !== type.key)
-                      : [...current, type.key],
-                  )
-                }
+                type="radio"
+                name="locationScope"
+                value="SPACE"
+                checked={locationScope === "SPACE"}
+                onChange={() => setLocationScope("SPACE")}
               />
-              {type.name}
+              Specific Space
             </label>
-          ))
-        )}
-      </section>
-      <section className="space-y-1" data-testid="coverage-cycles">
-        <p className="text-xs font-medium text-zinc-700">Operational Cycles</p>
-        {catalog.cycles.length === 0 ? (
-          <p className="text-xs text-zinc-500">No Operational Cycles are configured yet.</p>
-        ) : (
-          catalog.cycles.map((cycle) => (
-            <label key={cycle.stableKey} className="flex items-center gap-2 text-sm text-zinc-800">
+            <label className="flex items-center gap-2">
               <input
-                type="checkbox"
-                name="cycleStableKeys"
-                value={cycle.stableKey}
-                checked={cycleStableKeys.includes(cycle.stableKey)}
-                onChange={() =>
-                  setCycleStableKeys((current) =>
-                    current.includes(cycle.stableKey)
-                      ? current.filter((key) => key !== cycle.stableKey)
-                      : [...current, cycle.stableKey],
-                  )
-                }
+                type="radio"
+                name="locationScope"
+                value="UNIT"
+                checked={locationScope === "UNIT"}
+                onChange={() => setLocationScope("UNIT")}
               />
-              {cycle.label}
+              Unit-wide
             </label>
-          ))
-        )}
-      </section>
-      <Button type="submit" size="compact">
-        Add requirement
-      </Button>
-    </DepartmentAdminActionForm>
+          </div>
+          {locationScope === "SPACE" ? (
+            <Select name="spaceId" label="Space" required data-testid="coverage-space-select">
+              <option value="">Select a Space</option>
+              {catalog.spaces.map((space) => (
+                <option key={space.id} value={space.id}>
+                  {space.name}
+                  {space.unitName ? ` · ${space.unitName}` : ""}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Select name="unitId" label="Unit" required data-testid="coverage-unit-select">
+              <option value="">Select a Unit</option>
+              {catalog.units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.name}
+                </option>
+              ))}
+            </Select>
+          )}
+          <p className="text-[11px] text-zinc-500">
+            Unit-wide needs apply to every Department Space in that Unit. Space needs apply only to
+            the selected room. Unconfigured locations do not appear as uncovered.
+          </p>
+        </section>
+        <section className="space-y-1" data-testid="coverage-cycles">
+          <p className="text-xs font-medium text-zinc-700">Operational Cycles</p>
+          {catalog.cycles.length === 0 ? (
+            <p className="text-xs text-zinc-500">No Operational Cycles are configured yet.</p>
+          ) : (
+            catalog.cycles.map((cycle) => (
+              <label key={cycle.stableKey} className="flex items-center gap-2 text-sm text-zinc-800">
+                <input
+                  type="checkbox"
+                  name="cycleStableKeys"
+                  value={cycle.stableKey}
+                  checked={cycleStableKeys.includes(cycle.stableKey)}
+                  onChange={() =>
+                    setCycleStableKeys((current) =>
+                      current.includes(cycle.stableKey)
+                        ? current.filter((key) => key !== cycle.stableKey)
+                        : [...current, cycle.stableKey],
+                    )
+                  }
+                />
+                {cycle.label}
+              </label>
+            ))
+          )}
+        </section>
+        <Button type="submit" size="compact">
+          Add requirement
+        </Button>
+      </DepartmentAdminActionForm>
     </div>
   );
 }

@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
 import {
-  addFacilityTypeLogDefaultAction,
   removeFacilityTypeLogDefaultAction,
   removeRoomLogAction,
   restoreFacilityTypeLogDefaultAction,
@@ -76,7 +75,6 @@ function LocationRoomInspector({
   inspect: LocationRoomInspectView;
   canManage: boolean;
 }) {
-  const [addingTypeDefault, setAddingTypeDefault] = useState(false);
   const place = [inspect.place, inspect.facilityTypeLabel ? `Facility type: ${inspect.facilityTypeLabel}` : null]
     .filter(Boolean)
     .join(" · ");
@@ -266,52 +264,12 @@ function LocationRoomInspector({
           </ul>
         )}
 
-        {canManage && inspect.facilityRoomTypeId && inspect.catalogOptions.length > 0 ? (
-          <div className="pt-1">
-            <Button
-              type="button"
-              variant="secondary"
-              size="compact"
-              onClick={() => setAddingTypeDefault((current) => !current)}
-              data-testid="location-add-type-default"
-            >
-              {addingTypeDefault
-                ? "Cancel"
-                : `+ Add log to all ${inspect.facilityTypeLabel ?? "type"} rooms`}
-            </Button>
-            {addingTypeDefault ? (
-              <DepartmentAdminActionForm
-                action={addFacilityTypeLogDefaultAction}
-                className="mt-2 space-y-2"
-                onSuccess={() => setAddingTypeDefault(false)}
-              >
-                <input type="hidden" name="departmentId" value={inspect.departmentId} />
-                <input type="hidden" name="facilityRoomTypeId" value={inspect.facilityRoomTypeId} />
-                <label className="block text-xs font-medium text-zinc-700">
-                  Catalog log
-                  <select
-                    name="catalogStableKey"
-                    required
-                    className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-                  >
-                    <option value="">Select a log…</option>
-                    {inspect.catalogOptions.map((option) => (
-                      <option key={option.stableKey} value={option.stableKey}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <p className="text-[11px] text-zinc-500">
-                  Inherited from Facility type. One room can turn it off without deleting the
-                  default.
-                </p>
-                <Button type="submit" size="compact">
-                  Add type default
-                </Button>
-              </DepartmentAdminActionForm>
-            ) : null}
-          </div>
+        {canManage && inspect.facilityRoomTypeId ? (
+          <p className="pt-1 text-[11px] text-zinc-500" data-testid="location-type-default-retired">
+            Facility-type log defaults are no longer offered for new configuration. Attach
+            Records to this Space explicitly with + Add log. Existing type defaults remain
+            visible above until replaced.
+          </p>
         ) : null}
       </section>
 

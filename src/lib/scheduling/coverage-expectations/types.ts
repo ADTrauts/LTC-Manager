@@ -1,17 +1,13 @@
 /**
- * Canonical Dietary coverage expectations.
+ * Canonical Coverage expectations.
  *
  * WHAT: OperationalAssignment roleKey
  * HOW MANY: requiredCount
- * WHERE: DepartmentRoomArchetype.key (Operational Type)
+ * WHERE: explicit UnitSpace.id and/or Unit.id (forward). Legacy OT keys are compatibility only.
  * WHEN: DepartmentOperationalCycle.stableKey
  * ACTUAL: OperationalAssignment (never ScheduleEntry, Team, or Job Role)
  *
  * Coverage state is derived. Do not persist isCovered.
- *
- * Later runtime snapshots (Phase 6+) should preserve:
- * requirement/version identity, roleKey, requiredCount, Operational Type key,
- * cycle identity, service date, matching OA ids, and resulting state.
  */
 
 export type CoverageExpectationStatus = "DRAFT" | "PUBLISHED" | "RETIRED";
@@ -34,6 +30,7 @@ export type CoverageExpectationItemInput = {
   roleLabel: string;
   requiredCount: number;
   unitId: string | null;
+  spaceId?: string | null;
   applicableOperationalTypeKeys: readonly string[];
   applicableOperationalCycleStableKeys: readonly string[];
 };
@@ -67,6 +64,7 @@ export type ResolvedCoverageExpectation = {
   operationalTypeKey: string | null;
   operationalTypeName: string | null;
   unitId: string | null;
+  spaceId: string | null;
   provenance: CoverageProvenanceSource;
   detail: string;
 };

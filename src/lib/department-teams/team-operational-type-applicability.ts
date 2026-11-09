@@ -1,9 +1,10 @@
 /**
- * Department Team → Operational Type applicability.
+ * Department Team → location applicability.
  *
- * Answers: which configured Teams normally operate in this kind of location?
- * Does not create employee assignments, coverage, or OperationalAssignment rows.
- * Does not copy DepartmentTeamRoomMembership onto rooms.
+ * Forward footprint is explicit DepartmentTeamRoomMembership only.
+ * Legacy applicableOperationalTypeKeys remain on the row for historical records
+ * but do not expand Team locations in forward matching or viewer scope.
+ * Does not create Coverage expectations or OperationalAssignment rows.
  */
 
 import type { OverlayProvenanceSource } from "@/lib/department-administration/effective-location-program";
@@ -22,6 +23,7 @@ export type TeamApplicabilityRow = {
   departmentId: string;
   displayName: string;
   status: "ACTIVE" | "ARCHIVED";
+  /** Legacy only — not used for forward location expansion. */
   applicableOperationalTypeKeys: readonly string[];
   explicitSpaceIds: readonly string[];
 };
@@ -38,8 +40,8 @@ export function describeTeamApplicability(input: {
 }): string {
   if (input.source === "OPERATIONAL_TYPE_DEFAULT") {
     return input.operationalTypeName?.trim()
-      ? `Inherited from Operational Type: ${input.operationalTypeName.trim()}`
-      : "Inherited from Operational Type";
+      ? `Historical Operational Type: ${input.operationalTypeName.trim()}`
+      : "Historical Operational Type";
   }
   return "Applied directly to this location";
 }
@@ -59,31 +61,17 @@ export function matchTeamToLocation(
   if (team.status !== "ACTIVE") return [];
   if (team.departmentId !== context.departmentId) return [];
 
-  const matches: TeamLocationMatch[] = [];
   if (team.explicitSpaceIds.includes(context.spaceId)) {
-    matches.push({
-      team,
-      source: "EXPLICIT_LOCATION",
-      detail: describeTeamApplicability({ source: "EXPLICIT_LOCATION" }),
-    });
+    return [
+      {
+        team,
+        source: "EXPLICIT_LOCATION",
+        detail: describeTeamApplicability({ source: "EXPLICIT_LOCATION" }),
+      },
+    ];
   }
 
-  const locationKey = context.operationalTypeKey?.trim() || "";
-  if (
-    locationKey &&
-    team.applicableOperationalTypeKeys.some((key) => key.trim() === locationKey)
-  ) {
-    matches.push({
-      team,
-      source: "OPERATIONAL_TYPE_DEFAULT",
-      detail: describeTeamApplicability({
-        source: "OPERATIONAL_TYPE_DEFAULT",
-        operationalTypeName: context.operationalTypeName,
-      }),
-    });
-  }
-
-  return matches;
+  return [];
 }
 
 export function dedupeTeamLocationMatches(
@@ -126,15 +114,14 @@ function lcFirst(value: string): string {
   return value.charAt(0).toLowerCase() + value.slice(1);
 }
 
-/** Configured rooms for a team: explicit membership ∪ runtime-effective OT rooms. */
+/** Configured rooms for a team: explicit DepartmentTeamRoomMembership only. */
 export function configuredTeamSpaceIds(input: {
   explicitSpaceIds: readonly string[];
-  applicableOperationalTypeKeys: readonly string[];
-  runtimeAssignments: ReadonlyMap<string, { key: string }>;
+  applicableOperationalTypeKeys?: readonly string[];
+  runtimeAssignments?: ReadonlyMap<string, { key: string }>;
 }): string[] {
-  const wanted = new Set(
-    input.applicableOperationalTypeKeys.map((key) => key.trim()).filter(Boolean),
-  );
+  void input.applicableOperationalTypeKeys;
+  void input.runtimeAssignments;
   const seen = new Set<string>();
   const ids: string[] = [];
   for (const spaceId of input.explicitSpaceIds) {
@@ -142,24 +129,20 @@ export function configuredTeamSpaceIds(input: {
     seen.add(spaceId);
     ids.push(spaceId);
   }
-  if (wanted.size === 0) return ids;
-  for (const [spaceId, assignment] of input.runtimeAssignments) {
-    if (!assignment.key.trim() || !wanted.has(assignment.key.trim())) continue;
-    if (seen.has(spaceId)) continue;
-    seen.add(spaceId);
-    ids.push(spaceId);
-  }
   return ids;
 }
 
+/** Forward Team authoring rejects new Operational Type keys. */
 export function validateTeamOperationalTypeKeys(input: {
   submittedKeys: readonly string[];
-  allowedKeys: ReadonlySet<string>;
+  allowedKeys?: ReadonlySet<string>;
 }): string[] {
   const unique = [...new Set(input.submittedKeys.map((key) => key.trim()).filter(Boolean))];
-  const invalid = unique.filter((key) => !input.allowedKeys.has(key));
-  if (invalid.length > 0) {
-    throw new Error("Team Operational Types must belong to this Department.");
+  if (unique.length > 0) {
+    throw new Error(
+      "Teams no longer target Operational Types. Select explicit rooms for this Team.",
+    );
   }
-  return unique;
+  void input.allowedKeys;
+  return [];
 }

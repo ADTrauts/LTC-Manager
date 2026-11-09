@@ -313,14 +313,28 @@ describe("explicit space coverage", () => {
     assert.equal(slots[0]?.state, "AT_RISK");
   });
 
-  it("does not let a unit or department-wide row cover a room", () => {
+  it("treats Unit-wide (no OT) as applying to Spaces in that Unit; rejects place-less rows", () => {
     const items = [
-      need({ id: "unit", spaceId: null, unitId: "unit-1", roleKey: "SERVER" }),
+      need({
+        id: "unit",
+        spaceId: null,
+        unitId: "unit-1",
+        roleKey: "SERVER",
+        applicableOperationalTypeKeys: [],
+      }),
+      need({
+        id: "confused",
+        spaceId: null,
+        unitId: "unit-1",
+        roleKey: "COOK",
+        applicableOperationalTypeKeys: ["servery"],
+      }),
       need({
         id: "dept",
         spaceId: null,
         unitId: null,
-        roleKey: "COOK",
+        roleKey: "PREP",
+        applicableOperationalTypeKeys: [],
         applicableOperationalCycleStableKeys: ["breakfast"],
       }),
     ];
@@ -330,15 +344,17 @@ describe("explicit space coverage", () => {
       cycles,
       cycleStableKey: "breakfast",
     });
-    const onUnit = resolveCoverageExpectationsForLocation({
+    assert.equal(onRoom.length, 1);
+    assert.equal(onRoom[0]?.roleKey, "SERVER");
+    assert.equal(onRoom[0]?.provenance, "EXPLICIT_LOCATION");
+
+    const otherUnit = resolveCoverageExpectationsForLocation({
       items,
-      context: { ...room(""), spaceId: "", unitId: "unit-1" },
+      context: { ...room("space-z"), unitId: "unit-other" },
       cycles,
       cycleStableKey: "breakfast",
     });
-    assert.deepEqual(onRoom, []);
-    assert.equal(onUnit.length, 1);
-    assert.equal(onUnit[0]?.roleKey, "SERVER");
+    assert.deepEqual(otherUnit, []);
   });
 
   it("refuses a Location Function key as a coverage target", () => {
