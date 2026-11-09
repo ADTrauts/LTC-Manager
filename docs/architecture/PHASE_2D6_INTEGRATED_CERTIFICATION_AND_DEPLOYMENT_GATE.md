@@ -13,7 +13,8 @@
 |---|---|
 | Base SHA (verified 2D-5 checkpoint) | `fdd3ac7af4aa2c6b0812d10b64a812f5e24eaa42` |
 | Intermediate 2D-5 application commit | `484e76aac67e8a5de07c94001a7fd162878c7d04` |
-| **Release-candidate SHA** | **`9bc5f8320f8491a0c66dab894391bdf3f199d4cb`** |
+| Application + hermetic certification tip | `9bc5f8320f8491a0c66dab894391bdf3f199d4cb` |
+| **Release-candidate SHA (incl. this report)** | **`8abdb944f90745ac873938f42270f42be246fa96`** |
 | Protected production SHA | `7973254ee87da2d94291f4282337441944d042fa` |
 | Production deployment | `dpl_2fjfVAJporEGaDtFwzRVd9TgQhKS` |
 | Production domains | `vssyl.com`, `www.vssyl.com` |
@@ -43,7 +44,7 @@
 
 ### Unresolved working-tree differences after candidate SHA
 
-Untracked R4 harness + `.neon` only. Application tree at `9bc5f83` is clean.
+Untracked R4 harness + `.neon` only. Candidate tip `8abdb94` (app cert `9bc5f83` + this report) is clean aside from those exclusions.
 
 **Candidate was not pushed.** No production-linked branch update. No deployment.
 
@@ -271,7 +272,7 @@ Do **not** close ARR-004. Do **not** close ARR-003 or ARR-008 here.
 
 ### Pre-deployment
 
-1. Clean tree at candidate `9bc5f83` (exclude R4/`.neon`)
+1. Clean tree at candidate `8abdb94` (exclude R4/`.neon`)
 2. Retain this report + prior 2C production deployment report
 3. Reconfirm production schema still 187; Key Time rooms still present
 4. Confirm rollback deployment `dpl_2fjfVAJporEGaDtFwzRVd9TgQhKS` still READY
@@ -288,7 +289,7 @@ Do **not** close ARR-004. Do **not** close ARR-003 or ARR-008 here.
 
 ### Application release (after expand verified)
 
-1. Stage production-configured deploy of `9bc5f83` **without** reassigning public aliases
+1. Stage production-configured deploy of `8abdb94` **without** reassigning public aliases
 2. Smoke staged app
 3. Promote to `vssyl.com` / `www.vssyl.com`
 4. Authorized smoke: login, Department Builder notes, Coverage Space targeting, Records/Job Flow, meal timing, offline prepare
