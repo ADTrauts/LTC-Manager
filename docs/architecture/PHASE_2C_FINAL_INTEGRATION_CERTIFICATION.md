@@ -233,7 +233,7 @@ Hermetic evidence is sufficient for an **approval discussion**, not for READY FO
 
 1. Explicit product-owner deploy approval  
 2. Browser + offline lifecycle smoke (at least one authorized test employee)  
-3. CDA write-manifest classification for qualifications action  
+3. ~~CDA write-manifest classification for qualifications action~~ → closed in [PHASE_2C_RELEASE_R1](./PHASE_2C_RELEASE_R1_CDA_MANIFEST_CORRECTION.md)  
 4. Confirm target environment schema compatibility (without migrating as side effect of this cert)  
 5. Optional: Harbor SQL cert on disposable DB  
 

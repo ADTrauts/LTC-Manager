@@ -103,7 +103,7 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Recommended action | Deploy only after CONDITIONAL gates; retain one-off; keep completion receipts; do not drop schema yet; optional EVS canonical sequencing decision |
 | Dependencies | ARR-001, ARR-002 (authoring closed) |
 | Proposed phase | Deploy / device / schema — **ARR-003 not closed** (forward retirement vs schema retirement distinguished) |
-| Verification needed | Deploy approval; browser/offline smoke; CDA qualifications manifest classification; optional Harbor SQL on disposable DB |
+| Verification needed | Deploy approval; browser/offline smoke; optional Harbor SQL on disposable DB. CDA qualifications write-manifest gap closed in [PHASE_2C_RELEASE_R1](./PHASE_2C_RELEASE_R1_CDA_MANIFEST_CORRECTION.md). |
 
 ### ARR-004 — Location Function / profile / archetype remain
 

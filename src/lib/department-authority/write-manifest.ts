@@ -297,6 +297,11 @@ export const WRITE_MANIFEST: WriteManifest = {
     ]),
     revokeEmployeeSessionsAction: GOVERNANCE,
   },
+  // Operational eligibility on the Employee workforce record (Department-scoped rows).
+  // Runtime: assertCanChangeDepartmentPeople — same people-change gate as neighboring workforce writes.
+  [`${PROTECTED}/employees/qualification-actions.ts`]: {
+    setEmployeeOperationalQualificationsAction: department("workforceRecord"),
+  },
   // Bulk employee setup: each row names its Departments.
   [`${PROTECTED}/employees/bulk-setup/actions.ts`]: each(department("department"), [
     "previewSetupImportAction",
