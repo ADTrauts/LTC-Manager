@@ -31,12 +31,12 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | 1 → 2 |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | 2B done |
-| ARR-003 | Job Flow still depends on generic Work — **R3: offline fixtures + SPACE CI-gate PASS (isolated projects); ONE_OFF/historical/schema remain** | Mitigated presentation; compatibility open | High | Deploy / schema |
-| ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A) | Legacy debt + conflict | Critical | 2 |
+| ARR-003 | Job Flow still depends on generic Work — **Phase 2C deployed `7973254` / `dpl_2fjfVAJporEGaDtFwzRVd9TgQhKS` (WITH GAPS); ONE_OFF/historical/schema remain** | Mitigated presentation; compatibility open | High | Deploy / schema |
+| ARR-004 | Location Function / profile / archetype schema + readers remain (writers closed in 2A; **2D-1/2D-2 docs; 2D-3 room foundation local — ARR-004 still open**) | Legacy debt + conflict | Critical | 2D-4…2D-6 |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | 1 → 2 |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | 1 |
 | ARR-007 | Constitution / Domain Model long-form still name retired owners | Documentation drift | High | 1 |
-| ARR-008 | Department Job Role restored beside operational qualifications | Confirmed conflict | High | 2 |
+| ARR-008 | Department Job Role restored beside operational qualifications — **R4: no material ops defect; carry to Phase 2E** | Confirmed conflict | High | 2E |
 | ARR-009 | Scheduled Evaluation production clock not hosted | Implementation gap | High | 3 / 6 |
 | ARR-010 | Web Push production sending intentionally off | Implementation gap | Medium | 6 |
 | ARR-011 | `CANONICAL_LOGS_ENABLED` default false | Implementation gap / rollout | Medium | 2 / 7 |
@@ -98,26 +98,26 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Affected domain | Job Flow / Employee Runtime Flow |
 | Code evidence | Phase 2C implementation complete through 2H-3 at `0d706e6`. Final integration cert: [PHASE_2C_FINAL_INTEGRATION_CERTIFICATION.md](./PHASE_2C_FINAL_INTEGRATION_CERTIFICATION.md) — **PASS WITH GAPS / CONDITIONAL**. Forward presentation consumers reconciled; ONE_OFF + offline commands + historical readers + Prisma Work models remain. Authoring closed (2B). |
 | Governing decision | Foundation: Job Flow composes Assignment, Cycle, Records, WO/PM; 15A: must not require generic Work going forward |
-| Current vs expected | Expected: composition without generic Work. Current: **forward plan-derived presentation retired**; **R3 offline/canonical fixtures repaired** and SPACE offline CI-gate certified on disposable DBs (tablet + chromium isolated). ONE_OFF + offline commands + historical readers + Prisma Work models remain. Deploy not authorized. |
+| Current vs expected | Expected: composition without generic Work. Current: **forward plan-derived presentation retired**; R4 gate passed; **production promoted** per [PHASE_2C_PRODUCTION_DEPLOYMENT_REPORT.md](./PHASE_2C_PRODUCTION_DEPLOYMENT_REPORT.md) (`7973254` / `dpl_2fjfVAJporEGaDtFwzRVd9TgQhKS`, WITH GAPS). ONE_OFF + offline commands + historical readers + Prisma Work models remain. |
 | Risk | Schema retirement debt; combined dual-project offline isolation gap; presentation conflict mitigated |
-| Recommended action | Deploy only after CONDITIONAL gates + new R3 candidate SHA; retain one-off; keep completion receipts; do not drop schema yet; optional EVS canonical sequencing decision |
+| Recommended action | Retain one-off; keep completion receipts; do not drop schema yet; optional EVS canonical sequencing decision |
 | Dependencies | ARR-001, ARR-002 (authoring closed) |
 | Proposed phase | Deploy / schema — **ARR-003 not closed** (ONE_OFF, historical, offline-command, and persistence compatibility remain) |
-| Verification needed | Deploy approval; [PHASE_2C_RELEASE_R3](./PHASE_2C_RELEASE_R3_OFFLINE_FIXTURE_AND_BROWSER_CERTIFICATION.md) offline CI-gate PASS WITH GAPS. Harbor/EVS SQL reconfirmed on disposable DB. CDA R1 closed. Do not close ARR-003 while compatibility remains. |
+| Verification needed | Production deployment report; do not close ARR-003 while compatibility remains. |
 
 ### ARR-004 — Location Function / profile / archetype remain
 
 | Field | Content |
 |---|---|
 | Affected domain | Facility composition; Cycles/Records/Coverage historical paths; product starters |
-| Code evidence | Schema models present; `location-functions.ts` exists; ~144 src files match archetype/profile/operational-type patterns; admin-nav Locations description still says Location Functions; Menu applicability still consults active Operational Profile + archetype bindings (`menu-applicability-db.ts`) |
-| Governing decision | 01A Amendment B (Nov 2 supersession); 16 §4.3–4.4; elimination audit |
-| Current vs expected | Expected: engines store canonical place ids only; no function key. Current: tables restored; many references remain; **authoring writes still live** (see ARR-026) |
-| Risk | Critical |
-| Recommended action | Continue explicit-id path; delete writers first, then readers, then tables; do not add new function-key APIs |
+| Code evidence | Schema models present post restore; hub `loadSpaceOperationalTypeAssignments`; ~10 Run consumers + Coverage/Review/Audit/Menu/Team/Dietary meal-timing readers. **Phase 2D-1:** [PHASE_2D1…](./PHASE_2D1_LOCATION_CLASSIFICATION_DEPENDENCY_AUDIT.md). **Phase 2D-2:** [PHASE_2D2…](./PHASE_2D2_CANONICAL_ROOM_DEPARTMENT_CONFIGURATION_CONTRACT.md). **Phase 2D-3:** [PHASE_2D3…](./PHASE_2D3_FACILITY_DEPARTMENT_ROOM_FOUNDATION.md) — `UnitSpaceResponsibility.notes` (local migration on disposable DB only); Locations inspect layers; Room Type copy fixed. Production occupancy unchanged (migration not deployed). |
+| Governing decision | 01A Amendment B (Nov 2 supersession); 16 §4.3–4.4; elimination audit; Phase 2A closed writers (ARR-026); **PO Phase 2D-2 architecture** + 2D-3 note lifecycle (membership-bound descriptive metadata, not ops) |
+| Current vs expected | Expected: engines store canonical place ids only; no function key; Room Type never implies ops. Current: **authoring closed**; **room-definition foundation implemented locally**; **readers still wired** to empty profile/OT bus; Facility-type log defaults remain a compatibility type-composition path |
+| Risk | Critical if schema dropped early; High for silent empty Run expansion if readers removed without rehome |
+| Recommended action | **Do not close ARR-004.** Next: **2D-4** Records/OR/Menu/meal-timing/offline OT → **2D-5** Coverage/Teams/residuals → **2D-6** cert. Deploy 2D-3 migration only when explicitly authorized. **No DROP** until separately authorized after cert. |
 | Dependencies | ARR-001, ARR-016, ARR-018, ARR-023, ARR-026, ARR-029 |
-| Proposed phase | 2 |
-| Verification needed | Cycle applicability, Records attach, Coverage templates, Menu runtime, RLS compose, Locations panel |
+| Proposed phase | **2D-4…2D-6** (2D-3 local foundation complete; readers still open) |
+| Verification needed | 2D-3 report; 2D-4 reader rehomes; 2D-6 hermetic/SQL/browser/offline/auth layered isolation |
 
 ### ARR-005 — Phase 6 tests vs restored schema
 
@@ -166,14 +166,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | People / workforce identity |
-| Code evidence | `DepartmentJobRole` / `EmployeeDepartmentJobRole` in schema; `src/lib/department-job-roles/*`; `/employees/job-roles`; restore migration recreates job-role enums; also `EmployeeOperationalRoleQualification` (+ e16205a) and `employee-operational-qualifications` |
+| Code evidence | `DepartmentJobRole` / `EmployeeDepartmentJobRole` in schema; `src/lib/department-job-roles/*`; `/employees/job-roles`; restore migration recreates job-role enums; also `EmployeeOperationalRoleQualification` (+ e16205a) and `employee-operational-qualifications`. R4 eligibility suite still **10 pass / 3 fail** (suggestion helper, CASHIER registry, Job Role derivation in Assignments). |
 | Governing decision | 01A Amendment C; OPERATIONAL_ELIGIBILITY.md Phase 7B removal of Job Role; keep qualifications + registry roles |
 | Current vs expected | Expected: Job Role gone. Current: both systems present |
-| Risk | High — duplicate role identity |
-| Recommended action | Trace schedule label readers; retire Job Role UI/services again without dropping qualifications |
+| Risk | High — duplicate role identity; **R4: no material unsafe assignment/authorization defect observed in browser or HTTP auth gates** |
+| Recommended action | Carry into **Phase 2E** workforce-role consolidation; do not block Phase 2C deploy solely on the three outdated eligibility hermetics |
 | Dependencies | ARR-001 restore bundle |
-| Proposed phase | 2 |
-| Verification needed | Assignment eligibility tests; employee organization sync |
+| Proposed phase | 2E |
+| Verification needed | Assignment eligibility tests refresh after role consolidation; employee organization sync |
 
 ### ARR-009 — Scheduled Evaluation not on host cron
 
@@ -362,14 +362,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Field | Content |
 |---|---|
 | Affected domain | Audit / Reports |
-| Code evidence | `operational-review/historical-operational-type.ts` and related composers |
-| Governing decision | No released question needs historical function key |
-| Current vs expected | Label debt |
+| Code evidence | `operational-review/historical-operational-type.ts`; day/range fact loaders still read archetype bindings (2D-1 D-HIST-*). Reports filter alias `locationFunction` → OT key |
+| Governing decision | No released question needs historical function key; retain adapters until ARR-004 readers cleared |
+| Current vs expected | Historical reconstruction still OT-aware; prod bindings empty |
 | Risk | Medium |
-| Recommended action | Remove after UI stops displaying key |
+| Recommended action | Keep compatibility through 2D-5; remove after forward readers rehomed and UI stops displaying key |
 | Dependencies | ARR-004 |
-| Proposed phase | 2 |
-| Verification needed | Review hermetic tests |
+| Proposed phase | 2D |
+| Verification needed | Review hermetic tests; 2D-6 |
 
 ### ARR-019 — Build hub teaches Work
 

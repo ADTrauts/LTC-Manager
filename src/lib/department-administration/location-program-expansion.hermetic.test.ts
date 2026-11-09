@@ -20,6 +20,7 @@ function inspect(partial: {
     departmentId: "dept-1",
     departmentName: "Dietary",
     responsible: true,
+    departmentNote: null,
     teams: partial.team
       ? [
           {

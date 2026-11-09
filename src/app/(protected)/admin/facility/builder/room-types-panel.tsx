@@ -71,7 +71,9 @@ export function RoomTypesPanel({ roomTypes }: Props) {
         <div>
           <h2 className="text-base font-semibold text-zinc-900">Room Types</h2>
           <p className="mt-0.5 text-sm text-zinc-600">
-            Shared classifications for Rooms in this facility. Renaming a type does not break room
+            Physical classifications for Rooms in this facility. Use them to describe rooms and to
+            find rooms when configuring operations. A Room Type does not automatically create Logs,
+            milestones, Coverage, cleaning, or maintenance. Renaming a type does not break room
             assignments.
           </p>
         </div>
@@ -83,7 +85,7 @@ export function RoomTypesPanel({ roomTypes }: Props) {
       {activeTypes.length === 0 ? (
         <EmptyState
           title="No Room Types yet"
-          description="Add categories such as Servery or Kitchen, then assign them to Rooms in Structure."
+          description="Add physical categories such as Servery or Kitchen, then assign them to Rooms in Structure. Types describe rooms; they do not configure operations by themselves."
           action={
             <Button type="button" onClick={() => setCreateOpen(true)}>
               Add Room Type
@@ -208,7 +210,7 @@ export function RoomTypesPanel({ roomTypes }: Props) {
             label="Description"
             helper="Optional"
             maxLength={500}
-            placeholder="How this Room Type is used"
+            placeholder="Physical description (not operational rules)"
           />
           <Button type="submit" disabled={isPending} data-testid="create-room-type-submit">
             Add Room Type

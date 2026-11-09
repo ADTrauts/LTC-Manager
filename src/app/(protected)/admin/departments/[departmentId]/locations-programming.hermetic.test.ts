@@ -25,7 +25,7 @@ describe("Department Locations programming contracts", () => {
     assert.doesNotMatch(createBlock, /bindRoomToArchetype/);
   });
 
-  it("inspector shows Facility type and overlays without Role or Experiences", () => {
+  it("inspector separates physical, Department note, and engine overlays without Role or Experiences", () => {
     const client = readFileSync(
       join(
         process.cwd(),
@@ -33,16 +33,17 @@ describe("Department Locations programming contracts", () => {
       ),
       "utf8",
     );
+    assert.match(client, /Physical room/);
     assert.match(client, /Facility type/);
     assert.match(client, /is responsible/);
+    assert.match(client, /updateDepartmentSpaceNoteAction/);
     assert.match(client, /GuardedModal/);
-    assert.match(client, /Teams that work here/);
-    assert.match(client, /Cycles that landed here/);
+    assert.match(client, /Operational configuration · Teams/);
+    assert.match(client, /Operational configuration · Cycles/);
     assert.match(client, /Staffing need/);
     assert.match(client, /Add log/);
     assert.doesNotMatch(client, /Coverage Expectations/);
     assert.doesNotMatch(client, /groupRoomsByFacilityRoomType/);
-    assert.doesNotMatch(client, /How we use this room/);
     assert.doesNotMatch(client, /Create new/);
     assert.doesNotMatch(client, /location-role-create/);
     assert.doesNotMatch(client, /assignLocationOperationalTypeAction/);
@@ -52,6 +53,8 @@ describe("Department Locations programming contracts", () => {
     assert.doesNotMatch(client, /By role/);
     assert.doesNotMatch(client, /Covered/);
     assert.doesNotMatch(client, /Mary assigned/);
+    assert.doesNotMatch(client, /Room Archetype/);
+    assert.doesNotMatch(client, /Operational Profile/);
   });
 
   it("Locations panel still sends responsibility edits to Facility Builder", () => {

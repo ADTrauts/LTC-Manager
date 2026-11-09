@@ -69,6 +69,8 @@ export type LocationProgram = {
     facilityTypeLabel: string | null;
     facilityRoomTypeId: string | null;
     responsible: boolean;
+    /** This Department's optional descriptive note only — never another Department's. */
+    departmentNote: string | null;
   };
   teams: LocationProgramTeam[];
   cycles: LocationProgramCycle[];
@@ -87,6 +89,7 @@ export type ComposeLocationProgramInput = {
     facilityTypeLabel: string | null;
     facilityRoomTypeId: string | null;
     responsible: boolean;
+    departmentNote?: string | null;
   };
   teams: readonly {
     id: string;
@@ -140,6 +143,7 @@ export function emptyLocationProgram(input: {
   floorName?: string | null;
   facilityTypeLabel?: string | null;
   facilityRoomTypeId?: string | null;
+  departmentNote?: string | null;
 }): LocationProgram {
   const place = [input.neighborhoodName, input.floorName].filter(Boolean).join(" · ");
   return {
@@ -153,6 +157,7 @@ export function emptyLocationProgram(input: {
       facilityTypeLabel: input.facilityTypeLabel ?? null,
       facilityRoomTypeId: input.facilityRoomTypeId ?? null,
       responsible: true,
+      departmentNote: input.departmentNote ?? null,
     },
     teams: [],
     cycles: [],
@@ -320,6 +325,7 @@ export function composeLocationProgram(
       facilityTypeLabel: input.location.facilityTypeLabel,
       facilityRoomTypeId: input.location.facilityRoomTypeId,
       responsible: input.location.responsible,
+      departmentNote: input.location.departmentNote ?? null,
     },
     teams,
     cycles,

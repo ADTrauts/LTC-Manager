@@ -127,7 +127,7 @@ describe("Location room inspect", () => {
 });
 
 describe("Locations modal contracts", () => {
-  it("inspector authors logs and inspects derived program without employees", () => {
+  it("inspector separates physical, Department note, and engine config without employees", () => {
     const client = readFileSync(
       join(
         process.cwd(),
@@ -135,15 +135,29 @@ describe("Locations modal contracts", () => {
       ),
       "utf8",
     );
-    assert.match(client, /Teams that work here/);
-    assert.match(client, /Cycles that landed here/);
+    assert.match(client, /Physical room/);
+    assert.match(client, /location-program-department/);
+    assert.match(client, /updateDepartmentSpaceNoteAction/);
+    assert.match(client, /Descriptive only/);
+    assert.match(client, /Operational configuration · Teams/);
+    assert.match(client, /Operational configuration · Cycles/);
     assert.match(client, /Staffing need/);
     assert.match(client, /Add log/);
     assert.match(client, /Inherited from Facility type/);
     assert.doesNotMatch(client, /Coverage Expectations/);
-    assert.doesNotMatch(client, /How we use this room/);
     assert.doesNotMatch(client, /location-program-experiences/);
     assert.doesNotMatch(client, /Mary assigned/);
     assert.doesNotMatch(client, /locations-view-by-type/);
+    assert.doesNotMatch(client, /Room Archetype/);
+    assert.doesNotMatch(client, /Operational Profile/);
+  });
+
+  it("exposes this Department's note only on the inspect view", () => {
+    const view = composeLocationRoomInspect({
+      ...baseInput(),
+      location: { ...baseInput().location, departmentNote: "EVS: cart staging" },
+    });
+    assert.equal(view.departmentNote, "EVS: cart staging");
+    assert.equal(composeLocationRoomInspect(baseInput()).departmentNote, null);
   });
 });

@@ -2189,6 +2189,10 @@ model UnitSpaceResponsibility {
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   capabilities String[]   @default([])
+  /// Optional Department-scoped descriptive note for this Space.
+  /// Not operational configuration — never invents Logs, Coverage, milestones, or due state.
+  /// Lifecycle: membership-bound; removed when this responsibility row is deleted.
+  notes        String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

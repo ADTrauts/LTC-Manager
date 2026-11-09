@@ -12,6 +12,7 @@ import { loadTeamsForDepartment } from "@/lib/department-teams";
 import { prisma } from "@/lib/prisma";
 
 import type { DepartmentActionableLocation } from "./department-locations";
+import { loadDepartmentSpaceNotes } from "./department-space-notes";
 import {
   composeLocationProgram,
   emptyLocationProgram,
@@ -52,77 +53,83 @@ async function loadProgramsForDepartmentRooms(input: {
   const spaceIds = input.rooms.map((room) => room.spaceId);
   const logsEnabled = isCanonicalLogsEnabled();
 
-  const [teams, spaces, attachments, assets, typeDefaults, suppressions] = await Promise.all([
-    loadTeamsForDepartment(prisma, {
-      facilityId: input.facilityId,
-      departmentId: input.department.id,
-    }),
-    spaceIds.length
-      ? prisma.unitSpace.findMany({
-          where: { id: { in: spaceIds }, facilityId: input.facilityId },
-          select: {
-            id: true,
-            facilityRoomTypeId: true,
-            facilityRoomType: { select: { id: true, displayName: true } },
-          },
-        })
-      : Promise.resolve([]),
-    logsEnabled && spaceIds.length
-      ? prisma.logAttachment.findMany({
-          where: {
-            facilityId: input.facilityId,
-            departmentId: input.department.id,
-            status: "ACTIVE",
-            OR: [
-              { targetKind: "SPACE", spaceId: { in: spaceIds } },
-              { targetKind: "ASSET", asset: { spaceId: { in: spaceIds } } },
-            ],
-          },
-          select: {
-            id: true,
-            localDisplayLabel: true,
-            targetKind: true,
-            spaceId: true,
-            assetId: true,
-            catalogDefinition: { select: { name: true } },
-            asset: { select: { name: true, spaceId: true } },
-          },
-        })
-      : Promise.resolve([]),
-    spaceIds.length
-      ? prisma.asset.findMany({
-          where: {
-            spaceId: { in: spaceIds },
-            retiredAt: null,
-            unit: { facilityId: input.facilityId },
-          },
-          select: { id: true, name: true, assetCode: true, spaceId: true },
-        })
-      : Promise.resolve([]),
-    logsEnabled
-      ? prisma.departmentFacilityTypeLogDefault.findMany({
-          where: {
-            facilityId: input.facilityId,
-            departmentId: input.department.id,
-          },
-          select: {
-            id: true,
-            facilityRoomTypeId: true,
-            catalogDefinition: { select: { name: true } },
-            facilityRoomType: { select: { displayName: true } },
-          },
-        })
-      : Promise.resolve([]),
-    logsEnabled && spaceIds.length
-      ? prisma.departmentLocationLogSuppression.findMany({
-          where: {
-            departmentId: input.department.id,
-            spaceId: { in: spaceIds },
-          },
-          select: { defaultId: true, spaceId: true },
-        })
-      : Promise.resolve([]),
-  ]);
+  const [teams, spaces, attachments, assets, typeDefaults, suppressions, departmentNotes] =
+    await Promise.all([
+      loadTeamsForDepartment(prisma, {
+        facilityId: input.facilityId,
+        departmentId: input.department.id,
+      }),
+      spaceIds.length
+        ? prisma.unitSpace.findMany({
+            where: { id: { in: spaceIds }, facilityId: input.facilityId },
+            select: {
+              id: true,
+              facilityRoomTypeId: true,
+              facilityRoomType: { select: { id: true, displayName: true } },
+            },
+          })
+        : Promise.resolve([]),
+      logsEnabled && spaceIds.length
+        ? prisma.logAttachment.findMany({
+            where: {
+              facilityId: input.facilityId,
+              departmentId: input.department.id,
+              status: "ACTIVE",
+              OR: [
+                { targetKind: "SPACE", spaceId: { in: spaceIds } },
+                { targetKind: "ASSET", asset: { spaceId: { in: spaceIds } } },
+              ],
+            },
+            select: {
+              id: true,
+              localDisplayLabel: true,
+              targetKind: true,
+              spaceId: true,
+              assetId: true,
+              catalogDefinition: { select: { name: true } },
+              asset: { select: { name: true, spaceId: true } },
+            },
+          })
+        : Promise.resolve([]),
+      spaceIds.length
+        ? prisma.asset.findMany({
+            where: {
+              spaceId: { in: spaceIds },
+              retiredAt: null,
+              unit: { facilityId: input.facilityId },
+            },
+            select: { id: true, name: true, assetCode: true, spaceId: true },
+          })
+        : Promise.resolve([]),
+      logsEnabled
+        ? prisma.departmentFacilityTypeLogDefault.findMany({
+            where: {
+              facilityId: input.facilityId,
+              departmentId: input.department.id,
+            },
+            select: {
+              id: true,
+              facilityRoomTypeId: true,
+              catalogDefinition: { select: { name: true } },
+              facilityRoomType: { select: { displayName: true } },
+            },
+          })
+        : Promise.resolve([]),
+      logsEnabled && spaceIds.length
+        ? prisma.departmentLocationLogSuppression.findMany({
+            where: {
+              departmentId: input.department.id,
+              spaceId: { in: spaceIds },
+            },
+            select: { defaultId: true, spaceId: true },
+          })
+        : Promise.resolve([]),
+      loadDepartmentSpaceNotes(prisma, {
+        facilityId: input.facilityId,
+        departmentId: input.department.id,
+        spaceIds,
+      }),
+    ]);
 
   const cycleIds = [
     ...new Set(
@@ -211,6 +218,7 @@ async function loadProgramsForDepartmentRooms(input: {
         facilityTypeLabel: type?.facilityTypeLabel ?? room.facilityTypeLabel,
         facilityRoomTypeId: type?.facilityRoomTypeId ?? room.facilityRoomTypeId,
         responsible: true,
+        departmentNote: departmentNotes.get(room.spaceId) ?? null,
       },
       teams: teamInput,
       teamCycles,

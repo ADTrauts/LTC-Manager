@@ -8,6 +8,7 @@ import {
   loadPublishedCatalogByStableKey,
   setLogAttachmentStatus,
 } from "@/lib/canonical-logs";
+import { updateDepartmentSpaceNote } from "@/lib/department-administration/department-space-notes";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { resolveTeamAuthority } from "@/lib/department-teams";
 import { requireFacilitySession } from "@/lib/facility-context";
@@ -27,16 +28,44 @@ function fail(error: unknown): LocationRoomActionResult {
   return { ok: false, message };
 }
 
-async function requireManager(departmentId: string) {
+async function requireDepartmentLocationManager(departmentId: string) {
   const session = await requireFacilitySession();
   const authority = await resolveTeamAuthority(session, session.facilityId, departmentId);
   if (!authority.canManage) {
     throw new Error("You do not have permission to change location programming.");
   }
+  return session;
+}
+
+async function requireManager(departmentId: string) {
+  const session = await requireDepartmentLocationManager(departmentId);
   if (!isCanonicalLogsEnabled()) {
     throw new Error("Canonical Logs are not enabled.");
   }
   return session;
+}
+
+/** Optional Department × Space descriptive note. Not operational configuration. */
+export async function updateDepartmentSpaceNoteAction(
+  formData: FormData,
+): Promise<LocationRoomActionResult> {
+  try {
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const spaceId = z.string().cuid().parse(formData.get("spaceId"));
+    const notesRaw = String(formData.get("notes") ?? "");
+    const session = await requireDepartmentLocationManager(departmentId);
+    await updateDepartmentSpaceNote(prisma, {
+      facilityId: session.facilityId,
+      departmentId,
+      spaceId,
+      notes: notesRaw,
+    });
+    revalidateLocations(departmentId);
+    return { ok: true, message: "Department room note saved." };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not update Department room note.";
+    return { ok: false, message };
+  }
 }
 
 export async function removeRoomLogAction(formData: FormData): Promise<LocationRoomActionResult> {
