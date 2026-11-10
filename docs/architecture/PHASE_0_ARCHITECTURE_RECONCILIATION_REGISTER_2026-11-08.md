@@ -119,6 +119,14 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Proposed phase | **Post-2D-6** — PO deploy decision / later DROP program |
 | Verification needed | 2D-6 report; production expand-then-deploy only after PO approval |
 
+#### ARR-004 release remediation update — November 10, 2026
+
+PF-2D-001 is resolved at application commit `319e5700fa6eda306aabe6bb186295055cec3595`; see the [remediation certification](./PHASE_2D_RELEASE_REMEDIATION_PF_2D_001.md). RLS now preserves published Coverage Space targets through actual Prisma prefetch. The permanent database regression covers staffing shortfall, full staffing, unconfigured rooms, Unit expansion, and Department/Facility isolation. Both original preflight failures pass. The eight-persona browser/HTTP matrix passes; final affected test ledger is 273/0/0, with typecheck/build and isolated tablet/Chromium offline gates passing.
+
+**ARR-004 remains OPEN** for schema/profile/archetype persistence, historical OT/Audit/Review, Work and Build compatibility obligations. The historical preflight BLOCKED verdict is retained; this remediation removes its confirmed release blocker. Production expansion/deployment still needs separate product-owner approval. ARR-003 and ARR-008 are not closed.
+
+---
+
 ### ARR-005 — Phase 6 tests vs restored schema
 
 | Field | Content |
