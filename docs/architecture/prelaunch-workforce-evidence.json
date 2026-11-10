@@ -1,0 +1,48 @@
+{
+  "applicationSha": "788e7141dd0aba6ed2621a6c0ca723f76867273e",
+  "retainedCli": {
+    "profile": "vssyl-retained",
+    "userId": "2eac2005-3d14-4062-86f8-a1b0b705b3a9",
+    "orgId": "org-hidden-leaf-35421142",
+    "projects": [
+      "damp-hill-35484256",
+      "raspy-mode-86368121"
+    ],
+    "postgresVersion": 18
+  },
+  "checks": {
+    "hermetic": {
+      "total": 3999,
+      "pass": 3684,
+      "skip": 315,
+      "fail": 0
+    },
+    "newAssignmentDatabase": {
+      "pass": 6,
+      "fail": 0
+    },
+    "productionBrowser": {
+      "pass": 2,
+      "fail": 0,
+      "seconds": 55.6
+    },
+    "typecheck": "PASS",
+    "focusedLint": "PASS",
+    "productionBuild": "PASS",
+    "diffCheck": "PASS"
+  },
+  "finalBaseline": false,
+  "oneOffRehomeComplete": false,
+  "productionMutation": false,
+  "pushOrDeployment": false,
+  "screenshots": [
+    {
+      "path": "outputs/prelaunch-evidence/coverage-gap-zero-card.png",
+      "sha256": "af0743dc6452177215e654484e591a7705f60d9a6011f8dc8312c6b45a37c482"
+    },
+    {
+      "path": "outputs/prelaunch-evidence/coverage-dashboard-filled.png",
+      "sha256": "2859443537075ef8bdc79671c892b49cfab22411880c0c6685028a0659b289b8"
+    }
+  ]
+}

@@ -4,6 +4,8 @@
 
 **Authoritative branch:** `architecture/prelaunch-canonical-consolidation` in `work/vssyl-canonical` under the Codex task workspace. Application commit: `7a06172e790148c36a05dc20cc2fbe8c78e5febe`.
 
+Later progress: [Workforce and retained CLI checkpoint](PRELAUNCH_WORKFORCE_PROGRESS_2026-11-10.md). The original test receipts below remain the first checkpoint, including its subsequently reconciled eight failures.
+
 ## Verified infrastructure
 
 | Purpose | Identity and evidence | Result |

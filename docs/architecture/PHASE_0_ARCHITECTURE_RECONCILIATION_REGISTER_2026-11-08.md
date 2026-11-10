@@ -15,6 +15,10 @@ The previous full register, including the Phase 2C/2D release record, is [archiv
 - Teams: explicit normal-room configuration is in Employee Builder and the Team domain service. Optional Supervisor Team lens reads explicit rooms, intersects active Facility/Department responsibility, and grants no authority, staffing requirement or eligibility. Today's Assignment placement remains distinct.
 - Database: 189-migration history is transitional local verification only. The overlapping, unapplied parallel migration is archived outside the active path. Final schema retirement, baseline and minimal canonical seed are not complete.
 
+## Workforce progress — November 10, 2026
+
+Checkpoint `788e714` removes unused profile authoring, consumes explicit qualification in Assignment create/edit/apply, preserves Dietary Space placement, and verifies actual UI placement closing the Dashboard gap. Retained Neon CLI access is now verified with profile `vssyl-retained`; both retained projects are PostgreSQL 18. Full hermetic run: 3,999 tests, 0 failures (315 opt-in skips); new Assignment SQL regression: 6 passed; production-build browser workflows: 2 passed. See [Workforce progress](PRELAUNCH_WORKFORCE_PROGRESS_2026-11-10.md) for receipts and limits. ONE_OFF completion/reopen/offline and duplicate Job Role imports/editors remain incomplete; ARR-003/004/008 stay open for those dependencies.
+
 ## Product decision accepted
 
 The owner selected **explicit employee/role/location Assignments** for useful ONE_OFF behavior. Preserve instructions, completion/reopen history and offline receipt/idempotency semantics under the existing Workforce Assignment owner. Unassigned, role-less, or place-less generic Work is not the forward contract. Remove the old Work implementation after this path is implemented and verified. This is an approved contract, not a completed implementation.
@@ -61,11 +65,11 @@ Live readers/writers remain in `src/lib/department-work`, offline command proces
 
 ## ARR-004 — Classification and overlay retirement
 
-Current source still has profile/archetype readers in Menu applicability, Cycle options, closed profile service and authority owner resolution. Old operational-type Cycle fields, profile/archetype/Experience models and type Log overlay models remain. Forward Coverage and RLS use explicit Unit/Space identities; notes remain descriptive. Remove dead authoring exports and remaining classification selectors/readers, reconcile relevant Review/Audit consumers, then remove models and generate the baseline. Do not relabel an operational function as a physical Room Type.
+Current source still has profile/archetype readers in Menu applicability, Cycle options, authority owner resolution. Old operational-type Cycle fields, profile/archetype/Experience models and type Log overlay models remain. Forward Coverage and RLS use explicit Unit/Space identities; notes remain descriptive. Remove dead authoring exports and remaining classification selectors/readers, reconcile relevant Review/Audit consumers, then remove models and generate the baseline. Do not relabel an operational function as a physical Room Type.
 
 ## ARR-008 — Workforce roles
 
-`DepartmentJobRole` / `EmployeeDepartmentJobRole` still feed employee organization, workbook/catalog imports, Assignment role labels and the old role editor. `OPERATIONAL_ROLE_REGISTRY` + `EmployeeOperationalRoleQualification` is the accepted operational identity/eligibility. `RoleKey` is authorization; Job Title is HR; Team is membership/view configuration. Remove competing operational capabilities/tiers and selectors, keep explicit Department membership/qualification checks, and exercise bulk import and actual Assignment UI before closing.
+`DepartmentJobRole` / `EmployeeDepartmentJobRole` still feed employee organization, workbook/catalog imports and the old role editor; Assignment label/default-role inference has been removed. `OPERATIONAL_ROLE_REGISTRY` + `EmployeeOperationalRoleQualification` is the accepted operational identity/eligibility. `RoleKey` is authorization; Job Title is HR; Team is membership/view configuration. Remove competing operational capabilities/tiers and selectors, keep explicit Department membership/qualification checks, and exercise bulk import and actual Assignment UI before closing.
 
 ## Baseline and verification gate
 
