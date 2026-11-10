@@ -1,0 +1,87 @@
+{
+  "profileArchetype": {
+    "runtime": [
+      "src/lib/menu-applicability-db.ts",
+      "src/lib/department-authority/owners.ts",
+      "src/lib/department-administration/profile-service.ts",
+      "src/lib/operational-cycles/load-operational-type-targets.ts"
+    ],
+    "tests": [
+      "src/lib/dietary/meal-service-locations.hermetic.test.ts",
+      "src/lib/department-authority/owners.hermetic.test.ts",
+      "src/lib/department-teams/team-organization.hermetic.test.ts",
+      "src/lib/setup-imports/setup-imports.db.test.ts",
+      "src/lib/notifications/responsibility-reconciliation.db.test.ts",
+      "src/lib/notifications/escalation.db.test.ts",
+      "src/lib/notifications/delivery-preference.db.test.ts",
+      "src/lib/scheduling/coverage-episodes/coverage-episode.db.test.ts",
+      "src/lib/scheduling/coverage-episodes/coverage-call-off.db.test.ts",
+      "src/lib/scheduling/coverage-episodes/coverage-time-evaluation.db.test.ts"
+    ],
+    "scripts": []
+  },
+  "duplicateJobRole": {
+    "runtime": [
+      "src/lib/department-job-roles/service.ts",
+      "src/lib/department-authority/owners.ts",
+      "src/lib/setup-imports/catalog.ts",
+      "src/lib/scheduling/operational-assignments/apply-assignment-template.ts",
+      "src/app/(protected)/employees/bulk-setup/workbook-actions.ts",
+      "src/app/(protected)/employees/bulk-setup/page.tsx",
+      "src/app/(protected)/staffing/assignments/actions.ts"
+    ],
+    "tests": [
+      "src/lib/department-authority/owners.hermetic.test.ts",
+      "src/lib/setup-imports/setup-imports.db.test.ts"
+    ],
+    "scripts": []
+  },
+  "genericWork": {
+    "runtime": [
+      "src/lib/harbor-console/console-catalog-detail.ts",
+      "src/lib/harbor-console/console-catalog.ts",
+      "src/lib/department-authority/owners.ts",
+      "src/lib/department-authority/operator-period.ts",
+      "src/lib/department-work/work-plan-service.ts",
+      "src/lib/department-work/occurrence-service.ts",
+      "src/lib/department-work/load-runtime-work.ts",
+      "src/lib/audit/location-history.ts",
+      "src/lib/department-administration/builder-context-summary.ts",
+      "src/lib/offline/process-sync-command.ts",
+      "src/lib/work/expected/load-expected-work.ts",
+      "src/app/partner/work/page.tsx"
+    ],
+    "tests": [
+      "src/lib/department-products/plant-release.test.ts",
+      "src/lib/evs/phase-11b-evs-operations.test.ts",
+      "src/lib/evs/phase-11c-assignment-zones.test.ts",
+      "src/lib/harbor-console/console-marketplace-v1.db.test.ts",
+      "src/lib/harbor-console/console-catalog-detail.db.test.ts",
+      "src/lib/harbor-console/console-catalog.hermetic.test.ts",
+      "src/lib/harbor-console/console-catalog.db.test.ts",
+      "src/lib/department-authority/owners.hermetic.test.ts",
+      "src/lib/department-authority/operator-period.hermetic.test.ts",
+      "src/lib/department-authority/cda06-handover.db.test.ts",
+      "src/lib/dashboard/dashboard-foundation.db.test.ts",
+      "src/lib/dashboard/capabilities.hermetic.test.ts",
+      "src/lib/department-work/phase-11a-department-work.test.ts",
+      "src/lib/offline/space/space.db.test.ts"
+    ],
+    "scripts": [
+      "scripts/verify/work-plans-browser-fixtures.mjs",
+      "scripts/verify/cda07-terrace-staging-setup.mts",
+      "scripts/verify/evs-assignment-browser-fixtures.mjs",
+      "scripts/verify/canonical-offline-fixtures.mjs",
+      "scripts/verify/evs-browser-fixtures.mjs"
+    ]
+  },
+  "typeLogOverlays": {
+    "runtime": [
+      "src/lib/department-authority/owners.ts"
+    ],
+    "tests": [
+      "src/lib/department-authority/owners.hermetic.test.ts"
+    ],
+    "scripts": []
+  }
+}
