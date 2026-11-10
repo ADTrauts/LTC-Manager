@@ -34,6 +34,7 @@ export type AssignmentBoardEntry = {
   /** Human-readable scope summary derived from persisted room locations. */
   scopeSummaryLabel: string;
   locationLabels: string[];
+  spaceIds?: string[];
   sourceZoneId: string | null;
   sourceZoneName: string | null;
 };

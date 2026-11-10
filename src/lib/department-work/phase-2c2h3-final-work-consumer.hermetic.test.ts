@@ -161,13 +161,12 @@ test("Builder overview and Plant starter no longer solicit Work Plan install", (
     join(root, "src/lib/department-administration/overview-guidance.ts"),
     "utf8",
   );
-  assert.doesNotMatch(guidance, /Configure work/);
-  assert.match(guidance, /View historical work/);
+  assert.doesNotMatch(guidance, /Configure work|View historical work/);
   const plant = readFileSync(
     join(root, "src/components/plant-operations/plant-starter-panel.tsx"),
     "utf8",
   );
-  assert.match(plant, /item\.kind !== "work"/);
+  assert.doesNotMatch(plant, /kind:\s*"work"|createWorkPlan|createWorkDraftFromPreset/);
   assert.doesNotMatch(plant, /starter-work-/);
 });
 
@@ -182,9 +181,6 @@ test("prior cutovers and authoring fences remain closed", () => {
   assert.match(serialize, /sourceKind === "ONE_OFF"/);
   const caps = readFileSync(join(root, "src/lib/dashboard/capabilities.ts"), "utf8");
   assert.doesNotMatch(caps, /has\.add\("work\.expected"\)/);
-  assert.ok(
-    exists("src/lib/department-administration/phase-2a-location-function-authoring.hermetic.test.ts"),
-  );
   assert.ok(exists("src/lib/department-work/phase-2b-generic-work-authoring.hermetic.test.ts"));
 });
 

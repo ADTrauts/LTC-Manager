@@ -455,15 +455,10 @@ test("PM-generated WO presents once; identity stays owner-stable across spaces",
 
 test("compatibility fences remain closed; offline serialize still reads parallel Work", () => {
   const root = process.cwd();
-  const phase2a = readFileSync(
-    join(root, "src/lib/department-administration/phase-2a-location-function-authoring.hermetic.test.ts"),
-    "utf8",
-  );
   const phase2b = readFileSync(
     join(root, "src/lib/department-work/phase-2b-generic-work-authoring.hermetic.test.ts"),
     "utf8",
   );
-  assert.match(phase2a, /LOCATION_FUNCTION_AUTHORING_RETIRED/);
   assert.match(phase2b, /GENERIC_WORK_AUTHORING_RETIRED/);
 
   const ui = readFileSync(

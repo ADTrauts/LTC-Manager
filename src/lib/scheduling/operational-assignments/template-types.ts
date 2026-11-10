@@ -4,6 +4,9 @@ export type TemplateItemView = {
   roleLabel: string;
   unitId: string | null;
   unitName: string | null;
+  spaceId?: string | null;
+  spaceName?: string | null;
+  spaceUnitId?: string | null;
   startsAtLocal: string | null;
   endsAtLocal: string | null;
   requiredCount: number;
@@ -35,6 +38,9 @@ export type TemplatePreviewPosition = {
   roleLabel: string;
   unitId: string | null;
   unitName: string | null;
+  spaceId?: string | null;
+  spaceName?: string | null;
+  spaceUnitId?: string | null;
   startsAtLocal: string | null;
   endsAtLocal: string | null;
   notes: string | null;

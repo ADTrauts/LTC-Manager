@@ -240,17 +240,3 @@ test("Phase 2D-4: forward Run/offline drop OT hub; Build may still use working p
   );
   assert.match(builder, /perspective:\s*"working"/);
 });
-
-test("archetype key is copied on draft fork; rename writer is retired", () => {
-  const service = readFileSync(
-    join(process.cwd(), "src/lib/department-administration/profile-service.ts"),
-    "utf8",
-  );
-  assert.match(service, /key: archetype\.key/);
-  const updateStart = service.indexOf("export async function updateRoomArchetype");
-  const updateEnd = service.indexOf("export async function setArchetypeExperiences");
-  const update = service.slice(updateStart, updateEnd);
-  assert.ok(updateStart >= 0 && updateEnd > updateStart);
-  assert.match(update, /LOCATION_FUNCTION_AUTHORING_RETIRED/);
-  assert.doesNotMatch(update, /data\.key|key:\s*input/);
-});

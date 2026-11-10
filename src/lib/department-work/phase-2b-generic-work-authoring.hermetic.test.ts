@@ -65,7 +65,6 @@ test("Phase 2B: Work builder and partner pages show retired surfaces", () => {
 
 test("Phase 2B: Plant starter cannot create Work Plan drafts from presets", () => {
   const starter = source("src/lib/department-products/plant-starter.ts");
-  assert.match(starter, /GENERIC_WORK_AUTHORING_RETIRED/);
   assert.doesNotMatch(starter, /createDraftFromPreset|createWorkDraftFromPreset/);
 });
 

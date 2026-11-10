@@ -199,11 +199,4 @@ test("authoring fences remain closed; cutover helper is wired into compose", () 
     ),
     /GENERIC_WORK_AUTHORING_RETIRED/,
   );
-  assert.match(
-    readFileSync(
-      join(root, "src/lib/department-administration/phase-2a-location-function-authoring.hermetic.test.ts"),
-      "utf8",
-    ),
-    /LOCATION_FUNCTION_AUTHORING_RETIRED/,
-  );
 });

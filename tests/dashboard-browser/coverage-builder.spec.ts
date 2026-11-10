@@ -37,6 +37,10 @@ test("PF-2D-002 @coverage-builder: reachable Unit and Space authoring persists a
   const password = process.env.SEED_DEMO_PASSWORD;
   if (!password) throw new Error("SEED_DEMO_PASSWORD required");
   try {
+    await db.employee.deleteMany({ where: { facilityId: fx.facilityId, OR: [
+      { firstName: "Space", lastName: { startsWith: "Assignment PF-2D-002 UI " } },
+      { firstName: "Unqualified", lastName: { startsWith: "PF-2D-002 UI " } },
+    ] } });
     // An explicitly authorized Department head; FA alone remains read-only under CDA.
     const sourceAdmin = await db.user.findUniqueOrThrow({ where: { email: fx.adminEmail } });
     const managerRole = await db.role.findUniqueOrThrow({ where: { key: "MANAGER" } });
@@ -149,6 +153,45 @@ test("PF-2D-002 @coverage-builder: reachable Unit and Space authoring persists a
     await expect(card).not.toContainText("Coverage is in place");
     await page.screenshot({ path: info.outputPath("coverage-dashboard-shortfall.png"), fullPage: true });
 
+    // The actual Assignment form must retain Dietary Space selection and consume
+    // explicit eligibility. Fill both today's need and the newly published future need.
+    const assignedEmployee = await db.employee.create({ data: { facilityId: fx.facilityId,
+      primaryDepartmentId: fx.dietaryDepartmentId, firstName: "Space", lastName: `Assignment ${name}`,
+      roleType: "STAFF", operationalRoleQualifications: { create: { facilityId: fx.facilityId,
+        departmentId: fx.dietaryDepartmentId, roleKey: "SERVER" } } } });
+    const unqualifiedEmployee = await db.employee.create({ data: { facilityId: fx.facilityId,
+      primaryDepartmentId: fx.dietaryDepartmentId, firstName: "Unqualified", lastName: name, roleType: "STAFF" } });
+    for (const day of [saved.effectiveFrom!.toISOString().slice(0, 10), fx.serviceDateKey]) {
+      await page.goto(`/staffing/assignments?department=${fx.dietaryDepartmentId}&date=${day}`);
+      const assignmentForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Create Assignment", exact: true }) });
+      await assignmentForm.getByLabel("Operational role", { exact: true }).selectOption("SERVER");
+      await expect(assignmentForm.getByLabel("Employee", { exact: true }).locator(`option[value="${assignedEmployee.id}"]`)).toHaveCount(1);
+      await expect(assignmentForm.getByLabel("Employee", { exact: true }).locator(`option[value="${unqualifiedEmployee.id}"]`)).toHaveCount(0);
+      await assignmentForm.getByLabel("Employee", { exact: true }).selectOption(assignedEmployee.id);
+      await assignmentForm.getByTestId("assignment-space-scope-picker").getByRole("checkbox", { name: new RegExp(fx.primarySpaceName) }).check();
+      await assignmentForm.locator('input[name="notes"]').fill("Verify the service station and record completion.");
+      await assignmentForm.getByRole("button", { name: "Create Assignment", exact: true }).click();
+      await expect.poll(() => db.operationalAssignment.count({ where: { employeeId: assignedEmployee.id,
+        serviceDate: new Date(`${day}T00:00:00Z`) } })).toBe(1);
+      await page.reload();
+      const persisted = await db.operationalAssignment.findFirstOrThrow({ where: { employeeId: assignedEmployee.id,
+        serviceDate: new Date(`${day}T00:00:00Z`) }, include: { locations: true } });
+      expect(persisted.roleLabel).toBe("Server");
+      expect(persisted.notes).toBe("Verify the service station and record completion.");
+      expect(persisted.locations.map(row => row.unitSpaceId)).toEqual([fx.primarySpaceId]);
+      const coverageRow = page.getByTestId("assignment-coverage-rows").getByRole("listitem").filter({ hasText: fx.primarySpaceName });
+      await expect(coverageRow).toContainText("2/2");
+      await expect(coverageRow).toContainText("COVERED");
+    }
+    const filledRuntime = await loadRuntimeLocationStates({ facilityId: fx.facilityId,
+      spaceRefs: [{ departmentId: fx.dietaryDepartmentId, spaceId: fx.primarySpaceId }], now: effectiveNow });
+    expect(filledRuntime.states[0]?.coverage.slots.find(row => row.templateStableKey === saved.stableKey))
+      .toMatchObject({ requiredCount: 2, filledCount: 2, state: "COVERED" });
+    await page.goto(`/dashboard?scope=department:${fx.dietaryDepartmentId}`);
+    await expect(card.getByText("0", { exact: true })).toBeVisible();
+    await card.screenshot({ path: info.outputPath("coverage-gap-zero-card.png") });
+    await page.screenshot({ path: info.outputPath("coverage-dashboard-filled.png"), fullPage: true });
+
     // Editing a published row must navigate to the DRAFT successor and leave runtime intact.
     await page.goto(`${fx.peopleHref}&expectation=${saved.id}`);
     await editor.locator('input[name="name"]').fill(`${name} successor`);
@@ -177,6 +220,8 @@ test("Team rooms @coverage-builder: real Employee Builder save and authorized Da
   const password = process.env.SEED_DEMO_PASSWORD;
   const db = new PrismaClient();
   try {
+    await db.repair.deleteMany({ where: { responsibleDepartmentId: fx.dietaryDepartmentId, repairCode: { startsWith: "PF002 Team " } } });
+    await db.asset.deleteMany({ where: { departmentId: fx.dietaryDepartmentId, assetCode: { startsWith: "PF002 Team " } } });
     const department = await db.department.findUniqueOrThrow({ where: { id: fx.dietaryDepartmentId }, include: { headEmployee: { include: { user: true } } } });
     const head = department.headEmployee?.user;
     if (!head || !password) throw new Error("Coverage workflow must initialize the explicit Department head");
@@ -196,6 +241,14 @@ test("Team rooms @coverage-builder: real Employee Builder save and authorized Da
     await expect(row).toContainText("1 normal rooms");
     const saved = await db.departmentTeam.findFirstOrThrow({ where: { departmentId: fx.dietaryDepartmentId, displayName: name }, include: { roomMemberships: true } });
     expect(saved.roomMemberships.map(room => room.spaceId)).toEqual([fx.primarySpaceId]);
+    // A room-specific maintenance fact keeps this authorization test independent
+    // of whether the preceding staffing workflow has closed its Coverage gap.
+    const space = await db.unitSpace.findUniqueOrThrow({ where: { id: fx.primarySpaceId } });
+    const asset = await db.asset.create({ data: { assetCode: name, name: "Team-room fixture asset", equipmentType: "EQUIPMENT",
+      unitId: space.unitId!, spaceId: space.id, departmentId: fx.dietaryDepartmentId, criticality: "ROUTINE" } });
+    await db.repair.create({ data: { repairCode: name, title: "Team-room fixture repair", description: "Explicit room authorization control",
+      assetId: asset.id, unitId: space.unitId!, spaceId: space.id, requestingDepartmentId: fx.dietaryDepartmentId,
+      responsibleDepartmentId: fx.dietaryDepartmentId } });
     await page.screenshot({ path: info.outputPath("team-room-membership.png"), fullPage: true });
     const role = await db.role.findUniqueOrThrow({ where: { key: "SUPERVISOR" } });
     const user = await db.user.create({ data: { facilityId: fx.facilityId, primaryDepartmentId: fx.dietaryDepartmentId,
@@ -215,7 +268,7 @@ test("Team rooms @coverage-builder: real Employee Builder save and authorized Da
     await expect(page.getByTestId("dashboard-scope")).toContainText(/team/i);
     const attention = page.getByTestId("dashboard-card-attention");
     await expect(attention).toHaveAttribute("data-state", "ready");
-    await expect(attention).toContainText(fx.primarySpaceName);
+    await expect(attention).toContainText(name);
     await expect(attention).not.toContainText("1A Naval Park");
     await page.screenshot({ path: info.outputPath("team-dashboard-lens.png"), fullPage: true });
     await page.goto(`/dashboard?scope=team:${fx.plantDepartmentId}`);

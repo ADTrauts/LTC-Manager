@@ -177,6 +177,7 @@ export async function loadDailyAssignmentBoard(
       locationCount: a.locations.length,
       scopeSummaryLabel,
       locationLabels,
+      spaceIds: a.locations.map(row => row.unitSpaceId),
       sourceZoneId: a.sourceZoneId,
       sourceZoneName: a.sourceZone?.name ?? null,
     };

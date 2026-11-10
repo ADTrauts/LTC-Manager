@@ -1,5 +1,6 @@
 import type { TemplateItemView, TemplateView } from "./template-types";
 import type { AssignmentBoardEntry } from "./types";
+import { isCoverageTemplateEffectiveOnDate } from "../coverage-expectations/publication";
 
 export type FulfillmentPosition = {
   itemId: string;
@@ -7,6 +8,8 @@ export type FulfillmentPosition = {
   roleLabel: string;
   unitId: string | null;
   unitName: string | null;
+  spaceId: string | null;
+  spaceName: string | null;
   positionIndex: number;
   filledByAssignmentId: string | null;
   filledByEmployeeId: string | null;
@@ -33,10 +36,13 @@ export function buildAssignmentFulfillmentSummary(input: {
   templates: TemplateView[];
   assignments: AssignmentBoardEntry[];
   scheduledEmployeeCount: number;
+  serviceDate: string;
 }): AssignmentFulfillmentSummary {
   const { templates, assignments } = input;
 
-  const activeTemplates = templates.filter((t) => t.isActive);
+  const activeTemplates = templates.filter((template) => template.status != null &&
+    isCoverageTemplateEffectiveOnDate({ ...template, status: template.status,
+      effectiveFrom: template.effectiveFrom ?? null, effectiveTo: template.effectiveTo ?? null }, input.serviceDate));
   if (activeTemplates.length === 0) {
     return { available: false };
   }
@@ -61,6 +67,8 @@ export function buildAssignmentFulfillmentSummary(input: {
           roleLabel: item.roleLabel,
           unitId: item.unitId,
           unitName: item.unitName,
+          spaceId: item.spaceId ?? null,
+          spaceName: item.spaceName ?? null,
           positionIndex: i,
           filledByAssignmentId: match?.id ?? null,
           filledByEmployeeId: match?.employeeId ?? null,
@@ -106,8 +114,18 @@ function findFulfillingAssignment(
 ): AssignmentBoardEntry | null {
   return assignments.find(
     (a) =>
-      a.roleKey === item.roleKey &&
-      (item.unitId ? a.unitId === item.unitId : true) &&
+      assignmentMatchesCoverageItem(a, item) &&
       !usedIds.has(a.id),
   ) ?? null;
+}
+
+/** Missing targets never become Department-wide staffing. */
+export function assignmentMatchesCoverageItem(assignment: AssignmentBoardEntry, item: TemplateItemView): boolean {
+  if (assignment.roleKey !== item.roleKey) return false;
+  if (Boolean(item.spaceId) === Boolean(item.unitId)) return false;
+  if (item.spaceId) {
+    return assignment.spaceIds?.includes(item.spaceId) === true ||
+      (assignment.scopeKind === "UNIT" && item.spaceUnitId != null && assignment.unitId === item.spaceUnitId);
+  }
+  return assignment.scopeKind === "UNIT" && assignment.unitId === item.unitId;
 }

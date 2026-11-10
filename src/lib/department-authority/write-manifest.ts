@@ -202,24 +202,6 @@ export const WRITE_MANIFEST: WriteManifest = {
     "unblockPartnerUserAction",
   ]),
 
-  [`${DEPARTMENT_ADMIN}/actions.ts`]: each(legacy("locationFunctionProfile"), [
-    "createArchetypeAction",
-    "updateArchetypeAction",
-    "bindRoomAction",
-    "clearRoomBindingAction",
-    "createOperationalTypeAction",
-    "bindLocationFunctionAction",
-    "publishLocationFunctionsAction",
-    "ensurePatternDraftAction",
-    "bindRoomsToOperationalTypeAction",
-    "clearRoomOperationalTypeAction",
-    "renameOperationalTypeAction",
-    "updateRoomTypeDepartmentUseAction",
-    "ensureLocationOperationalTypesAction",
-    "assignLocationOperationalTypeAction",
-    "clearLocationOperationalTypeAction",
-    "createLocationOperationalTypeAction",
-  ]),
   [`${DEPARTMENT_ADMIN}/coverage-actions.ts`]: {
     createCoverageExpectationAction: department("department"),
     ...each(department("assignmentTemplate"), [

@@ -20,7 +20,7 @@ export type AssignmentFormZoneOption = {
 };
 
 export type AssignmentFormOptions = {
-  employees: { id: string; firstName: string; lastName: string }[];
+  employees: { id: string; firstName: string; lastName: string; qualifiedRoleKeys: string[] }[];
   roles: OperationalRoleDefinition[];
   units: { id: string; name: string }[];
   spaces: AssignmentFormSpaceOption[];
@@ -43,15 +43,16 @@ export async function loadAssignmentFormOptions(input: {
         ],
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true,
+        operationalRoleQualifications: { where: { facilityId: input.facilityId, departmentId: input.departmentId, status: "ACTIVE" }, select: { roleKey: true } },
+      },
     }),
     prisma.unit.findMany({
       where: { facilityId: input.facilityId, isActive: true },
       orderBy: { displayOrder: "asc" },
       select: { id: true, name: true },
     }),
-    input.departmentKey === "EVS"
-      ? prisma.unitSpace.findMany({
+    prisma.unitSpace.findMany({
           where: {
             facilityId: input.facilityId,
             isActive: true,
@@ -66,8 +67,7 @@ export async function loadAssignmentFormOptions(input: {
             sortOrder: true,
             unit: { select: { name: true } },
           },
-        })
-      : Promise.resolve([]),
+        }),
     input.departmentKey === "EVS"
       ? loadZonesForDepartment(prisma, {
           facilityId: input.facilityId,
@@ -80,7 +80,7 @@ export async function loadAssignmentFormOptions(input: {
   const roles = getRolesForDepartment(input.departmentKey);
 
   return {
-    employees,
+    employees: employees.map(({ operationalRoleQualifications, ...employee }) => ({ ...employee, qualifiedRoleKeys: operationalRoleQualifications.map(row => row.roleKey) })),
     roles,
     units,
     spaces: spaces.map((s) => ({

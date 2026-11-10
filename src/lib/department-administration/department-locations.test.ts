@@ -604,10 +604,7 @@ describe("Department Builder actionable location projection", () => {
 describe("Department Builder Locations source contracts", () => {
   it("does not write SpaceType or Unit.unitType from Locations UI", () => {
     const root = process.cwd();
-    const actions = readFileSync(
-      join(root, "src/app/(protected)/admin/departments/[departmentId]/actions.ts"),
-      "utf8",
-    );
+    assert.equal(existsSync(join(root, "src/app/(protected)/admin/departments/[departmentId]/actions.ts")), false);
     const panel = readFileSync(
       join(root, "src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx"),
       "utf8",
@@ -621,10 +618,7 @@ describe("Department Builder Locations source contracts", () => {
       "src/app/(protected)/admin/departments/[departmentId]/room-types-panel.tsx",
     );
     assert.equal(existsSync(typesPanel), false);
-    assert.equal(/spaceType\s*:/.test(actions), false);
-    assert.equal(/unitType\s*:/.test(actions), false);
     assert.equal(/prisma\.unitSpace\.update/.test(panel), false);
-    assert.equal(/prisma\.unit\.update/.test(actions), false);
     assert.match(panel, /LocationsProgrammingClient/);
     assert.match(panel, /Facility Builder owns the place/);
     assert.match(tree, /parentNeighborhoodName/);

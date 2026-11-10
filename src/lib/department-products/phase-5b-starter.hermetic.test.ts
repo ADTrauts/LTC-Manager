@@ -177,8 +177,7 @@ test("Getting Started starter step is optional and does not mark unrelated items
   });
   assert.equal(added.find((row) => row.id === "starter")?.status, "ready");
   assert.equal(added.find((row) => row.id === "starter")?.statusLabel, "Added");
-  assert.equal(added.find((row) => row.id === "work")?.title, "Historical Work Plans");
-  assert.equal(added.find((row) => row.id === "work")?.href, "/staffing/work-plans");
+  assert.equal(added.some((row) => row.id === "work"), false);
   assert.equal(added.find((row) => row.id === "pm")?.status, "optional");
   assert.equal(added.find((row) => row.id === "operate")?.status, "ready");
 });

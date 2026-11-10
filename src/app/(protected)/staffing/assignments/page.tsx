@@ -1,3 +1,4 @@
+import { AssignmentEligibilityFields } from "./assignment-eligibility-fields";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
@@ -18,12 +19,10 @@ import {
   type AssignmentEventView,
 } from "@/lib/scheduling/operational-assignments";
 import {
-  ensureAssignmentPlan,
   loadAssignmentPlanView,
 } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import { buildDietaryCoverageSummary } from "@/lib/scheduling/operational-assignments/build-coverage-summary";
 import { prisma } from "@/lib/prisma";
-import { sessionUserIdForFk } from "@/lib/auth";
 import { loadTemplatesForDepartment } from "@/lib/scheduling/operational-assignments/load-templates";
 import { assignmentStatusLabel } from "@/lib/scheduling/operational-assignments/assignment-status";
 import type { TemplateView } from "@/lib/scheduling/operational-assignments/template-types";
@@ -81,7 +80,7 @@ function dateHref(date: Date) {
 }
 
 type AssignmentPageProps = {
-  searchParams?: Promise<{ date?: string | string[] | undefined; department?: string | string[] | undefined }>;
+  searchParams?: Promise<{ date?: string | string[] | undefined; department?: string | string[] | undefined; notice?: string }>;
 };
 
 export default async function AssignmentBoardPage({ searchParams }: AssignmentPageProps) {
@@ -123,6 +122,10 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
   const viewNotice = departmentViewOnlyNotice(assignmentAuthority.reason);
   const canEdit = hasAtLeastRole(session.role, "SUPERVISOR") && assignmentAuthority.canManage && !viewNotice;
 
+  if (!assignmentAuthority.canViewDepartment) {
+    return <main className="mx-auto max-w-4xl p-6"><p>Department Assignment access is unavailable.</p><Link href="/dashboard">Open your Dashboard</Link></main>;
+  }
+
   const board = await loadDailyAssignmentBoard({
     facilityId: session.facilityId,
     serviceDate: selectedDateIso,
@@ -132,19 +135,11 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
 
   const planView =
     boardDepartmentId != null
-      ? await (async () => {
-          await ensureAssignmentPlan(prisma, {
+      ? await loadAssignmentPlanView(prisma, {
             facilityId: session.facilityId,
             departmentId: boardDepartmentId!,
             serviceDateKey: selectedDateIso,
-            actorUserId: sessionUserIdForFk(session),
-          });
-          return loadAssignmentPlanView(prisma, {
-            facilityId: session.facilityId,
-            departmentId: boardDepartmentId!,
-            serviceDateKey: selectedDateIso,
-          });
-        })()
+          })
       : null;
 
   const coverage = boardDepartmentId
@@ -156,10 +151,14 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
         assignments: board.assignments.map((a) => {
           const emp = board.employees.find((e) => e.id === a.employeeId);
           return {
+            id: a.id,
             unitId: a.unitId,
             unitName: a.unitName,
             roleKey: a.roleKey,
             status: a.status,
+            coveredSpaceIds: a.spaceIds ?? [],
+            startsAt: a.startsAt,
+            endsAt: a.endsAt,
             hasCallDown: emp?.hasCallDown ?? false,
           };
         }),
@@ -213,6 +212,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
         templates,
         assignments: board.assignments,
         scheduledEmployeeCount: board.employees.filter((e) => !e.hasCallDown).length,
+        serviceDate: selectedDateIso,
       })
     : { available: false as const };
 
@@ -245,6 +245,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
 
   return (
     <section className="space-y-6">
+      {query?.notice ? <p role="status" className="rounded-md bg-zinc-100 p-3 text-sm">{query.notice.slice(0, 2000)}</p> : null}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
@@ -416,27 +417,14 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             <form action={createAssignmentAction} className="mt-3 space-y-2">
               <input type="hidden" name="departmentId" value={boardDepartmentId} />
               <input type="hidden" name="serviceDate" value={selectedDateIso} />
-              <div className="grid gap-2 sm:grid-cols-2">
-                <select name="employeeId" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Employee…</option>
-                  {formOptions.employees.map((e) => (
-                    <option key={e.id} value={e.id}>{e.lastName}, {e.firstName}</option>
-                  ))}
-                </select>
-                <select name="roleKey" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Auto (Job Role)</option>
-                  {formOptions.roles.map((r) => (
-                    <option key={r.key} value={r.key}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
+              <AssignmentEligibilityFields employees={formOptions.employees} roles={formOptions.roles} canOverride={assignmentAuthority.canOverride} />
               <select name="unitId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
                 <option value="">Unit (optional)…</option>
                 {formOptions.units.map((u) => (
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
-              {isEvsDept && formOptions.spaces.length > 0 ? (
+              {formOptions.spaces.length > 0 ? (
                 <AssignmentSpaceScopePicker
                   spaces={formOptions.spaces}
                   zones={formOptions.zones}
@@ -473,20 +461,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             <form action={reassignAction} className="mt-3 space-y-2">
               <input type="hidden" name="departmentId" value={boardDepartmentId} />
               <input type="hidden" name="serviceDate" value={selectedDateIso} />
-              <div className="grid gap-2 sm:grid-cols-2">
-                <select name="employeeId" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Covering employee…</option>
-                  {formOptions.employees.map((e) => (
-                    <option key={e.id} value={e.id}>{e.lastName}, {e.firstName}</option>
-                  ))}
-                </select>
-                <select name="roleKey" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
-                  <option value="">Auto (Job Role)</option>
-                  {formOptions.roles.map((r) => (
-                    <option key={r.key} value={r.key}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
+              <AssignmentEligibilityFields employees={formOptions.employees} roles={formOptions.roles} canOverride={assignmentAuthority.canOverride} />
               <div className="grid gap-2 sm:grid-cols-2">
                 <select name="unitId" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
                   <option value="">Unit (optional)…</option>
@@ -500,7 +475,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                   <option value="replace">Replace existing</option>
                 </select>
               </div>
-              {isEvsDept && formOptions.spaces.length > 0 ? (
+              {formOptions.spaces.length > 0 ? (
                 <AssignmentSpaceScopePicker
                   spaces={formOptions.spaces}
                   zones={formOptions.zones}
@@ -669,9 +644,9 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
           </p>
           <ul className="mt-3 divide-y divide-zinc-100">
             {coverage.rows.map((row) => (
-              <li key={`${row.templateItemId ?? row.roleKey}-${row.unitId ?? "any"}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+              <li key={`${row.templateItemId ?? row.roleKey}-${row.spaceId ?? row.unitId ?? "any"}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                 <span className="text-zinc-800">
-                  {row.unitName} · {row.roleLabel}
+                  {row.spaceName ?? row.unitName} · {row.roleLabel}
                   <span className="ml-2 text-xs text-zinc-500">
                     {row.filledCount}/{row.requiredCount}
                   </span>
