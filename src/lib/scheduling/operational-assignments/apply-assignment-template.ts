@@ -3,7 +3,9 @@ import { facilityLocalDateToServiceDate, loadFacilityTimezone } from "@/lib/oper
 import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
 import { isCoverageTemplateEffectiveOnDate } from "@/lib/scheduling/coverage-expectations/publication";
 import { requireAssignmentEligibility } from "@/lib/employee-operational-qualifications/assignment-eligibility";
-import { recordAssignmentEvent } from "./assignment-events";
+import { writeAssignmentChangeAttention } from "./assignment-change";
+import { loadCoverageSlotSnapshot } from "../coverage-episodes/observe";
+import { processNotificationOutboxAfterCommit } from "@/lib/notifications/live-publishers";
 import { ensureAssignmentPlan } from "./assignment-plan";
 import { lockEmployeeAssignmentDay, assertNoOverlappingActiveAssignments } from "./enforce-overlap";
 import { resolveAssignmentLocationWrites, replaceAssignmentLocations, requireAssignmentLocationScope } from "./location-scope";
@@ -24,6 +26,7 @@ export async function applyAssignmentTemplate(input: ApplyTemplateInput): Promis
     const employeeId = position.suggestedEmployeeId ?? position.assignedEmployeeId;
     if (!employeeId || position.existingAssignmentId) { result.skipped++; continue; }
     try {
+      let outboxIds: string[] = [];
       const created = await prisma.$transaction(async tx => {
         await lockEmployeeAssignmentDay(tx, employeeId, input.serviceDate);
         const item = await tx.operationalAssignmentTemplateItem.findFirst({
@@ -55,19 +58,25 @@ export async function applyAssignmentTemplate(input: ApplyTemplateInput): Promis
         const plan = await ensureAssignmentPlan(tx, { facilityId: input.facilityId, departmentId: input.departmentId,
           serviceDateKey: input.serviceDate, actorUserId: input.createdByUserId });
         if (plan.status === "CLOSED") throw new Error("Reopen the closed Assignment plan before applying Coverage.");
+        const coverageBefore = await loadCoverageSlotSnapshot(tx, { facilityId: input.facilityId,
+          departmentId: input.departmentId, serviceDateKey: input.serviceDate });
         const assignment = await tx.operationalAssignment.create({ data: { facilityId: input.facilityId,
           departmentId: input.departmentId, employeeId, planId: plan.id, serviceDate, roleKey: item.roleKey,
           roleLabel: role.label, unitId: item.spaceId ? item.space?.unitId ?? null : item.unitId, templateItemId: item.id, startsAt, endsAt,
           source: "COVERAGE", notes: item.notes, createdByUserId: input.createdByUserId } });
         await replaceAssignmentLocations(tx, assignment.id, locations);
-        await recordAssignmentEvent({ client: tx, assignmentId: assignment.id, planId: plan.id,
+        const attention = await writeAssignmentChangeAttention(tx, { assignmentId: assignment.id,
           facilityId: input.facilityId, departmentId: input.departmentId, employeeId,
-          eventType: "CREATED", actorUserId: input.createdByUserId, toStatus: "PLANNED",
-          summary: `Published Coverage applied: ${role.label}`, newValuesJson: JSON.stringify({ templateItemId: item.id,
-            spaceId: item.spaceId, unitId: item.unitId, roleKey: item.roleKey }) });
+          serviceDate, subjectLabel: role.label, unitId: assignment.unitId, spaceId: item.spaceId, coverageBefore,
+          event: { assignmentId: assignment.id, planId: plan.id, facilityId: input.facilityId,
+            departmentId: input.departmentId, employeeId, eventType: "CREATED", actorUserId: input.createdByUserId,
+            toStatus: "PLANNED", summary: `Published Coverage applied: ${role.label}`,
+            newValuesJson: JSON.stringify({ templateItemId: item.id, spaceId: item.spaceId, unitId: item.unitId, roleKey: item.roleKey }) } });
+        outboxIds = [attention.assignmentOutboxId, ...attention.coverageOutboxIds];
         return true;
       });
       if (created) result.created++; else result.skipped++;
+      for (const id of outboxIds) await processNotificationOutboxAfterCommit(id);
     } catch (error) {
       result.skipped++;
       result.warnings.push(error instanceof Error ? error.message : "Assignment could not be created.");

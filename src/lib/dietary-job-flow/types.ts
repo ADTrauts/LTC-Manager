@@ -58,6 +58,8 @@ export type JobFlowAttentionKind =
 
 export type JobFlowAssignmentSnapshot = {
   id: string;
+  notes?: string | null;
+  updatedAt?: Date;
   roleKey: string;
   roleLabel: string;
   unitId: string | null;

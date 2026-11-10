@@ -449,7 +449,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                   className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
                 />
               </div>
-              <input type="text" name="notes" placeholder="Notes (optional)" maxLength={500} className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
+              <textarea name="notes" aria-label="Assignment instructions" placeholder="Instructions (optional)" maxLength={4000} className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
               <button type="submit" className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800">
                 Create Assignment
               </button>
@@ -506,7 +506,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                 maxLength={500}
                 className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
               />
-              <input type="text" name="notes" placeholder="Notes (optional)" maxLength={500} className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
+              <textarea name="notes" aria-label="Assignment instructions" placeholder="Instructions (optional)" maxLength={4000} className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
               <button type="submit" className="rounded-md bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-600">
                 Add Coverage
               </button>
@@ -820,7 +820,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
 
       {/* History */}
       {historyAssignments.length > 0 && (
-        <details className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <details className="rounded-xl border border-zinc-200 bg-white shadow-sm" data-testid="assignment-completed-list">
           <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-zinc-700">
             Completed / Cancelled ({historyAssignments.length})
           </summary>
@@ -828,11 +828,18 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
             {historyAssignments.map((a) => {
               const statusInfo = assignmentStatusLabel(a.status);
               return (
-                <div key={a.id} className="px-4 py-2 opacity-60">
+                <div key={a.id} className="px-4 py-2" data-testid={`completed-assignment-${a.id}`}>
                   <p className="text-sm text-zinc-700">
-                    {a.roleLabel} — {a.unitName ?? "No unit"}
+                    {a.roleLabel} — {a.scopeSummaryLabel}
                     <span className="ml-2 text-xs text-zinc-500">{statusInfo.label}</span>
                   </p>
+                  {a.notes ? <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-600">{a.notes}</p> : null}
+                  {canEdit && assignmentAuthority.canReopen && a.status === "COMPLETED" ? <form action={assignmentLifecycleAction} className="mt-2 flex gap-2">
+                    <input type="hidden" name="assignmentId" value={a.id} />
+                    <input type="hidden" name="action" value="reopen" />
+                    <input name="changeReason" aria-label="Reason to reopen Assignment" required maxLength={500} placeholder="Reason to reopen" className="rounded-md border border-zinc-300 p-2 text-sm" />
+                    <button type="submit" className="rounded-md border border-zinc-300 px-3 py-2 text-sm">Reopen Assignment</button>
+                  </form> : null}
                 </div>
               );
             })}

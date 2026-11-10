@@ -67,6 +67,7 @@ export type LoadEmployeeRuntimeFlowInput = {
 
 export type LoadedEmployeeRuntimeFlow = {
   flow: EmployeeRuntimeFlow;
+  completedAssignments: JobFlowAssignmentSnapshot[];
   department: { id: string; name: string; key: string };
   assignmentLocations: ResolvedAssignmentLocation[];
   states: readonly RuntimeLocationState[];
@@ -384,6 +385,7 @@ export async function loadEmployeeRuntimeFlow(
 
   return {
     flow,
+    completedAssignments: assignments.day.filter(row => row.status === "COMPLETED"),
     department,
     assignmentLocations,
     states: loadedStates.states,

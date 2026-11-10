@@ -105,6 +105,9 @@ function getPrismaClient(): PrismaClient {
  * delegates are still missing (see AGENTS.md). Prefer this proxy refresh first.
  */
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  has(_target, prop) {
+    return Reflect.has(getPrismaClient(), prop);
+  },
   get(_target, prop, receiver) {
     const client = getPrismaClient();
     const value = Reflect.get(client, prop, receiver);

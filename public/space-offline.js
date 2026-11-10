@@ -75,7 +75,7 @@ async function mount(root) {
                 if (t.completed)
                     card.append(el('p', 'Already confirmed on server.'));
                 else if (t.available) {
-                    const b = button(t.kind === 'WORK' ? 'Complete Work on this tablet' : 'Record Key Time actual on this tablet', t.kind === 'WORK' ? 'space-work-complete' : 'space-key-time-actual', async () => { row = await store.queue(row, t); boundary(); await render(); });
+                    const b = button(t.kind === 'ASSIGNMENT' ? 'Complete Assignment on this tablet' : t.kind === 'WORK' ? 'Complete Work on this tablet' : 'Record Key Time actual on this tablet', t.kind === 'ASSIGNMENT' ? 'space-assignment-complete' : t.kind === 'WORK' ? 'space-work-complete' : 'space-key-time-actual', async () => { row = await store.queue(row, t); boundary(); await render(); });
                     b.dataset.targetOrder = String(data.bundle.targets.filter(x => x.kind === t.kind).indexOf(t));
                     if (queued)
                         b.disabled = true;

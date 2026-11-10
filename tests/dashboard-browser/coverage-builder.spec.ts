@@ -13,6 +13,8 @@ import type { FacilitySession } from "@/lib/auth";
 import { loadCoverage } from "@/lib/dashboard/cards/load";
 import { createDashboardFactPack } from "@/lib/dashboard/facts";
 import { resolveDashboardViewer } from "@/lib/dashboard/viewer/resolve";
+import { ensureDeviceBoundAsAdmin, loginPassword } from "../offline-browser/helpers";
+import { expectCanonicalOfflinePreparation } from "../offline-browser/canonical-journey";
 
 type Fixtures = {
   facilityId: string; dietaryDepartmentId: string; plantDepartmentId: string;
@@ -37,6 +39,8 @@ test("PF-2D-002 @coverage-builder: reachable Unit and Space authoring persists a
   const password = process.env.SEED_DEMO_PASSWORD;
   if (!password) throw new Error("SEED_DEMO_PASSWORD required");
   try {
+    await db.operationalAssignment.deleteMany({ where: { facilityId: fx.facilityId,
+      departmentId: fx.dietaryDepartmentId, id: { endsWith: "-pf002-future" } } });
     await db.employee.deleteMany({ where: { facilityId: fx.facilityId, OR: [
       { firstName: "Space", lastName: { startsWith: "Assignment PF-2D-002 UI " } },
       { firstName: "Unqualified", lastName: { startsWith: "PF-2D-002 UI " } },
@@ -169,7 +173,7 @@ test("PF-2D-002 @coverage-builder: reachable Unit and Space authoring persists a
       await expect(assignmentForm.getByLabel("Employee", { exact: true }).locator(`option[value="${unqualifiedEmployee.id}"]`)).toHaveCount(0);
       await assignmentForm.getByLabel("Employee", { exact: true }).selectOption(assignedEmployee.id);
       await assignmentForm.getByTestId("assignment-space-scope-picker").getByRole("checkbox", { name: new RegExp(fx.primarySpaceName) }).check();
-      await assignmentForm.locator('input[name="notes"]').fill("Verify the service station and record completion.");
+      await assignmentForm.getByLabel("Assignment instructions").fill("Verify the service station and record completion.");
       await assignmentForm.getByRole("button", { name: "Create Assignment", exact: true }).click();
       await expect.poll(() => db.operationalAssignment.count({ where: { employeeId: assignedEmployee.id,
         serviceDate: new Date(`${day}T00:00:00Z`) } })).toBe(1);
@@ -274,4 +278,75 @@ test("Team rooms @coverage-builder: real Employee Builder save and authorized Da
     await page.goto(`/dashboard?scope=team:${fx.plantDepartmentId}`);
     await expect(page.getByTestId("dashboard-scope")).not.toContainText("Plant");
   } finally { await db.$disconnect(); }
+});
+
+test("Assignment lifecycle @coverage-builder: employee completes, supervisor reopens, offline replay confirms once", async ({ page }, info) => {
+  const browserErrors: string[] = [];
+  page.on("pageerror", error => browserErrors.push(error.message));
+  assertDisposableDatabaseUrl(process.env.VERIFY_DATABASE_URL);
+  const fx: Fixtures = JSON.parse(readFileSync(process.env.PEOPLE_COVERAGE_BROWSER_FIXTURE_PATH ||
+    join(process.cwd(), "tmp/people-coverage-browser-artifacts/fixtures.json"), "utf8"));
+  const db = new PrismaClient();
+  try {
+    const department = await db.department.findUniqueOrThrow({ where: { id: fx.dietaryDepartmentId }, include: { headEmployee: { include: { user: true } } } });
+    const head = department.headEmployee!.user!;
+    const employee = await db.employee.findFirstOrThrow({ where: { facilityId: fx.facilityId, firstName: "Space",
+      lastName: { startsWith: "Assignment PF-2D-002 UI " } }, orderBy: { createdAt: "desc" } });
+    const role = await db.role.findUniqueOrThrow({ where: { key: "STAFF" } });
+    const user = await db.user.create({ data: { facilityId: fx.facilityId, primaryDepartmentId: fx.dietaryDepartmentId,
+      email: `assignment.worker.${randomBytes(4).toString("hex")}@ltc.local`, displayName: "Assignment Worker",
+      roleId: role.id, passwordHash: head.passwordHash, emailVerifiedAt: new Date() } });
+    await ensureUserFacilityAccessGrant(db, { userId: user.id, facilityId: fx.facilityId, roleKey: "STAFF" });
+    const invitation = await issueEmployeeUserLinkInvitation(db, { employeeId: employee.id, facilityId: fx.facilityId,
+      targetEmail: user.email, intendedRoleKey: "STAFF", invitedByUserId: head.id });
+    await acceptEmployeeUserLinkInvitation(db, { rawToken: invitation.rawToken, authenticatedUserId: user.id });
+    const assignment = await db.operationalAssignment.findFirstOrThrow({ where: { employeeId: employee.id,
+      serviceDate: new Date(`${fx.serviceDateKey}T00:00:00Z`) } });
+    const space = await db.unitSpace.findUniqueOrThrow({ where: { id: fx.primarySpaceId } });
+    const href = `/unit/${space.unitId}?space=${space.id}`;
+    await loginPassword(page, user.email);
+    await page.goto(href);
+    const completion = page.getByTestId("employee-assignment-completion");
+    await expect(completion).toContainText("Verify the service station and record completion.");
+    await completion.getByLabel("Completion note").fill("Finished all assigned locations online.");
+    await completion.getByRole("button", { name: "Complete Assignment", exact: true }).click();
+    await expect.poll(async () => (await db.operationalAssignment.findUniqueOrThrow({ where: { id: assignment.id } })).status).toBe("COMPLETED");
+    await page.reload();
+    await expect(page.getByTestId("employee-completed-assignments")).toContainText("Server");
+    expect(await db.operationalAssignmentEvent.count({ where: { assignmentId: assignment.id, eventType: "COMPLETED", actorUserId: user.id } })).toBe(1);
+
+    await loginPassword(page, head.email);
+    await page.goto(`/staffing/assignments?department=${fx.dietaryDepartmentId}&date=${fx.serviceDateKey}`);
+    const history = page.getByTestId("assignment-completed-list");
+    await history.locator("summary").click();
+    const row = history.getByTestId(`completed-assignment-${assignment.id}`);
+    await row.getByLabel("Reason to reopen Assignment").fill("Recheck the service station.");
+    await row.getByRole("button", { name: "Reopen Assignment", exact: true }).click();
+    await expect.poll(async () => (await db.operationalAssignment.findUniqueOrThrow({ where: { id: assignment.id } })).status).toBe("ACTIVE");
+    expect(await db.operationalAssignmentEvent.count({ where: { assignmentId: assignment.id, eventType: "REOPENED" } })).toBe(1);
+
+    await ensureDeviceBoundAsAdmin(page, fx.adminEmail, space.unitId!);
+    await loginPassword(page, user.email);
+    await page.goto(href);
+    await expectCanonicalOfflinePreparation(page);
+    await page.context().setOffline(true);
+    await page.getByTestId("space-assignment-complete").click();
+    await expect(page.getByTestId("space-command-result")).toContainText("pending");
+    expect((await db.operationalAssignment.findUniqueOrThrow({ where: { id: assignment.id } })).status).toBe("ACTIVE");
+    await page.context().setOffline(false);
+    await page.getByTestId("space-offline-sync").click();
+    await expect(page.getByTestId("space-command-result")).toContainText("committed");
+    expect((await db.operationalAssignment.findUniqueOrThrow({ where: { id: assignment.id } })).status).toBe("COMPLETED");
+    const receiptWhere = { facilityId: fx.facilityId, actorUserId: user.id, commandType: "space/1:ASSIGNMENT" };
+    expect(await db.offlineSyncReceipt.count({ where: receiptWhere })).toBe(1);
+    await page.getByTestId("space-offline-sync").click();
+    expect(await db.offlineSyncReceipt.count({ where: receiptWhere })).toBe(1);
+    expect(await db.operationalAssignmentEvent.count({ where: { assignmentId: assignment.id, eventType: "COMPLETED" } })).toBe(2);
+    await page.screenshot({ path: info.outputPath("assignment-offline-receipt.png"), fullPage: true });
+    await page.locator("[data-space-offline-fallback]").screenshot({ path: info.outputPath("assignment-offline-receipt-panel.png") });
+    await page.getByRole("link", { name: "Return to live Space", exact: true }).click();
+    await expect(page.getByTestId("employee-completed-assignments")).toContainText("Server");
+    await expect(completion).toHaveCount(0);
+    expect(browserErrors).toEqual([]);
+  } finally { await page.context().setOffline(false); await db.$disconnect(); }
 });
