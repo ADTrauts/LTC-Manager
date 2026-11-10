@@ -119,6 +119,24 @@ Refer to Phase 0–7 program; findings do **not** authorize those phases.
 | Proposed phase | **Post-2D-6** — PO deploy decision / later DROP program |
 | Verification needed | 2D-6 report; production expand-then-deploy only after PO approval |
 
+#### ARR-004 release remediation update — November 10, 2026
+
+PF-2D-001 is resolved at application commit `319e5700fa6eda306aabe6bb186295055cec3595`; see the [remediation certification](./PHASE_2D_RELEASE_REMEDIATION_PF_2D_001.md). RLS now preserves published Coverage Space targets through actual Prisma prefetch. The permanent database regression covers staffing shortfall, full staffing, unconfigured rooms, Unit expansion, and Department/Facility isolation. Both original preflight failures pass. The eight-persona browser/HTTP matrix passes; final affected test ledger is 273/0/0, with typecheck/build and isolated tablet/Chromium offline gates passing.
+
+**ARR-004 remains OPEN** for schema/profile/archetype persistence, historical OT/Audit/Review, Work and Build compatibility obligations. The historical preflight BLOCKED verdict is retained; this remediation removes its confirmed release blocker. Production expansion/deployment still needs separate product-owner approval. ARR-003 and ARR-008 are not closed.
+
+#### ARR-004 production release attempt — November 10, 2026
+
+**Actual release status: NOT DEPLOYED — BLOCKED (PF-2D-002).** The product owner explicitly authorized candidate `ad87a4e308ee3fd3a445c6677b728aa0c728a3b5` (certified application `319e5700fa6eda306aabe6bb186295055cec3595`). Both authorized production migrations completed separately, with verified progression **187 → 188 → 189**. Nullable notes and Coverage `spaceId`, its index/FK, responsibility counts, and retained Work/OT compatibility persistence were checked. The production-project manual recovery snapshot `phase2d-pre-expansion-ad87a4e-20261110T123613Z` was created at 12:36:13 UTC and has no expiry.
+
+The exact candidate was staged with production configuration and public aliases withheld: `dpl_GsxhA1AheWVNNhd5A36Cxf5Jk8ZJ`, READY. All 2,555 uploaded source-file hashes match. Pre-promotion smoke inspection found **PF-2D-002**: People & Coverage renders only Teams; the existing Coverage editor has no active page consumer, and the retired Coverage entry redirects to that Teams-only section. This predates PF-2D-001 but is outside the accepted certification gaps. **No promotion or application fix was performed.** See [deployment report](./PHASE_2D_PRODUCTION_DEPLOYMENT_REPORT.md) and [PF-2D-002](./PHASE_2D_RELEASE_BLOCKER_PF_2D_002.md).
+
+Public `vssyl.com` / `www.vssyl.com` remain on protected Phase 2C deployment `dpl_2fjfVAJporEGaDtFwzRVd9TgQhKS` (recorded SHA `7973254ee87da2d94291f4282337441944d042fa`); final login/health/readiness and www redirect pass with migration count 189. No schema rollback or database restore occurred. PF-2D-001 remains resolved; its successful isolated behavioral regression is retained. The next release must remediate/certify the reachable Coverage composition and identify its new application candidate before promotion.
+
+**ARR-004 remains OPEN** for historical OT/Audit/Review, Work, profile/archetype/schema, and Build compatibility obligations. No DROP is authorized. ARR-003 and ARR-008 remain separate and open. No GitHub push, Phase 2E, Scheduled Evaluation activation, or production Web Push activation occurred.
+
+---
+
 ### ARR-005 — Phase 6 tests vs restored schema
 
 | Field | Content |
