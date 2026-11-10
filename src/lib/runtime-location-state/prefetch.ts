@@ -75,6 +75,7 @@ function toCoverageTemplates(
       roleLabel: string;
       requiredCount: number;
       unitId: string | null;
+      spaceId: string | null;
       applicableOperationalTypeKeys: string[];
       applicableOperationalCycleStableKeys: string[];
     }>;
@@ -94,6 +95,7 @@ function toCoverageTemplates(
       roleLabel: item.roleLabel,
       requiredCount: item.requiredCount,
       unitId: item.unitId,
+      spaceId: item.spaceId,
       applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
     })),
@@ -281,6 +283,7 @@ export async function prefetchRuntimeLocationInputs(
                 roleLabel: true,
                 requiredCount: true,
                 unitId: true,
+                spaceId: true,
                 applicableOperationalTypeKeys: true,
                 applicableOperationalCycleStableKeys: true,
               },
