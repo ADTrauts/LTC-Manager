@@ -25,7 +25,7 @@ type Props = {
   canManage: boolean;
   filters: {
     team?: string | null;
-    jobRole?: string | null;
+    jobTitle?: string | null;
     search?: string | null;
     scheduled?: string | null;
   };
@@ -77,7 +77,7 @@ export function WeekEmployeeScheduleGrid({
   const week = projection.week;
   const rows = filterDepartmentWeekEmployees(projection, {
     team: filters.team,
-    jobRole: filters.jobRole,
+    jobTitle: filters.jobTitle,
     search: filters.search,
     scheduledOnly: filters.scheduled === "scheduled",
     unscheduledOnly: filters.scheduled === "unscheduled",
@@ -121,7 +121,7 @@ export function WeekEmployeeScheduleGrid({
         </label>
         <Button type="submit" variant="secondary">Apply</Button>
         <FilterPanel className="col-span-2 lg:flex-1" summary={
-          [filters.team, filters.jobRole, filters.scheduled].filter(Boolean).join(" · ") || "All employees"
+          [filters.team, filters.jobTitle, filters.scheduled].filter(Boolean).join(" · ") || "All employees"
         }>
         <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-xs text-zinc-600">
@@ -140,14 +140,14 @@ export function WeekEmployeeScheduleGrid({
           </select>
         </label>
         <label className="text-xs text-zinc-600">
-          Job Role
+          Job Title
           <select
-            name="jobRole"
-            defaultValue={filters.jobRole ?? ""}
+            name="jobTitle"
+            defaultValue={filters.jobTitle ?? ""}
             className="mt-1 block min-h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm xl:min-h-10"
           >
-            <option value="">All roles</option>
-            {projection.filterOptions.jobRoles.map((r) => (
+            <option value="">All titles</option>
+            {projection.filterOptions.jobTitles.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -223,7 +223,7 @@ export function WeekEmployeeScheduleGrid({
                     <td className="sticky left-0 z-10 min-w-40 bg-white px-3 py-2 align-top">
                       <p className="font-medium text-zinc-900">{name}</p>
                       <p className="text-xs text-zinc-500">
-                        {[row.teamDisplayName, row.jobRoleDisplayName ?? "No Job Role"]
+                        {[row.teamDisplayName, row.jobTitleDisplayName]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>
@@ -466,7 +466,7 @@ export function WeekEmployeeScheduleGrid({
                 {employeePool.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.lastName}, {e.firstName}
-                    {e.jobRoleDisplayName ? ` · ${e.jobRoleDisplayName}` : " · No Job Role"}
+                    {e.jobTitleName ? ` · ${e.jobTitleName}` : ""}
                   </option>
                 ))}
               </select>

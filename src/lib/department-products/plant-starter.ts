@@ -8,11 +8,6 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { FacilitySession } from "@/lib/auth";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
-import {
-  GENERIC_WORK_AUTHORING_RETIRED,
-  PLANT_WORK_PRESET_KEYS,
-  type WorkActor,
-} from "@/lib/department-work";
 import { upsertPublishedCatalogSeeds } from "@/lib/canonical-logs/catalog-seed";
 import { installPublishedCatalog } from "@/lib/canonical-logs/facility-catalog-install";
 import type { EvidenceActor } from "@/lib/operational-evidence";
@@ -60,31 +55,17 @@ function starterIdForCatalogKey(stableKey: string): string | null {
 
 export async function loadPlantStarterInstalledKeys(
   input: { facilityId: string; departmentId: string; client?: DbClient },
-): Promise<{ workPresetKeys: string[]; recordPresetKeys: string[] }> {
+): Promise<{ recordPresetKeys: string[] }> {
   const client = input.client ?? prisma;
-  const [work, records] = await Promise.all([
-    client.departmentWorkPlan.findMany({
-      where: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        OR: [
-          { presetKey: { in: [...PLANT_WORK_PRESET_KEYS] } },
-          { stableKey: { in: [...PLANT_WORK_PRESET_KEYS] } },
-        ],
-      },
-      select: { presetKey: true, stableKey: true },
-    }),
-    client.facilityCatalogInstall.findMany({
+  const records = await client.facilityCatalogInstall.findMany({
       where: {
         facilityId: input.facilityId,
         catalogStableKey: { in: Object.values(PLANT_STARTER_CATALOG_KEYS) },
       },
       select: { catalogStableKey: true },
-    }),
-  ]);
+    });
 
   return {
-    workPresetKeys: uniqueKeys(work),
     recordPresetKeys: records
       .map((row) => starterIdForCatalogKey(row.catalogStableKey))
       .filter((id): id is string => id != null),
@@ -117,7 +98,7 @@ export async function installPlantStarterConfiguration(
     facilityId: string;
     departmentId: string;
     selectedIds: readonly string[];
-    actor: WorkActor & EvidenceActor;
+    actor: EvidenceActor;
     client?: DbClient;
   },
 ): Promise<PlantStarterInstallResult> {
@@ -128,9 +109,8 @@ export async function installPlantStarterConfiguration(
     catalog.has(id as PlantStarterItemId),
   );
   const existing = await loadPlantStarterInstalledKeys(input);
-  const already = new Set([...existing.workPresetKeys, ...existing.recordPresetKeys]);
+  const already = new Set(existing.recordPresetKeys);
 
-  const workAdded = 0;
   let recordAdded = 0;
   let alreadyExisted = 0;
 
@@ -140,10 +120,6 @@ export async function installPlantStarterConfiguration(
     if (already.has(id)) {
       alreadyExisted += 1;
       continue;
-    }
-    if (item.kind === "work") {
-      // Phase 2B: generic Work Plan presets cannot create new configurations.
-      throw new Error(GENERIC_WORK_AUTHORING_RETIRED);
     }
     const catalogStableKey = PLANT_STARTER_CATALOG_KEYS[id];
     if (!catalogStableKey) continue;
@@ -158,20 +134,9 @@ export async function installPlantStarterConfiguration(
   }
 
   return {
-    workAdded,
     recordAdded,
     alreadyExisted,
     selectedCount: selected.length,
-    workHref: departmentAdminHref(input.departmentId, "work"),
     recordsHref: departmentAdminHref(input.departmentId, "records"),
   };
-}
-
-function uniqueKeys(rows: Array<{ presetKey: string | null; stableKey: string }>): string[] {
-  const keys = new Set<string>();
-  for (const row of rows) {
-    if (row.presetKey) keys.add(row.presetKey);
-    if (row.stableKey) keys.add(row.stableKey);
-  }
-  return [...keys];
 }

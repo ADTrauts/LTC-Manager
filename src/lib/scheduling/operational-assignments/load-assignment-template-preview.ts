@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isCoverageTemplateEffectiveOnDate } from "@/lib/scheduling/coverage-expectations/publication";
 
 import { suggestEmployeeForPosition } from "./build-assignment-suggestions";
 import type { AssignmentBoardEmployee, AssignmentBoardEntry } from "./types";
@@ -21,6 +22,10 @@ export async function loadAssignmentTemplatePreview(
     select: {
       id: true,
       name: true,
+      status: true,
+      isActive: true,
+      effectiveFrom: true,
+      effectiveTo: true,
       items: {
         orderBy: { sortOrder: "asc" },
         select: {
@@ -39,7 +44,7 @@ export async function loadAssignmentTemplatePreview(
     },
   });
 
-  if (!template) {
+  if (!template || !isCoverageTemplateEffectiveOnDate(template, input.serviceDate)) {
     return {
       templateId: input.templateId,
       templateName: "Template not found",
@@ -50,7 +55,11 @@ export async function loadAssignmentTemplatePreview(
       totalRequired: 0,
       alreadyFilled: 0,
       unfilled: 0,
-      warnings: ["Template not found or inactive."],
+      warnings: [
+        template
+          ? "Only a published Coverage requirement that is effective on this service date can be applied."
+          : "Template not found or inactive.",
+      ],
     };
   }
 

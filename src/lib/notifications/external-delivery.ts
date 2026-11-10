@@ -86,10 +86,12 @@ export async function evaluateExternalDelivery(input: {
     });
   }
   try {
+    const deliveryFacilities = input.facilityIds ?? ordered;
     await deliverQueuedPushDispatches(input.db, {
       now: input.now,
       limit: EXTERNAL_DELIVERY_DISPATCH_LIMIT,
       ...(input.transport ? { transport: input.transport } : {}),
+      ...(deliveryFacilities.length > 0 ? { facilityIds: deliveryFacilities } : {}),
     });
   } catch {
     result.failures += 1;

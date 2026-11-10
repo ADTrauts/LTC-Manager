@@ -7,34 +7,24 @@
 
 export type {
   ProjectionAccessClass,
-  ProjectionArea,
   ProjectionContext,
-  ProjectionContracts,
   ProjectionDescriptor,
   ProjectionDiagnostic,
   ProjectionDiagnosticCode,
   ProjectionDiagnosticSeverity,
   ProjectionDiagnostics,
-  ProjectionExperience,
-  ProjectionExperienceProvenance,
-  ProjectionExperienceReference,
   ProjectionIdentity,
   ProjectionLens,
   ProjectionLocationNode,
   ProjectionLocationPresentation,
   ProjectionLocationReference,
   ProjectionMetadata,
-  ProjectionNavigationContribution,
-  ProjectionPermissionContribution,
   ProjectionPlantPolicy,
   ProjectionPrincipalKind,
   ProjectionPurpose,
-  ProjectionQueryScope,
-  ProjectionQueryScopes,
   ProjectionRequest,
   ProjectionRevision,
   ProjectionSnapshot,
-  ProjectionWorkspaceContribution,
 } from "./types";
 
 export type {
@@ -48,23 +38,14 @@ export type {
 
 export {
   buildAndPruneProjectionLocations,
-  buildProjectionAreas,
-  buildProjectionExperiences,
-  intersectProjectionPermissions,
   normalizeProjectionHierarchy,
-  resolveActiveProjectionProfile,
   resolveProjection,
   resolveProjectionLens,
-  resolveProjectionQueryScopes,
-  resolveRegistryContracts,
   resolveRoomEligibility,
-  resolveRoomProfiles,
   resolveUnitEligibility,
   type EligibleProjectionRoom,
   type NormalizedProjectionHierarchy,
-  type PermissionedProjectionRoom,
   type ResolvedProjectionLens,
-  type ResolvedProjectionRoom,
 } from "./pipeline";
 
 export {
@@ -125,13 +106,10 @@ export {
   type LegacyShadowInput,
   type LegacyShadowRoom,
   type RunProjectionShadowInput,
-  type ShadowAreaView,
   type ShadowEligibilityView,
-  type ShadowExperienceView,
   type ShadowMismatch,
   type ShadowMismatchKind,
   type ShadowParityMetrics,
   type ShadowParityReport,
-  type ShadowQueryScopeView,
   type ShadowSeverity,
 } from "./shadow";

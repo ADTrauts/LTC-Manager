@@ -30,7 +30,7 @@ async function fixture(db: PrismaClient, organizationId?: string) {
   const user = await db.user.create({ data: { email: `admin-${id}@example.com`, displayName: "Setup Administrator", facilityId: facility.id, primaryDepartmentId: plant.id, roleId: role.id, passwordHash: "existing-admin-password", emailVerifiedAt: new Date() } });
   const grant = await db.userFacilityAccess.create({ data: { userId: user.id, facilityId: facility.id, rolePeriods: { create: { roleKey: "FACILITY_ADMINISTRATOR", startsAt: new Date("2020-01-01") } } } });
   await db.employee.create({ data: { facilityId: facility.id, userId: user.id, email: user.email, firstName: "Setup", lastName: "Administrator", roleType: "FACILITY_ADMINISTRATOR", employmentType: "FULL_TIME", status: "ACTIVE", primaryDepartmentId: plant.id } });
-  const session = { uid: user.id, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "FACILITY_ADMINISTRATOR", facilityId: facility.id, primaryDepartmentId: plant.id, name: user.displayName, email: user.email, sessionVersion: 0 } as FacilitySession;
+  const session = { jti: randomUUID(), uid: user.id, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "FACILITY_ADMINISTRATOR", facilityId: facility.id, primaryDepartmentId: plant.id, name: user.displayName, email: user.email, sessionVersion: 0 } as FacilitySession;
   const floor = await db.unit.create({ data: { facilityId: facility.id, name: "Floor 1", unitType: "OTHER", hierarchyRole: "FLOOR" } });
   const unit = await db.unit.create({ data: { facilityId: facility.id, name: "Shared Wing", unitType: "OTHER", hierarchyRole: "NEIGHBORHOOD", parentUnitId: floor.id } });
   const room = await db.unitSpace.create({ data: { facilityId: facility.id, unitId: unit.id, name: "Shared Room", spaceType: "SERVICE_AREA" } });
@@ -137,7 +137,7 @@ test("SQL: stale source/review/actor/dependency and cross-Facility references ca
 
 test("SQL: Console work is attributed to PlatformStaff, never a User FK, and receipts are actor/Facility isolated",{skip},()=>run(async db=>{
   const f=await fixture(db),staff=await db.platformStaff.create({data:{email:`staff-${randomUUID()}@example.com`,displayName:"Console Staff",passwordHash:"existing-staff-password",role:"MEMBER"}});
-  const session={...f.session,uid:staff.id,email:staff.email,name:staff.displayName,authKind:"harbor_staff",primaryDepartmentId:undefined} as FacilitySession;
+  const session={ jti: randomUUID(),...f.session,uid:staff.id,email:staff.email,name:staff.displayName,authKind:"harbor_staff",primaryDepartmentId:undefined} as FacilitySession;
   const csv=f.workforce(),p=await previewImport(db,session,{dataset:"workforce",text:csv,fileName:"workforce.csv",expectedFacilityId:f.facility.id});
   const r=await confirmImport(db,session,{reviewToken:p.reviewToken,expectedFacilityId:f.facility.id,text:csv,fileName:p.fileName,confirmedAccountRows:[]});assert.equal(r.rows[0]!.result?.status,"committed");
   const batch=await db.setupImportBatch.findUniqueOrThrow({where:{id:p.batchId}});assert.equal(batch.actorStaffId,staff.id);assert.equal(batch.actorUserId,null);

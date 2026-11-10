@@ -1,8 +1,7 @@
 /**
  * Department Builder — local navigation.
- * Overview, Locations, Operating Rhythm, People & Coverage, Records.
- * Maintenance (Plant), Menus when the Product offers them.
- * Generic Work is retired (Phase 2B); old `?tab=work` redirects to Overview.
+ * Overview, Facility, Operating Rhythm, People & Coverage, Records.
+ * Menus appear only when the Department Product offers Menus.
  *
  * Retired tab ids still resolve so old links land on the owning section.
  */
@@ -15,8 +14,8 @@ export const DEPARTMENT_ADMIN_TABS = [
   },
   {
     id: "locations",
-    label: "Locations",
-    description: "Physical places assigned in Facility Builder",
+    label: "Facility",
+    description: "Places this department is responsible for",
   },
   {
     id: "operating-rhythm",
@@ -56,13 +55,6 @@ export const DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT = {
   coverage: "people",
   cycles: "operating-rhythm",
   teams: "people",
-  "room-types": "locations",
-  areas: "locations",
-  archetypes: "locations",
-  rooms: "locations",
-  diagnostics: "overview",
-  versions: "overview",
-  settings: "overview",
 } as const satisfies Record<string, DepartmentAdminPrimaryTabId>;
 
 export type DepartmentAdminRetiredTabId = keyof typeof DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT;
@@ -116,10 +108,6 @@ export function departmentAdminTabsForFlags(input: {
   cyclesEnabled?: boolean;
   /** Locations always available when the department detail page is reachable. */
   locationsEnabled?: boolean;
-  /**
-   * @deprecated Generic Work tab retired (Phase 2B). Ignored; Work never appears.
-   */
-  workEnabled?: boolean;
   /** Canonical Record requirements. Omit when the record engine is off. */
   recordsEnabled?: boolean;
   /** Product-offered Menus. Omit for other products. */
@@ -128,7 +116,6 @@ export function departmentAdminTabsForFlags(input: {
   maintenanceEnabled?: boolean;
 }): (typeof DEPARTMENT_ADMIN_TABS)[number][] {
   void input.cyclesEnabled;
-  void input.workEnabled;
   const locationsEnabled = input.locationsEnabled ?? true;
   const recordsEnabled = input.recordsEnabled ?? false;
   const menusEnabled = input.menusEnabled ?? false;
@@ -190,7 +177,6 @@ export function isPreventiveMaintenanceBuilderPath(pathname: string | null | und
 export function departmentAdminHref(
   departmentId: string,
   tab: DepartmentAdminPrimaryTabId | DepartmentAdminRetiredTabId,
-  profileId?: string | null,
   setupWorkspace?: boolean,
 ): string {
   const resolved = isDepartmentAdminRetiredTabId(tab)
@@ -201,7 +187,6 @@ export function departmentAdminHref(
   }
   const params = new URLSearchParams();
   if (resolved !== "overview") params.set("tab", resolved);
-  if (profileId) params.set("profile", profileId);
   if (setupWorkspace) params.set("onboarding", "workspace");
   const query = params.toString();
   return query

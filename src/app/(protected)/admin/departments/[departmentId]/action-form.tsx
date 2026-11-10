@@ -16,7 +16,7 @@ import {
 } from "@/lib/department-administration/admin-nav";
 
 type ActionResultLike =
-  | { ok: true; message?: string; profileId?: string; cycleId?: string; teamId?: string }
+  | { ok: true; message?: string; profileId?: string; cycleId?: string; teamId?: string; expectationId?: string }
   | { ok: false; message: string; errors?: string[] };
 
 type Props = {
@@ -25,6 +25,8 @@ type Props = {
   className?: string;
   /** Called after a successful save (client parents only). */
   onSuccess?: () => void;
+  /** Keep the working Coverage version selected after create or a published-version fork. */
+  expectationRedirect?: { departmentId: string };
   /** After success, open `#edit-cycle-{cycleId}` (used when forking a published cycle to draft). */
   openCycleEditorOnSuccess?: boolean;
   profileRedirect?: {
@@ -47,6 +49,7 @@ export function DepartmentAdminActionForm({
   children,
   className,
   onSuccess,
+  expectationRedirect,
   openCycleEditorOnSuccess = false,
   profileRedirect,
 }: Props) {
@@ -73,17 +76,15 @@ export function DepartmentAdminActionForm({
             if (openCycleEditorOnSuccess && result.cycleId) {
               window.location.hash = `edit-cycle-${result.cycleId}`;
             }
-            let href: string | null =
-              result.profileId && profileRedirect
-                ? departmentAdminHref(
-                    profileRedirect.departmentId,
-                    profileRedirect.tab,
-                    result.profileId,
-                  )
-                : null;
+            let href: string | null = profileRedirect
+              ? departmentAdminHref(profileRedirect.departmentId, profileRedirect.tab)
+              : null;
             if (href && profileRedirect?.roomType) {
               const sep = href.includes("?") ? "&" : "?";
               href = `${href}${sep}roomType=${encodeURIComponent(profileRedirect.roomType)}`;
+            }
+            if (expectationRedirect && result.expectationId) {
+              href = `${departmentAdminHref(expectationRedirect.departmentId, "people")}&expectation=${encodeURIComponent(result.expectationId)}`;
             }
             if (href) {
               router.push(href);

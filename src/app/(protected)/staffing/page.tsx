@@ -60,7 +60,7 @@ type StaffingPageProps = {
     saved?: string | string[] | undefined;
     q?: string | string[] | undefined;
     team?: string | string[] | undefined;
-    jobRole?: string | string[] | undefined;
+    jobTitle?: string | string[] | undefined;
     scheduled?: string | string[] | undefined;
     floor?: string | string[] | undefined;
     rooms?: string | string[] | undefined;
@@ -114,7 +114,7 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
   const canManage = roleCanManage && !viewNotice;
   const filters = {
     team: firstSearchParam(query?.team),
-    jobRole: firstSearchParam(query?.jobRole),
+    jobTitle: firstSearchParam(query?.jobTitle),
     search: firstSearchParam(query?.q),
     scheduled: firstSearchParam(query?.scheduled),
   };
@@ -201,7 +201,7 @@ export default async function DepartmentSchedulerPage({ searchParams }: Staffing
         previousDate={mode === "week" ? prevWeek.weekStart : prevDay}
         nextDate={mode === "week" ? nextWeek.weekStart : nextDay}
         today={todayIso}
-        filters={{ q: filters.search, team: filters.team, jobRole: filters.jobRole,
+        filters={{ q: filters.search, team: filters.team, jobTitle: filters.jobTitle,
           scheduled: filters.scheduled, floor: floorFilter, rooms: showRooms ? "1" : undefined }}
         showAssignments
         showCycles={isAnyStaffingOperationalFeatureEnabled("cycles", deptNav.activeOperationalDepartmentKey)}
@@ -372,9 +372,7 @@ function DayRoster({
                         {p.teamDisplayName ?? "—"}
                       </td>
                       <td className="py-2.5 pr-3 align-top text-zinc-700">
-                        {p.jobRoleDisplayName ?? (
-                          <span className="text-zinc-400">No Job Role</span>
-                        )}
+                        {p.jobTitleName ?? row.jobTitleDisplayName ?? "—"}
                       </td>
                       <td className="py-2.5 pr-3 align-top">
                         {row.shiftWindowLabels.length > 0 ? (
@@ -497,7 +495,7 @@ function DayRoster({
               {schedule.unscheduledPool.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.lastName}, {e.firstName}
-                  {e.jobRoleDisplayName ? ` · ${e.jobRoleDisplayName}` : " · No Job Role"}
+                  {e.jobTitleName ? ` · ${e.jobTitleName}` : ""}
                   {e.teamDisplayName ? ` · ${e.teamDisplayName}` : ""}
                 </option>
               ))}

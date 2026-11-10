@@ -45,9 +45,6 @@ function formatLocation(item: CoverageExpectationItemView): string {
   if (item.unitId) {
     return item.unitName ? `Unit-wide · ${item.unitName}` : "Unit-wide";
   }
-  if (item.applicableOperationalTypeKeys.length > 0) {
-    return `Legacy Operational Type · ${item.applicableOperationalTypeKeys.join(", ")}`;
-  }
   return "No location configured";
 }
 
@@ -148,7 +145,8 @@ export function CoverageWorkspace({
         data-testid="coverage-expectation-drawer"
       >
         {adding && !selected ? (
-          <DepartmentAdminActionForm action={createCoverageExpectationAction} className="space-y-3">
+          <DepartmentAdminActionForm action={createCoverageExpectationAction} className="space-y-3"
+            expectationRedirect={{ departmentId }} onSuccess={() => setAdding(false)}>
             <input type="hidden" name="departmentId" value={departmentId} />
             <TextInput name="name" label="Name" required maxLength={100} data-testid="coverage-name-input" />
             <TextArea name="description" label="Description" maxLength={500} rows={2} />
@@ -183,7 +181,8 @@ function ExpectationEditor({
   return (
     <div className="space-y-5" data-testid="coverage-expectation-editor">
       {canManage ? (
-        <DepartmentAdminActionForm action={updateCoverageExpectationAction} className="space-y-3">
+        <DepartmentAdminActionForm action={updateCoverageExpectationAction} className="space-y-3"
+          expectationRedirect={{ departmentId }}>
           <input type="hidden" name="departmentId" value={departmentId} />
           <input type="hidden" name="templateId" value={expectation.id} />
           <TextInput
@@ -227,7 +226,7 @@ function ExpectationEditor({
                   {item.applicableOperationalCycleStableKeys.join(", ") || "No cycle"}
                 </p>
                 {canManage ? (
-                  <DepartmentAdminActionForm action={removeCoverageExpectationItemAction}>
+                  <DepartmentAdminActionForm action={removeCoverageExpectationItemAction} expectationRedirect={{ departmentId }}>
                     <input type="hidden" name="departmentId" value={departmentId} />
                     <input type="hidden" name="templateId" value={expectation.id} />
                     <input type="hidden" name="itemId" value={item.id} />
@@ -253,6 +252,7 @@ function ExpectationEditor({
       {canManage && expectation.status === "DRAFT" ? (
         <DepartmentAdminActionForm
           action={publishCoverageExpectationAction}
+          expectationRedirect={{ departmentId }}
           className="space-y-2 border-t border-zinc-200 pt-3"
         >
           <input type="hidden" name="departmentId" value={departmentId} />
@@ -293,6 +293,7 @@ function RequirementForm({
     <div data-testid="coverage-requirement-form">
       <DepartmentAdminActionForm
         action={upsertCoverageExpectationItemAction}
+        expectationRedirect={{ departmentId }}
         className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3"
       >
         <input type="hidden" name="departmentId" value={departmentId} />

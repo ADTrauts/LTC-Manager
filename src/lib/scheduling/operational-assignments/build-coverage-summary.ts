@@ -20,7 +20,6 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import {
-  evaluateCoverageSlotState,
   evaluateCoverageSlots,
   flattenCoverageTemplateItems,
   planLifecycleFromStatus,
@@ -150,15 +149,13 @@ export async function buildDietaryCoverageSummary(
         roleLabel: item.roleLabel,
         requiredCount: item.requiredCount,
         unitId: item.unitId,
-        applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
+        spaceId: item.spaceId,
         applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       })),
     })) as CoverageTemplateVersionRow[],
     input.serviceDateKey,
   );
   const items: CoverageExpectationItemInput[] = flattenCoverageTemplateItems(runtimeTemplates);
-  const otItems = items.filter((item) => item.applicableOperationalTypeKeys.length > 0);
-  const legacyItems = items.filter((item) => item.applicableOperationalTypeKeys.length === 0);
 
   const cycleRefs: CoverageCycleRef[] = cycles
     .filter((cycle) => cycle.nodeKind === "PERIOD")
@@ -230,26 +227,22 @@ export async function buildDietaryCoverageSummary(
       ? cycleRefs.filter((cycle) => activeCycleKeysAtAsOf.has(cycle.stableKey))
       : cycleRefs;
     const expectations = resolveCoverageExpectationsForLocation({
-      items: otItems,
+      items,
       context: {
         departmentId: input.departmentId,
         spaceId: space.id,
         unitId: space.unitId,
-        operationalTypeKey: null,
-        operationalTypeName: null,
       },
       cycles: locationCycles,
     });
 
     if (asOf && locationCycles.length === 0) {
       const wouldApply = resolveCoverageExpectationsForLocation({
-        items: otItems,
+        items,
         context: {
           departmentId: input.departmentId,
           spaceId: space.id,
           unitId: space.unitId,
-          operationalTypeKey: null,
-          operationalTypeName: null,
         },
         cycles: cycleRefs,
       });
@@ -299,45 +292,6 @@ export async function buildDietaryCoverageSummary(
         templateItemId: slot.expectation.id,
       });
     }
-  }
-
-  for (const item of legacyItems) {
-    const seen = new Set<string>();
-    const filled: CoverageAssignmentActual[] = [];
-    for (const assignment of actuals) {
-      if (seen.has(assignment.id)) continue;
-      if (assignment.status !== "PLANNED" && assignment.status !== "ACTIVE") continue;
-      if (assignment.roleKey !== item.roleKey) continue;
-      if (item.unitId != null && assignment.unitId !== item.unitId) continue;
-      seen.add(assignment.id);
-      filled.push(assignment);
-    }
-    const filledCount = filled.length;
-    const state = evaluateCoverageSlotState({
-      plan,
-      requiredCount: item.requiredCount,
-      filledCount,
-      hasCallDownRisk: filled.some((row) => row.hasCallDown === true),
-    });
-    incrementState(state);
-    const unitName =
-      item.unitId
-        ? spaces.find((space) => space.unitId === item.unitId)?.unit?.name ?? "Unit"
-        : "Any unit";
-    rows.push({
-      unitId: item.unitId,
-      unitName,
-      spaceId: null,
-      spaceName: null,
-      cycleStableKey: null,
-      cycleLabel: null,
-      roleKey: item.roleKey,
-      roleLabel: item.roleLabel,
-      requiredCount: item.requiredCount,
-      filledCount,
-      state,
-      templateItemId: item.id,
-    });
   }
 
   if (rows.length === 0 && items.length > 0) {

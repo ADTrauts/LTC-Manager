@@ -25,7 +25,7 @@ const BASE_EMPLOYEE = {
   employeeId: "emp-sharon",
   employeeFirstName: "Sharon",
   employeeLastName: "Doe",
-  jobRoleDisplayName: "Resident Services Supervisor",
+  jobTitleName: "Resident Services Supervisor",
   teamDisplayName: "Resident Services",
   serviceDate: "2026-09-03",
 };
@@ -36,7 +36,6 @@ function makeShiftEntry(overrides: Partial<{
   plannedEnd: string | null;
   shift: string;
   departmentId: string | null;
-  unitId: string | null;
   workShiftId: string | null;
 }> = {}) {
   return {
@@ -45,7 +44,6 @@ function makeShiftEntry(overrides: Partial<{
     plannedEnd: "15:00",
     shift: "FULL_DAY",
     departmentId: "dept-dietary",
-    unitId: null,
     workShiftId: null,
     ...overrides,
   };
@@ -189,26 +187,25 @@ describe("buildEmployeeShiftProjection", () => {
     assert.equal(proj.shifts[0]!.departmentId, "dept-dietary");
   });
 
-  it("Legacy rows (null departmentId, null unitId) remain readable", () => {
+  it("Rows without a Department remain readable as scheduled time", () => {
     const proj = buildEmployeeShiftProjection({
       ...BASE_EMPLOYEE,
-      scheduleEntries: [makeShiftEntry({ departmentId: null, unitId: "legacy-unit-1", plannedStart: null, plannedEnd: null })],
+      scheduleEntries: [makeShiftEntry({ departmentId: null, plannedStart: null, plannedEnd: null })],
       operationalAssignments: [],
     });
     assert.equal(proj.shifts[0]!.departmentId, null);
-    assert.equal(proj.shifts[0]!.legacyUnitId, "legacy-unit-1");
     assert.equal(proj.shifts[0]!.plannedStart, null);
     // Still counts as presence even without clock times.
     assert.equal(proj.relationship, "SCHEDULED_UNASSIGNED");
   });
 
-  it("Job Role display name and Team come from BUILD, not stored on Shift", () => {
+  it("Job Title and Team come from the person, not stored on the Shift", () => {
     const proj = buildEmployeeShiftProjection({
       ...BASE_EMPLOYEE,
       scheduleEntries: [makeShiftEntry()],
       operationalAssignments: [],
     });
-    assert.equal(proj.jobRoleDisplayName, "Resident Services Supervisor");
+    assert.equal(proj.jobTitleName, "Resident Services Supervisor");
     assert.equal(proj.teamDisplayName, "Resident Services");
     // Job Role display is not stored inside the shift itself.
     assert.equal(proj.shifts[0]!.shiftSlot, "FULL_DAY");

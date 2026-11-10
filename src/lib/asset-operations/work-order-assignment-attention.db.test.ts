@@ -153,7 +153,7 @@ test("work order assignment publishes one Update and ends it when responsibility
     const unlinked = await person({ facilityId: facility.id, label: "unlinked", linkUser: false });
     const outsider = await person({ facilityId: otherFacility.id, label: "outsider" });
     const session = supervisor(facility.id, actor.user.id, department.id);
-    const usersBefore = await db.user.count();
+    const usersBefore = await db.user.count({ where: { facilityId: facility.id } });
 
     const unassigned = await createWorkOrderDirect(session, {
       facilityId: facility.id,
@@ -446,7 +446,7 @@ test("work order assignment publishes one Update and ends it when responsibility
       client: db,
     });
     assert.equal((await db.repair.findUniqueOrThrow({ where: { id: quiet.id } })).assignedEmployeeId, unlinked.employee.id);
-    assert.equal(await db.user.count(), usersBefore);
+    assert.equal(await db.user.count({ where: { facilityId: facility.id } }), usersBefore);
     const quietNotification = await db.notification.findFirst({
       where: {
         facilityId: facility.id,

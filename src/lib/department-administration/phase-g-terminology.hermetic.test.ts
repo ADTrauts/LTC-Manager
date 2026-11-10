@@ -15,19 +15,21 @@ function source(path: string): string {
 }
 
 describe("Phase G manager terminology", () => {
-  it("names Locations, Operating Rhythm, Records, and People & Coverage", () => {
+  it("names Facility, Operating Rhythm, Records, and People & Coverage", () => {
     const labels = DEPARTMENT_ADMIN_TABS.map((tab) => tab.label).join("\n");
-    assert.match(labels, /^Locations$/m);
+    assert.match(labels, /^Facility$/m);
     assert.match(labels, /Operating Rhythm/);
-    assert.doesNotMatch(labels, /^Work$/m);
     assert.match(labels, /People & Coverage/);
     assert.match(labels, /^Records$/m);
+    assert.doesNotMatch(labels, /^Locations$/m);
+    assert.doesNotMatch(labels, /^Work$/m);
     assert.doesNotMatch(labels, /Operational Type|Evidence|^Teams$/m);
     const locations = source(
       "src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx",
     );
-    assert.match(locations, /Facility Builder/);
-    assert.doesNotMatch(locations, /Location Function|Operational Type|Archetype/);
+    assert.match(locations, /Facility Builder owns the place/);
+    assert.doesNotMatch(locations, /Location Function/);
+    assert.doesNotMatch(locations, /Operational Type|Archetype/);
   });
 
   it("uses Audit / Reports as the primary reports label", () => {
@@ -50,8 +52,5 @@ describe("Phase G manager terminology", () => {
       "src/app/(protected)/admin/departments/[departmentId]/cycles-builder-controls.tsx",
     );
     assert.match(controls, /Key Point/);
-    assert.match(controls, /Specific rooms/);
-    assert.doesNotMatch(controls, /Key Time/);
-    assert.doesNotMatch(controls, /\bLocation Functions\b/);
   });
 });

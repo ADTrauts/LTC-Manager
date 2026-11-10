@@ -800,11 +800,13 @@ export async function listPlantTriageQueue(input: {
   requestingDepartmentId?: string | null;
   priority?: RepairPriority | null;
   take?: number;
+  spaceIdFilter?: ReadonlySet<string>;
 }) {
   return prisma.operationalRequest.findMany({
     where: {
       facilityId: input.facilityId,
       responsibleDepartmentId: input.plantDepartmentId,
+      ...(input.spaceIdFilter ? { spaceId: { in: [...input.spaceIdFilter] } } : {}),
       ...(input.status ? { status: { in: input.status } } : {}),
       ...(input.requestingDepartmentId
         ? { requestingDepartmentId: input.requestingDepartmentId }

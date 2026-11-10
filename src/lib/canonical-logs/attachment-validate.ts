@@ -14,7 +14,6 @@ export type AttachmentTargetInput = {
   spaceId?: string | null;
   unitId?: string | null;
   targetDepartmentId?: string | null;
-  operationalTypeKey?: string | null;
 };
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -25,18 +24,14 @@ export function normalizeAttachmentTarget(input: AttachmentTargetInput): {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
-  operationalTypeKey: string | null;
   target: LogAttachmentTarget;
 } {
   const assetId = input.assetId?.trim() || null;
   const spaceId = input.spaceId?.trim() || null;
   const unitId = input.unitId?.trim() || null;
   const targetDepartmentId = input.targetDepartmentId?.trim() || null;
-  const operationalTypeKey = input.operationalTypeKey?.trim() || null;
 
-  const setCount = [assetId, spaceId, unitId, targetDepartmentId, operationalTypeKey].filter(
-    Boolean,
-  ).length;
+  const setCount = [assetId, spaceId, unitId, targetDepartmentId].filter(Boolean).length;
 
   switch (input.kind) {
     case "ASSET":
@@ -49,7 +44,6 @@ export function normalizeAttachmentTarget(input: AttachmentTargetInput): {
         spaceId: null,
         unitId: null,
         targetDepartmentId: null,
-        operationalTypeKey: null,
         target: { kind: "ASSET", assetId },
       };
     case "SPACE":
@@ -62,7 +56,6 @@ export function normalizeAttachmentTarget(input: AttachmentTargetInput): {
         spaceId,
         unitId: null,
         targetDepartmentId: null,
-        operationalTypeKey: null,
         target: { kind: "SPACE", spaceId },
       };
     case "UNIT":
@@ -75,7 +68,6 @@ export function normalizeAttachmentTarget(input: AttachmentTargetInput): {
         spaceId: null,
         unitId,
         targetDepartmentId: null,
-        operationalTypeKey: null,
         target: { kind: "UNIT", unitId },
       };
     case "DEPARTMENT":
@@ -88,7 +80,6 @@ export function normalizeAttachmentTarget(input: AttachmentTargetInput): {
         spaceId: null,
         unitId: null,
         targetDepartmentId,
-        operationalTypeKey: null,
         target: { kind: "DEPARTMENT", departmentId: targetDepartmentId },
       };
     case "FACILITY":
@@ -101,22 +92,10 @@ export function normalizeAttachmentTarget(input: AttachmentTargetInput): {
         spaceId: null,
         unitId: null,
         targetDepartmentId: null,
-        operationalTypeKey: null,
         target: { kind: "FACILITY" },
       };
     case "OPERATIONAL_TYPE":
-      if (!operationalTypeKey || setCount !== 1) {
-        throw new Error("OPERATIONAL_TYPE target requires exactly operationalTypeKey.");
-      }
-      return {
-        targetKind: "OPERATIONAL_TYPE",
-        assetId: null,
-        spaceId: null,
-        unitId: null,
-        targetDepartmentId: null,
-        operationalTypeKey,
-        target: { kind: "OPERATIONAL_TYPE", operationalTypeKey },
-      };
+      throw new Error("OPERATIONAL_TYPE is not a writable attachment target.");
   }
 }
 
@@ -127,9 +106,6 @@ export async function validateAttachmentTarget(input: {
   target: AttachmentTargetInput;
 }): Promise<ReturnType<typeof normalizeAttachmentTarget>> {
   const normalized = normalizeAttachmentTarget(input.target);
-  if (normalized.targetKind === "OPERATIONAL_TYPE") {
-    throw new Error("Place on a room, department, or Facility type.");
-  }
   const { client, facilityId } = input;
 
   if (normalized.targetKind === "ASSET" && normalized.assetId) {

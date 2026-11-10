@@ -138,7 +138,6 @@ export async function upsertCoverageExpectationItemAction(
       requiredCount: parsed.requiredCount,
       unitId: parsed.locationScope === "UNIT" ? parsed.unitId ?? null : null,
       spaceId: parsed.locationScope === "SPACE" ? parsed.spaceId ?? null : null,
-      operationalTypeKeys: [],
       cycleStableKeys: parsed.cycleStableKeys,
     });
     revalidateCoverage(parsed.departmentId);

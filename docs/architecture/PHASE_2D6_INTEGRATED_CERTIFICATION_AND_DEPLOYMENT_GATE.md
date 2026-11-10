@@ -366,3 +366,5 @@ Final ledger: **273 pass / 0 fail / 0 skip** (197 affected hermetics; 18 SQL cas
 Production remains the READY Phase 2C deployment `dpl_2fjfVAJporEGaDtFwzRVd9TgQhKS`, with both public aliases and healthy endpoints. Production remains at 187 migrations; the two certified additive migrations are pending. All three published Dietary LOCATION Key Times retain explicit groups of nine rooms. No new migration is introduced.
 
 ARR-003, ARR-004 and ARR-008 remain open. Physical-device testing and current deferred readiness remain retained limits. No production/staging migration, production configuration mutation, push, deployment, promotion or new architecture phase occurred. Separate product-owner deployment approval is the next step.
+
+Final immutable identity receipt: application `319e5700fa6eda306aabe6bb186295055cec3595`; documentation-inclusive release candidate `ad87a4e308ee3fd3a445c6677b728aa0c728a3b5`, available locally on `architecture/pf-2d-001-certified-20261110`. The latter changes documentation only. Use a clean checkout of that candidate for any separately authorized release; do not upload this dirty working directory.

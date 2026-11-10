@@ -9,7 +9,7 @@ import {
 import { getDepartmentProduct, matchEntitlementStatusForProduct } from "@/lib/department-products/registry";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import type { RouteFeatureFlags } from "@/lib/route-registry/authorize";
-import type { ViewerTeamScope } from "@/lib/dashboard/viewer/viewer-team-scope";
+import type { ViewerTeamScope } from "@/lib/dashboard/viewer/operational-placement";
 
 import type {
   DashboardAuthority,
@@ -105,7 +105,9 @@ export type DashboardAccessFact = Pick<
   "mode" | "operatingModel" | "operatorName" | "vendorHeadAccepted"
 >;
 
-export type DashboardTeamScopeFact = Pick<ViewerTeamScope, "mode" | "activeTeams" | "roomIds">;
+export type DashboardTeamScopeFact = Pick<ViewerTeamScope, "activeTeams" | "roomIds"> & {
+  mode: ViewerTeamScope["mode"] | "TEAM_SCOPED";
+};
 
 export type DashboardViewerFacts = {
   session: FacilitySession;
@@ -247,31 +249,12 @@ export function deriveDashboardViewer(facts: DashboardViewerFacts): DashboardVie
     case "SUPERVISOR": {
       const department = departments[0];
       if (!department) break;
-      const team = facts.teamScope;
-      if (team?.mode === "TEAM_SCOPED") {
-        const teamScope: DashboardScope = {
-          kind: "TEAM",
-          departmentId: department.id,
-          teamIds: team.activeTeams.map((row) => row.id),
-          roomIds: [...team.roomIds],
-        };
-        available = [teamScope, departmentScope(department.id)];
-        defaultScope = teamScope;
-        break;
-      }
       available = [departmentScope(department.id)];
       defaultScope = available[0]!;
-      notices.push(
-        team?.mode === "TEAM_WITHOUT_LOCATIONS"
-          ? {
-              code: "TEAM_WITHOUT_ROOMS",
-              message: `Your team has no rooms yet. Your Dashboard shows all of ${department.name}.`,
-            }
-          : {
-              code: "NO_TEAM_ASSIGNED",
-              message: `No team assigned. Your Dashboard shows all of ${department.name}.`,
-            },
-      );
+      if (facts.teamScope?.activeTeams.length) {
+        available.push({ kind: "TEAM", departmentId: department.id,
+          teamIds: facts.teamScope.activeTeams.map(team => team.id), roomIds: facts.teamScope.roomIds });
+      }
       break;
     }
   }

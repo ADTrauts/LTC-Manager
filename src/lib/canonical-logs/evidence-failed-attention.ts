@@ -30,7 +30,7 @@ export async function enqueueEvidenceFailed(
 ): Promise<string | null> {
   if (!record.outOfStandard) return null;
   let unitId = record.unitId;
-  let spaceId = record.spaceId;
+  const spaceId = record.spaceId;
   if (!unitId && !spaceId && record.assetId) {
     const asset = await tx.asset.findFirst({
       where: { id: record.assetId, unit: { facilityId: record.facilityId } },

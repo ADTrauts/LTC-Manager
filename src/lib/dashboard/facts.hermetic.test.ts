@@ -174,6 +174,22 @@ test("triage: only viewers who can triage get the queue", async () => {
   ]);
 });
 
+test("Team maintenance uses the same explicit room set, including an empty set", async () => {
+  for (const roomIds of [["shop"], []]) {
+    const fake = fakeSources({ canTriage: true });
+    const pack = createDashboardFactPack(viewer({ kind: "TEAM", departmentId: PLANT.id, teamIds: ["t1"], roomIds }), fake.sources);
+    await pack.assetExceptions(PLANT.id);
+    await pack.workOrders(PLANT.id);
+    await pack.pmBoard(PLANT.id);
+    await pack.triage(PLANT.id);
+    assert.deepEqual([...(fake.argsOf("loadSupervisorAssetExceptions")![2] as ReadonlySet<string>)], roomIds);
+    for (const [name, index] of [["listWorkOrders", 1], ["loadPmRunBoard", 1], ["listPlantTriageQueue", 0]] as const) {
+      const input = fake.argsOf(name)![index] as { spaceIdFilter: ReadonlySet<string> };
+      assert.deepEqual([...input.spaceIdFilter], roomIds);
+    }
+  }
+});
+
 test("recent activity and Records: scoped Departments, no legacy inspections", async () => {
   const fake = fakeSources();
   const pack = createDashboardFactPack(viewer({ kind: "DEPARTMENT", departmentId: FN.id }), fake.sources);

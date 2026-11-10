@@ -176,6 +176,7 @@ test("Review replay is planned vs actual from answers, not Operational Type", ()
   assert.equal(rows[0]?.plannedLabel, "Culinary · 5 planned");
   assert.equal(rows[0]?.actualLabel, "3 of 5");
   assert.equal(rows[0]?.evidenceLabel, "Hot holding temp overdue");
-  assert.equal(rows[0]?.operationalTypeName, "Production Space · Culinary");
+    assert.equal(rows[0]?.contextLabel, "Production Space");
+  assert.equal("operationalTypeName" in (rows[0] ?? {}), false);
   assert.doesNotMatch(JSON.stringify(rows), /Operational Type/);
 });

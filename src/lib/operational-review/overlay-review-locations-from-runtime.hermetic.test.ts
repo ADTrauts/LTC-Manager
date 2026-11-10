@@ -16,7 +16,7 @@ function row(partial: Partial<PresentedLocationRow> & Pick<PresentedLocationRow,
     displayLabel: partial.displayLabel ?? partial.spaceId,
     parentUnitId: partial.parentUnitId ?? "unit-1",
     parentUnitLabel: partial.parentUnitLabel ?? "Kitchen",
-    operationalTypeName: partial.operationalTypeName ?? "Servery",
+    contextLabel: partial.contextLabel ?? null,
     currentLocationHref: partial.currentLocationHref ?? null,
     exceptionCount: partial.exceptionCount ?? 0,
     exceptionSummary: partial.exceptionSummary ?? "No exceptions",
@@ -117,13 +117,14 @@ function state(spaceId: string): RuntimeLocationState {
   });
 }
 
-test("Review location rows read Facility type and teams from RLS, not Operational Type", () => {
+test("Review location rows read Facility type and teams from Runtime Location State", () => {
   const overlaid = overlayReviewLocationsFromRuntime(
-    [row({ spaceId: "kitchen", displayLabel: "Kitchen", operationalTypeName: "MAIN_KITCHEN" })],
+    [row({ spaceId: "kitchen", displayLabel: "Kitchen" })],
     [state("kitchen")],
   );
   assert.equal(overlaid[0]?.displayLabel, "Main Kitchen");
-  assert.equal(overlaid[0]?.operationalTypeName, "Production Space · Culinary");
+  assert.equal(overlaid[0]?.contextLabel, "Production Space · Culinary");
+  assert.equal("operationalTypeName" in (overlaid[0] ?? {}), false);
   assert.equal(overlaid[0]?.exceptionCount, 1);
   assert.equal(overlaid[0]?.exceptionSummary, "1 exception");
 });

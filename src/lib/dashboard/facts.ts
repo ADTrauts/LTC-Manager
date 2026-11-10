@@ -187,6 +187,11 @@ export function createDashboardFactPack(
     return teamRoomIds && teamRoomIds.departmentId === departmentId ? teamRoomIds.rooms : undefined;
   }
 
+  function spaceScopeFor(departmentId: string) {
+    const ids = spaceFilterFor(departmentId);
+    return ids ? { spaceIdFilter: ids } : {};
+  }
+
   async function loadRuntimeLocations(): Promise<readonly RuntimeLocationState[]> {
     const scope = viewer.scope;
     if (!scope || departmentIds.length === 0) return [];
@@ -254,15 +259,15 @@ export function createDashboardFactPack(
       scoped("callOffs", departmentId, () => sources.loadPresenceCallOffs(facilityId, { departmentId })),
     assetExceptions: (departmentId) =>
       scoped("assetExceptions", departmentId, () =>
-        sources.loadSupervisorAssetExceptions(facilityId, departmentId),
+        sources.loadSupervisorAssetExceptions(facilityId, departmentId, spaceFilterFor(departmentId)),
       ),
     workOrders: (departmentId) =>
       scoped("workOrders", departmentId, () =>
-        sources.listWorkOrders(facilitySession(), { facilityId, departmentId, client: sources.db }),
+        sources.listWorkOrders(facilitySession(), { facilityId, departmentId, client: sources.db, ...spaceScopeFor(departmentId) }),
       ),
     pmBoard: (departmentId) =>
       scoped("pmBoard", departmentId, () =>
-        sources.loadPmRunBoard(facilitySession(), { facilityId, departmentId, now, client: sources.db }),
+        sources.loadPmRunBoard(facilitySession(), { facilityId, departmentId, now, client: sources.db, ...spaceScopeFor(departmentId) }),
       ),
     triage: (plantDepartmentId) =>
       scoped("triage", plantDepartmentId, async () => {
@@ -272,6 +277,7 @@ export function createDashboardFactPack(
           facilityId,
           plantDepartmentId,
           status: TRIAGE_ELIGIBLE_STATUSES,
+          ...spaceScopeFor(plantDepartmentId),
         });
       }),
     runLogRequirements: (departmentId) =>

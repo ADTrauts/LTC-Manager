@@ -26,7 +26,6 @@ import { toCoverageExpectationView } from "./load-coverage";
 import {
   validateCoverageCycleStableKeys,
   validateCoverageLocationTarget,
-  validateCoverageOperationalTypeKeys,
 } from "./match-expectation";
 import { dayBefore, resolveCoveragePublishEffectiveFromKey } from "./publication";
 import type { CoverageExpectationView } from "./views";
@@ -174,7 +173,6 @@ export async function ensureWorkingCoverageDraft(
           roleLabel: item.roleLabel,
           unitId: item.unitId,
           spaceId: item.spaceId,
-          applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
           applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
           startsAtLocal: item.startsAtLocal,
           endsAtLocal: item.endsAtLocal,
@@ -259,8 +257,6 @@ export async function upsertCoverageExpectationItem(
     requiredCount: number;
     spaceId?: string | null;
     unitId?: string | null;
-    /** Rejected for forward authoring; kept for call-site compatibility. */
-    operationalTypeKeys?: readonly string[];
     cycleStableKeys: readonly string[];
   },
 ): Promise<CoverageExpectationView> {
@@ -283,9 +279,6 @@ export async function upsertCoverageExpectationItem(
     throw new Error("Required count must be an integer of at least 1.");
   }
 
-  validateCoverageOperationalTypeKeys({
-    submittedKeys: input.operationalTypeKeys ?? [],
-  });
   const place = validateCoverageLocationTarget({
     spaceId: input.spaceId,
     unitId: input.unitId,
@@ -318,7 +311,6 @@ export async function upsertCoverageExpectationItem(
     roleKey: input.roleKey,
     roleLabel: role.label,
     requiredCount: input.requiredCount,
-    applicableOperationalTypeKeys: [] as string[],
     applicableOperationalCycleStableKeys: cycleStableKeys,
     unitId: place.unitId,
     spaceId: place.spaceId,

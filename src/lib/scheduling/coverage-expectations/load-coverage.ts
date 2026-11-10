@@ -26,7 +26,6 @@ const TEMPLATE_SELECT = {
       roleKey: true,
       roleLabel: true,
       requiredCount: true,
-      applicableOperationalTypeKeys: true,
       applicableOperationalCycleStableKeys: true,
       unitId: true,
       spaceId: true,
@@ -55,7 +54,6 @@ export function toCoverageExpectationView(row: {
     roleKey: string;
     roleLabel: string;
     requiredCount: number;
-    applicableOperationalTypeKeys: string[];
     applicableOperationalCycleStableKeys: string[];
     unitId: string | null;
     spaceId?: string | null;
@@ -78,7 +76,6 @@ export function toCoverageExpectationView(row: {
       roleKey: item.roleKey,
       roleLabel: item.roleLabel,
       requiredCount: item.requiredCount,
-      applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       unitId: item.unitId,
       unitName: item.unit?.name ?? null,
@@ -155,7 +152,6 @@ export async function loadCoverageCatalog(input: {
       key: role.key,
       label: role.label,
     })),
-    operationalTypes: [],
     cycles: cycleRows,
     units: [...unitById.values()].sort((a, b) => a.name.localeCompare(b.name)),
     spaces: spaces.map((space) => ({

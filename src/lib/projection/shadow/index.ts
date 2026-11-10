@@ -25,14 +25,11 @@ export { adaptLegacyEligibilityToShadowView } from "./adapt-legacy";
 export { adaptProjectionSnapshotToShadowView } from "./adapt-projection";
 export { compareShadowViews } from "./compare";
 export type {
-  ShadowAreaView,
   ShadowEligibilityView,
-  ShadowExperienceView,
   ShadowMismatch,
   ShadowMismatchKind,
   ShadowParityMetrics,
   ShadowParityReport,
-  ShadowQueryScopeView,
   ShadowSeverity,
 } from "./types";
 

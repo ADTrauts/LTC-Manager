@@ -135,27 +135,6 @@ export async function loadCoverageSlotSnapshot(
     }),
   ]);
 
-  const bindings =
-    spaces.length === 0
-      ? []
-      : await client.departmentRoomArchetypeBinding.findMany({
-          where: {
-            unitSpaceId: { in: spaces.map((space) => space.id) },
-            profile: {
-              facilityId: input.facilityId,
-              departmentId: input.departmentId,
-              status: "ACTIVE",
-            },
-          },
-          select: {
-            unitSpaceId: true,
-            archetype: { select: { key: true, name: true } },
-          },
-        });
-  const operationalTypeBySpace = new Map(
-    bindings.map((binding) => [binding.unitSpaceId, binding.archetype]),
-  );
-
   const runtimeTemplates = selectRuntimeCoverageTemplates(
     templateRows.map((row) => ({
       id: row.id,
@@ -172,7 +151,6 @@ export async function loadCoverageSlotSnapshot(
         requiredCount: item.requiredCount,
         unitId: item.unitId,
         spaceId: item.spaceId,
-        applicableOperationalTypeKeys: item.applicableOperationalTypeKeys,
         applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       })),
     })) as CoverageTemplateVersionRow[],
@@ -239,15 +217,12 @@ export async function loadCoverageSlotSnapshot(
   const slots = new Map<string, CoverageSlotSnapshot>();
 
   for (const space of spaces) {
-    const operationalType = operationalTypeBySpace.get(space.id) ?? null;
     const expectations = resolveCoverageExpectationsForLocation({
       items,
       context: {
         departmentId: input.departmentId,
         spaceId: space.id,
         unitId: space.unitId,
-        operationalTypeKey: operationalType?.key ?? null,
-        operationalTypeName: operationalType?.name ?? null,
       },
       cycles: cycleRefs,
     });

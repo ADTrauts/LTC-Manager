@@ -1,21 +1,15 @@
 /**
- * Canonical Log → Operational Type applicability.
+ * Canonical Log location matching.
  *
- * WHERE: department-scoped DepartmentRoomArchetype.key.
- * WHEN: existing Attachment timing / Operational Cycle selections.
- *
- * Does not invent OT from physical Room Type or Unit.unitType.
- * Does not copy Attachment rows onto locations.
+ * A requirement applies to the canonical target stored on the attachment:
+ * SPACE, UNIT, DEPARTMENT, FACILITY, or ASSET.
+ * OPERATIONAL_TYPE rows do not match. Location Function and Facility Room Type
+ * are not live Records rules.
  */
 
-import type { LogAttachmentTarget } from "@/lib/logs-architecture/types";
-import { buildLogRequirementKey } from "@/lib/logs-architecture/requirement-key";
-import type { LogRequirement } from "@/lib/logs-architecture/types";
-
-import type { OverlayProvenanceSource } from "@/lib/department-administration/effective-location-program";
+import type { LogAttachmentTarget, LogRequirement } from "@/lib/logs-architecture/types";
 
 export type LocationLogApplicabilitySource =
-  | "OPERATIONAL_TYPE_DEFAULT"
   | "EXPLICIT_LOCATION"
   | "DEPARTMENT_WIDE"
   | "UNIT"
@@ -27,9 +21,7 @@ export type LocationLogMatchContext = {
   departmentId: string;
   spaceId: string;
   unitId: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
-  /** When set, ASSET attachments may match this asset id. */
+  /** Set when the question is about one Asset. A room context does not inherit Asset requirements. */
   assetId?: string | null;
 };
 
@@ -43,7 +35,6 @@ export type LocationLogAttachmentRow = {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
-  operationalTypeKey: string | null;
   assetId: string | null;
   assetName?: string | null;
   status: "ACTIVE" | "INACTIVE" | "RETIRED";
@@ -55,31 +46,11 @@ export type LocationLogMatch = {
   detail: string;
 };
 
-export function operationalTypeAssignId(departmentId: string, operationalTypeKey: string): string {
-  return `${departmentId}:${operationalTypeKey}`;
-}
-
-export function parseOperationalTypeAssignId(
-  id: string,
-): { departmentId: string; operationalTypeKey: string } | null {
-  const split = id.indexOf(":");
-  if (split <= 0) return null;
-  const departmentId = id.slice(0, split).trim();
-  const operationalTypeKey = id.slice(split + 1).trim();
-  if (!departmentId || !operationalTypeKey) return null;
-  return { departmentId, operationalTypeKey };
-}
-
 export function describeLogApplicability(input: {
   source: LocationLogApplicabilitySource;
-  operationalTypeName?: string | null;
   assetName?: string | null;
 }): string {
   switch (input.source) {
-    case "OPERATIONAL_TYPE_DEFAULT":
-      return input.operationalTypeName?.trim()
-        ? `Inherited from Operational Type: ${input.operationalTypeName.trim()}`
-        : "Inherited from Operational Type";
     case "EXPLICIT_LOCATION":
       return "Applied directly to this location";
     case "DEPARTMENT_WIDE":
@@ -103,14 +74,6 @@ export function matchLogAttachmentToLocation(
   if (attachment.departmentId !== context.departmentId) return null;
 
   switch (attachment.targetKind) {
-    case "OPERATIONAL_TYPE": {
-      // Forward location matching no longer expands Operational Type attachments
-      // onto rooms (Phase 2D-4/2D-6). Historical Audit/Review reconstruct OT via
-      // dedicated historical adapters; Run skips these attachments entirely.
-      void attachment.operationalTypeKey;
-      void context.operationalTypeKey;
-      return null;
-    }
     case "SPACE":
       if (!attachment.spaceId || attachment.spaceId !== context.spaceId) return null;
       return {
@@ -119,6 +82,7 @@ export function matchLogAttachmentToLocation(
         detail: describeLogApplicability({ source: "EXPLICIT_LOCATION" }),
       };
     case "UNIT":
+      if (context.spaceId) return null;
       if (!attachment.unitId || !context.unitId || attachment.unitId !== context.unitId) {
         return null;
       }
@@ -128,6 +92,7 @@ export function matchLogAttachmentToLocation(
         detail: describeLogApplicability({ source: "UNIT" }),
       };
     case "DEPARTMENT":
+      if (context.spaceId) return null;
       if (attachment.targetDepartmentId !== context.departmentId) return null;
       return {
         attachment,
@@ -135,15 +100,16 @@ export function matchLogAttachmentToLocation(
         detail: describeLogApplicability({ source: "DEPARTMENT_WIDE" }),
       };
     case "FACILITY":
+      if (context.spaceId) return null;
       return {
         attachment,
         source: "FACILITY",
         detail: describeLogApplicability({ source: "FACILITY" }),
       };
     case "ASSET": {
-      const assetId = attachment.assetId?.trim() || "";
-      const contextAssetId = context.assetId?.trim() || "";
-      if (!assetId || !contextAssetId || assetId !== contextAssetId) return null;
+      const assetId = context.assetId?.trim() || "";
+      const attached = attachment.assetId?.trim() || "";
+      if (!assetId || !attached || assetId !== attached) return null;
       return {
         attachment,
         source: "ASSET",
@@ -153,23 +119,8 @@ export function matchLogAttachmentToLocation(
         }),
       };
     }
-  }
-}
-
-export function overlaySourceFromLogMatch(
-  source: LocationLogApplicabilitySource,
-): OverlayProvenanceSource {
-  switch (source) {
-    case "OPERATIONAL_TYPE_DEFAULT":
-      return "OPERATIONAL_TYPE_DEFAULT";
-    case "EXPLICIT_LOCATION":
-      return "EXPLICIT_LOCATION";
-    case "DEPARTMENT_WIDE":
-      return "DEPARTMENT_WIDE";
-    case "UNIT":
-    case "FACILITY":
-    case "ASSET":
-      return "EXPLICIT_APPLICABILITY";
+    default:
+      return null;
   }
 }
 
@@ -206,8 +157,6 @@ function sourceRank(source: LocationLogApplicabilitySource): number {
   switch (source) {
     case "EXPLICIT_LOCATION":
       return 0;
-    case "OPERATIONAL_TYPE_DEFAULT":
-      return 1;
     case "UNIT":
       return 2;
     case "DEPARTMENT_WIDE":
@@ -226,7 +175,6 @@ function lcFirst(value: string): string {
 
 export function spaceIdForLogTarget(target: LogAttachmentTarget): string | null {
   if (target.kind === "SPACE") return target.spaceId;
-  if (target.kind === "OPERATIONAL_TYPE") return target.resolvedSpaceId?.trim() || null;
   return null;
 }
 
@@ -281,42 +229,4 @@ export function dedupeLocationLogRequirements<T extends LogRequirement>(
     byKey.set(key, existing ? preferDedupedLogRequirement(existing, requirement) : requirement);
   }
   return [...byKey.values(), ...passthrough];
-}
-
-export function bindOperationalTypeRequirementToSpace(
-  requirement: LogRequirement,
-  spaceId: string,
-): LogRequirement {
-  if (requirement.target.kind !== "OPERATIONAL_TYPE") return requirement;
-  const target: LogAttachmentTarget = {
-    ...requirement.target,
-    resolvedSpaceId: spaceId,
-  };
-  return {
-    ...requirement,
-    target,
-    requirementKey: buildLogRequirementKey({
-      attachmentStableKey: requirement.attachmentStableKey,
-      catalogStableKey: requirement.catalogStableKey,
-      scheduleKind: requirement.scheduleKind,
-      cycleStableKey: requirement.cycleStableKey,
-      windowStartLocal: requirement.windowStartLocal,
-      windowEndLocal: requirement.windowEndLocal,
-      target,
-      operationalDateKey: requirement.operationalDateKey,
-    }),
-  };
-}
-
-export function expandOperationalTypeSpaces<T extends { key: string }>(
-  assignments: ReadonlyMap<string, T>,
-  operationalTypeKey: string | null,
-): string[] {
-  const wanted = operationalTypeKey?.trim() || "";
-  if (!wanted) return [];
-  const spaceIds: string[] = [];
-  for (const [spaceId, assignment] of assignments) {
-    if (assignment.key.trim() === wanted) spaceIds.push(spaceId);
-  }
-  return spaceIds;
 }

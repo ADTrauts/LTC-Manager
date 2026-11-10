@@ -4,7 +4,6 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { presentPlantGettingStarted } from "@/lib/department-administration/plant-getting-started";
-import { listWorkPlanPresetSummaries, buildWorkPlanPresetDraft } from "@/lib/department-work";
 import { listTemplatePresetSummaries, buildTemplatePresetDraft } from "@/lib/operational-evidence";
 import {
   applyPmCadencePresetDefaults,
@@ -26,19 +25,11 @@ function source(relative: string) {
   return readFileSync(join(process.cwd(), relative), "utf8");
 }
 
-test("Plant starter catalog is four Work presets and five Record templates", () => {
+test("Plant starter catalog is five Record templates", () => {
   const catalog = listPlantStarterCatalog();
   assert.equal(PLANT_STARTER_PACKAGE_NAME, "Plant Operations starter configuration");
   assert.match(PLANT_STARTER_INTRO, /Optional examples to help your Facility get started/);
-  assert.deepEqual(
-    catalog.filter((row) => row.kind === "work").map((row) => row.id),
-    [
-      "MECHANICAL_ROOM_ROUND",
-      "BUILDING_WALKTHROUGH",
-      "EXTERIOR_GROUNDS_WALKTHROUGH",
-      "GENERATOR_VISUAL_CHECK",
-    ],
-  );
+  assert.equal(catalog.some((row) => row.kind === "work"), false);
   assert.deepEqual(
     catalog.filter((row) => row.kind === "record").map((row) => row.id),
     [
@@ -49,29 +40,22 @@ test("Plant starter catalog is four Work presets and five Record templates", () 
       "POST_WORK_ORDER_VERIFICATION",
     ],
   );
-  assert.equal(catalog.length, 9);
+  assert.equal(catalog.length, 5);
   assert.ok(catalog.every((row) => row.defaultSelected));
 });
 
 test("starter presence is derived from identities, never SETUP_COMPLETE", () => {
-  assert.deepEqual(classifyPlantStarterPresence({ workPresetKeys: [], recordPresetKeys: [] }), {
+  assert.deepEqual(classifyPlantStarterPresence({ recordPresetKeys: [] }), {
     addedIds: [],
     remainingIds: listPlantStarterCatalog().map((row) => row.id),
     status: "none",
   });
   const partial = classifyPlantStarterPresence({
-    workPresetKeys: ["MECHANICAL_ROOM_ROUND"],
     recordPresetKeys: ["EQUIPMENT_CONDITION_INSPECTION"],
   });
   assert.equal(partial.status, "partial");
-  assert.deepEqual(partial.addedIds, ["MECHANICAL_ROOM_ROUND", "EQUIPMENT_CONDITION_INSPECTION"]);
+  assert.deepEqual(partial.addedIds, ["EQUIPMENT_CONDITION_INSPECTION"]);
   const added = classifyPlantStarterPresence({
-    workPresetKeys: [
-      "MECHANICAL_ROOM_ROUND",
-      "BUILDING_WALKTHROUGH",
-      "EXTERIOR_GROUNDS_WALKTHROUGH",
-      "GENERATOR_VISUAL_CHECK",
-    ],
     recordPresetKeys: [
       "EQUIPMENT_CONDITION_INSPECTION",
       "MECHANICAL_ROOM_INSPECTION",
@@ -89,30 +73,6 @@ test("starter presence is derived from identities, never SETUP_COMPLETE", () => 
     source("src/lib/department-administration/plant-getting-started.ts"),
     /SETUP_COMPLETE/,
   );
-});
-
-test("Plant Work presets are draft shared Work, not PM or fake Assets", () => {
-  assert.equal(listWorkPlanPresetSummaries("PLANT").length, 4);
-  for (const key of [
-    "MECHANICAL_ROOM_ROUND",
-    "BUILDING_WALKTHROUGH",
-    "EXTERIOR_GROUNDS_WALKTHROUGH",
-    "GENERATOR_VISUAL_CHECK",
-  ] as const) {
-    const draft = buildWorkPlanPresetDraft(key);
-    assert.equal(draft.presetKey, key);
-    assert.equal(draft.stableKey, key);
-    assert.ok(draft.items.length >= 1);
-    assert.ok((draft.applicabilities ?? []).every((row) => row.kind === "DEPARTMENT_UNIT"));
-    assert.doesNotMatch(JSON.stringify(draft), /Example Generator|Example Boiler|Demo AHU/);
-  }
-  const generator = buildWorkPlanPresetDraft("GENERATOR_VISUAL_CHECK");
-  assert.match(generator.description ?? "", /visual operational check/);
-  assert.match(generator.description ?? "", /not manufacturer preventive service/);
-  assert.doesNotMatch(generator.description ?? "", /NFPA/);
-  const workSource = source("src/lib/department-work/work-presets.ts");
-  assert.match(workSource, /Always created as DRAFT/);
-  assert.doesNotMatch(workSource, /status: "PUBLISHED"/);
 });
 
 test("Plant Record presets use OperationalTemplate drafts with ad-hoc evidence", () => {
@@ -185,7 +145,6 @@ test("Getting Started starter step is optional and does not mark unrelated items
   assert.match(starter?.statusLabel ?? "", /Optional/);
   assert.equal(starter?.actionLabel, "Add starter configuration");
   assert.equal(starter?.href, "/build/departments/dept-plant?starter=1");
-  assert.equal(before.find((row) => row.id === "work"), undefined);
   assert.equal(before.find((row) => row.id === "records")?.status, "optional");
   assert.equal(before.find((row) => row.id === "assets")?.status, "needed");
   assert.equal(before.find((row) => row.id === "pm")?.status, "optional");
@@ -203,7 +162,6 @@ test("Getting Started starter step is optional and does not mark unrelated items
     canInstallStarter: true,
   });
   assert.equal(partial.find((row) => row.id === "starter")?.statusLabel, "Partially added");
-  assert.equal(partial.find((row) => row.id === "work"), undefined);
   assert.equal(partial.find((row) => row.id === "pm")?.status, "optional");
 
   const added = presentPlantGettingStarted({
@@ -231,7 +189,6 @@ test("Facility Plant Operations registry is AVAILABLE customer copy without a bi
   assert.equal(plant.name, "Facility Plant Operations");
   assert.equal(plant.defaultDepartmentName, "Plant Operations");
   assert.equal(plant.status, "AVAILABLE");
-  assert.equal(plant.starters.workPresets, true);
   assert.match(plant.shortDescription ?? "", /Work Orders/);
   assert.ok(plant.customerCapabilities?.includes("Preventive Maintenance"));
   assert.equal(plant.customerCapabilities?.includes("Recurring facility rounds"), false);
@@ -257,8 +214,7 @@ test("Facility Plant Operations registry is AVAILABLE customer copy without a bi
 test("starter installer copies once and never overwrites", () => {
   const installer = source("src/lib/department-products/plant-starter.ts");
   assert.match(installer, /already\.has\(id\)/);
-  assert.match(installer, /GENERIC_WORK_AUTHORING_RETIRED/);
-  assert.doesNotMatch(installer, /createDraftFromPreset|createWorkDraftFromPreset/);
-  assert.doesNotMatch(installer, /updateDraft|publishWorkPlan|publishTemplate/);
+  assert.match(installer, /installPublishedCatalog/);
+  assert.doesNotMatch(installer, /createDraftFromPreset|publishWorkPlan/);
   assert.doesNotMatch(installer, /preventiveMaintenancePlan|asset\.create/);
 });

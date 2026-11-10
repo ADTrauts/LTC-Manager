@@ -10,9 +10,14 @@ import {
   updateCycleDraftAction,
 } from "@/app/(protected)/admin/departments/[departmentId]/cycle-actions";
 import { Button } from "@/components/design-system/Button";
-import type { OperatingRhythmRootView } from "@/lib/department-administration/operating-rhythm";
+import { KeyTimeGroupsEditor } from "@/components/operational-cycles/room-picker";
+import type {
+  OperatingRhythmChildView,
+  OperatingRhythmRootView,
+} from "@/lib/department-administration/operating-rhythm";
 import type { ResolvedCycleStarter } from "@/lib/department-products/cycle-starter";
 import type { TeamCatalog } from "@/lib/department-teams";
+import { formatCycleClock } from "@/lib/operational-cycles/cycle-display";
 
 type Props = {
   departmentId: string;
@@ -40,6 +45,7 @@ export function OperatingRhythmPanel({
   allowImmediateTesting,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingKeyPointId, setEditingKeyPointId] = useState<string | null>(null);
   const draftCount = roots.filter((root) => root.draftCycleId).length;
   const showStarter = Boolean(canManage && starter && starterWouldCreate > 0);
 
@@ -141,14 +147,46 @@ export function OperatingRhythmPanel({
                 ) : null}
               </div>
               {root.children.length > 0 ? (
-                <ul className="mt-2 space-y-0.5 text-xs text-zinc-600">
-                  {root.children.map((child) => (
-                    <li key={`${root.stableKey}-${child.label}-${child.window}`}>
-                      {child.label}
-                      {child.window ? ` · ${child.window}` : ""}
-                      {child.status === "DRAFT" ? " · Draft" : ""}
-                    </li>
-                  ))}
+                <ul className="mt-2 space-y-2 text-xs text-zinc-600">
+                  {root.children.map((child) =>
+                    child.nodeKind === "KEY_TIME" ? (
+                      <li key={child.stableKey} data-testid="operating-rhythm-key-point">
+                        <KeyPointLocations
+                          rootLabel={root.label}
+                          child={child}
+                          departmentId={departmentId}
+                          catalog={catalog}
+                          canManage={canManage}
+                          nextDayKey={nextDayKey}
+                          open={editingKeyPointId === child.cycleId}
+                          onToggle={() =>
+                            setEditingKeyPointId((current) =>
+                              current === child.cycleId ? null : child.cycleId,
+                            )
+                          }
+                          onSaved={() => setEditingKeyPointId(null)}
+                        />
+                      </li>
+                    ) : (
+                      <li key={child.stableKey}>
+                        {child.label}
+                        {child.window ? ` · ${child.window}` : ""}
+                        {child.status === "DRAFT" ? " · Draft" : ""}
+                        {child.mealType ? ` · ${mealLabel(child.mealType)}` : ""}
+                        {canManage &&
+                        child.status === "DRAFT" &&
+                        child.cycleType === "SERVICE" &&
+                        !child.mealType ? (
+                          <ServicePhaseMeal
+                            child={child}
+                            departmentId={departmentId}
+                            suggestedMeal={root.mealType}
+                            nextDayKey={nextDayKey}
+                          />
+                        ) : null}
+                      </li>
+                    ),
+                  )}
                 </ul>
               ) : null}
               {editingId === root.draftCycleId && root.draftCycleId ? (
@@ -166,7 +204,6 @@ export function OperatingRhythmPanel({
                     catalog={{
                       locations: catalog.locations,
                       roomTypes: catalog.roomTypes,
-                      operationalTypes: catalog.operationalTypes,
                     }}
                     defaults={{
                       label: root.label,
@@ -214,5 +251,182 @@ export function OperatingRhythmPanel({
         </DepartmentAdminActionForm>
       ) : null}
     </section>
+  );
+}
+
+function locationName(catalog: TeamCatalog, spaceId: string): string {
+  return catalog.locations.find((location) => location.id === spaceId)?.name ?? "Saved location";
+}
+
+function mealLabel(mealType: string): string {
+  if (mealType === "BREAKFAST") return "Breakfast";
+  if (mealType === "LUNCH") return "Lunch";
+  if (mealType === "DINNER") return "Dinner";
+  return mealType;
+}
+
+function ServicePhaseMeal({
+  child,
+  departmentId,
+  suggestedMeal,
+  nextDayKey,
+}: {
+  child: OperatingRhythmChildView;
+  departmentId: string;
+  suggestedMeal: string | null;
+  nextDayKey: string;
+}) {
+  return (
+    <DepartmentAdminActionForm action={updateCycleDraftAction} className="mt-2 space-y-2">
+      <input type="hidden" name="departmentId" value={departmentId} />
+      <input type="hidden" name="cycleId" value={child.cycleId} />
+      <input type="hidden" name="label" value={child.label} />
+      <input type="hidden" name="description" value={child.description ?? ""} />
+      <input type="hidden" name="cycleType" value="SERVICE" />
+      <input type="hidden" name="nodeKind" value="PERIOD" />
+      <input type="hidden" name="startLocal" value={child.startLocal ?? ""} />
+      <input type="hidden" name="endLocal" value={child.endLocal ?? ""} />
+      <input
+        type="hidden"
+        name="applicableDaysOfWeek"
+        value={child.applicableDaysOfWeek.join(",")}
+      />
+      <input type="hidden" name="effectiveFrom" value={child.effectiveFrom ?? nextDayKey} />
+      <input type="hidden" name="parentStableKey" value={child.parentStableKey ?? ""} />
+      <input type="hidden" name="locationMode" value="EXPLICIT_UNITS" />
+      <input
+        type="hidden"
+        name="locationInheritFromParent"
+        value={child.locationInheritFromParent ? "true" : "false"}
+      />
+      <label className="block text-xs font-medium text-zinc-700">
+        Meal
+        <select
+          name="mealType"
+          defaultValue={suggestedMeal ?? ""}
+          className="mt-1 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
+          data-testid="service-phase-meal"
+          required
+        >
+          <option value="" disabled>
+            Choose a meal
+          </option>
+          <option value="BREAKFAST">Breakfast</option>
+          <option value="LUNCH">Lunch</option>
+          <option value="DINNER">Dinner</option>
+        </select>
+      </label>
+      <p className="text-[11px] text-zinc-500">
+        Review cannot schedule this Service phase until it names its meal. The phase still uses
+        the parent Cycle&apos;s locations.
+      </p>
+      <Button type="submit" size="compact" data-testid="save-service-phase-meal">
+        Save meal
+      </Button>
+    </DepartmentAdminActionForm>
+  );
+}
+
+function KeyPointLocations({
+  rootLabel,
+  child,
+  departmentId,
+  catalog,
+  canManage,
+  nextDayKey,
+  open,
+  onToggle,
+  onSaved,
+}: {
+  rootLabel: string;
+  child: OperatingRhythmChildView;
+  departmentId: string;
+  catalog: TeamCatalog;
+  canManage: boolean;
+  nextDayKey: string;
+  open: boolean;
+  onToggle: () => void;
+  onSaved: () => void;
+}) {
+  const [groups, setGroups] = useState(child.keyTimeGroups);
+  const editable = canManage && child.status === "DRAFT";
+  const shown = open ? groups : child.keyTimeGroups;
+  const missingRooms = shown.some((group) => group.spaceIds.length === 0);
+
+  return (
+    <div className="rounded-md bg-zinc-50 px-2 py-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="font-medium text-zinc-800">
+            {rootLabel} → {child.label}
+          </p>
+          {shown.length === 0 ? (
+            <p className="text-zinc-500">No due-time group yet.</p>
+          ) : (
+            <ul className="mt-1 space-y-0.5" data-testid="key-point-location-summary">
+              {shown.map((group) => (
+                <li key={`${child.stableKey}-${group.dueLocal}`}>
+                  {formatCycleClock(group.dueLocal) || group.dueLocal || "Due time"}
+                  {": "}
+                  {group.spaceIds.length === 0
+                    ? "No locations yet"
+                    : group.spaceIds.map((spaceId) => locationName(catalog, spaceId)).join(", ")}
+                </li>
+              ))}
+            </ul>
+          )}
+          {editable && missingRooms ? (
+            <p className="mt-1 text-amber-800">
+              Review cannot schedule this Key Point until each due-time group has a location.
+            </p>
+          ) : null}
+        </div>
+        {editable ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            onClick={() => {
+              setGroups(child.keyTimeGroups);
+              onToggle();
+            }}
+            data-testid="edit-key-point-locations"
+          >
+            {open ? "Close locations" : "Edit locations"}
+          </Button>
+        ) : null}
+      </div>
+      {open && editable ? (
+        <DepartmentAdminActionForm
+          action={updateCycleDraftAction}
+          className="mt-2 space-y-2"
+          onSuccess={onSaved}
+        >
+          <input type="hidden" name="departmentId" value={departmentId} />
+          <input type="hidden" name="cycleId" value={child.cycleId} />
+          <input type="hidden" name="label" value={child.label} />
+          <input type="hidden" name="description" value={child.description ?? ""} />
+          <input type="hidden" name="cycleType" value={child.cycleType} />
+          <input type="hidden" name="nodeKind" value="KEY_TIME" />
+          <input
+            type="hidden"
+            name="applicableDaysOfWeek"
+            value={child.applicableDaysOfWeek.join(",")}
+          />
+          <input type="hidden" name="effectiveFrom" value={child.effectiveFrom ?? nextDayKey} />
+          <input type="hidden" name="parentStableKey" value={child.parentStableKey ?? ""} />
+          <input type="hidden" name="locationMode" value="EXPLICIT_UNITS" />
+          <KeyTimeGroupsEditor
+            locations={catalog.locations}
+            groups={groups}
+            onChange={setGroups}
+            roomTypes={catalog.roomTypes}
+          />
+          <Button type="submit" size="compact" data-testid="save-key-point-locations">
+            Save locations
+          </Button>
+        </DepartmentAdminActionForm>
+      ) : null}
+    </div>
   );
 }

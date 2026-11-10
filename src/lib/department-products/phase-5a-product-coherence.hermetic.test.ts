@@ -127,9 +127,7 @@ test("Getting Started is derived guidance and never a persisted score", () => {
     recordCount: 0,
     publishedPmPlanCount: 0,
   });
-  // Phase 2C-2H-3: Work configure step omitted when no historical plans exist.
   assert.equal(rows.length, 9);
-  assert.equal(rows.some((row) => row.id === "work"), false);
   assert.equal(rows.find((row) => row.id === "starter")?.status, "optional");
   assert.equal(rows.find((row) => row.id === "operate")?.status, "ready");
   const gettingStarted = source("src/lib/department-administration/plant-getting-started.ts");

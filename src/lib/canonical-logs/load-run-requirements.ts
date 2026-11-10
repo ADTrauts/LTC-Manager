@@ -13,6 +13,7 @@ import {
   toServiceDateKey,
 } from "@/lib/operational-time";
 
+
 import { dedupeLocationLogRequirements } from "./log-operational-type-applicability";
 import { loadPublishedCyclesForLogsOnDate } from "./load-published-cycles-for-logs";
 import { parseCatalogEvidenceRules } from "./evidence-rules";
@@ -161,17 +162,6 @@ export async function loadFacilityRunLogRequirements(
     repeatingGroups: ReturnType<typeof parseRepeatingGroups>;
     calculations: ReturnType<typeof parseCalculations>;
   }> = [];
-  const spaceLabels = new Map<string, string>();
-
-  async function rememberSpaceLabels(spaceIds: readonly string[]) {
-    const missing = spaceIds.filter((id) => !spaceLabels.has(id));
-    if (missing.length === 0) return;
-    const spaces = await input.client.unitSpace.findMany({
-      where: { facilityId: input.facilityId, id: { in: [...missing] } },
-      select: { id: true, name: true },
-    });
-    for (const space of spaces) spaceLabels.set(space.id, space.name);
-  }
 
   function catalogForResolve(attachment: (typeof attachments)[number]) {
     return {
@@ -211,7 +201,6 @@ export async function loadFacilityRunLogRequirements(
           spaceId: attachment.spaceId,
           unitId: attachment.unitId,
           targetDepartmentId: attachment.targetDepartmentId,
-          operationalTypeKey: attachment.operationalTypeKey,
           departmentId: attachment.departmentId,
         })
       )?.title ?? "Target";
@@ -229,47 +218,36 @@ export async function loadFacilityRunLogRequirements(
       continue;
     }
 
-    // Forward Run no longer expands OPERATIONAL_TYPE via profile/archetype bindings.
-    // Historical OT attachments remain readable for Review/Audit; they do not invent
-    // SPACE requirements. Re-home as explicit SPACE/UNIT/… attachments to restore Run.
-    if (attachment.targetKind === "OPERATIONAL_TYPE") {
-      continue;
-    }
+    const resolved = resolveLogRequirementsForAttachment({
+      attachment: {
+        ...attachment,
+        resolvedSpaceId: null,
+        catalogDefinition: catalogForResolve(attachment),
+      },
+      operationalDateKey,
+      now,
+      facilityTimezone: timezone,
+      publishedCycles: publishedCyclesByDepartment.get(attachment.departmentId) ?? [],
+      existingRecords,
+    });
 
-    const spaceIds = [null];
-
-    for (const spaceId of spaceIds) {
-      const resolved = resolveLogRequirementsForAttachment({
-        attachment: {
-          ...attachment,
-          resolvedSpaceId: spaceId,
-          catalogDefinition: catalogForResolve(attachment),
-        },
-        operationalDateKey,
-        now,
-        facilityTimezone: timezone,
-        publishedCycles: publishedCyclesByDepartment.get(attachment.departmentId) ?? [],
-        existingRecords,
+    for (const req of resolved) {
+      if (req.productState === "NEEDS_SETUP" && !isManager) continue;
+      collected.push(req);
+      presented.push({
+        requirement: req,
+        catalogDefinitionName: attachment.catalogDefinition.name,
+        localDisplayLabel: attachment.localDisplayLabel,
+        localInstructions: attachment.localInstructions,
+        catalogInstructions: attachment.catalogDefinition.instructions,
+        targetLabel,
+        rules: parseCatalogEvidenceRules(attachment.catalogDefinition.rulesJson),
+        sections: parseInspectionSections(attachment.catalogDefinition.sectionsJson),
+        passingScore: attachment.catalogDefinition.passingScore,
+        criticalFailureForcesFailure: attachment.catalogDefinition.criticalFailureForcesFailure,
+        repeatingGroups: parseRepeatingGroups(attachment.catalogDefinition.repeatingGroupsJson),
+        calculations: parseCalculations(attachment.catalogDefinition.calculationsJson),
       });
-
-      for (const req of resolved) {
-        if (req.productState === "NEEDS_SETUP" && !isManager) continue;
-        collected.push(req);
-        presented.push({
-          requirement: req,
-          catalogDefinitionName: attachment.catalogDefinition.name,
-          localDisplayLabel: attachment.localDisplayLabel,
-          localInstructions: attachment.localInstructions,
-          catalogInstructions: attachment.catalogDefinition.instructions,
-          targetLabel: spaceId ? (spaceLabels.get(spaceId) ?? targetLabel) : targetLabel,
-          rules: parseCatalogEvidenceRules(attachment.catalogDefinition.rulesJson),
-          sections: parseInspectionSections(attachment.catalogDefinition.sectionsJson),
-          passingScore: attachment.catalogDefinition.passingScore,
-          criticalFailureForcesFailure: attachment.catalogDefinition.criticalFailureForcesFailure,
-          repeatingGroups: parseRepeatingGroups(attachment.catalogDefinition.repeatingGroupsJson),
-          calculations: parseCalculations(attachment.catalogDefinition.calculationsJson),
-        });
-      }
     }
   }
 
@@ -312,7 +290,6 @@ export async function loadFacilityRunLogRequirements(
       spaceId: true,
       unitId: true,
       targetDepartmentId: true,
-      operationalTypeKey: true,
       catalogDefinition: { select: { name: true } },
     },
   });
@@ -330,7 +307,6 @@ export async function loadFacilityRunLogRequirements(
           spaceId: row.spaceId,
           unitId: row.unitId,
           targetDepartmentId: row.targetDepartmentId,
-          operationalTypeKey: row.operationalTypeKey,
           departmentId: undefined,
         })
       )?.title ?? null;

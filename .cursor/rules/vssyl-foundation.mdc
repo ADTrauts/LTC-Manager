@@ -9,6 +9,8 @@ The current structure lives in the product documents. Read them before a change 
 
 Authority, in order:
 
+0. [01C Pre-launch canonical consolidation](docs/product/01C_PRELAUNCH_CANONICAL_RESET_AMENDMENT_2026-11-10.md), accepted November 10, 2026. One owner/no paying customers; retire obsolete compatibility; preserve current canonical workflows and security. One coordinated active-database cutover checkpoint, not per-model approval cycles.
+
 1. [Current foundation](docs/product/01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), including the [October 29, 2026 Notifications amendment](docs/product/01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-29-2026), [01A Department Builder](docs/product/01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md), and [01B Phase 1 contracts](docs/product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md)
 2. [How to build one](docs/product/13_DEPARTMENT_PRODUCT.md#how-to-build-one) for any new Department Product; Department Builder shell is [16](docs/product/16_DEPARTMENT_BUILDER_ARCHITECTURE.md)
 3. [Language guide](docs/product/08_PRODUCT_LANGUAGE_GUIDE.md) for the word, [domain model](docs/product/03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) for who owns the fact; reuse map is [15](docs/product/15_PLATFORM_PRIMITIVES_AND_ENGINES_REGISTRY.md) + [15A](docs/product/15A_DEPARTMENT_BUILDER_REGISTRY_AMENDMENT_2026-11-01.md)
@@ -22,6 +24,6 @@ Before writing the structural change:
 - A Department Product starts as DEVELOPMENT in `src/lib/department-products/registry.ts` and fills the blueprint first. It contributes Dashboard capabilities and does not ship dashboard UI.
 - Classify a new Department write in `src/lib/department-authority/write-manifest.ts`. A role check alone is not authority.
 - Do not add a capability environment switch. Do not change release status, price, or sellability as a side effect.
-- Schema changes are a new forward migration. Do not edit an applied migration.
+- Follow 01C for the final fresh schema baseline and archived history. Do not edit an applied database ledger or disguise a populated-schema mismatch.
 
 A major change replaces a layer, adds an engine, changes who runs a Department, changes a home, or changes what the Marketplace or Vssyl Console is. Stop and discuss it with the product owner. Do not build it in that conversation. After the decision, update the foundation and every material that still describes the old shape: the language guide, the domain model, the Department Product contract, and any persona, commercial, `AGENTS.md`, or this rule that the decision touches. A small addition that follows the list above is not a major change.

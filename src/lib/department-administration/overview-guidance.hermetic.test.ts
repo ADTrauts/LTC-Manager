@@ -9,7 +9,6 @@ import {
   formatLocationGuidance,
   formatOperatingRhythmGuidance,
   formatPeopleGuidance,
-  formatWorkGuidance,
   presentOverviewGuidance,
   resolveOverviewProductIdentity,
 } from "./overview-guidance";
@@ -39,13 +38,11 @@ function row(partial: Partial<CycleLifecycleRow> & { stableKey: string; status: 
     mealType: null,
     locationMode: "ALL_DEPARTMENT_UNITS",
     locationInheritFromParent: false,
-    applicableUnitTypes: [],
-    roomTypeKey: null,
     expectedMilestones: [],
     unitIds: [],
     spaceIds: [],
     milestoneTimes: [],
-    keyTimeGroups: [],
+    keyTimeGroups: partial.keyTimeGroups ?? [],
     status: partial.status,
     publishedAt: null,
     retiredAt: null,
@@ -124,22 +121,12 @@ describe("Overview guidance derivation", () => {
     );
   });
 
-  it("derives locations, people, work, and record facts", () => {
+  it("derives locations, people, and record facts", () => {
     assert.equal(formatLocationGuidance(0).status, "No locations assigned");
     assert.equal(formatLocationGuidance(0).href, "/admin/facility/builder");
     assert.equal(formatLocationGuidance(12).status, "12 assigned");
     assert.equal(formatPeopleGuidance(0).status, "No people assigned");
     assert.equal(formatPeopleGuidance(18).status, "18 assigned");
-    assert.equal(formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).applicable, false);
-    assert.equal(formatWorkGuidance({ departmentKey: "PLANT", publishedWorkPlanCount: 0, draftWorkPlanCount: 0 }).applicable, false);
-    assert.equal(
-      formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 3, draftWorkPlanCount: 2 }).status,
-      "3 historical work plans · 2 drafts (not live)",
-    );
-    assert.equal(
-      formatWorkGuidance({ departmentKey: "DIETARY", publishedWorkPlanCount: 3, draftWorkPlanCount: 2 }).actionLabel,
-      "View historical work →",
-    );
     assert.equal(formatRecordsGuidance(0).status, "No records required yet");
     assert.equal(formatRecordsGuidance(8).status, "8 record requirements");
   });
@@ -155,8 +142,6 @@ describe("Overview guidance derivation", () => {
       scheduledCount: 0,
       scheduledEffectiveFrom: null,
       memberCount: 92,
-      publishedWorkPlanCount: 3,
-      draftWorkPlanCount: 0,
       placedLogCount: 8,
     });
     assert.deepEqual(
@@ -165,54 +150,10 @@ describe("Overview guidance derivation", () => {
         ["locations", "18 assigned"],
         ["rhythm", "Breakfast, Lunch, and Dinner live"],
         ["people", "92 assigned"],
-        ["work", "3 historical work plans"],
         ["records", "8 record requirements"],
       ],
     );
     assert.doesNotMatch(JSON.stringify(rows), /67%|setup complete|configurationStatus/i);
-  });
-
-  it("shows historical Work without configure prompts when plans exist", () => {
-    const rows = presentOverviewGuidance({
-      departmentId: "dept1",
-      departmentKey: "DIETARY",
-      departmentName: "Dietary",
-      locationCount: 18,
-      currentRootLabels: ["Breakfast"],
-      draftRootCount: 0,
-      scheduledCount: 0,
-      scheduledEffectiveFrom: null,
-      memberCount: 12,
-      publishedWorkPlanCount: 1,
-      draftWorkPlanCount: 0,
-      placedLogCount: 0,
-      publishedWorkOperationalTypeKeys: ["servery"],
-      classifiedOperationalTypeKeys: ["main_kitchen", "retail"],
-    });
-    const work = rows.find((row) => row.id === "work")!;
-    assert.match(work.title, /historical/i);
-    assert.match(work.description, /retired/i);
-    assert.equal(work.href, "/staffing/work-plans");
-    assert.equal(work.actionLabel, "View historical work →");
-    assert.doesNotMatch(work.actionLabel, /Configure/i);
-  });
-
-  it("omits Work overview row when no plans exist", () => {
-    const rows = presentOverviewGuidance({
-      departmentId: "dept1",
-      departmentKey: "PLANT",
-      departmentName: "Plant",
-      locationCount: 4,
-      currentRootLabels: [],
-      draftRootCount: 0,
-      scheduledCount: 0,
-      scheduledEffectiveFrom: null,
-      memberCount: 2,
-      publishedWorkPlanCount: 0,
-      draftWorkPlanCount: 0,
-      placedLogCount: 0,
-    });
-    assert.equal(rows.some((row) => row.id === "work"), false);
   });
 
   it("does not persist readiness language in Overview or All Departments", () => {
@@ -257,5 +198,46 @@ describe("Operating rhythm presentation", () => {
     assert.ok(roots[0]?.liveWindow);
     assert.ok(roots[0]?.draftWindow);
     assert.equal(roots[0]?.draftCycleId, "draft-b");
+  });
+
+  it("edits the draft Key Point room group and leaves the published group alone", () => {
+    const roots = presentOperatingRhythmRoots(
+      [
+        row({
+          id: "breakfast",
+          stableKey: "breakfast",
+          label: "Breakfast",
+          status: "DRAFT",
+          effectiveFrom: new Date("2026-09-01T00:00:00.000Z"),
+        }),
+        row({
+          id: "published-ready",
+          stableKey: "breakfast_ready",
+          parentStableKey: "breakfast",
+          nodeKind: "KEY_TIME",
+          label: "Breakfast Ready",
+          status: "PUBLISHED",
+          keyTimeGroups: [{ dueLocal: "07:05", spaceIds: ["old-room"] }],
+          effectiveFrom: new Date("2026-09-01T00:00:00.000Z"),
+        }),
+        row({
+          id: "draft-ready",
+          stableKey: "breakfast_ready",
+          parentStableKey: "breakfast",
+          nodeKind: "KEY_TIME",
+          label: "Breakfast Ready",
+          status: "DRAFT",
+          keyTimeGroups: [{ dueLocal: "07:05", spaceIds: ["servery-a", "servery-b"] }],
+          effectiveFrom: new Date("2026-09-28T00:00:00.000Z"),
+        }),
+      ],
+      "2026-09-27",
+    );
+    const keyPoint = roots[0]?.children.find((child) => child.stableKey === "breakfast_ready");
+    assert.equal(keyPoint?.cycleId, "draft-ready");
+    assert.equal(keyPoint?.nodeKind, "KEY_TIME");
+    assert.deepEqual(keyPoint?.keyTimeGroups, [
+      { dueLocal: "07:05", spaceIds: ["servery-a", "servery-b"] },
+    ]);
   });
 });

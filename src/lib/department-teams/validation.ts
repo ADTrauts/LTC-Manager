@@ -26,29 +26,6 @@ export function teamNamesConflict(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-export type TeamRoomCatalogEntry = {
-  spaceId: string;
-  facilityId: string;
-  isActive: boolean;
-};
-
-/**
- * Submitted Team Rooms must all be active UnitSpaces in the Department footprint.
- * Rejects the entire set if any id is missing, inactive, cross-facility, or not assigned.
- */
-export function validateTeamRoomSubmission(input: {
-  submittedSpaceIds: readonly string[];
-  allowedSpaceIds: ReadonlySet<string>;
-}): string[] {
-  const unique = [...new Set(input.submittedSpaceIds.filter(Boolean))];
-  if (unique.length !== input.submittedSpaceIds.filter(Boolean).length) {
-    // Duplicates are harmless — unique set is what we persist.
-  }
-  const invalid = unique.filter((id) => !input.allowedSpaceIds.has(id));
-  if (invalid.length === 0) return unique;
-  throw new Error("Team locations must be Rooms assigned to this Department.");
-}
-
 export type TeamManagerCandidate = {
   id: string;
   facilityId: string;

@@ -7,10 +7,6 @@ import type { PrismaClient, UnitHierarchyRole } from "@prisma/client";
 
 import { isActionableDepartmentUnit } from "@/lib/department-administration/department-locations";
 import { loadFacilityTimezone } from "@/lib/operational-time";
-import {
-  operationalTypeAssignId,
-  parseOperationalTypeAssignId,
-} from "./log-operational-type-applicability";
 
 import { logicalAttachmentsForBuildList, groupLogicalLogAttachments } from "./logical-attachment";
 import { parseRecommendedFixedWindows } from "./catalog-authoring";
@@ -68,7 +64,6 @@ function liveAssignmentMap(
     spaceId: string | null;
     unitId: string | null;
     targetDepartmentId: string | null;
-    operationalTypeKey?: string | null;
     departmentId?: string | null;
     stableKey: string;
   }>,
@@ -86,15 +81,34 @@ function liveAssignmentMap(
           ? current.spaceId
           : kind === "UNIT"
             ? current.unitId
-            : kind === "OPERATIONAL_TYPE"
-              ? current.operationalTypeKey && current.departmentId
-                ? operationalTypeAssignId(current.departmentId, current.operationalTypeKey)
-                : null
-              : current.targetDepartmentId;
+            : current.targetDepartmentId;
     if (!id) continue;
     map.set(targetAssignKey(kind, id), current.id);
+    if (kind === "SPACE" && current.spaceId && current.departmentId) {
+      map.set(`${targetAssignKey(kind, current.spaceId)}:${current.departmentId}`, current.id);
+    }
   }
   return map;
+}
+
+function placeLabels(
+  unit: {
+    name: string;
+    hierarchyRole: string | null;
+    parentUnit: {
+      name: string;
+      hierarchyRole: string | null;
+      parentUnit: { name: string; hierarchyRole: string | null } | null;
+    } | null;
+  } | null,
+): { floor: string | null; neighborhood: string | null } {
+  const chain = [unit, unit?.parentUnit, unit?.parentUnit?.parentUnit].filter(
+    (row): row is { name: string; hierarchyRole: string | null } => Boolean(row),
+  );
+  return {
+    floor: chain.find((row) => row.hierarchyRole === "FLOOR")?.name ?? null,
+    neighborhood: chain.find((row) => row.hierarchyRole === "NEIGHBORHOOD")?.name ?? null,
+  };
 }
 
 function unitGroupLabel(unit: {
@@ -165,7 +179,19 @@ export async function loadCatalogAssignView(input: {
         id: true,
         name: true,
         spaceType: true,
-        unit: { select: { name: true, parentUnit: { select: { name: true } } } },
+        unit: {
+          select: {
+            name: true,
+            hierarchyRole: true,
+            parentUnit: {
+              select: {
+                name: true,
+                hierarchyRole: true,
+                parentUnit: { select: { name: true, hierarchyRole: true } },
+              },
+            },
+          },
+        },
         facilityRoomType: { select: { baseTypeKey: true, displayName: true } },
         responsibilities: {
           select: { departmentId: true, department: { select: { id: true, name: true, key: true } } },
@@ -210,7 +236,6 @@ export async function loadCatalogAssignView(input: {
         spaceId: true,
         unitId: true,
         targetDepartmentId: true,
-        operationalTypeKey: true,
         departmentId: true,
       },
     }),
@@ -224,7 +249,9 @@ export async function loadCatalogAssignView(input: {
     if (id) departmentIds.add(id);
   }
   for (const space of spaces) {
-    if (space.responsibilities.length === 1) departmentIds.add(space.responsibilities[0]!.departmentId);
+    for (const responsibility of space.responsibilities) {
+      departmentIds.add(responsibility.departmentId);
+    }
   }
   for (const unit of units) {
     const dept = resolveUnitDepartment(unit.departmentResponsibilities);
@@ -323,10 +350,18 @@ export async function loadCatalogAssignView(input: {
     };
   });
 
-  const spaceRows: CatalogAssignTargetRow[] = spaces.map((space) => {
-    const key = targetAssignKey("SPACE", space.id);
+  const spaceRows: CatalogAssignTargetRow[] = spaces.flatMap((space) => {
+    const place = placeLabels(space.unit);
     const uniqueDepts = [...new Map(space.responsibilities.map((r) => [r.departmentId, r])).values()];
-    const department = uniqueDepts.length === 1 ? uniqueDepts[0]!.department : null;
+    const departments =
+      uniqueDepts.length > 0
+        ? uniqueDepts.map((row) => row.department)
+        : [null];
+    return departments.map((department) => {
+    const shared = uniqueDepts.length > 1 && department;
+    const key = shared
+      ? `${targetAssignKey("SPACE", space.id)}:${department.id}`
+      : targetAssignKey("SPACE", space.id);
     const suggested = catalogMatchesTarget(suggestions, {
       kind: "SPACE",
       spaceType: space.spaceType,
@@ -339,12 +374,9 @@ export async function loadCatalogAssignView(input: {
     const timing = timingForDepartment(department?.id ?? null);
     let disabled = false;
     let disabledReason: string | null = null;
-    if (uniqueDepts.length === 0) {
+    if (!department) {
       disabled = true;
       disabledReason = "No responsible Department.";
-    } else if (uniqueDepts.length > 1) {
-      disabled = true;
-      disabledReason = "Multiple Departments share this room.";
     } else if (catalogBlocked) {
       disabled = true;
       disabledReason = catalogBlocked;
@@ -359,10 +391,13 @@ export async function loadCatalogAssignView(input: {
     }
     return {
       key,
-      kind: "SPACE",
+      kind: "SPACE" as const,
       id: space.id,
-      label: space.name,
+      label: shared ? `${space.name} · ${department.name}` : space.name,
       groupLabel: unitGroupLabel(space.unit),
+      floorLabel: place.floor,
+      neighborhoodLabel: place.neighborhood,
+      roomTypeLabel: space.facilityRoomType?.displayName ?? null,
       departmentId: department?.id ?? null,
       departmentName: department?.name ?? null,
       suggested,
@@ -371,6 +406,7 @@ export async function loadCatalogAssignView(input: {
       disabled,
       disabledReason,
     };
+    });
   });
 
   const unitRows: CatalogAssignTargetRow[] = units.flatMap((unit) => {
@@ -466,29 +502,6 @@ export async function loadCatalogAssignView(input: {
     };
   });
 
-  const leftoverOperationalTypeRows: CatalogAssignTargetRow[] = [];
-  for (const [key, attachmentId] of assigned) {
-    const parsed = parseTargetAssignKey(key);
-    if (parsed?.kind !== "OPERATIONAL_TYPE") continue;
-    const operationalType = parseOperationalTypeAssignId(parsed.id);
-    if (!operationalType) continue;
-    const department = departments.find((row) => row.id === operationalType.departmentId);
-    leftoverOperationalTypeRows.push({
-      key,
-      kind: "OPERATIONAL_TYPE",
-      id: parsed.id,
-      label: operationalType.operationalTypeKey,
-      groupLabel: department?.name ?? null,
-      departmentId: operationalType.departmentId,
-      departmentName: department?.name ?? null,
-      suggested: false,
-      assigned: true,
-      attachmentId,
-      disabled: false,
-      disabledReason: null,
-    });
-  }
-
   return {
     catalogStableKey: catalog.stableKey,
     catalogName: catalog.name,
@@ -501,15 +514,6 @@ export async function loadCatalogAssignView(input: {
     effectiveFromKey: effective.effectiveFromKey,
     effectiveLabel: effective.label,
     categories: [
-      ...(leftoverOperationalTypeRows.length > 0
-        ? [
-            {
-              kind: "OPERATIONAL_TYPE" as const,
-              label: "Leftover Operational Types",
-              targets: leftoverOperationalTypeRows,
-            },
-          ]
-        : []),
       { kind: "SPACE", label: "Rooms", targets: spaceRows },
       { kind: "ASSET", label: "Assets", targets: assetRows },
       { kind: "UNIT", label: "Units", targets: unitRows },
@@ -588,7 +592,6 @@ export async function applyCatalogAssignSelection(input: {
     for (const key of diff.addKeys) {
       const row = byKey.get(key);
       if (!row?.departmentId) continue;
-      if (row.kind === "OPERATIONAL_TYPE") continue;
       const timing = await timingFor(row.departmentId);
       if (timing.needsSetup) continue;
       const target =

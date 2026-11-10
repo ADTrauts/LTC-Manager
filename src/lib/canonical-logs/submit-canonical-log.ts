@@ -466,10 +466,8 @@ export async function performCanonicalLogSubmission(
     spaceId: attachment.spaceId,
     unitId: attachment.unitId,
     targetDepartmentId: attachment.targetDepartmentId,
-    operationalTypeKey: attachment.operationalTypeKey,
   });
-  const boundSpaceId =
-    target.targetKind === "OPERATIONAL_TYPE" ? input.boundSpaceId?.trim() || null : null;
+  const boundSpaceId = null;
 
   const scheduleKind = mapTimingModeToScheduleKind(attachment.timingMode);
   const isFollowUp = Boolean(followsRecordId);
@@ -728,6 +726,7 @@ export async function performCanonicalLogSubmission(
     throw err;
   }
 }
+
 
 async function persistCanonicalEvidenceRecord<
   T extends {

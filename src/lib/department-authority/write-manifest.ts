@@ -267,7 +267,7 @@ export const WRITE_MANIFEST: WriteManifest = {
     createDepartmentTeamAction: department("department"),
     ...each(department("departmentTeam"), [
       "updateDepartmentTeamAction",
-      "addRemainingRoomsOfTypeToTeamAction",
+
       "archiveDepartmentTeamAction",
     ]),
   },

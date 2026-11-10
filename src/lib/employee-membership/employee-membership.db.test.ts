@@ -120,19 +120,19 @@ test(
         facilityId: facility.id,
         departmentId: dietary.id,
         displayName: "Resident Services",
-        spaceIds: [dietaryRoom.id],
+
       });
       const retail = await createDepartmentTeam(mgr, {
         facilityId: facility.id,
         departmentId: dietary.id,
         displayName: "Retail",
-        spaceIds: [dietaryRoom.id],
+
       });
       const publicAreas = await createDepartmentTeam(mgr, {
         facilityId: facility.id,
         departmentId: evs.id,
         displayName: "Public Areas",
-        spaceIds: [evsRoom.id],
+
       });
 
       const sarah = await prisma.employee.create({

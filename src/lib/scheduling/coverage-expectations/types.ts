@@ -3,7 +3,7 @@
  *
  * WHAT: OperationalAssignment roleKey
  * HOW MANY: requiredCount
- * WHERE: explicit UnitSpace.id and/or Unit.id (forward). Legacy OT keys are compatibility only.
+ * WHERE: exactly one explicit UnitSpace.id or Unit.id.
  * WHEN: DepartmentOperationalCycle.stableKey
  * ACTUAL: OperationalAssignment (never ScheduleEntry, Team, or Job Role)
  *
@@ -15,7 +15,6 @@ export type CoverageExpectationStatus = "DRAFT" | "PUBLISHED" | "RETIRED";
 export type CoveragePerspective = "working" | "runtime";
 
 export type CoverageProvenanceSource =
-  | "OPERATIONAL_TYPE_DEFAULT"
   | "EXPLICIT_LOCATION";
 
 export type CoverageExpectationItemInput = {
@@ -31,7 +30,6 @@ export type CoverageExpectationItemInput = {
   requiredCount: number;
   unitId: string | null;
   spaceId?: string | null;
-  applicableOperationalTypeKeys: readonly string[];
   applicableOperationalCycleStableKeys: readonly string[];
 };
 
@@ -39,8 +37,6 @@ export type CoverageLocationContext = {
   departmentId: string;
   spaceId: string;
   unitId: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
 };
 
 export type CoverageCycleRef = {
@@ -61,8 +57,6 @@ export type ResolvedCoverageExpectation = {
   requiredCount: number;
   cycleStableKey: string | null;
   cycleLabel: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
   unitId: string | null;
   spaceId: string | null;
   provenance: CoverageProvenanceSource;

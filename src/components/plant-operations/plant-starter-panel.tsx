@@ -52,7 +52,7 @@ export function PlantStarterPanel({
   function onInstall() {
     // Phase 2C-2H-3: Work Plan presets are not newly installable.
     const selectedIds = items
-      .filter((item) => item.kind !== "work" && !item.alreadyAdded && selected[item.id])
+      .filter((item) => !item.alreadyAdded && selected[item.id])
       .map((item) => item.id);
     setError(null);
     startTransition(async () => {
@@ -69,10 +69,9 @@ export function PlantStarterPanel({
     });
   }
 
-  const historicalWork = items.filter((item) => item.kind === "work" && item.alreadyAdded);
   const records = items.filter((item) => item.kind === "record");
   const selectable = items.filter(
-    (item) => item.kind !== "work" && !item.alreadyAdded && selected[item.id],
+    (item) => !item.alreadyAdded && selected[item.id],
   ).length;
 
   return (
@@ -94,25 +93,6 @@ export function PlantStarterPanel({
 
       {open ? (
         <div className="space-y-4" data-testid="plant-starter-review">
-          {historicalWork.length > 0 ? (
-            <div className="space-y-2" data-testid="plant-starter-historical-work">
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Recurring Work (historical)
-              </p>
-              <p className="text-xs text-zinc-600">
-                Generic Work Plan presets are retired and cannot be newly installed.
-              </p>
-              <ul className="space-y-1 text-sm text-zinc-800">
-                {historicalWork.map((item) => (
-                  <li key={item.id}>
-                    <span className="font-medium">{item.title}</span>
-                    <span className="ml-2 text-xs text-zinc-500">Already on file</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
           <fieldset className="space-y-2">
             <legend className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
               Record Templates
@@ -159,9 +139,6 @@ export function PlantStarterPanel({
         <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800" data-testid="plant-starter-result">
           <p className="font-medium">Starter configuration added</p>
           <p className="mt-1">
-            {result.workAdded} recurring Work preset{result.workAdded === 1 ? "" : "s"} added
-          </p>
-          <p>
             {result.recordAdded} Record template{result.recordAdded === 1 ? "" : "s"} added
           </p>
           {result.alreadyExisted > 0 ? (
@@ -174,9 +151,6 @@ export function PlantStarterPanel({
             before publishing.
           </p>
           <p className="mt-2 flex flex-wrap gap-3">
-            <Link href={result.workHref} className="font-medium underline underline-offset-2">
-              Open Work
-            </Link>
             <Link href={result.recordsHref} className="font-medium underline underline-offset-2">
               Open Records
             </Link>

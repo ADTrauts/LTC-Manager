@@ -1,5 +1,7 @@
 # Platform Primitives & Engines Registry
 
+**Current pre-launch policy:** [01C — canonical consolidation, November 10, 2026](./01C_PRELAUNCH_CANONICAL_RESET_AMENDMENT_2026-11-10.md) overrides older instructions to retain retired development compatibility.
+
 **Status:** Architecture companion and reuse registry. Not the architecture authority.  
 **Date:** October 29, 2026; Phase 1 reconciliation November 8, 2026  
 **Consult this before** adding a model, a source-of-truth table, a service, a resolver, an engine, a major reusable workflow, a major UI subsystem, a catalog or store, or a people, location, or work mechanism.

@@ -1,5 +1,5 @@
 /**
- * Wave 15I — Today's Work Projection cutover tests.
+ * Today's Work projection supplies the Units an employee may see.
  */
 
 import assert from "node:assert/strict";
@@ -15,7 +15,6 @@ import {
 } from "@/lib/projection";
 import {
   adaptProjectionToTodaysWork,
-  assembleExperienceWalkContributions,
   filterWalkListToProjectedUnits,
 } from "@/lib/todays-work/projection";
 import type { WalkListData, WalkListItem } from "@/lib/todays-work";
@@ -37,69 +36,36 @@ function walkItem(unitId: string, name: string, score = 1): WalkListItem {
   };
 }
 
-test("Dietary — Experience contributors and projected Units", () => {
+test("Dietary projected units follow responsible rooms", () => {
   const view = adaptProjectionToTodaysWork(DIETARY_GOLDEN_PROJECTION);
   assert.ok(view.projectedUnitIds.includes("unit_kensington"));
-  assert.ok(view.sections[0]?.areas.length);
-  const experiences = view.sections.flatMap((s) =>
-    s.areas.flatMap((a) => a.experiences.map((e) => e.experienceKey)),
-  );
-  assert.ok(experiences.includes("MEAL_SERVICE"));
-  assert.ok(experiences.includes("TEMPERATURE_MONITORING"));
-  assert.ok(view.sections[0]?.areas.every((a) => a.experiences.length > 0));
+  assert.ok(view.actionableUnitIds.includes("unit_kensington"));
+  assert.equal(view.error, null);
 });
 
-test("EVS — no Dietary Experiences", () => {
+test("EVS projected units stay on the EVS snapshot", () => {
   const view = adaptProjectionToTodaysWork(EVS_GOLDEN_PROJECTION);
-  const keys = view.sections.flatMap((s) =>
-    s.areas.flatMap((a) => a.experiences.map((e) => e.experienceKey)),
-  );
-  assert.ok(keys.length > 0);
-  assert.ok(!keys.includes("MEAL_SERVICE"));
+  assert.deepEqual(view.projectedUnitIds, ["unit_ground_floor", "unit_kensington"]);
+  assert.deepEqual(view.actionableUnitIds, ["unit_kensington"]);
 });
 
-test("Plant — policy without fake assignments", () => {
+test("Plant policy does not create room assignments", () => {
   const view = adaptProjectionToTodaysWork(PLANT_GOLDEN_PROJECTION);
-  assert.equal(view.sections[0]?.plantPolicy?.createsRoomAssignments, false);
-  const keys = view.sections.flatMap((s) =>
-    s.areas.flatMap((a) => a.experiences.map((e) => e.experienceKey)),
-  );
-  assert.ok(!keys.includes("MEAL_SERVICE"));
+  assert.equal(PLANT_GOLDEN_PROJECTION.plantPolicy?.createsRoomAssignments, false);
+  assert.ok(view.projectedUnitIds.includes("unit_kensington"));
 });
 
-test("Facility Overview — labeled department sections", () => {
+test("Facility Overview stays a facility lens", () => {
   const view = adaptProjectionToTodaysWork(FACILITY_OVERVIEW_GOLDEN_PROJECTION);
   assert.equal(view.lensMode, "FACILITY");
-  assert.ok(view.sections.every((s) => s.label != null));
-  assert.ok(view.sections.length >= 1);
-  assert.deepEqual(
-    view.sections.map((s) => s.departmentKey),
-    view.sections.filter((s) => s.departmentKey === "DIETARY" || s.departmentKey === "PLANT").map((s) => s.departmentKey),
-  );
-  assert.ok(!view.sections.some((s) => s.departmentKey === "EVS"));
+  assert.equal(view.lensKey, "facility");
+  assert.ok(view.projectedUnitIds.includes("unit_kensington"));
 });
 
-test("Permission narrowing — actions subset", () => {
+test("Permission narrowing does not add units", () => {
   const full = adaptProjectionToTodaysWork(DIETARY_GOLDEN_PROJECTION);
   const narrow = adaptProjectionToTodaysWork(PERMISSION_NARROWED_PROJECTION);
-  const fullMeal = full.sections
-    .flatMap((s) => s.areas.flatMap((a) => a.experiences))
-    .find((e) => e.experienceKey === "MEAL_SERVICE");
-  const narrowMeal = narrow.sections
-    .flatMap((s) => s.areas.flatMap((a) => a.experiences))
-    .find((e) => e.experienceKey === "MEAL_SERVICE");
-  assert.ok(fullMeal && narrowMeal);
-  for (const action of narrowMeal.actions) {
-    assert.ok(narrowMeal.allowedActionKeys.includes(action.key));
-  }
-});
-
-test("Ordering — Areas then Experiences preserved", () => {
-  const view = adaptProjectionToTodaysWork(DIETARY_GOLDEN_PROJECTION);
-  const areas = view.sections[0]?.areas ?? [];
-  for (let i = 1; i < areas.length; i++) {
-    assert.ok(areas[i]!.order >= areas[i - 1]!.order);
-  }
+  assert.ok(narrow.projectedUnitIds.every((id) => full.projectedUnitIds.includes(id)));
 });
 
 test("Walk filter never broadens beyond Projection", () => {
@@ -122,26 +88,9 @@ test("Walk filter never broadens beyond Projection", () => {
     lookFirst: null,
   };
   const filtered = filterWalkListToProjectedUnits(walk, view.projectedUnitIds);
-  assert.ok(filtered.items.every((i) => view.projectedUnitIds.includes(i.unitId)));
-  assert.ok(!filtered.items.some((i) => i.unitId === "unit_not_projected"));
+  assert.ok(filtered.items.every((item) => view.projectedUnitIds.includes(item.unitId)));
+  assert.ok(!filtered.items.some((item) => item.unitId === "unit_not_projected"));
   assert.ok(filtered.summary.total <= walk.summary.total);
-});
-
-test("Experience walk contributions preserve Experience order", () => {
-  const view = adaptProjectionToTodaysWork(DIETARY_GOLDEN_PROJECTION);
-  const items = [
-    walkItem("unit_kensington", "Kensington", 10),
-    walkItem("unit_ground_floor", "Ground", 1),
-  ];
-  const contributions = assembleExperienceWalkContributions(view, items);
-  assert.ok(contributions.length > 0);
-  for (let i = 1; i < contributions.length; i++) {
-    const prev = contributions[i - 1]!;
-    const next = contributions[i]!;
-    if (prev.areaKey === next.areaKey) {
-      assert.ok(next.order >= prev.order);
-    }
-  }
 });
 
 test("Projection failure empty view", () => {
@@ -149,21 +98,9 @@ test("Projection failure empty view", () => {
     {
       ...DIETARY_GOLDEN_PROJECTION,
       locations: { roots: [], actionableIds: [], byId: {} },
-      areas: [],
-      experiences: [],
     },
     "boom",
   );
   assert.equal(view.error, "boom");
   assert.equal(view.projectedUnitIds.length, 0);
-  assert.equal(view.sections.length, 0);
-});
-
-test("Tools embedded on contributors", () => {
-  const view = adaptProjectionToTodaysWork(DIETARY_GOLDEN_PROJECTION);
-  const meal = view.sections
-    .flatMap((s) => s.areas.flatMap((a) => a.experiences))
-    .find((e) => e.experienceKey === "MEAL_SERVICE");
-  assert.ok(meal);
-  assert.ok(meal.tools.length > 0);
 });

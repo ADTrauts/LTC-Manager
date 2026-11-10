@@ -1,5 +1,7 @@
 # 01 — Product Constitution
 
+**Current pre-launch policy:** [01C — canonical consolidation, November 10, 2026](./01C_PRELAUNCH_CANONICAL_RESET_AMENDMENT_2026-11-10.md) overrides older instructions to retain retired development compatibility.
+
 **Status:** Current architecture authority  
 **Certified through:** `06935aef0d2e257c1ff616694992f522360a83c1` (2026-10-02)  
 **Phase 1 documentation reconciliation:** November 8, 2026 at audited HEAD `e179c0d52dcc3a71d83c8b0a42a1eb00945de6f8`  

@@ -10,7 +10,6 @@ export type OverviewGuidanceRowId =
   | "locations"
   | "rhythm"
   | "people"
-  | "work"
   | "records";
 
 export type OverviewGuidanceRow = {
@@ -33,11 +32,7 @@ export type OverviewGuidanceInput = {
   scheduledCount: number;
   scheduledEffectiveFrom: string | null;
   memberCount: number;
-  publishedWorkPlanCount: number;
-  draftWorkPlanCount: number;
   placedLogCount: number;
-  publishedWorkOperationalTypeKeys?: readonly string[];
-  classifiedOperationalTypeKeys?: readonly string[];
   mealTimingUpgradeRequired?: boolean;
 };
 
@@ -145,51 +140,6 @@ export function formatPeopleGuidance(memberCount: number): {
   };
 }
 
-/**
- * Phase 2C-2H-3: generic Work Plan authoring is retired.
- * Empty departments omit the Work overview row (no configure prompt).
- * Existing plan counts stay as historical read-only awareness only.
- */
-export function formatWorkGuidance(input: {
-  departmentKey: string;
-  publishedWorkPlanCount: number;
-  draftWorkPlanCount: number;
-}): { applicable: boolean; status: string; actionLabel: string } {
-  if (input.publishedWorkPlanCount === 0 && input.draftWorkPlanCount === 0) {
-    return { applicable: false, status: "", actionLabel: "" };
-  }
-  const parts: string[] = [];
-  if (input.publishedWorkPlanCount > 0) {
-    parts.push(
-      input.publishedWorkPlanCount === 1
-        ? "1 historical work plan"
-        : `${input.publishedWorkPlanCount} historical work plans`,
-    );
-  }
-  if (input.draftWorkPlanCount > 0) {
-    parts.push(
-      input.draftWorkPlanCount === 1
-        ? "1 draft (not live)"
-        : `${input.draftWorkPlanCount} drafts (not live)`,
-    );
-  }
-  return {
-    applicable: true,
-    status: parts.join(" · "),
-    actionLabel: "View historical work →",
-  };
-}
-
-export function hasUnmatchedPublishedOperationalTypes(input: {
-  publishedWorkOperationalTypeKeys?: readonly string[];
-  classifiedOperationalTypeKeys?: readonly string[];
-}): boolean {
-  const published = (input.publishedWorkOperationalTypeKeys ?? []).filter(Boolean);
-  if (!published.length) return false;
-  const classified = new Set(input.classifiedOperationalTypeKeys ?? []);
-  return published.some((key) => !classified.has(key));
-}
-
 export function formatRecordsGuidance(placedLogCount: number): {
   status: string;
   actionLabel: string;
@@ -220,7 +170,6 @@ export function presentOverviewGuidance(input: OverviewGuidanceInput): OverviewG
     rhythm.actionLabel = "Prepare timing upgrade";
   }
   const people = formatPeopleGuidance(input.memberCount);
-  const work = formatWorkGuidance(input);
   const records = formatRecordsGuidance(input.placedLogCount);
 
   const rows: OverviewGuidanceRow[] = [
@@ -252,19 +201,6 @@ export function presentOverviewGuidance(input: OverviewGuidanceInput): OverviewG
       testId: "overview-people-summary",
     },
   ];
-
-  if (work.applicable) {
-    rows.push({
-      id: "work",
-      title: "Work (historical)",
-      status: work.status,
-      description:
-        "Generic Work Plan authoring is retired. Existing plans remain listed read-only.",
-      href: "/staffing/work-plans",
-      actionLabel: work.actionLabel,
-      testId: "overview-work-summary",
-    });
-  }
 
   rows.push({
     id: "records",

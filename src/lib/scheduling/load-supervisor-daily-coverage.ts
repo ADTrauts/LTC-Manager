@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import {
   resolveViewerTeamScopes,
   type ViewerTeamScope,
-} from "@/lib/dashboard/viewer/viewer-team-scope";
+} from "@/lib/dashboard/viewer/operational-placement";
 
 import { loadDepartmentDaySchedule } from "./load-department-day-schedule";
 import {
@@ -119,11 +119,11 @@ function allowedRoomsFromTeamScope(scope: ViewerTeamScope | null): {
   if (!scope || scope.mode === "DEPARTMENT_WIDE") {
     return { allowedRoomIds: null, locationScopeNote: null };
   }
-  if (scope.mode === "TEAM_WITHOUT_LOCATIONS") {
+  if (scope.mode === "ASSIGNMENT_WITHOUT_PLACEMENT") {
     return {
       allowedRoomIds: new Set(),
       locationScopeNote:
-        "Your Team does not have configured Rooms yet, so location coverage is hidden. Staff presence still shows below.",
+        "No assignment places you in a room today, so location coverage is hidden. Staff presence still shows below.",
     };
   }
   return {
@@ -224,7 +224,7 @@ export async function loadSupervisorDailyCoverage(input: {
       employeeFirstName: row.projection.employeeFirstName,
       employeeLastName: row.projection.employeeLastName,
       teamDisplayName: row.projection.teamDisplayName,
-      jobRoleDisplayName: row.projection.jobRoleDisplayName,
+      jobRoleDisplayName: row.projection.jobTitleName,
       jobTitleDisplayName: row.jobTitleDisplayName,
       relationship: row.projection.relationship,
       shifts: row.projection.shifts,

@@ -15,13 +15,13 @@ describe("Department Locations programming contracts", () => {
       "export async function clearLocationOperationalTypeAction",
     );
     const assignBlock = actions.slice(assignStart, assignEnd);
-    assert.match(assignBlock, /LOCATION_FUNCTION_AUTHORING_RETIRED|RETIRED/);
+    assert.match(assignBlock, /return retired\(\)/);
     assert.doesNotMatch(assignBlock, /bindRoomToArchetype/);
     assert.doesNotMatch(assignBlock, /requireFeature\(/);
 
     const createStart = actions.indexOf("export async function createLocationOperationalTypeAction");
     const createBlock = actions.slice(createStart);
-    assert.match(createBlock, /LOCATION_FUNCTION_AUTHORING_RETIRED|RETIRED/);
+    assert.match(createBlock, /return retired\(\)/);
     assert.doesNotMatch(createBlock, /bindRoomToArchetype/);
   });
 
@@ -38,9 +38,10 @@ describe("Department Locations programming contracts", () => {
     assert.match(client, /is responsible/);
     assert.match(client, /updateDepartmentSpaceNoteAction/);
     assert.match(client, /GuardedModal/);
-    assert.match(client, /Operational configuration · Teams/);
-    assert.match(client, /Operational configuration · Cycles/);
-    assert.match(client, /Staffing need/);
+    assert.doesNotMatch(client, /Teams that work here/);
+    assert.match(client, /Operating Rhythm/);
+    assert.match(client, /Menus/);
+    assert.match(client, /location-program-coverage/);
     assert.match(client, /Add log/);
     assert.doesNotMatch(client, /Coverage Expectations/);
     assert.doesNotMatch(client, /groupRoomsByFacilityRoomType/);

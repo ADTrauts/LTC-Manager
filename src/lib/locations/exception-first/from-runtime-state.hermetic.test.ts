@@ -79,21 +79,19 @@ function emptyState(partial: {
           facilityRoomTypeId: "type-prod",
           responsible: true,
         },
-        teams: attached ? [{ id: "culinary", name: "Culinary", spaceIds: [spaceId] }] : [],
-        teamCycles: attached
+        teams: [],
+        teamCycles: [],
+        cyclePlacements: attached
           ? [
               {
-                teamId: "culinary",
                 cycleStableKey: "breakfast",
                 label: "Breakfast",
                 startLocal: "06:00",
                 endLocal: "10:00",
-                requiredCount: 5,
-                grain: "TOTAL",
+                spaceIds: [spaceId],
               },
             ]
           : [],
-        cyclePlacements: [],
         spaceLogs: [],
         assetLogs: [],
         typeDefaults: [],
@@ -317,7 +315,7 @@ test("ready active room is quiet; idle programmed room stays after at-risk", () 
   const idle = presentExceptionFirstLocationCard(emptyState({ spaceId: "store-1", name: "Dry Store" }));
   assert.equal(idle.pace, "idle");
   assert.equal(idle.happeningLabel, HAPPENING_NONE_LABEL);
-  assert.equal(idle.responsibleLabel, "Culinary");
+  assert.equal(idle.responsibleLabel, null);
 });
 
 test("board follows navigation hierarchy regardless of name, runtime load order, or status", () => {

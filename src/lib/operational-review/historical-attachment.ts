@@ -24,7 +24,6 @@ function lineageOf(segment: ReviewAttachmentSegmentFact): string {
     spaceId: segment.spaceId,
     unitId: segment.unitId,
     targetDepartmentId: segment.targetDepartmentId,
-    operationalTypeKey: segment.operationalTypeKey,
     departmentId: segment.departmentId,
   });
 }

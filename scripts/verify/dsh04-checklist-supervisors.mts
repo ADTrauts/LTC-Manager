@@ -119,12 +119,6 @@ async function main() {
         select: { id: true },
       });
     }
-    await db.departmentTeamRoomMembership.upsert({
-      where: { teamId_spaceId: { teamId: team.id, spaceId: space.id } },
-      update: {},
-      create: { teamId: team.id, spaceId: space.id },
-    });
-
     await ensureSupervisor(db, {
       email: NOTEAM_EMAIL,
       displayName: "Checklist Supervisor",

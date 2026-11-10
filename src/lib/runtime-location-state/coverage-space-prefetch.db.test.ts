@@ -8,6 +8,8 @@ import { loadCoverage } from "@/lib/dashboard/cards/load";
 import { createDashboardFactPack } from "@/lib/dashboard/facts";
 import { resolveDashboardViewer } from "@/lib/dashboard/viewer/resolve";
 import { ensureUserFacilityAccessGrant } from "@/lib/facility-access/assert-user-facility-access";
+import { loadEmployeeTeamRoomView } from "@/lib/department-teams/team-room-membership";
+import { pruneTeamRoomsAfterResponsibilityRemoved } from "@/lib/department-teams/service";
 import { prisma } from "@/lib/prisma";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 
@@ -90,7 +92,7 @@ test("PF-2D-001: persisted Space Coverage reaches RLS and Dashboard", {
         facilityId, departmentId, stableKey: `pf2d-${tag}-${count}`, name: "PF2D explicit need",
         status: "PUBLISHED", publishedAt: effectiveFrom, effectiveFrom,
         items: { create: { roleKey: "SERVER", roleLabel: "PF2D Server", requiredCount: count,
-          applicableOperationalTypeKeys: [], ...place } },
+          ...place } },
       }, include: { items: true } });
     }
     const precise = await template(facility.id, department.id, 2, { spaceId: target.id });
@@ -144,7 +146,6 @@ test("PF-2D-001: persisted Space Coverage reaches RLS and Dashboard", {
       const persisted = await prisma.operationalAssignmentTemplateItem.findUniqueOrThrow({ where: { id: precise.items[0].id } });
       assert.equal(persisted.spaceId, target.id);
       assert.equal(persisted.unitId, null);
-      assert.deepEqual(persisted.applicableOperationalTypeKeys, []);
       const loaded = await prefetchRuntimeLocationInputs({ facilityId: facility.id, spaceRefs: refs, now });
       assert.equal(loaded.coverageTemplatesByDepartmentId.get(department.id)?.[0].items[0].spaceId, target.id);
     });
@@ -211,6 +212,46 @@ test("PF-2D-001: persisted Space Coverage reaches RLS and Dashboard", {
       const facts = createDashboardFactPack(viewer, { now: () => now });
       await assert.rejects(() => facts.dailyCoverage(foreignDepartment.id), /outside the viewer's scope/);
       assert(!(await facts.runtimeLocations()).some((state) => state.identity.location.facilityId !== facility.id));
+    });
+    await t.test("explicit Team room view stays inside authorized Department and Facility", async () => {
+      const role = await prisma.role.upsert({ where: { key: "SUPERVISOR" }, update: {}, create: { key: "SUPERVISOR", name: "Supervisor" } });
+      const supervisorUser = await prisma.user.create({ data: {
+        email: `pf2d-super-${tag}@example.invalid`, displayName: "Team Supervisor", facilityId: facility.id,
+        primaryDepartmentId: department.id, roleId: role.id, emailVerifiedAt: effectiveFrom,
+      } });
+      await ensureUserFacilityAccessGrant(prisma, { userId: supervisorUser.id, facilityId: facility.id, roleKey: "SUPERVISOR" });
+      const supervisor = await prisma.employee.create({ data: { facilityId: facility.id, userId: supervisorUser.id,
+        firstName: "Team", lastName: "Supervisor", primaryDepartmentId: department.id, roleType: "SUPERVISOR" } });
+      const team = await prisma.departmentTeam.create({ data: { facilityId: facility.id, departmentId: department.id,
+        displayName: "Explicit rooms", roomMemberships: { create: [{ spaceId: target.id }, { spaceId: foreignRoom.id }] } } });
+      await prisma.employeeTeamMembership.create({ data: { employeeId: supervisor.id, teamId: team.id } });
+      for (const space of [target, unconfigured]) {
+        const asset = await prisma.asset.create({ data: { assetCode: `TEAM-${tag}-${space.id}`, name: "Team scope asset",
+          equipmentType: "EQUIPMENT", unitId: unit.id, spaceId: space.id, departmentId: department.id, criticality: "ROUTINE" } });
+        await prisma.repair.create({ data: { repairCode: `TEAM-${tag}-${space.id}`, title: "Team scope maintenance",
+          description: "Explicit-room regression", assetId: asset.id, unitId: unit.id, spaceId: space.id,
+          requestingDepartmentId: department.id, responsibleDepartmentId: department.id } });
+      }
+      const configured = await loadEmployeeTeamRoomView(prisma, { facilityId: facility.id, departmentId: department.id, employeeId: supervisor.id });
+      assert.deepEqual(configured.roomIds, [target.id]);
+      const supervisorSession: FacilitySession = { ...session, uid: supervisorUser.id, email: supervisorUser.email, role: "SUPERVISOR" };
+      const resolved = await resolveDashboardViewer(supervisorSession, { scopeParam: `team:${department.id}` }, {
+        db: prisma, now, resolveEmployeeId: async () => supervisor.id,
+      });
+      assert.equal(resolved.kind, "viewer");
+      if (resolved.kind !== "viewer") throw new Error("Expected authorized Team view");
+      assert.equal(resolved.viewer.scope?.kind, "TEAM");
+      const teamFacts = createDashboardFactPack(resolved.viewer, { now: () => now });
+      const payload = await teamFacts.runtimeLocations();
+      assert(payload.length > 0);
+      assert(payload.every(row => row.identity.location.spaceId === target.id && row.identity.location.departmentId === department.id));
+      assert.deepEqual((await teamFacts.workOrders(department.id)).map(row => row.workOrder.spaceId), [target.id]);
+      const exceptions = await teamFacts.assetExceptions(department.id);
+      assert.equal(exceptions.length, 1);
+      assert.equal(exceptions[0].workOrderId, (await teamFacts.workOrders(department.id))[0].workOrder.id);
+      await prisma.unitSpaceResponsibility.deleteMany({ where: { spaceId: target.id, departmentId: department.id } });
+      assert.equal(await pruneTeamRoomsAfterResponsibilityRemoved(prisma, { spaceId: target.id, departmentId: department.id }), 1);
+      assert.deepEqual((await loadEmployeeTeamRoomView(prisma, { facilityId: facility.id, departmentId: department.id, employeeId: supervisor.id })).roomIds, []);
     });
   } finally {
     if (previousAuthority === undefined) delete process.env.CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED;

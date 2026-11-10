@@ -5,7 +5,6 @@
  * 1. Explicit spaceId → match that Space only
  * 2. Explicit unitId (no spaceId) → match Spaces in that Unit
  *
- * Legacy OT keys remain for historical compatibility when neither space nor unit is set.
  * Room Type and Department responsibility never invent Coverage.
  */
 
@@ -17,15 +16,7 @@ import type {
   ResolvedCoverageExpectation,
 } from "./types";
 
-export function describeCoverageApplicability(input: {
-  source: CoverageProvenanceSource;
-  operationalTypeName?: string | null;
-}): string {
-  if (input.source === "OPERATIONAL_TYPE_DEFAULT") {
-    return input.operationalTypeName?.trim()
-      ? `Inherited from Operational Type: ${input.operationalTypeName.trim()}`
-      : "Inherited from Operational Type";
-  }
+export function describeCoverageApplicability(_input: { source: CoverageProvenanceSource }): string {
   return "Applied directly to this location";
 }
 
@@ -34,29 +25,8 @@ export function matchCoverageItemToLocation(
   context: CoverageLocationContext,
 ): CoverageProvenanceSource | null {
   const spaceId = item.spaceId?.trim() || "";
-  if (spaceId) {
-    return spaceId === context.spaceId ? "EXPLICIT_LOCATION" : null;
-  }
-
-  const otKeys = item.applicableOperationalTypeKeys.map((key) => key.trim()).filter(Boolean);
-  // Forward Unit-wide: empty OT keys, unitId set. Expands to each Space in that Unit
-  // for the space-grained episode system. Do not combine with OT keys.
-  if (item.unitId) {
-    if (otKeys.length > 0) return null;
-    if (context.unitId && item.unitId === context.unitId) {
-      return "EXPLICIT_LOCATION";
-    }
-    return null;
-  }
-
-  // Historical compatibility only: OT keys with no explicit Space or Unit.
-  if (otKeys.length > 0) {
-    const locationKey = context.operationalTypeKey?.trim() || "";
-    if (locationKey && otKeys.includes(locationKey)) {
-      return "OPERATIONAL_TYPE_DEFAULT";
-    }
-  }
-  return null;
+  if (spaceId) return spaceId === context.spaceId ? "EXPLICIT_LOCATION" : null;
+  return item.unitId && item.unitId === context.unitId ? "EXPLICIT_LOCATION" : null;
 }
 
 export function itemTargetsCycle(
@@ -128,16 +98,11 @@ function toResolved(
     requiredCount: item.requiredCount,
     cycleStableKey: cycle?.stableKey ?? null,
     cycleLabel: cycle?.label ?? null,
-    operationalTypeKey:
-      source === "OPERATIONAL_TYPE_DEFAULT" ? context.operationalTypeKey : null,
-    operationalTypeName:
-      source === "OPERATIONAL_TYPE_DEFAULT" ? context.operationalTypeName : null,
     unitId: item.unitId,
     spaceId: item.spaceId?.trim() || null,
     provenance: source,
     detail: describeCoverageApplicability({
       source,
-      operationalTypeName: context.operationalTypeName,
     }),
   };
 }
@@ -158,24 +123,6 @@ export function dedupeResolvedExpectations(
     if (cycle !== 0) return cycle;
     return a.roleLabel.localeCompare(b.roleLabel);
   });
-}
-
-/**
- * Forward Coverage authoring no longer accepts Operational Type / Location Function keys.
- * Historical rows may still carry them for compatibility matching only.
- */
-export function validateCoverageOperationalTypeKeys(input: {
-  submittedKeys: readonly string[];
-  allowedKeys?: ReadonlySet<string>;
-}): string[] {
-  const unique = [...new Set(input.submittedKeys.map((key) => key.trim()).filter(Boolean))];
-  if (unique.length > 0) {
-    throw new Error(
-      "Coverage no longer targets Operational Types. Choose the Unit or rooms this coverage need applies to.",
-    );
-  }
-  void input.allowedKeys;
-  return [];
 }
 
 /** Forward items must target exactly one of: a Space, or a Unit (not both). */

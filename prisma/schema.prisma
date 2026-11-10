@@ -204,7 +204,6 @@ model Facility {
   departmentWorkOccurrences             DepartmentWorkOccurrence[]
   departmentOperationalZones            DepartmentOperationalZone[]
   departmentTeams                       DepartmentTeam[]
-  departmentTeamCycles                  DepartmentTeamCycle[]
   facilityTypeLogDefaults               DepartmentFacilityTypeLogDefault[]
   departmentJobRoles                    DepartmentJobRole[]
   departmentRequestRoutes               DepartmentRequestRoute[]
@@ -272,7 +271,6 @@ model Department {
   departmentOperationalZones     DepartmentOperationalZone[]
   scheduleEntries                ScheduleEntry[]
   teams                          DepartmentTeam[]
-  teamCycles                     DepartmentTeamCycle[]
   facilityTypeLogDefaults        DepartmentFacilityTypeLogDefault[]
   jobRoles                       DepartmentJobRole[]
   employeeJobRoleAssignments     EmployeeDepartmentJobRole[]
@@ -1970,7 +1968,7 @@ model UnitSpace {
   repairs                    Repair[]
   departmentWorkOccurrences  DepartmentWorkOccurrence[]
   zoneMemberships            DepartmentOperationalZoneLocation[]
-  teamMemberships            DepartmentTeamRoomMembership[]
+  teamMemberships DepartmentTeamRoomMembership[]
   logSuppressions            DepartmentLocationLogSuppression[]
   assignmentLocations              OperationalAssignmentLocation[]
   assignmentTemplateItems          OperationalAssignmentTemplateItem[]
@@ -1997,58 +1995,27 @@ enum DepartmentTeamStatus {
 /// Optional enduring organizational subgroup inside one Department.
 /// Facility-named. Not a permission, Job Role, Zone, Cycle, or daily assignment.
 model DepartmentTeam {
-  id                            String                         @id @default(cuid())
-  facilityId                    String
-  facility                      Facility                       @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId                  String
-  department                    Department                     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  displayName                   String
-  description                   String?
-  displayOrder                  Int                            @default(100)
-  status                        DepartmentTeamStatus           @default(ACTIVE)
-  archivedAt                    DateTime?
-  /// Explicit accountable manager. Does not grant RoleKey authority.
-  managerEmployeeId             String?
-  managerEmployee               Employee?                      @relation("DepartmentTeamManager", fields: [managerEmployeeId], references: [id], onDelete: SetNull)
-  /// Stable DepartmentRoomArchetype.key values. Not display names. Department-scoped via departmentId.
-  applicableOperationalTypeKeys String[]                       @default([])
-  roomMemberships               DepartmentTeamRoomMembership[]
-  employeeMemberships           EmployeeTeamMembership[]
-  cycleNeeds                    DepartmentTeamCycle[]
-  createdAt                     DateTime                       @default(now())
-  updatedAt                     DateTime                       @updatedAt
+  id                  String                   @id @default(cuid())
+  facilityId          String
+  facility            Facility                 @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  departmentId        String
+  department          Department               @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  displayName         String
+  description         String?
+  displayOrder        Int                      @default(100)
+  status              DepartmentTeamStatus     @default(ACTIVE)
+  archivedAt          DateTime?
+  /// This person leads the Team. Does not grant platform authority or a location scope.
+  managerEmployeeId   String?
+  managerEmployee     Employee?                @relation("DepartmentTeamManager", fields: [managerEmployeeId], references: [id], onDelete: SetNull)
+  employeeMemberships EmployeeTeamMembership[]
+  roomMemberships DepartmentTeamRoomMembership[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
 
   @@index([facilityId, departmentId, status, displayOrder])
   @@index([departmentId, status])
   @@index([managerEmployeeId])
-}
-
-enum DepartmentTeamCycleNeedGrain {
-  TOTAL
-  PER_ROOM
-}
-
-/// Team × department cycle. The cycle is department-owned (Breakfast is one Dietary cycle).
-/// Need is this team's staffing for that cycle — not a Coverage document.
-model DepartmentTeamCycle {
-  id             String                       @id @default(cuid())
-  teamId         String
-  team           DepartmentTeam               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  facilityId     String
-  facility       Facility                     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId   String
-  department     Department                   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  /// DepartmentOperationalCycle.stableKey — identity across draft/published versions.
-  cycleStableKey String
-  /// Null = no staffing need (valid for Plant).
-  requiredCount  Int?
-  grain          DepartmentTeamCycleNeedGrain @default(TOTAL)
-  createdAt      DateTime                     @default(now())
-  updatedAt      DateTime                     @updatedAt
-
-  @@unique([teamId, cycleStableKey])
-  @@index([departmentId, cycleStableKey])
-  @@index([facilityId, departmentId])
 }
 
 /// Department-scoped log default on a Facility Room Type (Dietary Servery, not Role).
@@ -2088,25 +2055,22 @@ model DepartmentLocationLogSuppression {
   @@index([departmentId])
 }
 
-/// Team explicit normal operating Rooms. Identity is UnitSpace.id — never Room Type / Floor / Neighborhood.
-/// Overlapping membership across Teams in the same Department is allowed.
-/// Operational Type applicability is stored on DepartmentTeam.applicableOperationalTypeKeys
-/// and is not copied onto these rows.
+/// Employee organizational home on a Department Team.
+/// Not authority, Job Title, WorkStation, Unit access, or daily assignment.
+/// At most one Primary Team per Department is enforced in the write transaction.
+/// Explicit normal rooms of a Department Team; never an authorization grant or Coverage need.
 model DepartmentTeamRoomMembership {
-  id        String         @id @default(cuid())
-  teamId    String
-  team      DepartmentTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  spaceId   String
-  space     UnitSpace      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  createdAt DateTime       @default(now())
+  id String @id @default(cuid())
+  teamId String
+  team DepartmentTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  spaceId String
+  space UnitSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@unique([teamId, spaceId])
   @@index([spaceId])
 }
 
-/// Employee organizational home on a Department Team.
-/// Not authority, Job Title, WorkStation, Unit access, or daily assignment.
-/// At most one Primary Team per Department is enforced in the write transaction.
 model EmployeeTeamMembership {
   id         String         @id @default(cuid())
   employeeId String
@@ -4033,11 +3997,9 @@ model OperationalAssignmentTemplateItem {
   roleLabel                            String
   unitId                               String?
   unit                                 Unit?                         @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  /// Explicit Space target. Prefer XOR with unitId for forward authoring.
+  /// Canonical room. A need on this space does not apply to another room of the same Facility Room Type.
   spaceId                              String?
   space                                UnitSpace?                    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
-  /// Legacy OT keys — compatibility only. Forward Coverage uses spaceId or unitId.
-  applicableOperationalTypeKeys        String[]                      @default([])
   /// DepartmentOperationalCycle.stableKey targets. Empty = no cycle constraint (legacy).
   applicableOperationalCycleStableKeys String[]                      @default([])
   startsAtLocal                        String?

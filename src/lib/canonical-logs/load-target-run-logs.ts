@@ -1,8 +1,7 @@
 /**
  * Canonical RUN Logs for a single Attachment target (Asset / Room / Unit / Department).
- * Direct target attachments stay on that target.
- * Forward Run does not expand OPERATIONAL_TYPE via profile/archetype bindings.
- * Room does not mix Asset Logs from the same space.
+ * The requirement stays on that canonical target.
+ * A room does not inherit Asset Logs, and Location Function does not add rooms.
  */
 
 import type { LogAttachmentTargetKind, PrismaClient } from "@prisma/client";
@@ -248,17 +247,10 @@ export async function loadTargetRunLogs(input: {
     buildHref: targetRunBuildHref(input.target),
   });
 
-  const rows = [
-    ...(await input.client.logAttachment.findMany({
-      where: targetRunAttachmentWhere(input.facilityId, input.target),
-      include: attachmentInclude,
-    })),
-    ...(await loadRuntimeOperationalTypeAttachmentsForTarget({
-      client: input.client,
-      facilityId: input.facilityId,
-      target: input.target,
-    })),
-  ];
+  const rows = await input.client.logAttachment.findMany({
+    where: targetRunAttachmentWhere(input.facilityId, input.target),
+    include: attachmentInclude,
+  });
   if (rows.length === 0) return emptyView();
 
   const isManager = hasAtLeastRole(input.session.role, "MANAGER");
@@ -377,10 +369,7 @@ export async function loadTargetRunLogs(input: {
     const resolved = resolveLogRequirementsForAttachment({
       attachment: {
         ...attachment,
-        resolvedSpaceId:
-          attachment.targetKind === "OPERATIONAL_TYPE" && input.target.kind === "SPACE"
-            ? input.target.id
-            : null,
+        resolvedSpaceId: null,
         catalogDefinition: catalogForResolve(attachment.catalogDefinition),
       },
       operationalDateKey: todayKey,
@@ -428,10 +417,7 @@ export async function loadTargetRunLogs(input: {
     );
     const resolveSegments: LogAttachmentForResolve[] = segments.map((attachment) => ({
       ...attachment,
-      resolvedSpaceId:
-        attachment.targetKind === "OPERATIONAL_TYPE" && input.target.kind === "SPACE"
-          ? input.target.id
-          : null,
+      resolvedSpaceId: null,
       catalogDefinition: catalogForResolve(attachment.catalogDefinition),
     }));
 
@@ -478,17 +464,4 @@ export async function loadTargetRunLogs(input: {
     history,
     buildHref: targetRunBuildHref(input.target),
   };
-}
-
-/**
- * Forward Run no longer expands OPERATIONAL_TYPE attachments via the OT hub.
- * Explicit SPACE attachments remain the canonical room-level source.
- * Historical OT rows stay available to Review/Audit compatibility readers.
- */
-async function loadRuntimeOperationalTypeAttachmentsForTarget(_input: {
-  client: PrismaClient;
-  facilityId: string;
-  target: RunTargetRef;
-}) {
-  return [];
 }

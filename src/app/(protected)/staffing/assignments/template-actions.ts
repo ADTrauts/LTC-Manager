@@ -8,21 +8,15 @@ import { sessionUserIdForFk } from "@/lib/auth";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
-import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
-import { randomBytes } from "node:crypto";
-
+import { isCoverageTemplateEffectiveOnDate } from "@/lib/scheduling/coverage-expectations/publication";
 import {
+  applyAssignmentTemplate,
   loadAssignmentTemplatePreview,
   loadDailyAssignmentBoard,
-  applyAssignmentTemplate,
 } from "@/lib/scheduling/operational-assignments";
-import { ensureWorkingCoverageDraft } from "@/lib/scheduling/coverage-expectations/service";
 
-function opt(v: FormDataEntryValue | null): string | undefined {
-  if (typeof v !== "string") return undefined;
-  const t = v.trim();
-  return t.length === 0 ? undefined : t;
-}
+const COVERAGE_AUTHORING_MOVED =
+  "Coverage requirements are authored in Department Builder. This board cannot create or change a draft.";
 
 function revalidateViews() {
   revalidatePath("/staffing/assignments");
@@ -32,225 +26,33 @@ function revalidateViews() {
   revalidatePath("/unit/[unitId]", "page");
 }
 
-const createTemplateSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
-  departmentId: z.string().min(1),
-  workShiftId: z.string().min(1).optional(),
-});
+async function rejectCoverageAuthoring(formData: FormData): Promise<void> {
+  const session = await requireFacilitySession();
+  requireAtLeastRole(session.role, "MANAGER");
+  if (!(formData instanceof FormData)) {
+    throw new Error(COVERAGE_AUTHORING_MOVED);
+  }
+  throw new Error(COVERAGE_AUTHORING_MOVED);
+}
 
 export async function createTemplateAction(formData: FormData) {
-  const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "MANAGER");
-
-  const parsed = createTemplateSchema.parse({
-    name: formData.get("name"),
-    description: opt(formData.get("description")),
-    departmentId: formData.get("departmentId"),
-    workShiftId: opt(formData.get("workShiftId")),
-  });
-
-  const dept = await prisma.department.findFirst({
-    where: { id: parsed.departmentId, facilityId: session.facilityId },
-    select: { id: true },
-  });
-  if (!dept) throw new Error("Department not found.");
-
-  await prisma.operationalAssignmentTemplate.create({
-    data: {
-      facilityId: session.facilityId,
-      departmentId: parsed.departmentId,
-      stableKey: `cov_c${randomBytes(12).toString("hex")}`,
-      version: 1,
-      status: "DRAFT",
-      name: parsed.name,
-      description: parsed.description ?? null,
-      workShiftId: parsed.workShiftId ?? null,
-      createdByUserId: sessionUserIdForFk(session),
-    },
-  });
-
-  revalidateViews();
+  await rejectCoverageAuthoring(formData);
 }
-
-const editTemplateSchema = z.object({
-  templateId: z.string().min(1),
-  name: z.string().min(1).max(100).optional(),
-  description: z.string().max(500).optional(),
-  isActive: z.enum(["true", "false"]).optional(),
-});
 
 export async function editTemplateAction(formData: FormData) {
-  const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "MANAGER");
-
-  const parsed = editTemplateSchema.parse({
-    templateId: formData.get("templateId"),
-    name: opt(formData.get("name")),
-    description: opt(formData.get("description")),
-    isActive: opt(formData.get("isActive")) as "true" | "false" | undefined,
-  });
-
-  const template = await prisma.operationalAssignmentTemplate.findFirst({
-    where: { id: parsed.templateId, facilityId: session.facilityId },
-    select: { id: true },
-  });
-  if (!template) throw new Error("Template not found.");
-  const draft = await ensureWorkingCoverageDraft(prisma, {
-    templateId: template.id,
-    facilityId: session.facilityId,
-  });
-
-  const data: Record<string, unknown> = {};
-  if (parsed.name) data.name = parsed.name;
-  if (parsed.description !== undefined) data.description = parsed.description || null;
-  if (parsed.isActive !== undefined) data.isActive = parsed.isActive === "true";
-
-  await prisma.operationalAssignmentTemplate.update({
-    where: { id: draft.id },
-    data,
-  });
-
-  revalidateViews();
+  await rejectCoverageAuthoring(formData);
 }
 
-const addItemSchema = z.object({
-  templateId: z.string().min(1),
-  roleKey: z.string().min(1),
-  unitId: z.string().min(1).optional(),
-  startsAtLocal: z.string().optional(),
-  endsAtLocal: z.string().optional(),
-  requiredCount: z.coerce.number().int().min(1).max(20).default(1),
-  sortOrder: z.coerce.number().int().min(0).max(999).default(100),
-  notes: z.string().max(500).optional(),
-});
-
 export async function addTemplateItemAction(formData: FormData) {
-  const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "MANAGER");
-
-  const parsed = addItemSchema.parse({
-    templateId: formData.get("templateId"),
-    roleKey: formData.get("roleKey"),
-    unitId: opt(formData.get("unitId")),
-    startsAtLocal: opt(formData.get("startsAtLocal")),
-    endsAtLocal: opt(formData.get("endsAtLocal")),
-    requiredCount: formData.get("requiredCount") ?? 1,
-    sortOrder: formData.get("sortOrder") ?? 100,
-    notes: opt(formData.get("notes")),
-  });
-
-  const template = await prisma.operationalAssignmentTemplate.findFirst({
-    where: { id: parsed.templateId, facilityId: session.facilityId },
-    select: { id: true, department: { select: { key: true } } },
-  });
-  if (!template) throw new Error("Template not found.");
-  const draft = await ensureWorkingCoverageDraft(prisma, {
-    templateId: template.id,
-    facilityId: session.facilityId,
-  });
-
-  const roleDef = getRoleDefinition(parsed.roleKey);
-  if (!roleDef || !isRoleValidForDepartment(parsed.roleKey, template.department.key)) {
-    throw new Error(`Role "${parsed.roleKey}" is not valid for this department.`);
-  }
-
-  if (parsed.unitId) {
-    const unit = await prisma.unit.findFirst({
-      where: { id: parsed.unitId, facilityId: session.facilityId },
-      select: { id: true },
-    });
-    if (!unit) throw new Error("Unit not found.");
-  }
-
-  await prisma.operationalAssignmentTemplateItem.create({
-    data: {
-      templateId: draft.id,
-      roleKey: parsed.roleKey,
-      roleLabel: roleDef.label,
-      unitId: parsed.unitId ?? null,
-      startsAtLocal: parsed.startsAtLocal ?? null,
-      endsAtLocal: parsed.endsAtLocal ?? null,
-      requiredCount: parsed.requiredCount,
-      sortOrder: parsed.sortOrder,
-      notes: parsed.notes ?? null,
-    },
-  });
-
-  revalidateViews();
+  await rejectCoverageAuthoring(formData);
 }
 
 export async function removeTemplateItemAction(formData: FormData) {
-  const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "MANAGER");
-
-  const itemId = z.string().min(1).parse(formData.get("itemId"));
-
-  const item = await prisma.operationalAssignmentTemplateItem.findFirst({
-    where: { id: itemId, template: { facilityId: session.facilityId } },
-    select: { id: true, templateId: true, roleKey: true, requiredCount: true, sortOrder: true },
-  });
-  if (!item) throw new Error("Template item not found.");
-  const draft = await ensureWorkingCoverageDraft(prisma, {
-    templateId: item.templateId,
-    facilityId: session.facilityId,
-  });
-  const draftItem =
-    draft.items.find((row) => row.id === item.id) ??
-    draft.items.find(
-      (row) =>
-        row.roleKey === item.roleKey &&
-        row.requiredCount === item.requiredCount &&
-        row.sortOrder === item.sortOrder,
-    );
-  if (!draftItem) throw new Error("Template item not found on the working draft.");
-
-  await prisma.operationalAssignmentTemplateItem.delete({
-    where: { id: draftItem.id },
-  });
-
-  revalidateViews();
+  await rejectCoverageAuthoring(formData);
 }
 
 export async function moveTemplateItemAction(formData: FormData) {
-  const session = await requireFacilitySession();
-  requireAtLeastRole(session.role, "MANAGER");
-
-  const itemId = z.string().min(1).parse(formData.get("itemId"));
-  const direction = z.enum(["up", "down"]).parse(formData.get("direction"));
-
-  const item = await prisma.operationalAssignmentTemplateItem.findFirst({
-    where: { id: itemId, template: { facilityId: session.facilityId } },
-    select: {
-      id: true,
-      templateId: true,
-      sortOrder: true,
-      roleKey: true,
-      requiredCount: true,
-    },
-  });
-  if (!item) throw new Error("Template item not found.");
-  const draft = await ensureWorkingCoverageDraft(prisma, {
-    templateId: item.templateId,
-    facilityId: session.facilityId,
-  });
-  const draftItem =
-    draft.items.find((row) => row.id === item.id) ??
-    draft.items.find(
-      (row) =>
-        row.roleKey === item.roleKey &&
-        row.requiredCount === item.requiredCount &&
-        row.sortOrder === item.sortOrder,
-    );
-  if (!draftItem) throw new Error("Template item not found on the working draft.");
-
-  const delta = direction === "up" ? -15 : 15;
-  await prisma.operationalAssignmentTemplateItem.update({
-    where: { id: draftItem.id },
-    data: { sortOrder: Math.max(0, draftItem.sortOrder + delta) },
-  });
-
-  revalidateViews();
+  await rejectCoverageAuthoring(formData);
 }
 
 const applySchema = z.object({
@@ -274,6 +76,26 @@ export async function applyTemplateAction(formData: FormData) {
     select: { id: true, key: true },
   });
   if (!department) throw new Error("Department not found.");
+
+  const template = await prisma.operationalAssignmentTemplate.findFirst({
+    where: {
+      id: parsed.templateId,
+      facilityId: session.facilityId,
+      departmentId: parsed.departmentId,
+    },
+    select: {
+      id: true,
+      status: true,
+      isActive: true,
+      effectiveFrom: true,
+      effectiveTo: true,
+    },
+  });
+  if (!template || !isCoverageTemplateEffectiveOnDate(template, parsed.serviceDate)) {
+    throw new Error(
+      "Only a published Coverage requirement that is effective on this service date can be applied.",
+    );
+  }
 
   const board = await loadDailyAssignmentBoard({
     facilityId: session.facilityId,

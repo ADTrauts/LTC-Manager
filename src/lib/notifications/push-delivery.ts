@@ -64,9 +64,17 @@ export async function runPushDeliveryAfterCommit(db: PrismaClient, now = new Dat
 
 export async function deliverQueuedPushDispatches(
   db: PrismaClient,
-  input: { now?: Date; limit?: number; transport?: PushTransport; beforeSend?: () => Promise<void> } = {},
+  input: {
+    now?: Date;
+    limit?: number;
+    transport?: PushTransport;
+    beforeSend?: () => Promise<void>;
+    /** When set, expire and claim only this Facility's dispatches (shared disposable DBs). */
+    facilityIds?: readonly string[];
+  } = {},
 ): Promise<PushDeliverySummary> {
   const now = input.now ?? new Date();
+  const facilityIds = input.facilityIds?.filter(Boolean) ?? [];
   const summary: PushDeliverySummary = {
     claimed: 0,
     sent: 0,
@@ -75,7 +83,10 @@ export async function deliverQueuedPushDispatches(
     expired: 0,
     stopped: null,
   };
-  summary.expired = await expirePushDispatches(db, now);
+  // Bulk expire is Facility-scoped and windowed to the caller's clock. An unscoped
+  // pass with a synthetic far-future `now` must not mark every shared-DB dispatch
+  // FAILED:expired; per-row expiry still runs after claim in deliverOne.
+  summary.expired = await expirePushDispatches(db, now, facilityIds);
   if (!isWebPushSendingEnabled()) {
     summary.stopped = "flag";
     return summary;
@@ -87,7 +98,12 @@ export async function deliverQueuedPushDispatches(
   }
   const limit = Math.min(Math.max(input.limit ?? 10, 1), 25);
   const rows = await db.pushDispatch.findMany({
-    where: claimWhere(now),
+    where: {
+      ...claimWhere(now),
+      ...(facilityIds.length > 0
+        ? { notificationRecipient: { notification: { facilityId: { in: [...facilityIds] } } } }
+        : {}),
+    },
     orderBy: [{ queuedAt: "asc" }, { id: "asc" }],
     take: limit,
     select: { id: true },
@@ -126,133 +142,150 @@ async function deliverOne(
   });
   if (claimed.count !== 1) return "skipped";
 
-  const row = await db.pushDispatch.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      triggerKey: true,
-      attemptCount: true,
-      expiresAt: true,
-      notificationRecipientId: true,
-      pushSubscription: {
-        select: {
-          id: true,
-          userId: true,
-          endpoint: true,
-          p256dh: true,
-          auth: true,
-          revokedAt: true,
-          authorizedUntil: true,
-          user: { select: { isActive: true } },
-        },
-      },
-      notificationRecipient: {
-        select: {
-          id: true,
-          userId: true,
-          notification: { select: { id: true, facilityId: true, resolvedAt: true, expiresAt: true } },
-        },
-      },
-    },
-  });
-  if (!row) return "skipped";
-  if (row.expiresAt.getTime() <= now.getTime()) {
-    await finish(db, id, { status: "FAILED", lastErrorCode: "expired" });
-    return "expired";
-  }
-
-  const recipient = row.notificationRecipient;
-  const subscription = row.pushSubscription;
-  if (!recipient) {
-    await finish(db, id, { status: "SUPPRESSED", lastErrorCode: "recipient_removed" });
-    return "suppressed";
-  }
-  const notification = recipient.notification;
-  if (notification.resolvedAt || (notification.expiresAt && notification.expiresAt.getTime() <= now.getTime())) {
-    await finish(db, id, { status: "SUPPRESSED", lastErrorCode: "thread_closed" });
-    return "suppressed";
-  }
-  if (subscription.userId !== recipient.userId) {
-    await finish(db, id, { status: "SUPPRESSED", lastErrorCode: "subscription_rebound" });
-    return "suppressed";
-  }
-  if (!(await userHasActiveFacilityAccess(db, recipient.userId, notification.facilityId))) {
-    await finish(db, id, { status: "SUPPRESSED", lastErrorCode: "facility_access" });
-    return "suppressed";
-  }
-  if (classifyPushEndpointUrl(subscription.endpoint) !== "ok") {
-    await revokePushSubscriptionReason(db, {
-      subscriptionId: subscription.id,
-      userId: subscription.userId,
-      reason: "UNAUTHORIZED",
-      now,
-    });
-    await finish(db, id, { status: "FAILED", lastErrorCode: "unsafe_endpoint" });
-    return "failed";
-  }
-  const decision = await loadPushOpportunityDecision(db, { recipientId: recipient.id, now });
-  if (decision !== "eligible") {
-    await finish(db, id, { status: "SUPPRESSED", lastErrorCode: decision === "missing" ? "recipient_removed" : decision });
-    return "suppressed";
-  }
-  if (beforeSend) await beforeSend();
-  if (await suppressUnauthorized(db, subscription.id, id, now)) return "suppressed";
-
-  let result: PushSendResult;
   try {
-    result = await transport({
-      endpoint: subscription.endpoint,
-      p256dh: subscription.p256dh,
-      auth: subscription.auth,
-      ttlSeconds: remainingTtlSeconds(row.expiresAt, now),
-      payload: browserPushPayload(notification.id, row.triggerKey, row.attemptCount),
-    });
-  } catch {
-    result = { outcome: "temporary", code: "transport" };
-  }
-
-  if (result.outcome === "accepted") {
-    await finish(db, id, { status: "SENT", sentAt: now, lastErrorCode: null });
-    return "sent";
-  }
-  if (result.outcome === "gone") {
-    await revokePushSubscriptionReason(db, {
-      subscriptionId: subscription.id,
-      userId: subscription.userId,
-      reason: "GONE",
-      now,
-    });
-    await finish(db, id, { status: "FAILED", lastErrorCode: "gone" });
-    return "failed";
-  }
-  if (result.outcome === "unsafe") {
-    await revokePushSubscriptionReason(db, {
-      subscriptionId: subscription.id,
-      userId: subscription.userId,
-      reason: "UNAUTHORIZED",
-      now,
-    });
-    await finish(db, id, { status: "FAILED", lastErrorCode: "unsafe_endpoint" });
-    return "failed";
-  }
-  if (result.outcome === "invalid") {
-    await finish(db, id, { status: "FAILED", lastErrorCode: "invalid" });
-    return "failed";
-  }
-  if (result.outcome === "configuration") {
-    await db.pushDispatch.update({
+    const row = await db.pushDispatch.findUnique({
       where: { id },
-      data: {
-        status: "QUEUED",
-        attemptCount: Math.max(0, row.attemptCount - 1),
-        claimedUntil: new Date(now.getTime() + 60_000),
-        lastErrorCode: "configuration",
+      select: {
+        id: true,
+        triggerKey: true,
+        attemptCount: true,
+        expiresAt: true,
+        notificationRecipientId: true,
+        pushSubscription: {
+          select: {
+            id: true,
+            userId: true,
+            endpoint: true,
+            p256dh: true,
+            auth: true,
+            revokedAt: true,
+            authorizedUntil: true,
+            user: { select: { isActive: true } },
+          },
+        },
+        notificationRecipient: {
+          select: {
+            id: true,
+            userId: true,
+            notification: { select: { id: true, facilityId: true, resolvedAt: true, expiresAt: true } },
+          },
+        },
       },
     });
-    return "configuration";
+    if (!row) {
+      await db.pushDispatch.update({
+        where: { id },
+        data: { status: "FAILED", claimedUntil: null, lastErrorCode: "missing" },
+      });
+      return "skipped";
+    }
+    if (row.expiresAt.getTime() <= now.getTime()) {
+      await finish(db, id, { status: "FAILED", lastErrorCode: "expired" });
+      return "expired";
+    }
+
+    const recipient = row.notificationRecipient;
+    const subscription = row.pushSubscription;
+    if (!recipient) {
+      await finish(db, id, { status: "SUPPRESSED", lastErrorCode: "recipient_removed" });
+      return "suppressed";
+    }
+    const notification = recipient.notification;
+    if (notification.resolvedAt || (notification.expiresAt && notification.expiresAt.getTime() <= now.getTime())) {
+      await finish(db, id, { status: "SUPPRESSED", lastErrorCode: "thread_closed" });
+      return "suppressed";
+    }
+    if (subscription.userId !== recipient.userId) {
+      await finish(db, id, { status: "SUPPRESSED", lastErrorCode: "subscription_rebound" });
+      return "suppressed";
+    }
+    if (!(await userHasActiveFacilityAccess(db, recipient.userId, notification.facilityId))) {
+      await finish(db, id, { status: "SUPPRESSED", lastErrorCode: "facility_access" });
+      return "suppressed";
+    }
+    if (classifyPushEndpointUrl(subscription.endpoint) !== "ok") {
+      await revokePushSubscriptionReason(db, {
+        subscriptionId: subscription.id,
+        userId: subscription.userId,
+        reason: "UNAUTHORIZED",
+        now,
+      });
+      await finish(db, id, { status: "FAILED", lastErrorCode: "unsafe_endpoint" });
+      return "failed";
+    }
+    const decision = await loadPushOpportunityDecision(db, { recipientId: recipient.id, now });
+    if (decision !== "eligible") {
+      await finish(db, id, { status: "SUPPRESSED", lastErrorCode: decision === "missing" ? "recipient_removed" : decision });
+      return "suppressed";
+    }
+    if (beforeSend) await beforeSend();
+    if (await suppressUnauthorized(db, subscription.id, id, now)) return "suppressed";
+
+    let result: PushSendResult;
+    try {
+      result = await transport({
+        endpoint: subscription.endpoint,
+        p256dh: subscription.p256dh,
+        auth: subscription.auth,
+        ttlSeconds: remainingTtlSeconds(row.expiresAt, now),
+        payload: browserPushPayload(notification.id, row.triggerKey, row.attemptCount),
+      });
+    } catch {
+      result = { outcome: "temporary", code: "transport" };
+    }
+
+    if (result.outcome === "accepted") {
+      await finish(db, id, { status: "SENT", sentAt: now, lastErrorCode: null });
+      return "sent";
+    }
+    if (result.outcome === "gone") {
+      await revokePushSubscriptionReason(db, {
+        subscriptionId: subscription.id,
+        userId: subscription.userId,
+        reason: "GONE",
+        now,
+      });
+      await finish(db, id, { status: "FAILED", lastErrorCode: "gone" });
+      return "failed";
+    }
+    if (result.outcome === "unsafe") {
+      await revokePushSubscriptionReason(db, {
+        subscriptionId: subscription.id,
+        userId: subscription.userId,
+        reason: "UNAUTHORIZED",
+        now,
+      });
+      await finish(db, id, { status: "FAILED", lastErrorCode: "unsafe_endpoint" });
+      return "failed";
+    }
+    if (result.outcome === "invalid") {
+      await finish(db, id, { status: "FAILED", lastErrorCode: "invalid" });
+      return "failed";
+    }
+    if (result.outcome === "configuration") {
+      await db.pushDispatch.update({
+        where: { id },
+        data: {
+          status: "QUEUED",
+          attemptCount: Math.max(0, row.attemptCount - 1),
+          claimedUntil: new Date(now.getTime() + 60_000),
+          lastErrorCode: "configuration",
+        },
+      });
+      return "configuration";
+    }
+    const retried = await retryOrFail(db, id, row.attemptCount, row.expiresAt, now, "temporary");
+    return retried === "requeued" ? "skipped" : retried;
+  } catch {
+    // Never leave a claimed SENDING row orphaned when delivery is interrupted under load.
+    await db.pushDispatch
+      .update({
+        where: { id },
+        data: { status: "QUEUED", claimedUntil: null, lastErrorCode: "delivery_interrupted" },
+      })
+      .catch(() => undefined);
+    return "failed";
   }
-  const retried = await retryOrFail(db, id, row.attemptCount, row.expiresAt, now, "temporary");
-  return retried === "requeued" ? "skipped" : retried;
 }
 
 async function suppressUnauthorized(
@@ -308,13 +341,32 @@ function claimWhere(now: Date): Prisma.PushDispatchWhereInput {
   };
 }
 
-async function expirePushDispatches(db: PrismaClient, now: Date): Promise<number> {
+async function expirePushDispatches(
+  db: PrismaClient,
+  now: Date,
+  facilityIds: readonly string[] = [],
+): Promise<number> {
+  if (facilityIds.length === 0) return 0;
+  const facilityScope = {
+    notificationRecipient: { notification: { facilityId: { in: [...facilityIds] } } },
+  };
+  // Only rows that just expired relative to this clock. A peer suite whose `now`
+  // is hours or years ahead must not harvest another suite's still-live TTL.
+  const recentlyExpiredAfter = new Date(now.getTime() - PUSH_TTL_SECONDS * 1000);
   const expired = await db.pushDispatch.updateMany({
-    where: { status: { in: ["QUEUED", "SENDING"] }, expiresAt: { lte: now } },
+    where: {
+      ...facilityScope,
+      status: { in: ["QUEUED", "SENDING"] },
+      expiresAt: { lte: now, gt: recentlyExpiredAfter },
+    },
     data: { status: "FAILED", lastErrorCode: "expired", claimedUntil: null },
   });
   const exhausted = await db.pushDispatch.updateMany({
-    where: { status: { in: ["QUEUED", "SENDING"] }, attemptCount: { gte: PUSH_MAX_ATTEMPTS } },
+    where: {
+      ...facilityScope,
+      status: { in: ["QUEUED", "SENDING"] },
+      attemptCount: { gte: PUSH_MAX_ATTEMPTS },
+    },
     data: { status: "FAILED", lastErrorCode: "attempts", claimedUntil: null },
   });
   return expired.count + exhausted.count;

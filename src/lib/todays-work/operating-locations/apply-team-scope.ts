@@ -6,7 +6,7 @@
 
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
 
-import type { ViewerTeamScope } from "../viewer-team-scope";
+import type { ViewerTeamScope } from "../operational-placement";
 import type { SupervisorOperatingLocation } from "./types";
 
 export function applyViewerTeamScopeToLocations(
@@ -27,7 +27,7 @@ export function applyViewerTeamScopeToLocations(
       continue;
     }
 
-    if (scope.mode === "TEAM_WITHOUT_LOCATIONS") {
+    if (scope.mode === "ASSIGNMENT_WITHOUT_PLACEMENT") {
       continue;
     }
 

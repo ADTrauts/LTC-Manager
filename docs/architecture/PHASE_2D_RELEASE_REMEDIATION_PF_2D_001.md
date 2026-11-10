@@ -13,7 +13,7 @@ All required remediation checks pass. The gaps are retained limits: simulated ta
 - Blocked starting candidate: `e1fc6d2b56e47d84df0a2a16993cf3a518eacb21`.
 - Prior application certification tip: `9bc5f8320f8491a0c66dab894391bdf3f199d4cb`.
 - New verified application commit: `319e5700fa6eda306aabe6bb186295055cec3595`.
-- Final documentation-inclusive release candidate: the commit introducing this appendix; its exact immutable SHA is recorded in the exported certification manifest and final handoff. Resolve it locally with `git log -1 --format=%H -- docs/architecture/PHASE_2D_RELEASE_REMEDIATION_PF_2D_001.md`.
+- Final documentation-inclusive release candidate: `ad87a4e308ee3fd3a445c6677b728aa0c728a3b5`. This is the documentation-only successor of the verified application commit; their non-documentation trees match.
 - Isolated branch: `architecture/pf-2d-001-remediation`, in this chat's `work/phase2d-remediation` clone. No divergent main branch was merged or rebased.
 
 The original Desktop checkout remained on its original branch and SHA. Its deleted canonical migration, byte-identical untracked duplicate migration directory, R4 evidence/harness, `.neon`, other uncommitted work, and existing branch refs were preserved. The new branch contains the committed canonical migration paths, not the duplicate directory or local credentials. The candidate is also preserved on a newly named local branch in the active repository; no GitHub branch was pushed or changed.
@@ -137,3 +137,5 @@ ARR-003, ARR-004 and ARR-008 remain OPEN. Retain Work compatibility, historical 
 PF-2D-001 is resolved with no remaining material functional or authorization regression found in this certification scope. The historical preflight BLOCKED report is preserved and linked, not rewritten as an earlier PASS.
 
 **Exact next action:** product-owner approval for the documented production release sequence. After that separate approval, reconfirm a recovery precaution and rollback availability, apply notes then Coverage Space with health checks, stage the certified candidate without aliases, smoke the full permitted flows, and promote only the verified deployment. None of those production actions was executed here. Stop after this remediation and certification.
+
+Certification identity receipt: this exported report records the immutable documentation tip after its creation. The committed appendix identifies itself by its introducing commit; no self-referential SHA is claimed.

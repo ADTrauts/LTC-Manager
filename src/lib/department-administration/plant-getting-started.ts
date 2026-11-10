@@ -27,7 +27,6 @@ export type PlantOverviewFactCounts = {
   locationCount: number;
   assetCount: number;
   peopleCount: number;
-  workPlanCount: number;
   recordCount: number;
   publishedPmPlanCount: number;
 };
@@ -47,7 +46,6 @@ export function presentPlantOverviewCounts(input: PlantOverviewFactCounts): Arra
     { id: "locations", label: "Locations", value: input.locationCount },
     { id: "assets", label: "Assets", value: input.assetCount },
     { id: "people", label: "People", value: input.peopleCount },
-    { id: "work", label: "Work Plans", value: input.workPlanCount },
     { id: "records", label: "Records", value: input.recordCount },
     { id: "pm", label: "Published PM Plans", value: input.publishedPmPlanCount },
   ];
@@ -96,20 +94,7 @@ export function presentPlantGettingStarted(input: PlantGettingStartedInput): Pla
             ? "Review starter configuration"
             : "Add starter configuration",
     },
-    // Phase 2C-2H-3: Work Plan install retired — historical awareness only when plans exist.
-    ...(input.workPlanCount > 0
-      ? [
-          item(
-            6,
-            "work",
-            "Historical Work Plans",
-            true,
-            "/staffing/work-plans",
-            "View historical work",
-          ),
-        ]
-      : []),
-    item(7, "records", "Confirm Records", input.recordCount > 0, recordsHref, "Open Records", true),
+    item(6, "records", "Confirm Records", input.recordCount > 0, recordsHref, "Open Records", true),
     {
       id: "procedures",
       step: 8,

@@ -1,12 +1,4 @@
 export {
-  getLocationFunction,
-  getLocationFunctionByKey,
-  listLocationFunctionsForProduct,
-  LOCATION_FUNCTIONS,
-  resolveLocationFunctionAdoption,
-  type LocationFunctionDefinition,
-} from "./location-functions";
-export {
   DEPARTMENT_PRODUCT_FACILITY_TYPES,
   DEPARTMENT_PRODUCT_INDUSTRIES,
   DEPARTMENT_PRODUCT_KEYS,

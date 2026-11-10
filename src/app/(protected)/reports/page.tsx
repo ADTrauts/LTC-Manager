@@ -38,7 +38,6 @@ type ReportsPageProps = {
     unitId?: string;
     repairStatus?: string;
     definition?: string;
-    locationFunction?: string;
   }>;
 };
 
@@ -48,7 +47,6 @@ async function loadRecordAudit(input: {
   fromDateKey: string;
   toDateKey: string;
   catalogStableKey: string;
-  locationFunctionKey: string;
 }): Promise<AuditRecordSlot[] | null> {
   if (!input.departmentId || !input.catalogStableKey) return null;
   try {
@@ -58,7 +56,6 @@ async function loadRecordAudit(input: {
       fromDateKey: input.fromDateKey,
       toDateKey: input.toDateKey,
       catalogStableKey: input.catalogStableKey,
-      locationFunctionKey: input.locationFunctionKey || null,
     });
     return result.slots;
   } catch (error) {
@@ -112,7 +109,6 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const deptNav = await resolveActiveDepartmentForShell(session, await cookies());
   const spaceId = params.spaceId?.trim() || null;
   const definition = params.definition?.trim() || "";
-  const locationFunction = params.locationFunction?.trim() || "";
 
   if (rangeMode) {
     const loaded = await loadOperationalReviewRange({
@@ -143,7 +139,6 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         fromDateKey: loaded.model.startServiceDate,
         toDateKey: loaded.model.endServiceDate,
         catalogStableKey: definition,
-        locationFunctionKey: locationFunction,
       }),
       loadTimingAudit({
         facilityId,
@@ -161,7 +156,6 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         end={loaded.model.endServiceDate}
         todayKey={loaded.model.todayKey}
         definition={definition}
-        locationFunction={locationFunction}
         auditSlots={auditSlots}
         timingRows={timingRows}
         departmentId={deptNav.activeDepartmentId}
@@ -215,7 +209,6 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       fromDateKey: facts.serviceDate,
       toDateKey: facts.serviceDate,
       catalogStableKey: definition,
-      locationFunctionKey: locationFunction,
     }),
     loadTimingAudit({
       facilityId,
@@ -229,7 +222,6 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   return (
     <CanonicalReview
       definition={definition}
-      locationFunction={locationFunction}
       auditSlots={auditSlots}
       timingRows={timingRows}
       departmentId={deptNav.activeDepartmentId}

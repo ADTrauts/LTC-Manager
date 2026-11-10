@@ -1,5 +1,6 @@
 /**
- * Wave 15F — Locations Experience cutover integration tests.
+ * Locations view is the physical tree Projection marks from Facility
+ * responsibility.
  */
 
 import assert from "node:assert/strict";
@@ -39,52 +40,28 @@ function roomNodes(view: LocationsViewModel): LocationsTreeNode[] {
   return allNodes(view).filter((n) => n.kind === "ROOM");
 }
 
-function assertNoEmptyAreas(view: LocationsViewModel) {
-  for (const node of allNodes(view)) {
-    for (const area of node.areas) {
-      assert.ok(
-        area.experiences.length > 0,
-        `empty area ${area.areaKey} on ${node.id}`,
-      );
-    }
-  }
-}
-
-test("Dietary manager — projected tree, rooms, areas, experiences", () => {
+test("Dietary manager — responsible servery and structural ancestors", () => {
   const view = adaptProjectionToLocationsView(DIETARY_GOLDEN_PROJECTION);
   assert.equal(view.lensMode, "DEPARTMENT");
   assert.equal(view.departmentKey, "DIETARY");
   assert.equal(view.departmentSnapshots.length, 1);
-  assert.equal(view.departmentSnapshots[0]?.departmentKey, "DIETARY");
-
   const rooms = roomNodes(view);
-  assert.ok(rooms.some((r) => r.physicalId === "space_kensington_servery"));
-  assert.ok(
-    rooms.every((r) => r.presentation === "ACTIONABLE" || r.areas.length === 0),
-  );
-
-  const servery = rooms.find((r) => r.physicalId === "space_kensington_servery");
-  assert.ok(servery);
-  assert.ok(servery.areas.length > 0);
-  assert.ok(
-    servery.areas.some((a) =>
-      a.experiences.some((e) => e.experienceKey === "MEAL_SERVICE"),
-    ),
-  );
+  assert.deepEqual(rooms.map((room) => room.physicalId), ["space_kensington_servery"]);
+  assert.equal(rooms[0]?.presentation, "ACTIONABLE");
   assert.ok(view.projectedUnitIds.includes("unit_kensington"));
   assert.ok(view.projectedUnitIds.includes("unit_ground_floor"));
-  assertNoEmptyAreas(view);
+  const floor = allNodes(view).find((node) => node.kind === "FLOOR");
+  assert.equal(floor?.presentation, "STRUCTURAL");
+  assert.equal(floor?.href, null);
 });
 
-test("EVS manager — cleaning experiences only on projected rooms", () => {
+test("EVS manager — responsible rooms only", () => {
   const view = adaptProjectionToLocationsView(EVS_GOLDEN_PROJECTION);
   assert.equal(view.departmentKey, "EVS");
-  const experienceKeys = roomNodes(view).flatMap((r) =>
-    r.areas.flatMap((a) => a.experiences.map((e) => e.experienceKey)),
+  assert.deepEqual(
+    roomNodes(view).map((room) => room.physicalId).sort(),
+    ["space_kensington_servery", "space_resident_101"],
   );
-  assert.ok(experienceKeys.length > 0);
-  assert.ok(!experienceKeys.includes("MEAL_SERVICE"));
-  assertNoEmptyAreas(view);
 });
 
 test("Plant manager — policy coverage without fake room ownership", () => {
@@ -94,11 +71,9 @@ test("Plant manager — policy coverage without fake room ownership", () => {
   assert.ok(plant?.plantPolicy);
   assert.equal(plant.plantPolicy?.createsRoomAssignments, false);
   assert.equal(plant.plantPolicy?.applied, true);
-  // No manufactured locations outside the projected tree.
   for (const id of plant.plantPolicy?.coveredLocationIds ?? []) {
     assert.ok(
-      plant.actionableLocationIds.includes(id) ||
-        allNodes(view).some((n) => n.id === id),
+      plant.actionableLocationIds.includes(id) || allNodes(view).some((node) => node.id === id),
       `plant covered ${id} must exist in projection`,
     );
   }
@@ -107,18 +82,12 @@ test("Plant manager — policy coverage without fake room ownership", () => {
 test("Supervisor / permission narrowing — PIN fixture never broadens locations", () => {
   const full = adaptProjectionToLocationsView(DIETARY_GOLDEN_PROJECTION);
   const narrowed = adaptProjectionToLocationsView(PERMISSION_NARROWED_PROJECTION);
-
-  const fullRooms = roomNodes(full).map((r) => r.physicalId).sort();
-  const narrowedRooms = roomNodes(narrowed).map((r) => r.physicalId).sort();
-
-  // Narrowed deep-link fixture exposes only the servery room.
+  const fullRooms = roomNodes(full).map((room) => room.physicalId).sort();
+  const narrowedRooms = roomNodes(narrowed).map((room) => room.physicalId).sort();
   assert.deepEqual(narrowedRooms, ["space_kensington_servery"]);
   for (const id of narrowedRooms) {
-    assert.ok(fullRooms.includes(id), `narrowed room ${id} not in full dietary set`);
+    assert.ok(fullRooms.includes(id));
   }
-  assert.ok(narrowedRooms.length <= fullRooms.length);
-
-  // Access class remains PIN-locked; adapter does not invent extra units.
   assert.equal(
     PERMISSION_NARROWED_PROJECTION.context.request.accessClass.lockedUnitId,
     "unit_kensington",
@@ -127,17 +96,13 @@ test("Supervisor / permission narrowing — PIN fixture never broadens locations
 });
 
 test("PIN user fixture — locked unit neighborhood only", () => {
-  // Permission-narrowed fixture uses PIN access class on servery neighborhood.
   const access = PERMISSION_NARROWED_PROJECTION.context.request.accessClass;
   assert.equal(access.principalKind, "EMPLOYEE");
   assert.equal(access.lockedUnitId, "unit_kensington");
   const view = adaptProjectionToLocationsView(PERMISSION_NARROWED_PROJECTION);
   assert.ok(view.projectedUnitIds.includes("unit_kensington"));
-  // Adapter does not broaden; Projection already applied lock.
   assert.ok(
-    roomNodes(view).every(
-      (r) => r.unitId === "unit_kensington" || r.unitId == null,
-    ),
+    roomNodes(view).every((room) => room.unitId === "unit_kensington" || room.unitId == null),
   );
 });
 
@@ -146,68 +111,36 @@ test("Facility Overview — labeled department snapshots, never flattened", () =
   assert.equal(view.lensMode, "FACILITY");
   assert.equal(view.departmentKey, null);
   assert.deepEqual(
-    view.departmentSnapshots.map((d) => d.departmentKey),
+    view.departmentSnapshots.map((dept) => dept.departmentKey),
     ["DIETARY", "PLANT"],
   );
-  assert.ok(
-    !view.departmentSnapshots.some((d) => d.departmentKey === "EVS"),
-  );
-  assert.ok(
-    !view.departmentSnapshots.some((d) => /EVS|Environmental Services/i.test(d.label)),
-  );
-
   for (const dept of view.departmentSnapshots) {
     assert.ok(dept.label.length > 0);
-    assert.ok(dept.roots.length > 0 || dept.unitIds.length >= 0);
+    assert.ok(dept.roots.length > 0);
   }
-
-  const dietaryExp = view.departmentSnapshots
-    .find((d) => d.departmentKey === "DIETARY")
-    ?.roots.flatMap((r) => walk([r]))
-    .flatMap((n) => n.areas.flatMap((a) => a.experiences.map((e) => e.experienceKey)));
-  assert.ok(dietaryExp?.includes("MEAL_SERVICE"));
 });
 
-test("Facility Overview internal audience preserves historical DEVELOPMENT snapshots", () => {
+test("Facility Overview internal audience preserves DEVELOPMENT snapshots", () => {
   const view = adaptProjectionToLocationsView(FACILITY_OVERVIEW_GOLDEN_PROJECTION, {
     audience: "internal",
   });
   assert.deepEqual(
-    view.departmentSnapshots.map((d) => d.departmentKey).sort(),
+    view.departmentSnapshots.map((dept) => dept.departmentKey).sort(),
     ["DIETARY", "EVS", "PLANT"],
   );
 });
 
-test("Undesignated / empty branches — golden fixtures omit staged nodes", () => {
+test("Golden fixtures omit staged nodes", () => {
   for (const snapshot of [
     DIETARY_GOLDEN_PROJECTION,
     EVS_GOLDEN_PROJECTION,
     PLANT_GOLDEN_PROJECTION,
   ]) {
-    const view = adaptProjectionToLocationsView(snapshot);
-    const labels = allNodes(view).map((n) => n.label.toLowerCase());
-    assert.ok(!labels.some((l) => l.includes("undesignated")));
-    assert.ok(!labels.some((l) => l.includes("staged")));
-    assertNoEmptyAreas(view);
-  }
-});
-
-test("Empty Areas suppressed at each location", () => {
-  const view = adaptProjectionToLocationsView(DIETARY_GOLDEN_PROJECTION);
-  assertNoEmptyAreas(view);
-  // Structural ancestors may have zero areas (grouping only).
-  const floor = allNodes(view).find((n) => n.kind === "FLOOR");
-  assert.ok(floor);
-  assert.equal(floor.areas.length, 0);
-  assert.equal(floor.presentation, "STRUCTURAL");
-});
-
-test("Projected Experiences attach only to actionable rooms in Dietary golden", () => {
-  const view = adaptProjectionToLocationsView(DIETARY_GOLDEN_PROJECTION);
-  for (const room of roomNodes(view)) {
-    if (room.presentation === "ACTIONABLE") {
-      assert.ok(room.experienceKeys.length > 0 || room.areas.length > 0);
-    }
+    const labels = allNodes(adaptProjectionToLocationsView(snapshot)).map((node) =>
+      node.label.toLowerCase(),
+    );
+    assert.ok(!labels.some((label) => label.includes("undesignated")));
+    assert.ok(!labels.some((label) => label.includes("staged")));
   }
 });
 
@@ -217,7 +150,7 @@ test("collectProjectedUnitIds matches view.projectedUnitIds", () => {
   assert.deepEqual(collectProjectedUnitIds(null), []);
 });
 
-test("Golden parity with Wave 15E shadow adapters (rooms + plant)", () => {
+test("Golden parity with shadow adapters (rooms + plant)", () => {
   for (const snapshot of [
     DIETARY_GOLDEN_PROJECTION,
     EVS_GOLDEN_PROJECTION,
@@ -226,28 +159,21 @@ test("Golden parity with Wave 15E shadow adapters (rooms + plant)", () => {
   ]) {
     const locationsView = adaptProjectionToLocationsView(snapshot);
     const shadowView = adaptProjectionSnapshotToShadowView(snapshot);
-
-    const locationRoomIds = roomNodes(locationsView)
-      .map((r) => r.physicalId)
-      .sort();
-    assert.deepEqual(locationRoomIds, [...shadowView.roomIds].sort());
-
+    assert.deepEqual(
+      roomNodes(locationsView).map((room) => room.physicalId).sort(),
+      [...shadowView.roomIds].sort(),
+    );
     const report = compareProjectionSnapshotsForShadow({
       legacySnapshot: snapshot,
       projectionSnapshot: snapshot,
     });
-    // Self-parity of Projection vs itself through shadow path.
     assert.equal(report.metrics.parityPercent, 100);
   }
 
-  const facilityLocations = adaptProjectionToLocationsView(
-    FACILITY_OVERVIEW_GOLDEN_PROJECTION,
-  );
-  const facilityShadow = adaptProjectionSnapshotToShadowView(
-    FACILITY_OVERVIEW_GOLDEN_PROJECTION,
-  );
+  const facilityLocations = adaptProjectionToLocationsView(FACILITY_OVERVIEW_GOLDEN_PROJECTION);
+  const facilityShadow = adaptProjectionSnapshotToShadowView(FACILITY_OVERVIEW_GOLDEN_PROJECTION);
   assert.deepEqual(
-    [...facilityLocations.departmentSnapshots.map((d) => d.departmentKey)].sort(),
+    [...facilityLocations.departmentSnapshots.map((dept) => dept.departmentKey)].sort(),
     ["DIETARY", "PLANT"],
   );
   assert.deepEqual(
@@ -259,16 +185,9 @@ test("Golden parity with Wave 15E shadow adapters (rooms + plant)", () => {
 test("Workspace hrefs preserve /unit/[unitId] destinations", () => {
   const view = adaptProjectionToLocationsView(DIETARY_GOLDEN_PROJECTION);
   for (const node of allNodes(view)) {
-    if (node.kind === "FACILITY") {
+    if (node.kind === "FACILITY" || node.presentation === "STRUCTURAL") {
       assert.equal(node.href, null);
       continue;
-    }
-    if (node.presentation === "STRUCTURAL") {
-      assert.equal(node.href, null);
-      continue;
-    }
-    if (node.kind === "FLOOR" || node.kind === "NEIGHBORHOOD" || node.kind === "LEGACY") {
-      assert.equal(node.href, `/unit/${node.physicalId}`);
     }
     if (node.kind === "ROOM" && node.unitId) {
       assert.equal(
@@ -279,16 +198,7 @@ test("Workspace hrefs preserve /unit/[unitId] destinations", () => {
   }
 });
 
-test("Legacy regression: Locations adapter never invents departments", () => {
+test("Locations adapter never invents departments", () => {
   const view = adaptProjectionToLocationsView(DIETARY_GOLDEN_PROJECTION);
-  assert.ok(
-    view.departmentSnapshots.every((d) => d.departmentKey === "DIETARY"),
-  );
-  assert.ok(
-    !allNodes(view).some((n) =>
-      n.areas.some((a) =>
-        a.experiences.some((e) => e.experienceKey.includes("PLANT")),
-      ),
-    ),
-  );
+  assert.ok(view.departmentSnapshots.every((dept) => dept.departmentKey === "DIETARY"));
 });

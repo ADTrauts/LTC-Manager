@@ -7,7 +7,7 @@ import {
   resolveCoverageExpectationsForLocation,
   selectHistoricalCoverageTemplates,
   selectRuntimeCoverageTemplates,
-  validateCoverageOperationalTypeKeys,
+  validateCoverageLocationTarget,
   type CoverageAssignmentActual,
   type CoverageExpectationItemInput,
   type CoverageLocationContext,
@@ -25,8 +25,6 @@ function room(spaceId: string, departmentId = "dietary"): CoverageLocationContex
     departmentId,
     spaceId,
     unitId: "unit-1",
-    operationalTypeKey: "servery",
-    operationalTypeName: "Servery",
   };
 }
 
@@ -44,7 +42,6 @@ function need(
     roleLabel: overrides.roleKey,
     requiredCount: 2,
     unitId: null,
-    applicableOperationalTypeKeys: ["servery"],
     applicableOperationalCycleStableKeys: ["breakfast"],
     ...overrides,
   };
@@ -170,7 +167,6 @@ describe("explicit space coverage", () => {
           requiredCount: 2,
           unitId: null,
           spaceId: "space-a",
-          applicableOperationalTypeKeys: ["servery"],
           applicableOperationalCycleStableKeys: ["lunch"],
         },
       ],
@@ -313,28 +309,19 @@ describe("explicit space coverage", () => {
     assert.equal(slots[0]?.state, "AT_RISK");
   });
 
-  it("treats Unit-wide (no OT) as applying to Spaces in that Unit; rejects place-less rows", () => {
+  it("applies Unit-wide requirements only to Spaces in that Unit; rejects place-less rows", () => {
     const items = [
       need({
         id: "unit",
         spaceId: null,
         unitId: "unit-1",
         roleKey: "SERVER",
-        applicableOperationalTypeKeys: [],
-      }),
-      need({
-        id: "confused",
-        spaceId: null,
-        unitId: "unit-1",
-        roleKey: "COOK",
-        applicableOperationalTypeKeys: ["servery"],
       }),
       need({
         id: "dept",
         spaceId: null,
         unitId: null,
         roleKey: "PREP",
-        applicableOperationalTypeKeys: [],
         applicableOperationalCycleStableKeys: ["breakfast"],
       }),
     ];
@@ -357,14 +344,13 @@ describe("explicit space coverage", () => {
     assert.deepEqual(otherUnit, []);
   });
 
-  it("refuses a Location Function key as a coverage target", () => {
+  it("requires exactly one explicit Unit or Space target", () => {
     assert.throws(
       () =>
-        validateCoverageOperationalTypeKeys({
-          submittedKeys: ["servery"],
-          allowedKeys: new Set(["servery"]),
-        }),
-      /rooms this coverage need applies to/,
+        validateCoverageLocationTarget({}),
+      /Choose a Unit or a specific Space/,
     );
+    assert.throws(() => validateCoverageLocationTarget({ unitId: "unit", spaceId: "room" }), /not both/);
+    assert.deepEqual(validateCoverageLocationTarget({ unitId: "unit" }), { unitId: "unit", spaceId: null });
   });
 });

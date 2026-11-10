@@ -1231,13 +1231,14 @@ export async function loadWorkOrder(
 
 export async function listWorkOrders(
   session: FacilitySession,
-  input: { facilityId: string; departmentId: string; take?: number; client?: DbClient },
+  input: { facilityId: string; departmentId: string; take?: number; client?: DbClient; spaceIdFilter?: ReadonlySet<string> },
 ) {
   const client = input.client ?? prisma;
   await resolveWorkOrderActorAuthority(session, input.facilityId, input.departmentId);
   const rows = await client.repair.findMany({
     where: {
       unit: { facilityId: input.facilityId },
+      ...(input.spaceIdFilter ? { spaceId: { in: [...input.spaceIdFilter] } } : {}),
       OR: [
         { responsibleDepartmentId: input.departmentId },
         { requestingDepartmentId: input.departmentId },

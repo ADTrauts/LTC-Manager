@@ -68,7 +68,6 @@ export type LogAttachmentForResolve = {
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;
-  operationalTypeKey: string | null;
   /** Runtime expansion only — never persisted on the Attachment row. */
   resolvedSpaceId?: string | null;
   dailyWindows: Array<{
@@ -101,11 +100,7 @@ function targetFromAttachment(row: LogAttachmentForResolve): LogAttachmentTarget
     case "FACILITY":
       return { kind: "FACILITY" };
     case "OPERATIONAL_TYPE":
-      return {
-        kind: "OPERATIONAL_TYPE",
-        operationalTypeKey: row.operationalTypeKey!,
-        resolvedSpaceId: row.resolvedSpaceId ?? null,
-      };
+      throw new Error("OPERATIONAL_TYPE attachments are not live requirements.");
   }
 }
 
