@@ -21,7 +21,7 @@ Checkpoint `788e714` removes unused profile authoring, consumes explicit qualifi
 
 ## Product decision accepted
 
-The owner selected **explicit employee/role/location Assignments** for useful ONE_OFF behavior. Preserve instructions, completion/reopen history and offline receipt/idempotency semantics under the existing Workforce Assignment owner. Unassigned, role-less, or place-less generic Work is not the forward contract. Remove the old Work implementation after this path is implemented and verified. This is an approved contract, not a completed implementation.
+The owner selected **explicit employee/role/location Assignments** for useful ONE_OFF behavior. Preserve instructions, completion/reopen history and offline receipt/idempotency semantics under the existing Workforce Assignment owner. Unassigned, role-less, or place-less generic Work is not the forward contract. Remove the old Work implementation after this path is implemented and verified. The core employee create/complete/reopen/offline path is now implemented and browser-verified at `017f573`; scope hardening and old Work removal remain. See [Assignment lifecycle progress](PRELAUNCH_ASSIGNMENT_LIFECYCLE_PROGRESS_2026-11-10.md).
 
 ## Current findings
 
@@ -61,7 +61,7 @@ Rows outside the current retirement/PF scope retain their historical classificat
 
 ## ARR-003 — Generic Work retirement
 
-Live readers/writers remain in `src/lib/department-work`, offline command processing, partner read-only Work, Audit, catalog detail and builder summaries. Schema includes Plan/Item/Applicability/Occurrence/Event. Rehome the approved explicit Assignment capability first, test employee create/complete/reopen and offline retry/conflict/idempotency, then remove Work services, adapters, APIs/UI, tests, catalog seeds and persistence. No compatibility promise to retired application versions remains.
+Live readers/writers remain in `src/lib/department-work`, offline command processing, partner read-only Work, Audit, catalog detail and builder summaries. Schema includes Plan/Item/Applicability/Occurrence/Event. The approved Assignment owner now has a shared completion/reopen/attention path and canonical Space-offline receipts. Production-build browser verification passes all three Coverage/Team/employee-offline workflows. Finish the remaining scope cases, preserve the older suite’s legitimate authority/recovery/Key Point scenarios with canonical fixtures, then remove Work services, adapters, APIs/UI, obsolete tests, catalog seeds and persistence. No compatibility promise to retired application versions remains.
 
 ## ARR-004 — Classification and overlay retirement
 
