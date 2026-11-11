@@ -161,7 +161,8 @@ test("personas @ci-gate: each role opens its default Dashboard", async ({ browse
   const supervisor = await signIn(browser, fx.supervisor.email);
   try {
     await supervisor.page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-    await expect(supervisor.page.getByText("No team assigned")).toBeVisible();
+    await expect(supervisor.page.getByTestId("dashboard-scope")).toHaveText("Food & Nutrition");
+    await expect(supervisor.page.getByTestId("dashboard-lens")).toHaveCount(0);
     const ids = await cardIds(supervisor.page);
     expect(ids[0]).toBe("dashboard-card-shift_now");
     expect(ids).toContain("dashboard-card-menu_today");
