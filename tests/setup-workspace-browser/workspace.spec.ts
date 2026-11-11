@@ -120,7 +120,6 @@ test("two AVAILABLE selections persist through back/reload; each licensed Depart
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Invite a manager now?" })).toBeVisible();
   expect(await db.department.count({ where: { facilityId: f.facility.id } })).toBe(2);
-  expect(await db.departmentOperationalProfile.count({ where: { facilityId: f.facility.id, status: "ACTIVE" } })).toBe(0);
 });
 
 test("switching Facility isolates drafts and blocks submissions from a stale workspace tab", async ({ page, context }) => {

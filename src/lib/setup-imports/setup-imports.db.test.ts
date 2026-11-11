@@ -120,7 +120,6 @@ test("SQL: Department location CSV shares one physical place and preserves exist
   await db.unitSpaceResponsibility.updateMany({where:{spaceId:f.room.id,departmentId:f.plant.id},data:{capabilities:["preserve-this-existing-setting"]}});
   const q=await f.preview("department_locations",`department,locationType,locationId\nPLANT,ROOM,${f.room.id}\n`);const reuse=await f.confirm(q,`department,locationType,locationId\nPLANT,ROOM,${f.room.id}\n`);assert.equal(reuse.rows[0]!.result?.status,"reused");
   assert.deepEqual((await db.unitSpaceResponsibility.findUniqueOrThrow({where:{spaceId_departmentId:{spaceId:f.room.id,departmentId:f.plant.id}}})).capabilities,["preserve-this-existing-setting"]);
-  assert.equal(await db.departmentOperationalProfile.count({where:{facilityId:f.facility.id,status:"ACTIVE"}}),0);
 }));
 
 test("SQL: stale source/review/actor/dependency and cross-Facility references cannot authorize creation",{skip},()=>run(async db=>{

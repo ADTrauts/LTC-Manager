@@ -221,7 +221,6 @@ export async function loadFacilityRunLogRequirements(
     const resolved = resolveLogRequirementsForAttachment({
       attachment: {
         ...attachment,
-        resolvedSpaceId: null,
         catalogDefinition: catalogForResolve(attachment),
       },
       operationalDateKey,

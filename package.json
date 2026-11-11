@@ -41,6 +41,7 @@
     "db:validate": "prisma validate",
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "prisma db seed",
+    "db:seed:canonical": "node --import tsx scripts/seed-canonical-baseline.mts",
     "db:bootstrap-pilot-admin": "node scripts/bootstrap-pilot-facility-admin.mjs",
     "db:bootstrap-harbor-owner": "node scripts/bootstrap-harbor-owner.mjs",
     "db:backfill-gm-roster": "node scripts/backfill-gm-employees-from-users.mjs",

@@ -79,17 +79,17 @@ test("restore action no longer clears publishedAt", () => {
   assert.doesNotMatch(actions, /publishedAt: null/);
 });
 
-test("additive KnowledgeArticleVersion migration backfills version 1 only", () => {
+test("baseline provides KnowledgeArticleVersion storage", () => {
   const sql = readFileSync(
     new URL(
-      "../../../prisma/migrations/20261005180000_knowledge_article_version/migration.sql",
+      "../../../prisma/migrations/20261111120000_canonical_baseline/migration.sql",
       import.meta.url,
     ),
     "utf8",
   );
   assert.match(sql, /CREATE TABLE "KnowledgeArticleVersion"/);
-  assert.match(sql, /INSERT INTO "KnowledgeArticleVersion"/);
-  assert.match(sql, /"version",/);
+  assert.doesNotMatch(sql, /INSERT INTO "KnowledgeArticleVersion"/);
+  assert.match(sql, /CREATE TABLE "KnowledgeArticleVersion"[^;]+"version" INTEGER NOT NULL/);
   assert.doesNotMatch(sql, /UPDATE "KnowledgeArticle"/);
   assert.doesNotMatch(sql, /DELETE FROM "KnowledgeArticle"/);
   assert.doesNotMatch(sql, /DROP TABLE "KnowledgeArticle"/);

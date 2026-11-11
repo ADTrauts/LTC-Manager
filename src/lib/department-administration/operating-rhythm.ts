@@ -39,6 +39,7 @@ export type OperatingRhythmChildView = {
   overnight: boolean;
   effectiveTo: string | null;
   /** Explicit room groups. Empty space ids are not a saved location. */
+  keyPointGrain: "DEPARTMENT" | "LOCATION";
   keyTimeGroups: OperatingRhythmKeyTimeGroupView[];
 };
 
@@ -132,6 +133,7 @@ export function presentOperatingRhythmRoots(
         spaceIds: row.spaceIds,
         overnight: row.overnight,
         effectiveTo: row.effectiveTo ? toServiceDateKey(row.effectiveTo) : null,
+        keyPointGrain: row.keyPointGrain ?? "LOCATION",
         keyTimeGroups: (row.keyTimeGroups ?? []).map((group) => ({
           dueLocal: group.dueLocal,
           spaceIds: [...group.spaceIds],

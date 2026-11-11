@@ -237,10 +237,6 @@ test("retired Facility-type defaults do not create location Records", () => {
     cyclePlacements: [],
     spaceLogs: [],
     assetLogs: [],
-    typeDefaults: [
-      { id: "def-1", label: "Daily Servery Temperature", facilityRoomTypeId: "servery", typeLabel: "Servery" },
-    ],
-    suppressions: [],
     assets: [],
   });
   assert.deepEqual(program.logs, []);

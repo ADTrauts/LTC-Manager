@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { DepartmentOperationalCycle, Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { FacilitySession } from "@/lib/auth";
@@ -460,7 +460,6 @@ async function loadPublishedOverlapPeers(
     overnight: r.overnight,
     applicableDaysOfWeek: r.applicableDaysOfWeek,
     locationMode: r.locationMode,
-    applicableUnitTypes: r.applicableUnitTypes,
     unitIds: r.locations.map((l) => l.unitId).filter((id): id is string => Boolean(id)),
     effectiveFrom: toServiceDateKey(r.effectiveFrom),
     effectiveTo: r.effectiveTo ? toServiceDateKey(r.effectiveTo) : null,
@@ -996,10 +995,27 @@ export async function publishCycle(
     /** Preloaded groups from Review/schedule so publish cannot miss Key Time rooms. */
     keyTimeGroups?: KeyTimeGroupDefinition[];
   },
-) {
+): Promise<DepartmentOperationalCycle> {
   const client = input.client ?? prisma;
+  if ("$transaction" in client) {
+    return client.$transaction((tx) => publishCycle(session, { ...input, client: tx }));
+  }
   const authority = await resolveCycleAuthority(session, input.facilityId, input.departmentId);
   requireCyclePublish(authority);
+
+  await client.$queryRaw`
+    SELECT "id" FROM "Department"
+    WHERE "id" = ${input.departmentId} AND "facilityId" = ${input.facilityId}
+    FOR UPDATE
+  `;
+
+  await client.$queryRaw`
+    SELECT "id" FROM "DepartmentOperationalCycle"
+    WHERE "id" = ${input.cycleId}
+      AND "facilityId" = ${input.facilityId}
+      AND "departmentId" = ${input.departmentId}
+    FOR UPDATE
+  `;
 
   const existing = await client.departmentOperationalCycle.findFirst({
     where: {
@@ -1082,6 +1098,7 @@ export async function publishCycle(
       spaceIds: mapped.spaceIds,
 
       expectedMilestones: mapped.expectedMilestones,
+      keyPointGrain: mapped.keyPointGrain,
       keyTimeGroups:
         input.keyTimeGroups && input.keyTimeGroups.length > 0
           ? input.keyTimeGroups
@@ -1127,7 +1144,7 @@ export async function publishCycle(
   }
 
   const published = await client.departmentOperationalCycle.update({
-    where: { id: existing.id },
+    where: { id: existing.id, status: "DRAFT" },
     data: {
       status: "PUBLISHED",
       publishedAt: new Date(),
@@ -1398,14 +1415,32 @@ export async function scheduleDraftPublications(
     allowImmediate?: boolean;
     client?: DbClient;
   },
-) {
+): Promise<{ publishedIds: string[]; effectiveFrom: string }> {
   const client = input.client ?? prisma;
+  if ("$transaction" in client) {
+    return client.$transaction((tx) => scheduleDraftPublications(session, { ...input, client: tx }), { timeout: 30_000 });
+  }
   const authority = await resolveCycleAuthority(session, input.facilityId, input.departmentId);
   requireCyclePublish(authority);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveFrom)) {
     throw new Error("effectiveFrom must be YYYY-MM-DD.");
   }
+
+  await client.$queryRaw`
+    SELECT "id" FROM "Department"
+    WHERE "id" = ${input.departmentId} AND "facilityId" = ${input.facilityId}
+    FOR UPDATE
+  `;
+
+  await client.$queryRaw`
+    SELECT "id" FROM "DepartmentOperationalCycle"
+    WHERE "facilityId" = ${input.facilityId}
+      AND "departmentId" = ${input.departmentId}
+      AND "status" = 'DRAFT'
+    ORDER BY "id"
+    FOR UPDATE
+  `;
 
   const draftRows = await client.departmentOperationalCycle.findMany({
     where: {
@@ -1453,8 +1488,11 @@ export async function scheduleDraftPublications(
       },
     },
   });
+  const locations = await loadScopeLocations(client, input.facilityId, input.departmentId);
+  const authorizedSpaceIds = new Set(locations.filter(({ kind }) => kind === "room").map(({ id }) => id));
   const reviewValidation = validateDraftsForReviewPublish({
     drafts: definitions,
+    authorizedSpaceIds,
     locationContext: publishedContextRows.map((row) => mapCycleRow(row)),
   });
   if (!reviewValidation.valid) {
@@ -1470,7 +1508,7 @@ export async function scheduleDraftPublications(
   for (const draft of draftRows) {
     if (!latestIds.has(draft.id)) continue;
     await client.departmentOperationalCycle.update({
-      where: { id: draft.id },
+      where: { id: draft.id, status: "DRAFT" },
       data: {
         effectiveFrom: facilityLocalDateToServiceDate(input.effectiveFrom),
         lastChangedByUserId: input.actor.userId,

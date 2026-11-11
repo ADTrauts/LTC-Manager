@@ -1,2 +1,0 @@
--- AlterEnum
-ALTER TYPE "AiBriefType" ADD VALUE 'RECOVERY_ASSISTANT';

@@ -1,5 +1,7 @@
 # Migration history exceptions
 
+The active canonical baseline has no exceptions. The historical migration chain and its prior manifest are retained at Git commit `9e3ab45`.
+
 This document records **accepted historical edits** to migration SQL that was already applied
 to shared databases before the edit landed in git. These are not forward migrations and must not
 be “fixed” by rewriting history in `_prisma_migrations` on production or developer `ltc_manager`

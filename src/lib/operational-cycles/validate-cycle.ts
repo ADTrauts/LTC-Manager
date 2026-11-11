@@ -4,7 +4,6 @@ import type {
   OperationalCycleNodeKind,
   OperationalCycleType,
   ServeryMilestone,
-  UnitType,
 } from "@prisma/client";
 
 import { isCanonicalCycleLocationMode } from "./effective-cycle-spaces";
@@ -37,13 +36,10 @@ export type ValidateCycleInput = {
   mealType?: MealType | null;
   locationMode: OperationalCycleLocationMode;
   locationInheritFromParent?: boolean;
-  applicableUnitTypes?: UnitType[];
-  applicableOperationalTypeKeys?: string[];
   unitIds?: string[];
   spaceIds?: string[];
   keyTimeGroups?: KeyTimeGroupDefinition[];
   keyPointGrain?: KeyPointGrain;
-  roomTypeKey?: string | null;
   expectedMilestones?: ServeryMilestone[];
   /** Latest parent row. Required to enforce one-level Phase and Cycle-parented Key Points. */
   parentNode?: CanonicalParentContext | null;
@@ -60,7 +56,6 @@ export type PublishedCycleOverlapCandidate = {
   overnight: boolean;
   applicableDaysOfWeek: number[];
   locationMode: OperationalCycleLocationMode;
-  applicableUnitTypes: UnitType[];
   unitIds: string[];
   /** YYYY-MM-DD — when set with peer ranges, only overlapping effective windows conflict. */
   effectiveFrom?: string;
@@ -82,8 +77,8 @@ function normalizedNodeKind(input: ValidateCycleInput): OperationalCycleNodeKind
 
 /** Location scopes intersect when both could apply to the same unit. */
 export function locationScopesIntersect(
-  a: Pick<PublishedCycleOverlapCandidate, "locationMode" | "applicableUnitTypes" | "unitIds">,
-  b: Pick<PublishedCycleOverlapCandidate, "locationMode" | "applicableUnitTypes" | "unitIds">,
+  a: Pick<PublishedCycleOverlapCandidate, "locationMode" | "unitIds">,
+  b: Pick<PublishedCycleOverlapCandidate, "locationMode" | "unitIds">,
 ): boolean {
   if (!isCanonicalCycleLocationMode(a.locationMode) || !isCanonicalCycleLocationMode(b.locationMode)) return false;
   if (a.locationMode === "ALL_DEPARTMENT_UNITS" || b.locationMode === "ALL_DEPARTMENT_UNITS") {
@@ -189,10 +184,17 @@ function validateKeyTimeGroups(
     errors.push(
       issue(
         "key_time_groups_required",
-        "Add at least one due-time group and select the Rooms it applies to.",
+        grain === "DEPARTMENT"
+          ? "Set the Department's due time."
+          : "Add a due-time group and select its Rooms.",
         "error",
       ),
     );
+    return;
+  }
+
+  if (grain === "DEPARTMENT" && (list.length > 1 || list.some((group) => group.spaceIds.length > 0))) {
+    errors.push(issue("department_key_time_scope", "A Department Key Point uses one due time for the Department.", "error"));
     return;
   }
 
@@ -445,7 +447,6 @@ export function validateCycleForPublish(
         overnight: input.overnight ?? false,
         applicableDaysOfWeek: input.applicableDaysOfWeek,
         locationMode: input.locationMode,
-        applicableUnitTypes: input.applicableUnitTypes ?? [],
         unitIds: input.unitIds ?? [],
         effectiveFrom: input.effectiveFrom?.trim() || undefined,
         effectiveTo: input.effectiveTo ?? null,

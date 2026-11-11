@@ -71,7 +71,6 @@ test("coverage resolves for the room without a Team-room relationship", () => {
         requiredCount: 2,
         unitId: null,
         spaceId: "space-1a-servery",
-        applicableOperationalTypeKeys: [],
         applicableOperationalCycleStableKeys: ["breakfast"],
       },
       {

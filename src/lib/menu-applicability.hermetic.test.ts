@@ -464,13 +464,13 @@ test("ACTIVE menus with empty applicability surface Needs Attention", () => {
 
 test("schema binds cycleStableKey rather than a versioned cycle row id", () => {
   const schema = source("prisma/schema.prisma");
-  const migration = source("prisma/migrations/20261013200000_menu_applicability/migration.sql");
+  const migration = source("prisma/migrations/20261111120000_canonical_baseline/migration.sql");
   assert.match(schema, /model MenuLocationApplicability/);
   assert.match(schema, /model MenuOperationalCycleApplicability/);
   assert.match(schema, /cycleStableKey String/);
   assert.match(schema, /menuPeriodKey  String/);
   assert.doesNotMatch(schema, /model MenuServiceSlot/);
-  assert.doesNotMatch(migration, /DepartmentOperationalCycle/);
+  assert.doesNotMatch(migration, /ALTER TABLE "MenuOperationalCycleApplicability"[^;]*REFERENCES "DepartmentOperationalCycle"/);
   assert.match(migration, /MenuLocationApplicability_target_xor/);
   assert.doesNotMatch(migration, /INSERT INTO "MenuLocationApplicability"/);
   assert.doesNotMatch(migration, /INSERT INTO "MenuOperationalCycleApplicability"/);

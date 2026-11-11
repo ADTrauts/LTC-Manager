@@ -3,8 +3,6 @@
  *
  * A requirement applies to the canonical target stored on the attachment:
  * SPACE, UNIT, DEPARTMENT, FACILITY, or ASSET.
- * OPERATIONAL_TYPE rows do not match. Location Function and Facility Room Type
- * are not live Records rules.
  */
 
 import type { LogAttachmentTarget, LogRequirement } from "@/lib/logs-architecture/types";
@@ -31,7 +29,7 @@ export type LocationLogAttachmentRow = {
   catalogStableKey: string;
   catalogVersion: number;
   label: string;
-  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY" | "OPERATIONAL_TYPE";
+  targetKind: "ASSET" | "SPACE" | "UNIT" | "DEPARTMENT" | "FACILITY";
   spaceId: string | null;
   unitId: string | null;
   targetDepartmentId: string | null;

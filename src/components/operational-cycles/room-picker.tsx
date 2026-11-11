@@ -95,12 +95,14 @@ export function KeyTimeGroupsEditor({
   onChange,
   roomTypes = [],
   fieldName = "keyTimeGroups",
+  locationScoped = true,
 }: {
   locations: CycleScopeLocationOption[];
   groups: Array<{ dueLocal: string; spaceIds: string[] }>;
   onChange: (next: Array<{ dueLocal: string; spaceIds: string[] }>) => void;
   roomTypes?: Array<{ key: string; label: string }>;
   fieldName?: string;
+  locationScoped?: boolean;
 }) {
   const [roomTypeFilterId, setRoomTypeFilterId] = useState("");
 
@@ -121,7 +123,7 @@ export function KeyTimeGroupsEditor({
   return (
     <div className="space-y-3" data-testid="key-time-groups-editor">
       <input type="hidden" name={fieldName} value={JSON.stringify(groups)} />
-      {roomTypes.length > 0 ? (
+      {locationScoped && roomTypes.length > 0 ? (
         <label className="block text-xs font-medium text-zinc-700">
           Filter by Room Type
           <select
@@ -163,7 +165,7 @@ export function KeyTimeGroupsEditor({
               </button>
             ) : null}
           </div>
-          <RoomPicker
+          {locationScoped ? <RoomPicker
             locations={locations}
             selectedIds={group.spaceIds}
             onChange={(spaceIds) => updateGroup(index, { spaceIds })}
@@ -172,16 +174,16 @@ export function KeyTimeGroupsEditor({
                 ? { facilityRoomTypeId: roomTypeFilterId }
                 : undefined
             }
-          />
+          /> : null}
         </div>
       ))}
-      <button
+      {locationScoped || groups.length === 0 ? <button
         type="button"
         className="text-xs font-medium text-sky-800 hover:text-sky-950"
         onClick={addGroup}
       >
-        + Add another time
-      </button>
+        {groups.length > 0 ? "+ Add another time" : "+ Add due time"}
+      </button> : null}
     </div>
   );
 }

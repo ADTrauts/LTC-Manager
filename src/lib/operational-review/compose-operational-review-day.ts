@@ -141,7 +141,6 @@ export function composeOperationalReviewDay(
       const segment: LogAttachmentForResolve = {
         ...historical,
         status: "ACTIVE",
-        resolvedSpaceId: spaceId,
       };
       const submissions = facts.evidenceRecords.filter(
         (row) =>

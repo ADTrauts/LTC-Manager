@@ -62,15 +62,6 @@ test("assignment changes open, restore, and repeat a coverage episode", { skip }
       data: { facilityId: facility.id, unitId: unit.id, name: `Dining ${suffix}`, spaceType: "SERVICE_AREA" },
     });
     await db.unitSpaceResponsibility.create({ data: { spaceId: space.id, departmentId: department.id } });
-    const profile = await db.departmentOperationalProfile.create({
-      data: { facilityId: facility.id, departmentId: department.id, name: "Food", version: 1, status: "ACTIVE" },
-    });
-    const archetype = await db.departmentRoomArchetype.create({
-      data: { profileId: profile.id, key: "SERVERY", name: "Servery" },
-    });
-    await db.departmentRoomArchetypeBinding.create({
-      data: { profileId: profile.id, archetypeId: archetype.id, unitSpaceId: space.id },
-    });
     await db.departmentOperationalCycle.create({
       data: {
         facilityId: facility.id,
@@ -154,7 +145,7 @@ test("assignment changes open, restore, and repeat a coverage episode", { skip }
     const server = await person("server", true);
     const supervisor = await person("supervisor", true);
     const unlinked = await person("unlinked", false);
-    const usersBefore = await db.user.count();
+    const usersBefore = await db.user.count({ where: { facilityId: facility.id } });
 
     async function assign(employeeId: string, roleKey: string, roleLabel: string) {
       const row = await db.operationalAssignment.create({
@@ -254,7 +245,7 @@ test("assignment changes open, restore, and repeat a coverage episode", { skip }
     assert.equal(notification.priority, "CRITICAL");
     assert.match(notification.dedupeKey, new RegExp(episodeA.id));
     assert.equal(notification.actionPath, "/staffing?date=2026-10-29");
-    assert.equal(await db.user.count(), usersBefore);
+    assert.equal(await db.user.count({ where: { facilityId: facility.id } }), usersBefore);
 
     const read = await markNotificationRead(db, {
       facilityId: facility.id,
@@ -475,7 +466,6 @@ test("assignment changes open, restore, and repeat a coverage episode", { skip }
     await db.operationalAssignmentPlan.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.operationalAssignmentTemplate.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.departmentOperationalCycle.deleteMany({ where: { facilityId: { in: facilityIds } } });
-    await db.departmentOperationalProfile.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.unitSpace.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.unit.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.employee.deleteMany({ where: { facilityId: { in: facilityIds } } });

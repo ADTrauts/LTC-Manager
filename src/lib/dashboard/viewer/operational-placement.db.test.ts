@@ -69,8 +69,28 @@ test(
           name: "Environmental Services",
         },
       });
+      const role = await prisma.role.findUniqueOrThrow({ where: { key: "FACILITY_ADMINISTRATOR" } });
+      const adminUser = await prisma.user.create({
+        data: {
+          email: `run-scope-admin-${suffix}@example.com`,
+          displayName: "Run Scope Administrator",
+          facilityId: facility.id,
+          roleId: role.id,
+        },
+      });
+      await prisma.employee.create({
+        data: {
+          userId: adminUser.id,
+          facilityId: facility.id,
+          firstName: "Run Scope",
+          lastName: "Administrator",
+          roleType: "FACILITY_ADMINISTRATOR",
+          primaryDepartmentId: dietary.id,
+          employeeDepartments: { create: { departmentId: evs.id } },
+        },
+      });
       const admin = session({
-        uid: `admin_${suffix}`,
+        uid: adminUser.id,
         facilityId: facility.id,
         role: "FACILITY_ADMINISTRATOR",
         authKind: "user",
@@ -321,6 +341,7 @@ test(
       await prisma.unit.deleteMany({
         where: { facility: { organization: { name: { contains: suffix } } } },
       });
+      await prisma.user.deleteMany({ where: { email: `run-scope-admin-${suffix}@example.com` } });
       await prisma.facility.deleteMany({
         where: { organization: { name: { contains: suffix } } },
       });

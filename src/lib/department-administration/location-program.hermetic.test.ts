@@ -58,15 +58,6 @@ function baseInput() {
     ],
     spaceLogs: [{ id: "att-1", label: "Temp log" }],
     assetLogs: [{ id: "att-2", label: "Dish machine", assetName: "Hobart 1" }],
-    typeDefaults: [
-      {
-        id: "def-1",
-        label: "Sanitizer check",
-        facilityRoomTypeId: "type-servery",
-        typeLabel: "Servery",
-      },
-    ],
-    suppressions: [] as Array<{ defaultId: string; spaceId: string }>,
     assets: [{ id: "asset-1", name: "Hobart 1", code: "DM-1" }],
   };
 }
@@ -121,7 +112,6 @@ describe("Location Program", () => {
 
   it("does not inherit a Facility Room Type default onto the room", () => {
     const input = baseInput();
-    input.suppressions = [{ defaultId: "def-1", spaceId: "servery-3a" }];
     const program = composeLocationProgram(input);
     assert.equal(program.logs.some((row) => row.kind === "TYPE_DEFAULT"), false);
     assert.equal(program.logs.some((row) => row.label === "Sanitizer check"), false);

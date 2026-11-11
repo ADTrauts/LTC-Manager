@@ -602,15 +602,6 @@ test("coverage, key points, and work orders escalate without changing severity",
       data: { facilityId: facility.id, unitId: unit.id, name: `Dining ${suffix}`, spaceType: "SERVICE_AREA" },
     });
     await db.unitSpaceResponsibility.create({ data: { spaceId: space.id, departmentId: dietary.id } });
-    const profile = await db.departmentOperationalProfile.create({
-      data: { facilityId: facility.id, departmentId: dietary.id, name: "Food", version: 1, status: "ACTIVE" },
-    });
-    const archetype = await db.departmentRoomArchetype.create({
-      data: { profileId: profile.id, key: "SERVERY", name: "Servery" },
-    });
-    await db.departmentRoomArchetypeBinding.create({
-      data: { profileId: profile.id, archetypeId: archetype.id, unitSpaceId: space.id },
-    });
     await db.departmentOperationalCycle.create({
       data: {
         facilityId: facility.id,
@@ -1085,7 +1076,6 @@ test("coverage, key points, and work orders escalate without changing severity",
     await db.operationalAssignmentPlan.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.operationalAssignmentTemplate.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.departmentOperationalCycle.deleteMany({ where: { facilityId: { in: facilityIds } } });
-    await db.departmentOperationalProfile.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.unitSpace.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.unit.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.employee.deleteMany({ where: { facilityId: { in: facilityIds } } });

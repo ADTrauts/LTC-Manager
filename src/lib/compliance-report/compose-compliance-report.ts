@@ -38,7 +38,10 @@ function responseRows(slot: AuditRecordSlot): ComplianceResponseRow[] {
       critical: question.critical === true,
     }));
   }
-  const repeats = (slot.repeatResponses ?? []).map((row) => ({
+  const answers = [
+    ...(slot.scalarResponses ?? []).map((answer) => ({ ...answer, group: "", row: "" })),
+    ...(slot.repeatResponses ?? []),
+  ].map((row) => ({
     recordId,
     serviceDate: slot.serviceDate,
     location,
@@ -54,7 +57,7 @@ function responseRows(slot: AuditRecordSlot): ComplianceResponseRow[] {
     group: row.group,
     row: row.row,
   }));
-  if (repeats.length > 0) return repeats;
+  if (answers.length > 0) return answers;
   if (!slot.record) return [];
   const numeric = slot.record.valueNumber;
   return [

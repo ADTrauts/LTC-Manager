@@ -336,15 +336,6 @@ test("snooze quiet and digest do not change attention", { skip }, async () => {
     assert.equal((await db.notification.findUniqueOrThrow({ where: { id: intervention.id } })).escalatedAt?.toISOString(), stamped?.toISOString());
     assert.equal((await db.repair.findUniqueOrThrow({ where: { id: immediate.id } })).responseRequirement, "IMMEDIATE");
 
-    const profile = await db.departmentOperationalProfile.create({
-      data: { facilityId: facility.id, departmentId: dietary.id, name: "Food", version: 1, status: "ACTIVE" },
-    });
-    const archetype = await db.departmentRoomArchetype.create({
-      data: { profileId: profile.id, key: "SERVERY", name: "Servery" },
-    });
-    await db.departmentRoomArchetypeBinding.create({
-      data: { profileId: profile.id, archetypeId: archetype.id, unitSpaceId: space.id },
-    });
     await db.departmentOperationalCycle.create({
       data: {
         facilityId: facility.id,
@@ -708,7 +699,6 @@ test("snooze quiet and digest do not change attention", { skip }, async () => {
     await db.operationalAssignmentPlan.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.operationalAssignmentTemplate.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.departmentOperationalCycle.deleteMany({ where: { facilityId: { in: facilityIds } } });
-    await db.departmentOperationalProfile.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.assetStatusHistory.deleteMany({ where: { asset: { unit: { facilityId: { in: facilityIds } } } } });
     await db.asset.deleteMany({ where: { unit: { facilityId: { in: facilityIds } } } });
     await db.unitSpace.deleteMany({ where: { facilityId: { in: facilityIds } } });

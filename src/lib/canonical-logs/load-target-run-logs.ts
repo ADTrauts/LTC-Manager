@@ -49,7 +49,7 @@ const attachmentInclude = {
 };
 
 export type RunTargetRef = {
-  kind: Exclude<LogAttachmentTargetKind, "FACILITY" | "OPERATIONAL_TYPE">;
+  kind: Exclude<LogAttachmentTargetKind, "FACILITY">;
   id: string;
 };
 
@@ -369,7 +369,6 @@ export async function loadTargetRunLogs(input: {
     const resolved = resolveLogRequirementsForAttachment({
       attachment: {
         ...attachment,
-        resolvedSpaceId: null,
         catalogDefinition: catalogForResolve(attachment.catalogDefinition),
       },
       operationalDateKey: todayKey,
@@ -417,7 +416,6 @@ export async function loadTargetRunLogs(input: {
     );
     const resolveSegments: LogAttachmentForResolve[] = segments.map((attachment) => ({
       ...attachment,
-      resolvedSpaceId: null,
       catalogDefinition: catalogForResolve(attachment.catalogDefinition),
     }));
 

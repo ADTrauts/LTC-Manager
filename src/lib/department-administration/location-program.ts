@@ -127,13 +127,6 @@ export type ComposeLocationProgramInput = {
   }[];
   spaceLogs: readonly { id: string; label: string }[];
   assetLogs: readonly { id: string; label: string; assetName: string }[];
-  typeDefaults: readonly {
-    id: string;
-    label: string;
-    facilityRoomTypeId: string;
-    typeLabel: string;
-  }[];
-  suppressions: readonly { defaultId: string; spaceId: string }[];
   assets: readonly { id: string; name: string; code: string | null }[];
   menus?: readonly { id: string; name: string }[];
 };

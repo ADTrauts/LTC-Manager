@@ -247,7 +247,7 @@ export const CATALOG_SEED_DEFINITIONS = [
 ];
 
 /**
- * @param {import("@prisma/client").PrismaClient} prisma
+ * @param {import("@prisma/client").PrismaClient | import("@prisma/client").Prisma.TransactionClient} prisma
  */
 export async function upsertPublishedCatalogSeeds(prisma) {
   let created = 0;

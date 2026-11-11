@@ -31,12 +31,9 @@ type CycleRowInput = {
   mealType: OperationalCycleDefinition["mealType"];
   locationMode: OperationalCycleDefinition["locationMode"];
   locationInheritFromParent?: boolean;
-  applicableUnitTypes: OperationalCycleDefinition["applicableUnitTypes"];
-  applicableOperationalTypeKeys?: string[];
   expectedMilestones: OperationalCycleDefinition["expectedMilestones"];
   status: OperationalCycleDefinition["status"];
   parentStableKey?: string | null;
-  roomTypeKey?: string | null;
   occurrenceTracking?: "NONE" | "OPTIONAL" | "REQUIRED";
   keyPointGrain?: "DEPARTMENT" | "LOCATION";
   locations: { unitId: string | null; spaceId?: string | null }[];
@@ -84,9 +81,6 @@ function mapCycleRow(row: CycleRowInput): OperationalCycleDefinition {
     mealType: row.mealType,
     locationMode: row.locationMode,
     locationInheritFromParent: row.locationInheritFromParent ?? false,
-    applicableUnitTypes: row.applicableUnitTypes,
-    applicableOperationalTypeKeys: row.applicableOperationalTypeKeys ?? [],
-    roomTypeKey: row.roomTypeKey ?? null,
     occurrenceTracking: row.occurrenceTracking,
     keyPointGrain: row.keyPointGrain,
     expectedMilestones: row.expectedMilestones,

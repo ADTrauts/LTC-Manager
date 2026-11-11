@@ -202,7 +202,9 @@ function mapKeyTimeIssue(
       severity: "error",
       code,
       title: `${row.label} needs a due time`,
-      message: "Add at least one due-time group and select the Rooms it applies to.",
+      message: row.keyPointGrain === "DEPARTMENT"
+        ? "Set the Department's due time."
+        : "Add a due-time group and select its Rooms.",
       fixLabel: "Set key time",
       focus: "key_times",
     });
@@ -431,10 +433,10 @@ export function validateDraftsForReviewPublish(input: {
       mealType: row.mealType,
       locationMode: row.locationMode,
       locationInheritFromParent: row.locationInheritFromParent,
-      applicableUnitTypes: row.applicableUnitTypes,
       unitIds: row.unitIds,
       spaceIds: row.spaceIds,
       keyTimeGroups: row.keyTimeGroups,
+      keyPointGrain: row.keyPointGrain,
       expectedMilestones: row.expectedMilestones,
       forPublish: true,
     });

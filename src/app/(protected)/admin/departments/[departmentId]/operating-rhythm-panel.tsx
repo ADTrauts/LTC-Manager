@@ -358,7 +358,8 @@ function KeyPointLocations({
   const [groups, setGroups] = useState(child.keyTimeGroups);
   const editable = canManage && child.status === "DRAFT";
   const shown = open ? groups : child.keyTimeGroups;
-  const missingRooms = shown.some((group) => group.spaceIds.length === 0);
+  const locationScoped = child.keyPointGrain === "LOCATION";
+  const missingRooms = locationScoped && shown.some((group) => group.spaceIds.length === 0);
 
   return (
     <div className="rounded-md bg-zinc-50 px-2 py-2">
@@ -374,10 +375,11 @@ function KeyPointLocations({
               {shown.map((group) => (
                 <li key={`${child.stableKey}-${group.dueLocal}`}>
                   {formatCycleClock(group.dueLocal) || group.dueLocal || "Due time"}
-                  {": "}
-                  {group.spaceIds.length === 0
-                    ? "No locations yet"
-                    : group.spaceIds.map((spaceId) => locationName(catalog, spaceId)).join(", ")}
+                  {locationScoped ? (
+                    group.spaceIds.length === 0
+                      ? " · No locations yet"
+                      : ` · ${group.spaceIds.map((spaceId) => locationName(catalog, spaceId)).join(", ")}`
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -399,7 +401,7 @@ function KeyPointLocations({
             }}
             data-testid="edit-key-point-locations"
           >
-            {open ? "Close locations" : "Edit locations"}
+            {open ? "Close editor" : locationScoped ? "Edit locations" : "Edit time"}
           </Button>
         ) : null}
       </div>
@@ -428,9 +430,10 @@ function KeyPointLocations({
             groups={groups}
             onChange={setGroups}
             roomTypes={catalog.roomTypes}
+            locationScoped={locationScoped}
           />
           <Button type="submit" size="compact" data-testid="save-key-point-locations">
-            Save locations
+            {locationScoped ? "Save locations" : "Save time"}
           </Button>
         </DepartmentAdminActionForm>
       ) : null}

@@ -66,8 +66,6 @@ function aquaticsOpeningCycle(): OperationalCycleDefinition {
     mealType: null,
     locationMode: "ALL_DEPARTMENT_UNITS",
     locationInheritFromParent: false,
-    applicableUnitTypes: [],
-    roomTypeKey: null,
     expectedMilestones: [],
     status: "PUBLISHED",
     unitIds: [],

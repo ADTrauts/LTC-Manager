@@ -4,7 +4,7 @@
  * Slot composition happens in memory.
  */
 
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { OperationalEvidenceFieldValue, Prisma, PrismaClient } from "@prisma/client";
 
 import { serializeEvidenceFieldForCsv, formatEvidenceFieldDisplay } from "@/lib/canonical-logs/evidence-field-display";
 import { scoreInspectionSnapshotJson } from "@/lib/canonical-logs/inspection-score";
@@ -111,6 +111,7 @@ export async function loadAuditOperationalRecords(
       valueText: scalar?.valueText ?? (csvValue || null),
       correctiveActionText: row.correctiveActionText,
       inspection: inspectionExport(row.templateSnapshotJson, row.values),
+      scalarResponses: projectScalarRecordResponses(row.templateSnapshotJson, row.values),
       repeatResponses: projectRepeatResponses(row.templateSnapshotJson, row.values),
       occurredAt: row.occurredAt?.toISOString() ?? null,
       recordedAt: row.recordedAt?.toISOString() ?? null,
@@ -149,6 +150,26 @@ export async function loadAuditOperationalRecords(
       recordedAt: row.recordedAt.toISOString(),
     })),
   });
+}
+
+function projectScalarRecordResponses(
+  snapshotJson: Prisma.JsonValue | null,
+  values: readonly OperationalEvidenceFieldValue[],
+): NonNullable<AuditRecordFact["scalarResponses"]> {
+  const snapshot = parseLogSubmissionSnapshot(snapshotJson);
+  const fields = new Map(snapshot?.catalog.fields.map((field) => [field.fieldKey, field]));
+  return values
+    .filter((value) => !value.groupKey)
+    .sort((a, b) =>
+      (fields.get(a.fieldKey)?.displaySequence ?? Number.MAX_SAFE_INTEGER) -
+      (fields.get(b.fieldKey)?.displaySequence ?? Number.MAX_SAFE_INTEGER),
+    )
+    .map((value) => ({
+      column: value.label,
+      value: serializeEvidenceFieldForCsv(value),
+      unit: fields.get(value.fieldKey)?.unitLabel ?? "",
+      outOfStandard: value.outOfStandard,
+    }));
 }
 
 function projectRepeatResponses(

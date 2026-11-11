@@ -109,7 +109,7 @@ export async function renderComplianceWorkbook(report: ComplianceReport): Promis
       { header: "Row", key: "row", width: 16 },
     ];
     for (const row of report.responses) {
-      const added = responses.addRow(row);
+      const added = responses.addRow({ ...row, na: row.notApplicable, oos: row.outOfStandard });
       if (row.scoreWeight != null) added.getCell("weight").value = row.scoreWeight;
       if (row.earned != null) added.getCell("earned").value = row.earned;
       const numeric = Number(row.response);

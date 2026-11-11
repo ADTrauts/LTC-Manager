@@ -21,7 +21,6 @@ const KIND_ORDER: CatalogAssignKind[] = [
   "ASSET",
   "UNIT",
   "DEPARTMENT",
-  "OPERATIONAL_TYPE",
 ];
 
 export function CatalogAddToTarget({ view }: Props) {
@@ -193,11 +192,6 @@ export function CatalogAddToTarget({ view }: Props) {
                 {view.recommendedCadenceLabel}
                 {view.timingSummary ? ` · ${view.timingSummary}` : ""}
               </p>
-              {kind === "OPERATIONAL_TYPE" ? (
-                <p className="mt-1 text-xs text-zinc-500">
-                  Operational Types are department program classes. This is not Physical Room Type.
-                </p>
-              ) : null}
               {view.usingRecommendedSchedule ? (
                 <p className="text-xs font-medium text-zinc-700">Using recommended schedule</p>
               ) : null}

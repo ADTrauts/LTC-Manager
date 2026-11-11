@@ -12,6 +12,7 @@ import { join } from "node:path";
 
 import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import { getDepartmentProduct } from "@/lib/department-products";
+import { ensureInitialDepartmentOperator } from "@/lib/department-operators/service";
 import {
   createKnowledgeArticleWithInitialVersion,
   loadCurrentPublishedVersion,
@@ -92,6 +93,11 @@ async function createFacilityFixture(
   const plant = await prisma.department.create({
     data: { facilityId: facility.id, key: "PLANT", name: "Plant Operations" },
   });
+  await ensureInitialDepartmentOperator(prisma, {
+    facilityId: facility.id,
+    departmentId: plant.id,
+    effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
+  });
   const unit = await prisma.unit.create({
     data: {
       facilityId: facility.id,
@@ -159,6 +165,29 @@ async function createFacilityFixture(
       emailVerifiedAt: new Date(),
     },
   });
+  for (const [person, roleKey] of [
+    [manager, "MANAGER"],
+    [supervisor, "SUPERVISOR"],
+    [staff, "STAFF"],
+  ] as const) {
+    await prisma.userFacilityAccess.create({
+      data: {
+        userId: person.id,
+        facilityId: facility.id,
+        rolePeriods: { create: { roleKey, startsAt: new Date("2026-01-01T00:00:00.000Z") } },
+      },
+    });
+    await prisma.employee.create({
+      data: {
+        userId: person.id,
+        facilityId: facility.id,
+        firstName: "Phase4B",
+        lastName: person.displayName ?? roleKey,
+        roleType: roleKey,
+        primaryDepartmentId: plant.id,
+      },
+    });
+  }
   const employee = await prisma.employee.create({
     data: {
       id: cuidLike(),
@@ -308,19 +337,19 @@ test("Facility Plant Operations is AVAILABLE", () => {
   assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
 });
 
-test("phase 4B migration documents the active Work Order partial unique index", () => {
+test("baseline preserves the active Work Order partial unique index", () => {
   const sql = readFileSync(
     join(
       process.cwd(),
-      "prisma/migrations/20261006140000_pm_active_work_order_unique/migration.sql",
+      "prisma/migrations/20261111120000_canonical_baseline/migration.sql",
     ),
     "utf8",
   );
-  assert.match(sql, /Repair_pmOccurrenceId_active_key/);
-  assert.match(sql, /pmOccurrenceId/);
-  assert.match(sql, /COMPLETED/);
-  assert.match(sql, /CLOSED/);
-  assert.match(sql, /CANCELLED/);
+  const index = sql.match(/CREATE UNIQUE INDEX "Repair_pmOccurrenceId_active_key"[^;]+;/)?.[0];
+  assert.ok(index);
+  assert.match(index, /pmOccurrenceId/);
+  assert.match(index, /COMPLETED/);
+  assert.match(index, /CANCELLED/);
 });
 
 test(

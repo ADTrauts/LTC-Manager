@@ -266,8 +266,6 @@ async function loadProgramsForDepartmentRooms(input: {
       coverageNeeds: coverageBySpace.get(room.spaceId) ?? [],
       spaceLogs,
       assetLogs,
-      typeDefaults: [],
-      suppressions: [],
       assets: assets
         .filter((asset) => asset.spaceId === room.spaceId)
         .map((asset) => ({
