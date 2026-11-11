@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 
+import { activateFixtureAccount, linkFixtureAccount } from "./fixture-account.mjs";
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -42,7 +43,7 @@ function pinDigest(facilityId, pin) {
 async function upsertUser(db, { email, displayName, roleKey, facilityId, primaryDepartmentId }) {
   const role = await db.role.findUniqueOrThrow({ where: { key: roleKey } });
   const passwordHash = await bcrypt.hash(SYNTHETIC_PASSWORD, 12);
-  return db.user.upsert({
+  const user = await db.user.upsert({
     where: { email },
     update: {
       displayName,
@@ -66,6 +67,7 @@ async function upsertUser(db, { email, displayName, roleKey, facilityId, primary
     },
     select: { id: true, email: true },
   });
+  return activateFixtureAccount(db, user, { facilityId, roleKey });
 }
 
 async function ensureEmployee(db, {
@@ -246,6 +248,7 @@ async function main() {
       roleType: "STAFF",
       pinDigestValue: pinDigest(facility.id, techPin),
     });
+    await linkFixtureAccount(db, staff, techEmp, { facilityId: facility.id, roleKey: "STAFF" });
 
     const techEmployees = [techEmp];
     for (let i = 2; i <= 10; i += 1) {
@@ -260,7 +263,7 @@ async function main() {
       techEmployees.push(emp);
     }
 
-    await ensureEmployee(db, {
+    const supervisorEmp = await ensureEmployee(db, {
       facilityId: facility.id,
       email: supervisor.email,
       firstName: "Plant",
@@ -268,6 +271,24 @@ async function main() {
       departmentId: plant.id,
       roleType: "SUPERVISOR",
     });
+    await linkFixtureAccount(db, supervisor, supervisorEmp, { facilityId: facility.id, roleKey: "SUPERVISOR" });
+    const managerEmp = await ensureEmployee(db, {
+      facilityId: facility.id,
+      email: manager.email,
+      firstName: "Plant",
+      lastName: "Manager",
+      departmentId: plant.id,
+      roleType: "MANAGER",
+    });
+    await linkFixtureAccount(db, manager, managerEmp, { facilityId: facility.id, roleKey: "MANAGER" });
+    const dietaryEmp = await ensureEmployee(db, {
+      facilityId: facility.id,
+      email: dietaryStaff.email,
+      firstName: "Dietary",
+      lastName: "Staff",
+      departmentId: dietary.id,
+    });
+    await linkFixtureAccount(db, dietaryStaff, dietaryEmp, { facilityId: facility.id, roleKey: "STAFF" });
 
     // Floors / mechanical units
     const floors = [];
@@ -457,7 +478,8 @@ async function main() {
         title: "Waiting parts faucet",
         description: "Parts on order",
         priority: "LOW",
-        status: "WAITING_PARTS",
+        status: "ON_HOLD",
+        holdReason: "WAITING_FOR_PART",
         requestingDepartmentId: plant.id,
         responsibleDepartmentId: plant.id,
         reportedById: manager.id,

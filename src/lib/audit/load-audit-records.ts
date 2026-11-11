@@ -8,6 +8,7 @@ import type { OperationalEvidenceFieldValue, Prisma, PrismaClient } from "@prism
 
 import { serializeEvidenceFieldForCsv, formatEvidenceFieldDisplay } from "@/lib/canonical-logs/evidence-field-display";
 import { scoreInspectionSnapshotJson } from "@/lib/canonical-logs/inspection-score";
+import { loadPublishedCyclesForLogsDateRange } from "@/lib/canonical-logs/load-published-cycles-for-logs";
 import { parseLogSubmissionSnapshot } from "@/lib/canonical-logs/snapshot";
 import { parseRepeatingGroups, evaluateCalculations, parseCalculations, type RepeatRowInput } from "@/lib/canonical-logs/template-structure";
 import { mapReviewAttachmentSegments } from "@/lib/operational-review/review-fact-maps";
@@ -43,7 +44,7 @@ export async function loadAuditOperationalRecords(
   const startDate = facilityLocalDateToServiceDate(input.fromDateKey);
   const endExclusive = facilityLocalDateToServiceDate(shiftDate(input.toDateKey, 1));
 
-  const [attachments, records, waivers, placeNames, spaces] = await Promise.all([
+  const [attachments, records, waivers, placeNames, spaces, publishedCyclesByDate] = await Promise.all([
     client.logAttachment.findMany({
       where: { facilityId: input.facilityId, departmentId: input.departmentId },
       include: {
@@ -76,6 +77,14 @@ export async function loadAuditOperationalRecords(
     client.unitSpace.findMany({
       where: { facilityId: input.facilityId },
       select: { id: true, name: true },
+    }),
+    loadPublishedCyclesForLogsDateRange({
+      client,
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      fromDateKey: input.fromDateKey,
+      toDateKey: input.toDateKey,
+      timezone,
     }),
   ]);
 
@@ -134,6 +143,7 @@ export async function loadAuditOperationalRecords(
     now,
     facilityTimezone: timezone,
     departmentId: input.departmentId,
+    publishedCyclesByDate,
     catalogStableKey: input.catalogStableKey,
     segments: mapReviewAttachmentSegments(attachments).map((segment) => ({
       ...segment,
