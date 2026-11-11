@@ -144,7 +144,7 @@ test.describe("Phase 3D work order closeout @phase-3d @ci-gate", () => {
         await supervisor.page.getByTestId("wo-requirement-template").selectOption(template.id);
         await supervisor.page.getByTestId("wo-requirement-add").click();
         await expect(supervisor.page.getByTestId("wo-required-evidence")).toContainText(
-          "Post-repair inspection",
+          template.name,
           { timeout: 15_000 },
         );
       } finally {
@@ -179,7 +179,7 @@ test.describe("Phase 3D work order closeout @phase-3d @ci-gate", () => {
           "Cannot complete Work Order",
           { timeout: 15_000 },
         );
-        await expect(tech.page.getByTestId("wo-closeout-error")).toContainText("Post-repair inspection");
+        await expect(tech.page.getByTestId("wo-closeout-error")).toContainText(template.name);
 
         const record = await db.operationalEvidenceRecord.create({
           data: {

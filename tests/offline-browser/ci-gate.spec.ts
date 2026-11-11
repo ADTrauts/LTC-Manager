@@ -6,6 +6,19 @@ const index = (project: string) => project === 'tablet' ? 1 : 0;
 async function prepare(page: Page, second = false) { const fx = loadFixtures(); await prepareCanonicalOfflineEntry(page, fx.canonical, fx.adminEmail, date(fx.facilityTimezone), second ? fx.canonical.people.secondWorker.email : undefined); await waitForServiceWorkerControl(page); return fx; }
 async function cached(page: Page) { return page.evaluate(async () => { const s = await import(/* webpackIgnore: true */ String('/space-offline-store.js')); const row = (await s.envelopes()).find((r: {id:string;commands:unknown[]}) => r.id === s.activeId()); return { ...await s.read(row), id: row.id }; }); }
 async function sync(page: Page) { await page.getByTestId('space-offline-sync').click(); }
+test('public Vssyl PWA manifest is linked from sign-in @ci-gate', async ({ page }) => {
+    const response = await page.request.get('/manifest.webmanifest');
+    expect(response.ok()).toBe(true);
+    const manifest = await response.json();
+    expect(manifest.name).toBe('Vssyl');
+    expect(manifest.short_name).toBeTruthy();
+    expect(manifest.start_url).toBeTruthy();
+    expect(manifest.display).toBeTruthy();
+    expect(manifest.icons.length).toBeGreaterThan(0);
+    expect(manifest.theme_color || manifest.background_color).toBeTruthy();
+    await page.goto('/login');
+    await expect(page.locator('link[rel="manifest"]')).toHaveCount(1);
+});
 test('scenario-02/04 @ci-gate: public code caches; protected HTML, RSC and API responses never cache', async ({ page }) => {
     const fx = await prepare(page);
     await page.goto(`/unit/${fx.canonical.unitId}?space=${fx.canonical.spaceId}`);

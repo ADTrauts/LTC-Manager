@@ -187,7 +187,7 @@ async function main() {
 
     run(
       "node",
-      ["scripts/verify/plant-browser-fixtures.mjs"],
+      ["--import", "tsx", "scripts/verify/plant-browser-fixtures.mjs"],
       {
         ...baseEnv,
         PLANT_BROWSER_FIXTURE_PATH: FIXTURE_PATH,

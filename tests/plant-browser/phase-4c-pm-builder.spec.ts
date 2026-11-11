@@ -142,7 +142,7 @@ test.describe("Phase 4C preventive maintenance builder @phase-4c @ci-gate", () =
       await page.getByTestId("pm-field-effective").fill("2027-01-01");
       await page.getByTestId("pm-field-lead").fill("7");
 
-      await expect(page.getByTestId("pm-schedule-preview")).toContainText("Projected schedule");
+      await expect(page.getByTestId("pm-schedule-preview")).toContainText("Upcoming schedule");
       const preview = page.getByTestId("pm-projected-dates");
       await expect(preview).toContainText("Jan 31, 2027");
       await expect(preview).toContainText("Feb 28, 2027");
@@ -161,7 +161,7 @@ test.describe("Phase 4C preventive maintenance builder @phase-4c @ci-gate", () =
       await page.getByTestId("pm-field-technician").selectOption(fx.techEmployeeId);
       await page.getByTestId("pm-field-record-add").selectOption(template.id);
 
-      await expect(page.getByTestId("pm-schedule-preview")).toContainText("Projected schedule");
+      await expect(page.getByTestId("pm-schedule-preview")).toContainText("Upcoming schedule");
       await expect(preview).toContainText("Jan 15, 2027");
       await expect(preview).toContainText("Apr 15, 2027");
       await expect(preview).toContainText("Jul 15, 2027");

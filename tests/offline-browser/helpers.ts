@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -161,11 +160,6 @@ export async function expectOfflineControlsReady(page: Page) {
   );
 }
 
-export async function gotoUnitWorkspace(page: Page, unitId: string) {
-  await page.goto(`/unit/${unitId}?unitTab=overview`);
-  await expect(page.getByTestId("unit-workspace")).toBeVisible({ timeout: 30_000 });
-}
-
 export async function waitForServiceWorker(page: Page) {
   const ok = await page.evaluate(async () => {
     if (!("serviceWorker" in navigator)) return false;
@@ -205,54 +199,6 @@ export async function waitForServiceWorkerControl(page: Page) {
     controlled = await waitForController();
   }
   expect(controlled, "service worker did not control the page").toBeTruthy();
-}
-
-export async function waitForOfflineStatus(page: Page, text: RegExp | string) {
-  const status = page.getByTestId("offline-runtime-status");
-  await expect(status).toBeVisible({ timeout: 30_000 });
-  await expect(status).toContainText(text, { timeout: 45_000 });
-}
-
-export async function waitForBundle(page: Page) {
-  await expect
-    .poll(
-      async () => {
-        return page.evaluate(async () => {
-          return new Promise<boolean>((resolve) => {
-            const timer = setTimeout(() => resolve(false), 2_000);
-            const req = indexedDB.open("ltc-offline-runtime", 1);
-            req.onerror = () => {
-              clearTimeout(timer);
-              resolve(false);
-            };
-            req.onblocked = () => {
-              clearTimeout(timer);
-              resolve(false);
-            };
-            req.onsuccess = () => {
-              const db = req.result;
-              if (![...db.objectStoreNames].includes("bundle")) {
-                clearTimeout(timer);
-                resolve(false);
-                return;
-              }
-              const tx = db.transaction("bundle", "readonly");
-              const get = tx.objectStore("bundle").get("active");
-              get.onsuccess = () => {
-                clearTimeout(timer);
-                resolve(Boolean(get.result));
-              };
-              get.onerror = () => {
-                clearTimeout(timer);
-                resolve(false);
-              };
-            };
-          });
-        });
-      },
-      { timeout: 45_000, intervals: [250, 500, 1000] },
-    )
-    .toBe(true);
 }
 
 const offlineNetworkSessions = new WeakMap<Page, import("@playwright/test").CDPSession>();
@@ -372,19 +318,6 @@ export async function inspectIndexedDb(page: Page) {
   });
 }
 
-export async function inspectCaches(page: Page) {
-  return page.evaluate(async () => {
-    const keys = await caches.keys();
-    const entries: { cache: string; urls: string[] }[] = [];
-    for (const key of keys) {
-      const cache = await caches.open(key);
-      const reqs = await cache.keys();
-      entries.push({ cache: key, urls: reqs.map((r) => new URL(r.url).pathname) });
-    }
-    return { keys, entries };
-  });
-}
-
 export async function recordServeryReadyOffline(page: Page) {
   const controls = page.getByTestId("servery-meal-service-controls");
   await expect(controls).toBeVisible();
@@ -409,20 +342,6 @@ export async function recordServeryReadyOffline(page: Page) {
   throw new Error("No enabled Servery Ready control available for offline recording");
 }
 
-export async function recordMealStartedOffline(page: Page) {
-  const controls = page.getByTestId("servery-meal-service-controls");
-  await expect(controls).toBeVisible();
-  await controls.getByRole("button", { name: /Meal Service Started/i }).click();
-  await expect(controls.getByText("Saved on this tablet").first()).toBeVisible({ timeout: 15_000 });
-}
-
-export async function clickRetrySync(page: Page) {
-  const retry = page.getByRole("button", { name: /Retry synchronization/i });
-  if (await retry.isVisible().catch(() => false)) {
-    await retry.click();
-  }
-}
-
 export async function signOut(page: Page) {
   // Sign out now lives inside the account menu dropdown; open it first when present.
   const trigger = page.getByTestId("account-menu-trigger");
@@ -433,90 +352,4 @@ export async function signOut(page: Page) {
     await page.getByRole("button", { name: /Sign out/i }).first().click();
   }
   await page.waitForURL(/\/login/, { timeout: 30_000 });
-}
-
-/**
- * Network-failure-after-commit technique:
- * Intercept the page's fetch so the request reaches the server and completes,
- * but the first matching runtime-sync response body is discarded (thrown) so the
- * client treats it as a transport failure and retries. The second attempt receives
- * the real response (ALREADY_ACCEPTED).
- */
-export async function installSyncResponseLossOnce(page: Page) {
-  await page.addInitScript(() => {
-    const original = window.fetch.bind(window);
-    let dropped = false;
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const method = (init?.method || (typeof input !== "string" && !(input instanceof URL) ? input.method : "GET") || "GET").toUpperCase();
-      const res = await original(input, init);
-      if (
-        !dropped &&
-        method === "POST" &&
-        url.includes("/api/offline/runtime-sync") &&
-        res.ok
-      ) {
-        dropped = true;
-        // Consume the body so the request fully completed server-side, then fail the client.
-        await res.arrayBuffer();
-        throw new TypeError("offline-browser: simulated response loss after commit");
-      }
-      return res;
-    };
-  });
-}
-
-export function fingerprint(value: string): string {
-  return createHash("sha256").update(value).digest("hex").slice(0, 12);
-}
-
-export async function countMilestones(
-  _db: PrismaClient,
-  _unitId: string,
-  _mealType: "BREAKFAST" | "LUNCH" | "DINNER",
-  _milestone: "READY" | "SERVICE_STARTED",
-) {
-  return 0;
-}
-
-/** Clear today's Servery Ready/Started state for a unit (disposable DB only). */
-export async function clearTodayServeryMilestones(db: PrismaClient, unitId: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const y = Number(parts.find((p) => p.type === "year")?.value);
-  const m = Number(parts.find((p) => p.type === "month")?.value);
-  const d = Number(parts.find((p) => p.type === "day")?.value);
-  void db;
-  void unitId;
-  return new Date(Date.UTC(y, m - 1, d));
-}
-
-/** Create an authoritative Ready milestone through Prisma fixture controls (disposable DB only). */
-export async function createAuthoritativeReady(
-  db: PrismaClient,
-  input: {
-    facilityId: string;
-    unitId: string;
-    mealType: "BREAKFAST" | "LUNCH" | "DINNER";
-    userId: string;
-  },
-) {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const y = Number(parts.find((p) => p.type === "year")?.value);
-  const m = Number(parts.find((p) => p.type === "month")?.value);
-  const d = Number(parts.find((p) => p.type === "day")?.value);
-  void db;
-  void input;
-  void now;
-  return { eventId: "retired", serviceDate: new Date(Date.UTC(y, m - 1, d)) };
 }

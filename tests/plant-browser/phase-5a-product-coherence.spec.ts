@@ -14,6 +14,7 @@ type Fixtures = {
   plantDepartmentId: string;
   dietaryDepartmentId: string;
   serveryUnitId: string | null;
+  serverySpaceId: string;
   floors: Array<{ id: string; name: string }>;
   assets: Array<{ id: string; assetCode: string; name: string; status: string }>;
   users: {
@@ -141,17 +142,11 @@ test.describe("Phase 5A product coherence @phase-5a @ci-gate", () => {
     const unitId = fx.serveryUnitId ?? fx.floors[0]?.id;
     test.skip(!unitId, "no unit for request intake");
 
-    const space = await db.unitSpace.findFirst({
-      where: { unitId, isActive: true },
-      select: { id: true },
-    });
     const summary = `Ceiling leak near window ${suffix}`;
     const { context, page } = await openPersistent("request");
     try {
       await loginPassword(page, fx.users.dietaryStaff.email, password);
-      const href = space
-        ? `/unit/${unitId}?space=${encodeURIComponent(space.id)}&reportProblem=1`
-        : `/unit/${unitId}?reportProblem=1`;
+      const href = `/unit/${unitId}?space=${fx.serverySpaceId}&reportProblem=1`;
       await page.goto(href);
       const form = page.getByTestId("report-problem-form");
       const noRoutes = page.getByTestId("report-problem-no-routes");
@@ -220,7 +215,7 @@ test.describe("Phase 5A product coherence @phase-5a @ci-gate", () => {
     }
   });
 
-  test("Plant Build shows Work, Getting Started, and no Menus", async () => {
+  test("Plant Build shows canonical Maintenance and Getting Started", async () => {
     const fx = loadFixtures();
     const { context, page } = await openPersistent("build");
     try {
@@ -229,9 +224,9 @@ test.describe("Phase 5A product coherence @phase-5a @ci-gate", () => {
       await expect(page.getByTestId("department-builder-nav")).toBeVisible({ timeout: 30_000 });
       const nav = page.getByTestId("department-builder-nav");
       await expect(nav.getByRole("link", { name: "Overview" })).toBeVisible();
-      await expect(nav.getByRole("link", { name: "Locations" })).toBeVisible();
+      await expect(nav.locator('a[href$="?tab=locations"]')).toBeVisible();
       await expect(nav.getByRole("link", { name: "Operating Rhythm" })).toBeVisible();
-      await expect(nav.getByRole("link", { name: "Work" })).toBeVisible();
+      await expect(nav.getByRole("link", { name: "Work", exact: true })).toHaveCount(0);
       await expect(nav.getByRole("link", { name: "Maintenance" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "People & Coverage" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "Records" })).toBeVisible();
@@ -241,9 +236,8 @@ test.describe("Phase 5A product coherence @phase-5a @ci-gate", () => {
       await expect(page.getByTestId("add-starter-configuration")).toBeVisible();
       await expect(page.getByText("this list does not block Run", { exact: false })).toBeVisible();
 
-      await nav.getByRole("link", { name: "Work", exact: true }).click();
-      await expect(page.getByTestId("department-work-panel")).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText(/not every recurring activity is PM/i)).toBeVisible();
+      await nav.getByRole("link", { name: "Maintenance", exact: true }).click();
+      await expect(page.getByTestId("pm-plan-list")).toBeVisible();
     } finally {
       await context.close();
     }

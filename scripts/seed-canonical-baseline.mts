@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 import { installResolvedDepartmentProduct, resolveDepartmentProductForInstall } from "@/lib/department-products/install";
 import { createFacilityRoomType } from "@/lib/facility-builder/facility-room-types";
-import { legacyFieldsForFacilityRoomType } from "@/lib/facility-builder/facility-base-types";
+import { legacyFieldsForFacilityRoomType, requireFacilityBaseType } from "@/lib/facility-builder/facility-base-types";
 import { upsertPublishedCatalogSeeds } from "../prisma/apply-catalog-log-seeds.mjs";
 
 const migrationName = "20261111120000_canonical_baseline";
@@ -24,7 +24,9 @@ async function main() {
   const password = required("VSSYL_BASELINE_OWNER_PASSWORD");
   const floorName = required("VSSYL_BASELINE_FLOOR_NAME").trim();
   const neighborhoodName = required("VSSYL_BASELINE_NEIGHBORHOOD_NAME").trim();
-  const roomName = required("VSSYL_BASELINE_DINING_ROOM_NAME").trim();
+  const roomName = required("VSSYL_BASELINE_ROOM_NAME").trim();
+  const roomBaseType = requireFacilityBaseType(process.env.VSSYL_BASELINE_ROOM_TYPE_KEY?.trim() || "dining_area");
+  const roomTypeLabel = process.env.VSSYL_BASELINE_ROOM_TYPE_LABEL?.trim() || roomBaseType.label;
 
   if (
     !["postgres:", "postgresql:"].includes(url.protocol) ||
@@ -152,8 +154,8 @@ async function main() {
       });
       const roomType = await createFacilityRoomType({
         facilityId: facility.id,
-        baseTypeKey: "dining_area",
-        displayName: "Dining Area",
+        baseTypeKey: roomBaseType.key,
+        displayName: roomTypeLabel,
       }, tx);
       const room = await tx.unitSpace.create({
         data: {

@@ -1,6 +1,6 @@
 # Architecture Reconciliation Register
 
-## Current authority — November 10, 2026
+## Current authority — November 11, 2026
 
 The product owner's [01C pre-launch amendment](../product/01C_PRELAUNCH_CANONICAL_RESET_AMENDMENT_2026-11-10.md) supersedes historical compatibility, separate per-model approval and phased DROP restrictions. One owner, no paid customers or external customer facilities. Retired development data is not a reason to retain retired runtime architecture. One coordinated checkpoint remains for active-production reset/connection replacement.
 
@@ -9,19 +9,19 @@ The previous full register, including the Phase 2C/2D release record, is [archiv
 ## Execution snapshot
 
 - Infrastructure: retained `org-hidden-leaf-35421142` / `damp-hill-35484256` and staging `raspy-mode-86368121`. The separate Neon project `delicate-unit-53515438` and dedicated Vercel project `prj_JeESAC2g6z7NQSAVV6J09469yVJm` are deleted, provider inventories verified. Empty free-plan `org-quiet-cake-64686025` and its separate login remain; CLI supports only organization listing.
-- Source: `architecture/prelaunch-canonical-consolidation` integrates certified `ad87a4e` with actual GitHub main `56de312`. Desktop dirty work and divergent Phase 8.3 work are preserved. No push/deployment/production database change is part of this checkpoint.
+- Source: `architecture/prelaunch-canonical-consolidation` integrates certified `ad87a4e` with actual GitHub main `56de312`. Desktop dirty work and divergent Phase 8.3 work are preserved. Vercel built the canonical application as a protected staging Preview. The public deployment still serves Phase 2C.
 - PF-2D-001: explicit `spaceId` survives real Prisma prefetch. Original 9 database checks remain, with a tenth check for Team-view isolation/removal.
 - PF-2D-002: Coverage is mounted under People & Coverage; save follows created/forked expectation IDs; Unit + Space role/count/Cycle authoring, publication, reload and draft successor are covered by the existing Playwright framework. Publication remains next service day. Effective-time RLS/Dashboard facts are tested separately from today's actual Dashboard UI.
 - Teams: explicit normal-room configuration is in Employee Builder and the Team domain service. Optional Supervisor Team lens reads explicit rooms, intersects active Facility/Department responsibility, and grants no authority, staffing requirement or eligibility. Today's Assignment placement remains distinct.
-- Database: 189-migration history is transitional local verification only. The overlapping, unapplied parallel migration is archived outside the active path. Final schema retirement, baseline and minimal canonical seed are not complete.
+- Database: one canonical migration and an explicit owner seed create a new installation. The baseline passed on empty local PostgreSQL and on two new databases in retained Neon PostgreSQL 18 projects. The existing production ledger has 189 completed migrations. See the [baseline and cutover record](PRELAUNCH_CANONICAL_BASELINE_2026-11-11.md).
 
-## Workforce progress — November 10, 2026
+## Workforce checkpoint — November 10, 2026
 
-Checkpoint `788e714` removes unused profile authoring, consumes explicit qualification in Assignment create/edit/apply, preserves Dietary Space placement, and verifies actual UI placement closing the Dashboard gap. Retained Neon CLI access is now verified with profile `vssyl-retained`; both retained projects are PostgreSQL 18. Full hermetic run: 3,999 tests, 0 failures (315 opt-in skips); new Assignment SQL regression: 6 passed; production-build browser workflows: 2 passed. See [Workforce progress](PRELAUNCH_WORKFORCE_PROGRESS_2026-11-10.md) for receipts and limits. ONE_OFF completion/reopen/offline and duplicate Job Role imports/editors remain incomplete; ARR-003/004/008 stay open for those dependencies.
+Checkpoint `788e714` established explicit qualification in Assignment create/edit/apply and verified that placing an eligible worker in a Space closes the Dashboard gap. See [Workforce progress](PRELAUNCH_WORKFORCE_PROGRESS_2026-11-10.md) for the checkpoint evidence. The current findings below reflect the subsequent lifecycle, authoring, and persistence changes.
 
 ## Product decision accepted
 
-The owner selected **explicit employee/role/location Assignments** for useful ONE_OFF behavior. Preserve instructions, completion/reopen history and offline receipt/idempotency semantics under the existing Workforce Assignment owner. Unassigned, role-less, or place-less generic Work is not the forward contract. Remove the old Work implementation after this path is implemented and verified. The core employee create/complete/reopen/offline path is now implemented and browser-verified at `017f573`; scope hardening and old Work removal remain. See [Assignment lifecycle progress](PRELAUNCH_ASSIGNMENT_LIFECYCLE_PROGRESS_2026-11-10.md).
+The owner selected **explicit employee/role/location Assignments** for useful ONE_OFF behavior. Workforce Assignment owns instructions, completion, reopen history, and offline receipts. The canonical workflow requires an eligible employee, role, and authorized location. Browser verification covers online completion, supervisor reopen, and idempotent offline replay after scope hardening. See [Assignment lifecycle progress](PRELAUNCH_ASSIGNMENT_LIFECYCLE_PROGRESS_2026-11-10.md).
 
 ## Current findings
 
@@ -31,12 +31,12 @@ Rows outside the current retirement/PF scope retain their historical classificat
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | Historical status; reassess in vertical workflow |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | Historical status; reassess in vertical workflow |
-| ARR-003 | Generic Work retirement and ONE_OFF rehoming | Runtime verified; persistence awaits baseline | High | Remove unused Work models from the clean baseline |
-| ARR-004 | Retire Location Function/profile/archetype and type Log overlays | Canonical scope and baseline implemented locally | Critical | Complete fresh-schema browser verification |
+| ARR-003 | Generic Work retirement and ONE_OFF rehoming | Closed in canonical source | High → mitigated | Assignment lifecycle and replay passed on the new baseline. Legacy models and the obsolete Unit offline browser matrix are removed. |
+| ARR-004 | Retire Location Function/profile/archetype and type Log overlays | Closed in canonical source | Critical → mitigated | Fresh-schema browser workflows verified explicit Room scope for Rhythm, Menus, and Records. |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | Historical status; reassess in vertical workflow |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | Historical status; reassess in vertical workflow |
 | ARR-007 | Constitution / Domain Model long-form still name retired owners | Documentation drift | High | Historical status; reassess in vertical workflow |
-| ARR-008 | One Workforce operational-role contract | Canonical role and import tests passed on the fresh schema | High | Complete fresh-schema browser verification |
+| ARR-008 | One Workforce operational-role contract | Closed in canonical source | High → mitigated | Workforce role and import SQL regressions and explicit Placement/Assignment browser workflows passed. |
 | ARR-009 | Scheduled Evaluation production clock not hosted | Implementation gap | High | Historical status; reassess in vertical workflow |
 | ARR-010 | Web Push production sending intentionally off | Implementation gap | Medium | Historical status; reassess in vertical workflow |
 | ARR-011 | `CANONICAL_LOGS_ENABLED` default false | Implementation gap / rollout | Medium | Historical status; reassess in vertical workflow |
@@ -44,7 +44,7 @@ Rows outside the current retirement/PF scope retain their historical classificat
 | ARR-013 | Marketplace kinds beyond Records forms not built | Future enhancement | Medium | Historical status; reassess in vertical workflow |
 | ARR-014 | EVS DEVELOPMENT vs shared engine surfaces | Legitimate + gap | Medium | Historical status; reassess in vertical workflow |
 | ARR-015 | Partner/staffing Work Plan authoring — **closed Phase 2B**; routes read-only | Closed (writers) | Medium → mitigated | Historical status; reassess in vertical workflow |
-| ARR-016 | Forward RLS/Coverage explicit location composition | Locally verified; remaining old selector stores tracked ARR-004 | High | PF-2D-001/002 regression retained |
+| ARR-016 | Forward RLS/Coverage explicit location composition | Closed in canonical source | High → mitigated | PF-2D-001/002 regressions retained. Browser published explicit Unit and Room requirements and verified the resulting Dashboard gap. |
 | ARR-017 | Multiple Records due calculators | Legitimate design | Low | Historical status; reassess in vertical workflow |
 | ARR-018 | Historical Operational Type selectors in Review | Legacy debt | Medium | Historical status; reassess in vertical workflow |
 | ARR-019 | Build hub copy still teaches Work | Documentation drift | Medium | Historical status; reassess in vertical workflow |
@@ -73,4 +73,4 @@ Employee Builder and Assignment share the operational role registry and employee
 
 ## Baseline and verification gate
 
-See [first execution report](PRELAUNCH_CANONICAL_CONSOLIDATION_EXECUTION_REPORT_2026-11-10.md) for dependency order, actual test receipts, baseline strategy, infrastructure limitations and the next milestone. A fresh-baseline install and all required vertical workflows are release requirements. Findings close on implementation plus evidence, not on a future plan or on the presence of old tables in an archive.
+See the [first execution report](PRELAUNCH_CANONICAL_CONSOLIDATION_EXECUTION_REPORT_2026-11-10.md) for the initial dependency order and [baseline and cutover record](PRELAUNCH_CANONICAL_BASELINE_2026-11-11.md) for current verification, infrastructure, and release status.

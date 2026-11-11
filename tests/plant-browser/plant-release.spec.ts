@@ -17,6 +17,7 @@ type Fixtures = {
   plantDepartmentId: string;
   dietaryDepartmentId: string;
   serveryUnitId: string | null;
+  serverySpaceId: string;
   floors: Array<{ id: string; name: string }>;
   assets: Array<{ id: string; assetCode: string; name: string; status: string }>;
   oosAssetId: string;
@@ -91,7 +92,7 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
       await expect(page.getByTestId("department-builder-nav")).toBeVisible({ timeout: 30_000 });
       const nav = page.getByTestId("department-builder-nav");
       await expect(nav.getByRole("link", { name: "Overview" })).toBeVisible();
-      await expect(nav.getByRole("link", { name: "Locations" })).toBeVisible();
+      await expect(nav.locator('a[href$="?tab=locations"]')).toBeVisible();
       await expect(nav.getByRole("link", { name: "Operating Rhythm" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "Work", exact: true })).toHaveCount(0);
       await expect(nav.getByRole("link", { name: "Maintenance" })).toBeVisible();
@@ -137,17 +138,11 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
     const suffix = cuidLike().slice(-6).toUpperCase();
     const unitId = fx.serveryUnitId ?? fx.floors[0]?.id;
     test.skip(!unitId, "no unit for request intake");
-    const space = await db.unitSpace.findFirst({
-      where: { unitId, isActive: true },
-      select: { id: true },
-    });
     const summary = `Release leak ${suffix}`;
     const requester = await openPersistent("req");
     try {
       await loginPassword(requester.page, fx.users.dietaryStaff.email, password);
-      const href = space
-        ? `/unit/${unitId}?space=${encodeURIComponent(space.id)}&reportProblem=1`
-        : `/unit/${unitId}?reportProblem=1`;
+      const href = `/unit/${unitId}?space=${fx.serverySpaceId}&reportProblem=1`;
       await requester.page.goto(href);
       const form = requester.page.getByTestId("report-problem-form");
       await expect(form).toBeVisible({ timeout: 30_000 });

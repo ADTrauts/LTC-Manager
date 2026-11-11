@@ -294,7 +294,7 @@ test.describe("Phase 3C corrective maintenance @phase-3c @ci-gate", () => {
         if (leakUnit) {
           await supervisor2.page.locator('select[name="unitId"]').selectOption(leakUnit);
         }
-        await supervisor2.page.getByRole("button", { name: "Create Issue", exact: true }).click();
+        await supervisor2.page.getByTestId("direct-issue-create").getByRole("button", { name: "Create Issue", exact: true }).click();
         await expect(supervisor2.page.getByText(`Ceiling leak ${suffix}`)).toBeVisible({
           timeout: 20_000,
         });
