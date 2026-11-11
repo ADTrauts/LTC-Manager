@@ -60,6 +60,8 @@ The protected Preview was built from the runtime source SHA above. The later bra
 
 ## Coordinated cutover
 
+The [canonical cutover gate](PRELAUNCH_CANONICAL_CUTOVER_GATE.md) records the confirmed seed, final staged production release and ordered promotion and rollback procedure. The steps below describe the earlier baseline checkpoint.
+
 1. Verify the final source, protected deployment, database binding, real owner identity, and selected Terrace View setup. The proposed small setup is Terrace View Long Term Care in `America/New_York`, Food and Nutrition and Plant Operations, and Floor 1 → 1A - Naval Park → Naval Park Servery. Use `kitchen` with the physical label `Servery` if that is the selected starting room. Provision the owner credential through the operator's secret environment and verify sign-in before making the new application public.
 2. Switch the production build and runtime database connection to the candidate together. Configure pooled `DATABASE_URL` and direct `DIRECT_URL`, and reconcile the Marketplace-generated aliases so the production build, application runtime, and Prisma operations agree. Preserve production auth and integration settings required by the intended flows. Record the new deployment ID and its exact source before moving the public alias.
 3. The old database currently has five accounts, two Facilities, six Departments, seven Employees, 23 hierarchy nodes, 21 Rooms, one Menu and two Assets. It has zero Records, Operational Assignments, Work Orders or PM Plans in the checked tables. Old data stays in its existing database for rollback. The new application starts from the explicitly approved setup and system catalogs. The proposed seed excludes the existing EVS development configuration and the second Facility.

@@ -73,4 +73,4 @@ Employee Builder and Assignment share the operational role registry and employee
 
 ## Baseline and verification gate
 
-See the [first execution report](PRELAUNCH_CANONICAL_CONSOLIDATION_EXECUTION_REPORT_2026-11-10.md) for the initial dependency order and [baseline and cutover record](PRELAUNCH_CANONICAL_BASELINE_2026-11-11.md) for current verification, infrastructure, and release status.
+See the [first execution report](PRELAUNCH_CANONICAL_CONSOLIDATION_EXECUTION_REPORT_2026-11-10.md) for the initial dependency order, the [baseline report](PRELAUNCH_CANONICAL_BASELINE_2026-11-11.md) for workflow evidence, and the [canonical cutover gate](PRELAUNCH_CANONICAL_CUTOVER_GATE.md) for the selected source, seeded owner and Facility, protected production candidate, and authorization and rollback procedure. The final source preserves effective Record placement dates and excludes the archived pilot's retired Work and Location Function dependencies. ARR-003/004/008/016 remain closed in canonical source; this does not imply it is live.
