@@ -39,7 +39,6 @@ export type DepartmentWeekEmployeeRow = {
   employeeFirstName: string;
   employeeLastName: string;
   teamDisplayName: string | null;
-  jobRoleDisplayName: string | null;
   jobTitleDisplayName: string | null;
   /** Per-day projections for the week (aligned with week.days). */
   days: WeekDayCell[];
@@ -96,7 +95,6 @@ export type WeekEmployeeInput = {
   firstName: string;
   lastName: string;
   teamDisplayName: string | null;
-  jobRoleDisplayName: string | null;
   jobTitleDisplayName: string | null;
 };
 
@@ -211,7 +209,6 @@ export function buildDepartmentWeekScheduleProjection(input: {
       employeeFirstName: emp.firstName,
       employeeLastName: emp.lastName,
       teamDisplayName: emp.teamDisplayName,
-      jobRoleDisplayName: emp.jobRoleDisplayName,
       jobTitleDisplayName: emp.jobTitleDisplayName,
       days,
       hasAnyShift: days.some((d) => d.shifts.length > 0),

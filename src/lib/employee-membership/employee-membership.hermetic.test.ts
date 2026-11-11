@@ -146,8 +146,6 @@ describe("Organization form parsing", () => {
     form.set("primaryTeam:dietary", "resident");
     form.append("additionalTeamIds", "retail");
     form.set("jobTitleId", "supervisor-title");
-    form.set("jobRole:dietary", "role-member");
-    form.set("jobRole:evs", "role-lead");
     const parsed = parseEmployeeOrganizationForm(form);
     assert.equal(parsed.primaryDepartmentId, "dietary");
     assert.deepEqual(parsed.additionalDepartmentIds, ["evs"]);
@@ -155,13 +153,11 @@ describe("Organization form parsing", () => {
     const byId = new Map(parsed.teamMemberships.map((row) => [row.teamId, row.isPrimary]));
     assert.equal(byId.get("resident"), true);
     assert.equal(byId.get("retail"), false);
-    assert.equal(parsed.jobRoleByDepartmentId.get("dietary"), "role-member");
-    assert.equal(parsed.jobRoleByDepartmentId.get("evs"), "role-lead");
   });
 });
 
 describe("Employee Builder contracts", () => {
-  it("keeps Job Role and Platform authority separate from Team; Job Title is not shown on the org form", () => {
+  it("keeps platform authority and operational qualifications separate from Team membership", () => {
     const fields = readFileSync(
       join(process.cwd(), "src/components/employee-organization-fields.tsx"),
       "utf8",
@@ -178,7 +174,7 @@ describe("Employee Builder contracts", () => {
       join(process.cwd(), "src/components/employees-filters.tsx"),
       "utf8",
     );
-    assert.match(fields, /Job Role/);
+    assert.match(card, /EmployeeOperationalEligibility/);
     assert.match(fields, /\+ Add department/);
     assert.match(fields, /\+ Add team/);
     assert.equal(/Job Title/.test(fields), false);
@@ -186,7 +182,7 @@ describe("Employee Builder contracts", () => {
     assert.equal(/name="jobTitleId"/.test(create) && /Job Title/.test(create), false);
     assert.equal(/Job Title/.test(filters), false);
     assert.match(card, /Platform authority/);
-    assert.match(card, /Department work permissions come from Job Roles/);
+    assert.match(card, /Operational qualifications are managed separately/);
     assert.equal(/WorkStation/.test(fields), false);
   });
 
@@ -208,16 +204,6 @@ describe("Employee Builder contracts", () => {
     assert.equal(/setDefaultAssignmentAction/.test(card), false);
     assert.equal(/EmployeeHrUnionFormSection/.test(card), false);
     assert.equal(/TAB_LABEL/.test(card), false);
-  });
-
-  it("primary Employee Builder nav is Employees | Job Roles without Points/CHRC/HR Audit", () => {
-    const subNav = readFileSync(join(process.cwd(), "src/components/employees-sub-nav.tsx"), "utf8");
-    assert.match(subNav, /Employees/);
-    assert.match(subNav, /Job Roles/);
-    assert.equal(/points-summary/.test(subNav), false);
-    assert.equal(/chrc-report/.test(subNav), false);
-    assert.equal(/hr-audit/.test(subNav), false);
-    assert.equal(/separations/.test(subNav), false);
   });
 
   it("Employee Builder layout no longer mounts a local Department tab strip", () => {

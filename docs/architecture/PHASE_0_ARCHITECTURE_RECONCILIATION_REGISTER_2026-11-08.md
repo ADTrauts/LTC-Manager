@@ -36,7 +36,7 @@ Rows outside the current retirement/PF scope retain their historical classificat
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | Historical status; reassess in vertical workflow |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | Historical status; reassess in vertical workflow |
 | ARR-007 | Constitution / Domain Model long-form still name retired owners | Documentation drift | High | Historical status; reassess in vertical workflow |
-| ARR-008 | One Workforce operational-role contract | OPEN — live duplicate consumers | High | Remove Department Job Role dependencies from employee/import/Assignment paths |
+| ARR-008 | One Workforce operational-role contract | Local role and import tests verified | High | Remove retired persistence and verify the new baseline |
 | ARR-009 | Scheduled Evaluation production clock not hosted | Implementation gap | High | Historical status; reassess in vertical workflow |
 | ARR-010 | Web Push production sending intentionally off | Implementation gap | Medium | Historical status; reassess in vertical workflow |
 | ARR-011 | `CANONICAL_LOGS_ENABLED` default false | Implementation gap / rollout | Medium | Historical status; reassess in vertical workflow |
@@ -69,7 +69,7 @@ Menu Builder uses Department responsibility and exact Room and Cycle selection. 
 
 ## ARR-008 — Workforce roles
 
-`DepartmentJobRole` / `EmployeeDepartmentJobRole` still feed employee organization, workbook/catalog imports and the old role editor; Assignment label/default-role inference has been removed. Employee Builder now renders and persists operational qualifications; the actual Assignment and Dashboard workflow consumes them. `OPERATIONAL_ROLE_REGISTRY` + `EmployeeOperationalRoleQualification` is the accepted operational identity/eligibility. `RoleKey` is authorization; Job Title is HR; Team is membership/view configuration. Remove competing operational capabilities/tiers and selectors, keep explicit Department membership/qualification checks, and exercise bulk import and actual Assignment UI before closing.
+Employee Builder and Assignment share the operational role registry and employee qualifications. Removed the old Job Roles editor, employee organization and import fields, tier/capability service, and unused default-role inference. Platform authority, HR Job Title, and Team membership retain their existing owners. Department membership changes revoke that Department's active qualifications in the same transaction. PostgreSQL verification covers revocation, rejoining, independent qualifications and preserved Assignment history. Retired tables remain in the transitional schema pending the clean baseline.
 
 ## Baseline and verification gate
 

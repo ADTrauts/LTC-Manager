@@ -56,7 +56,7 @@ test("User and Console stay distinct; Quick PIN, partner and changed Facility cl
   assert.throws(() => requireImportSession(s,"other"),/Facility changed/);
 });
 test("planners block unauthorized installations and foreign physical/employee IDs without creating dependencies", () => {
-  const catalog={ facility: { id: "f",organizationId: "org" }, departments: [], employees: [], users: [], teams: [], jobRoles: [], jobTitles: [], units: [], spaces: [], unitResponsibilities: [], spaceResponsibilities: [], roles: [{ key: "STAFF" }], assets: null,assetAuthority: {} } as unknown as Catalog;
+  const catalog={ facility: { id: "f",organizationId: "org" }, departments: [], employees: [], users: [], teams: [], jobTitles: [], units: [], spaces: [], unitResponsibilities: [], spaceResponsibilities: [], roles: [{ key: "STAFF" }], assets: null,assetAuthority: {} } as unknown as Catalog;
   for (const [dataset,csv] of [
     ["workforce","email,firstName,lastName,roleType,employmentType,primaryDepartment\na@example.com,Casey,Person,STAFF,FULL_TIME,PLANT\n"],
     ["employee_departments","employeeId,department,membership\nforeign,PLANT,ADDITIONAL\n"],

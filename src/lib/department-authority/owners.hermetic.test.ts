@@ -39,7 +39,6 @@ test("owner kinds cover the CDA architecture §4 table", () => {
   const expected: DepartmentOwnerKind[] = [
     "department",
     "workforceRecord",
-    "jobRole",
     "scheduleEntry",
     "callOffOverride",
     "operationalAssignment",
@@ -95,7 +94,6 @@ test("every owner resolver scopes its lookup to the facility and returns null wh
 
 test("Department-owned records return their departmentId", async () => {
   const direct: DepartmentOwnerKind[] = [
-    "jobRole",
     "operationalAssignment",
     "assignmentPlan",
     "assignmentTemplate",
@@ -115,7 +113,6 @@ test("Department-owned records return their departmentId", async () => {
     const { db } = recordingDb(
       Object.fromEntries(
         [
-          "departmentJobRole",
           "operationalAssignment",
           "operationalAssignmentPlan",
           "operationalAssignmentTemplate",

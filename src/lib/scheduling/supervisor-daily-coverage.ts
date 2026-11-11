@@ -21,7 +21,7 @@ export type SupervisorCoverageEmployeeRow = {
   employeeFirstName: string;
   employeeLastName: string;
   teamDisplayName: string | null;
-  jobRoleDisplayName: string | null;
+  jobTitleName: string | null;
   jobTitleDisplayName: string | null;
   relationship: ShiftAssignmentRelationship;
   relationshipLabel: string;
@@ -366,7 +366,7 @@ export type BuildSupervisorEmployeeRowInput = {
   employeeFirstName: string;
   employeeLastName: string;
   teamDisplayName: string | null;
-  jobRoleDisplayName: string | null;
+  jobTitleName: string | null;
   jobTitleDisplayName: string | null;
   relationship: ShiftAssignmentRelationship;
   shifts: ShiftPresence[];
@@ -396,7 +396,7 @@ export function buildSupervisorCoverageEmployeeRow(
     employeeFirstName: input.employeeFirstName,
     employeeLastName: input.employeeLastName,
     teamDisplayName: input.teamDisplayName,
-    jobRoleDisplayName: input.jobRoleDisplayName,
+    jobTitleName: input.jobTitleName,
     jobTitleDisplayName: input.jobTitleDisplayName,
     relationship: input.relationship,
     relationshipLabel: shiftAssignmentRelationshipLabel(input.relationship),

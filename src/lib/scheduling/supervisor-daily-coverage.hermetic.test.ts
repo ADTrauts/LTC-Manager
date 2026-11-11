@@ -45,7 +45,7 @@ describe("supervisor coverage employee relationships", () => {
       employeeFirstName: "Sharon",
       employeeLastName: "Smith",
       teamDisplayName: "Resident Services",
-      jobRoleDisplayName: "Resident Services Supervisor",
+      jobTitleName: "Resident Services Supervisor",
       jobTitleDisplayName: null,
       relationship: "SCHEDULED_AND_ASSIGNED",
       shifts: [shift({ scheduleEntryId: "s1" })],
@@ -68,7 +68,7 @@ describe("supervisor coverage employee relationships", () => {
       employeeFirstName: "Joseph",
       employeeLastName: "Sauer",
       teamDisplayName: "Resident Services",
-      jobRoleDisplayName: "Team Member",
+      jobTitleName: "Team Member",
       jobTitleDisplayName: null,
       relationship: "SCHEDULED_UNASSIGNED",
       shifts: [shift({ scheduleEntryId: "s2" })],
@@ -88,7 +88,7 @@ describe("supervisor coverage employee relationships", () => {
       employeeFirstName: "Test",
       employeeLastName: "Employee",
       teamDisplayName: null,
-      jobRoleDisplayName: null,
+      jobTitleName: null,
       jobTitleDisplayName: null,
       relationship: "ASSIGNED_UNSCHEDULED",
       shifts: [],
@@ -98,7 +98,7 @@ describe("supervisor coverage employee relationships", () => {
       nowMinutesFromMidnight: 8 * 60,
     });
     assert.equal(row.relationshipLabel, "Assigned, not scheduled");
-    assert.equal(row.jobRoleDisplayName, null);
+    assert.equal(row.jobTitleName, null);
     assert.match(row.addShiftHref, /\/staffing\?date=/);
   });
 
@@ -108,7 +108,7 @@ describe("supervisor coverage employee relationships", () => {
       employeeFirstName: "Sharon",
       employeeLastName: "Smith",
       teamDisplayName: "Resident Services",
-      jobRoleDisplayName: "Resident Services Supervisor",
+      jobTitleName: "Resident Services Supervisor",
       jobTitleDisplayName: null,
       relationship: "SCHEDULED_AND_ASSIGNED",
       shifts: [
@@ -127,7 +127,7 @@ describe("supervisor coverage employee relationships", () => {
       employeeFirstName: "Off",
       employeeLastName: "Duty",
       teamDisplayName: null,
-      jobRoleDisplayName: null,
+      jobTitleName: null,
       jobTitleDisplayName: null,
       relationship: "NEITHER",
       shifts: [],
@@ -295,7 +295,7 @@ describe("supervisor action hrefs", () => {
       employeeFirstName: "Joseph",
       employeeLastName: "Sauer",
       teamDisplayName: "Resident Services",
-      jobRoleDisplayName: "Team Member",
+      jobTitleName: "Team Member",
       jobTitleDisplayName: null,
       relationship: "SCHEDULED_UNASSIGNED",
       shifts: [shift({ scheduleEntryId: "s2" })],
