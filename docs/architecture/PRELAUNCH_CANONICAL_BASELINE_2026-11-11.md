@@ -52,6 +52,8 @@ The coordinated production checkpoint must identify the old and new Neon branche
 
 Vercel's [hosted Preview build](https://ltc-manager-staging-hvwz3slqn-adtrauts-projects.vercel.app) completed. Requests to the Preview hostname from the authenticated CLI and in-app browser reset before HTTP. Automatic approval review rejected the connector's protected fetch because it creates or reuses a link that grants access to anyone holding it. Hosted sign-in and runtime verification remain pending.
 
+The follow-up confirmed that the exact Preview remains Ready. Both its deployment hostname and the standard staging hostname reset during TLS, including when testing the Preview's current DNS answers directly. The public Vssyl site and Vercel control plane returned HTTP 200 from the same machine. Vercel's recent request and runtime log queries returned no records for the Preview. The connection failure occurs before the application can answer.
+
 The protected Preview was built from the runtime source SHA above. The later branch changes update verification, the operator seed, and documentation. The application, Prisma schema and migration, public assets, package files, and Vercel configuration match the Preview source.
 
 ## Coordinated cutover
