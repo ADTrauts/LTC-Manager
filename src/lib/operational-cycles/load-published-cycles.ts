@@ -1,3 +1,4 @@
+import { CANONICAL_CYCLE_LOCATION_MODES } from "./effective-cycle-spaces";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import {
@@ -123,6 +124,7 @@ export async function loadPublishedCyclesForDate(
       facilityId,
       departmentId,
       ...(includeKeyTimes ? {} : { nodeKind: "PERIOD" }),
+      locationMode: { in: [...CANONICAL_CYCLE_LOCATION_MODES] },
       effectiveFrom: { lte: serviceDate },
       OR: [{ effectiveTo: null }, { effectiveTo: { gte: serviceDate } }],
       AND: [

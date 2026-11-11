@@ -7,7 +7,7 @@ import type {
   UnitType,
 } from "@prisma/client";
 
-import { isStandardRoomTypeKey } from "./cycle-scope";
+import { isCanonicalCycleLocationMode } from "./effective-cycle-spaces";
 import { effectiveDateRangesOverlap } from "./cycle-lifecycle";
 import {
   isStructurallyOvernight,
@@ -80,32 +80,18 @@ function normalizedNodeKind(input: ValidateCycleInput): OperationalCycleNodeKind
   return input.nodeKind ?? "PERIOD";
 }
 
-function hasLegacyRoomTypeScope(input: ValidateCycleInput): boolean {
-  return input.locationMode === "ROOM_TYPE" && Boolean(input.roomTypeKey?.trim());
-}
-
 /** Location scopes intersect when both could apply to the same unit. */
 export function locationScopesIntersect(
   a: Pick<PublishedCycleOverlapCandidate, "locationMode" | "applicableUnitTypes" | "unitIds">,
   b: Pick<PublishedCycleOverlapCandidate, "locationMode" | "applicableUnitTypes" | "unitIds">,
 ): boolean {
+  if (!isCanonicalCycleLocationMode(a.locationMode) || !isCanonicalCycleLocationMode(b.locationMode)) return false;
   if (a.locationMode === "ALL_DEPARTMENT_UNITS" || b.locationMode === "ALL_DEPARTMENT_UNITS") {
     return true;
   }
 
-  if (a.locationMode === "UNIT_TYPES" && b.locationMode === "UNIT_TYPES") {
-    const setB = new Set(b.applicableUnitTypes);
-    return a.applicableUnitTypes.some((t) => setB.has(t));
-  }
-
-  if (a.locationMode === "EXPLICIT_UNITS" && b.locationMode === "EXPLICIT_UNITS") {
-    const setB = new Set(b.unitIds);
-    return a.unitIds.some((id) => setB.has(id));
-  }
-
-  // UNIT_TYPES vs EXPLICIT_UNITS — cannot decide without unit rows; treat as intersecting
-  // so publish stays conservative when scopes may collide.
-  return true;
+  const setB = new Set(b.unitIds);
+  return a.unitIds.some((id) => setB.has(id));
 }
 
 /**
@@ -345,7 +331,7 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
           ),
         );
       }
-    } else if (input.locationMode === "EXPLICIT_UNITS" && !hasLegacyRoomTypeScope(input)) {
+    } else if (input.locationMode === "EXPLICIT_UNITS") {
       const unitCount = input.unitIds?.length ?? 0;
       const spaceCount = input.spaceIds?.length ?? 0;
       if (unitCount + spaceCount === 0) {
@@ -421,47 +407,10 @@ export function validateCycle(input: ValidateCycleInput): CycleValidationResult 
     );
   }
 
-  if (input.locationMode === "UNIT_TYPES" || input.locationMode === "ROOM_TYPE") {
+  if (!isCanonicalCycleLocationMode(input.locationMode)) {
     errors.push(
-      issue(
-        "physical_location_retired",
-        "Cycles apply by explicit locations and Location Functions. Unit type and room type no longer choose where a Cycle runs.",
-        "error",
-      ),
+      issue("location_scope_retired", "Choose the entire Department or explicit locations.", "error"),
     );
-  }
-
-  if (hasLegacyRoomTypeScope(input)) {
-    const key = input.roomTypeKey?.trim() ?? "";
-    if (!isStandardRoomTypeKey(key)) {
-      errors.push(
-        issue(
-          "room_type_required",
-          "Room Type scope requires a standard Facility Room Type.",
-          "error",
-        ),
-      );
-    }
-  }
-
-  if (input.locationMode === "UNIT_TYPES") {
-    if (!input.applicableUnitTypes || input.applicableUnitTypes.length === 0) {
-      errors.push(
-        issue("unit_types_required", "Unit-type location mode requires at least one unit type.", "error"),
-      );
-    }
-  }
-
-  if (input.locationMode === "OPERATIONAL_TYPES") {
-    const keys = (input.applicableOperationalTypeKeys ?? []).map((key) => key.trim()).filter(Boolean);
-    if (keys.length === 0) {
-      const msg = "Choose at least one Operational Type for this cycle.";
-      if (forPublish) {
-        errors.push(issue("operational_types_required", msg, "error"));
-      } else {
-        warnings.push(issue("operational_types_empty", msg, "warning"));
-      }
-    }
   }
 
   return {

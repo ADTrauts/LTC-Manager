@@ -5,7 +5,8 @@ import {
   cycleStarterWouldCreateCount,
   resolveCycleStarterForDepartmentProduct,
 } from "@/lib/department-products/cycle-starter";
-import { loadTeamCatalog } from "@/lib/department-teams";
+import { loadCycleScopeCatalog } from "@/lib/operational-cycles/load-cycle-builder";
+import { CANONICAL_CYCLE_LOCATION_MODES } from "@/lib/operational-cycles/effective-cycle-spaces";
 import {
   isImmediatePublishTestingOverrideEnabled,
   nextOperationalDayKey,
@@ -34,9 +35,9 @@ export async function OperatingRhythmSection({
   const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, new Date()));
   const [cycleAuthority, catalog, cycleRows] = await Promise.all([
     resolveCycleAuthority(session, facilityId, departmentId),
-    loadTeamCatalog({ facilityId, departmentId }),
+    loadCycleScopeCatalog({ facilityId, departmentId }),
     prisma.departmentOperationalCycle.findMany({
-      where: { facilityId, departmentId },
+      where: { facilityId, departmentId, locationMode: { in: [...CANONICAL_CYCLE_LOCATION_MODES] } },
       include: {
         locations: { select: { unitId: true, spaceId: true } },
         milestoneTimes: { select: { unitId: true, milestone: true, configuredTime: true } },

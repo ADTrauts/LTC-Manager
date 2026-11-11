@@ -157,9 +157,7 @@ test("the Dashboard remains and leftover OC flag is gone", () => {
   assert.equal(flags.includes("isOperationEngineEnabled"), false);
 });
 
-test("runtime publication scan targets leftover OT loaders, not RLS prefetch", () => {
-  const scan = source("src/lib/operational-cycles/operational-type-publication.hermetic.test.ts");
-  assert.doesNotMatch(scan, /todays-work\/operating-locations\/load\.ts/);
+test("Runtime Location State prefetch does not load Operational Type assignments", () => {
   const prefetch = source("src/lib/runtime-location-state/prefetch.ts");
   assert.equal(prefetch.includes("loadSpaceOperationalTypeAssignments"), false);
   assert.doesNotMatch(prefetch, /perspective:\s*"runtime"/);

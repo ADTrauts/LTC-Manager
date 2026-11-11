@@ -12,7 +12,6 @@
  *
  * Operational patterns are department-scoped and optional.
  * Neighborhoods do NOT use facility-wide Unit.unitType as a pattern.
- * Rooms may optionally show DepartmentRoomArchetype bindings.
  */
 
 import type { SpaceType, UnitHierarchyRole, UnitType } from "@prisma/client";
@@ -26,9 +25,6 @@ import {
 export type DepartmentLocationSource = "unit_responsibility" | "space_responsibility";
 
 export type DepartmentLocationKind = "neighborhood" | "room";
-
-/** Status for Locations UI — responsibility alone is enough to be valid. */
-export type DepartmentLocationStatus = "assigned" | "pattern" | "custom";
 
 export type DepartmentActionableLocation = {
   kind: DepartmentLocationKind;
@@ -47,29 +43,17 @@ export type DepartmentActionableLocation = {
   parentNeighborhoodId: string | null;
   isActive: boolean;
   /**
-   * Department-scoped operational pattern (room archetype) when bound.
-   * Always null for neighborhoods in this pass — no neighborhood pattern model.
-   */
-  patternKey: string | null;
-  patternLabel: string | null;
-  /** True when a department-scoped room archetype is bound. */
-  hasPattern: boolean;
-  /** True when room experience exceptions exist. */
-  hasOverrides: boolean;
-  status: DepartmentLocationStatus;
-  /**
    * Facility-wide Unit.unitType — informational only; never used as a department
-   * operational pattern. Kept for debugging / future Facility semantics.
+   * targeting rule. Kept for Facility display.
    */
   unitType: UnitType | null;
   hierarchyRole: UnitHierarchyRole | null;
   /** @deprecated Prefer roomTypeLabel — Facility-owned display label. */
   spaceTypeLabel: string | null;
-  /** Canonical Room Type key (Facility preset key or custom:<label>). Null for neighborhoods. */
+  /** Facility Room Type ID, with a legacy physical label key for uncataloged rooms. Null for neighborhoods. */
   roomTypeKey: string | null;
   /** Canonical Room Type label from Facility Builder. Null for neighborhoods. */
   roomTypeLabel: string | null;
-  recommendedPatternKey: string | null;
 };
 
 /** Floor (or ungrouped) section for hierarchy-first Locations presentation. */
@@ -102,34 +86,6 @@ export function isActionableDepartmentUnit(input: {
   return kind === "neighborhood" || kind === "legacy_location";
 }
 
-export function roomOperationalPattern(input: {
-  archetypeKey: string | null;
-  archetypeName: string | null;
-}): {
-  patternKey: string | null;
-  patternLabel: string | null;
-  hasPattern: boolean;
-} {
-  if (!input.archetypeKey || !input.archetypeName) {
-    return { patternKey: null, patternLabel: null, hasPattern: false };
-  }
-  return {
-    patternKey: `archetype:${input.archetypeKey}`,
-    patternLabel: input.archetypeName,
-    hasPattern: true,
-  };
-}
-
-export function resolveLocationStatus(input: {
-  kind: DepartmentLocationKind;
-  hasPattern: boolean;
-  hasOverrides: boolean;
-}): DepartmentLocationStatus {
-  if (input.hasOverrides) return "custom";
-  if (input.kind === "room" && input.hasPattern) return "pattern";
-  return "assigned";
-}
-
 export type HierarchyWalkUnit = {
   id: string;
   name: string;
@@ -146,6 +102,7 @@ export type HierarchyWalkUnit = {
     displayName?: string;
     isActive: boolean;
     spaceTypeLabel?: string;
+    facilityRoomTypeId?: string | null;
     /** Facility-owned physical SpaceType — display only. */
     spaceType?: SpaceType;
     customTypeLabel?: string | null;
@@ -195,50 +152,25 @@ function physicalSpaceTypeLabel(
 
 function resolveLocationRoomType(
   space: HierarchyWalkUnit["childSpaces"][number],
-  enrichment:
-    | {
-        spaceTypeLabel: string;
-        spaceTypePresetKey?: string;
-      }
-    | undefined,
+  physicalRoomTypes: ReadonlyMap<string, string>,
 ): { roomTypeKey: string | null; roomTypeLabel: string | null } {
+  const physicalTypeId = space.facilityRoomTypeId;
+  const physicalLabel = physicalTypeId ? physicalRoomTypes.get(physicalTypeId) : null;
+  if (physicalTypeId) {
+    return { roomTypeKey: physicalTypeId, roomTypeLabel: physicalLabel ?? physicalSpaceTypeLabel(space) };
+  }
   if (space.spaceType) {
-    const identity = roomTypeIdentity({
-      spaceType: space.spaceType,
-      customTypeLabel: space.customTypeLabel,
-    });
-    return {
-      roomTypeKey: identity.key,
-      roomTypeLabel: enrichment?.spaceTypeLabel || identity.label,
-    };
+    const identity = roomTypeIdentity({ spaceType: space.spaceType, customTypeLabel: space.customTypeLabel });
+    return { roomTypeKey: identity.key, roomTypeLabel: identity.label };
   }
-  const label = enrichment?.spaceTypeLabel ?? physicalSpaceTypeLabel(space);
-  const presetKey = enrichment?.spaceTypePresetKey;
-  if (presetKey && presetKey !== "custom") {
-    return { roomTypeKey: presetKey, roomTypeLabel: label };
-  }
-  if (label) {
-    return { roomTypeKey: `custom:${label.trim().toLowerCase()}`, roomTypeLabel: label };
-  }
-  return { roomTypeKey: null, roomTypeLabel: null };
+  const label = physicalSpaceTypeLabel(space);
+  return { roomTypeKey: label ? `custom:${label.trim().toLowerCase()}` : null, roomTypeLabel: label };
 }
 
 export type CollectDepartmentLocationsInput = {
   departmentId: string;
   units: readonly HierarchyWalkUnit[];
-  /** Optional room enrichment from department-scoped archetype bindings. */
-  roomPatternBySpaceId?: ReadonlyMap<
-    string,
-    {
-      archetypeKey: string;
-      archetypeName: string;
-      exceptionCount: number;
-      recommendedPatternKey: string | null;
-      spaceTypeLabel: string;
-      spaceTypePresetKey?: string;
-      displayName: string;
-    }
-  >;
+  roomTypes?: readonly { id: string; displayName: string }[];
 };
 
 /**
@@ -250,6 +182,7 @@ export function collectDepartmentActionableLocations(
   input: CollectDepartmentLocationsInput,
 ): DepartmentActionableLocation[] {
   const out: DepartmentActionableLocation[] = [];
+  const physicalRoomTypes = new Map((input.roomTypes ?? []).map(row => [row.id, row.displayName]));
 
   function walk(
     nodes: readonly HierarchyWalkUnit[],
@@ -294,17 +227,11 @@ export function collectDepartmentActionableLocations(
           parentNeighborhoodId: null,
           isActive: node.isActive,
           // Neighborhoods are department scopes — no pattern model in this pass.
-          patternKey: null,
-          patternLabel: null,
-          hasPattern: false,
-          hasOverrides: false,
-          status: "assigned",
           unitType: node.unitType,
           hierarchyRole: node.hierarchyRole,
           spaceTypeLabel: null,
           roomTypeKey: null,
           roomTypeLabel: null,
-          recommendedPatternKey: null,
         });
       }
 
@@ -314,39 +241,23 @@ export function collectDepartmentActionableLocations(
         }
         if (kind === "staged") continue;
 
-        const enrichment = input.roomPatternBySpaceId?.get(space.id);
-        const pattern = roomOperationalPattern({
-          archetypeKey: enrichment?.archetypeKey ?? null,
-          archetypeName: enrichment?.archetypeName ?? null,
-        });
-        const hasOverrides = (enrichment?.exceptionCount ?? 0) > 0;
-        const type = resolveLocationRoomType(space, enrichment);
+        const type = resolveLocationRoomType(space, physicalRoomTypes);
         out.push({
           kind: "room",
           source: "space_responsibility",
           id: space.id,
           name: space.name,
-          displayName: enrichment?.displayName ?? space.displayName ?? space.name,
+          displayName: space.displayName ?? space.name,
           floorName: nextFloor,
           parentUnitId: node.id,
           parentNeighborhoodName: isNeighborhoodLike ? node.name : nextNeighborhood,
           parentNeighborhoodId: isNeighborhoodLike ? node.id : nextNeighborhoodId,
           isActive: space.isActive,
-          patternKey: pattern.patternKey,
-          patternLabel: pattern.patternLabel,
-          hasPattern: pattern.hasPattern,
-          hasOverrides,
-          status: resolveLocationStatus({
-            kind: "room",
-            hasPattern: pattern.hasPattern,
-            hasOverrides,
-          }),
           unitType: null,
           hierarchyRole: null,
           spaceTypeLabel: type.roomTypeLabel,
           roomTypeKey: type.roomTypeKey,
           roomTypeLabel: type.roomTypeLabel,
-          recommendedPatternKey: enrichment?.recommendedPatternKey ?? null,
         });
       }
 
@@ -414,17 +325,11 @@ export function groupLocationsByPhysicalHierarchy(
       parentNeighborhoodName: null,
       parentNeighborhoodId: null,
       isActive: true,
-      patternKey: null,
-      patternLabel: null,
-      hasPattern: false,
-      hasOverrides: false,
-      status: "assigned",
       unitType: null,
       hierarchyRole: "NEIGHBORHOOD",
       spaceTypeLabel: null,
       roomTypeKey: null,
       roomTypeLabel: null,
-      recommendedPatternKey: null,
     };
   }
 
@@ -473,16 +378,12 @@ export function locationCoverageSummary(
 ): {
   total: number;
   assigned: number;
-  withPattern: number;
-  withOverrides: number;
   neighborhoodCount: number;
   roomCount: number;
 } {
   return {
     total: locations.length,
     assigned: locations.length,
-    withPattern: locations.filter((l) => l.hasPattern).length,
-    withOverrides: locations.filter((l) => l.hasOverrides).length,
     neighborhoodCount: locations.filter((l) => l.kind === "neighborhood").length,
     roomCount: locations.filter((l) => l.kind === "room").length,
   };

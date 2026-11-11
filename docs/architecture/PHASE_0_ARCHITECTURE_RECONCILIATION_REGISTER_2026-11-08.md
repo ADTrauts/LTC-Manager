@@ -32,7 +32,7 @@ Rows outside the current retirement/PF scope retain their historical classificat
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | Historical status; reassess in vertical workflow |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | Historical status; reassess in vertical workflow |
 | ARR-003 | Generic Work retirement and ONE_OFF rehoming | Runtime verified; persistence awaits baseline | High | Remove unused Work models from the clean baseline |
-| ARR-004 | Retire Location Function/profile/archetype and type Log overlays | OPEN — traced dependencies | Critical | Remove remaining selectors/readers → remove schema → new baseline |
+| ARR-004 | Retire Location Function/profile/archetype and type Log overlays | Canonical Menu and Operating Rhythm scope in local code | Critical | Verify real workflows, remove retired persistence in the new baseline |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | Historical status; reassess in vertical workflow |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | Historical status; reassess in vertical workflow |
 | ARR-007 | Constitution / Domain Model long-form still name retired owners | Documentation drift | High | Historical status; reassess in vertical workflow |
@@ -65,7 +65,7 @@ The approved Workforce Assignment owner is verified for instructions, completion
 
 ## ARR-004 — Classification and overlay retirement
 
-Current source still has profile/archetype readers in Menu applicability, Cycle options, authority owner resolution. Old operational-type Cycle fields, profile/archetype/Experience models and type Log overlay models remain. Forward Coverage and RLS use explicit Unit/Space identities; notes remain descriptive. Remove dead authoring exports and remaining classification selectors/readers, reconcile relevant Review/Audit consumers, then remove models and generate the baseline. Do not relabel an operational function as a physical Room Type.
+Menu Builder uses Department responsibility and exact Room and Cycle selection. Operating Rhythm reads Department-wide Cycles and explicit Neighborhood/Room scope. Phases can inherit the parent Cycle, and Key Point groups keep their own explicit Room IDs. Facility Room Type filters the picker. Removed unused profile, archetype and Experience services and the retired Room-level type Log overlay actions. The transitional schema still has retired tables and fields. Reconcile residual Records target types and remove retired persistence in the new baseline.
 
 ## ARR-008 — Workforce roles
 

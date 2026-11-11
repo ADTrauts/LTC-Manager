@@ -91,30 +91,3 @@ export async function removeRoomLogAction(formData: FormData): Promise<LocationR
     return fail(error);
   }
 }
-
-const FACILITY_TYPE_LOG_RETIRED =
-  "Choose the rooms this record applies to. Facility Room Type does not add the record to current or future rooms.";
-
-export async function addFacilityTypeLogDefaultAction(
-  _formData: FormData,
-): Promise<LocationRoomActionResult> {
-  return { ok: false, message: FACILITY_TYPE_LOG_RETIRED };
-}
-
-export async function removeFacilityTypeLogDefaultAction(
-  _formData: FormData,
-): Promise<LocationRoomActionResult> {
-  return { ok: false, message: FACILITY_TYPE_LOG_RETIRED };
-}
-
-export async function suppressFacilityTypeLogDefaultAction(
-  _formData: FormData,
-): Promise<LocationRoomActionResult> {
-  return { ok: false, message: FACILITY_TYPE_LOG_RETIRED };
-}
-
-export async function restoreFacilityTypeLogDefaultAction(
-  _formData: FormData,
-): Promise<LocationRoomActionResult> {
-  return { ok: false, message: FACILITY_TYPE_LOG_RETIRED };
-}

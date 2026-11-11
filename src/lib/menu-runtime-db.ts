@@ -128,20 +128,6 @@ async function loadUnitCycleScope(unitId: string): Promise<CycleUnitScope | null
   };
 }
 
-/**
- * Forward Menu Runtime no longer reads the OT assignment hub.
- * Callers may still pass an explicit operationalTypeKey for historical/compat tests.
- */
-async function loadOperationalTypeKey(input: {
-  facilityId: string;
-  departmentId: string;
-  spaceId: string;
-  provided?: string | null;
-}): Promise<string | null> {
-  if (input.provided !== undefined) return input.provided;
-  return null;
-}
-
 export async function loadMenuRuntimeCandidates(input: {
   facilityId: string;
   departmentId: string;
@@ -275,19 +261,10 @@ export async function resolveApplicableMenus(
     request.departmentId,
     request.serviceDateKey,
   );
-  const operationalTypeKey = request.location.spaceId
-    ? await loadOperationalTypeKey({
-        facilityId: request.facilityId,
-        departmentId: request.departmentId,
-        spaceId: request.location.spaceId,
-        provided: input.operationalTypeKey,
-      })
-    : (input.operationalTypeKey ?? null);
   const unitCycleScope = request.location.unitId ? await loadUnitCycleScope(request.location.unitId) : null;
 
   const emptyFacts = {
     ...request,
-    operationalTypeKey,
     locationActionable: locationState.actionable,
     publishedCycles,
     candidates: [] as MenuRuntimeCandidateFact[],
@@ -307,7 +284,6 @@ export async function resolveApplicableMenus(
       published: publishedCycles,
       location: request.location,
       serviceDateKey: request.serviceDateKey,
-      operationalTypeKey,
       unitCycleScope,
     })
   ) {

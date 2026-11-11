@@ -15,7 +15,6 @@ import {
   selectDietaryMealTimingModel,
 } from "@/lib/dietary/meal-timing";
 import { resolveCycleAuthority } from "./cycle-authority";
-import { roomTypeKeyForStoredSpace } from "./cycle-scope";
 import {
   describeMealServiceTiming,
   localHhMmFromInstant,
@@ -210,8 +209,8 @@ export async function loadSupervisorCycleOverview(input: {
       name: true,
       unitType: true,
       parentUnitId: true,
-            childSpaces: {
-        select: { id: true, spaceType: true, customTypeLabel: true },
+      childSpaces: {
+        select: { id: true },
       },
     },
     orderBy: { name: "asc" },
@@ -275,11 +274,6 @@ export async function loadSupervisorCycleOverview(input: {
           }))
         : [];
 
-    const roomTypeKeys = [
-      ...new Set(
-        unit.childSpaces.map((space) => roomTypeKeyForStoredSpace(space)),
-      ),
-    ];
 
     const context = resolveOperationalCycle({
       cycles,
@@ -289,10 +283,7 @@ export async function loadSupervisorCycleOverview(input: {
       unit: {
         id: unit.id,
         unitType: unit.unitType,
-        childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
-        // Forward supervisor resolve uses explicit cycle locations — not OT hub keys.
-        childOperationalTypeKeys: [],
       },
       mealTargets,
     });

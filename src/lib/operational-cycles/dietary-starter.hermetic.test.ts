@@ -80,7 +80,6 @@ test("builder UI uses clickable open targets and nested starter language", () =>
   assert.match(tree, /data-cycle-role=\{row\.nodeKind === "KEY_TIME" \? "key_time" : "phase"\}/);
   assert.match(tree, /\+ Add phase/);
   assert.match(tree, /\+ Add key point/);
-  assert.match(tree, /Scope needs review/);
   assert.doesNotMatch(tree, /Legacy scope — edit to update/);
   assert.doesNotMatch(panel, /Already exists/);
   assert.doesNotMatch(panel, /Add from Dietary defaults/);

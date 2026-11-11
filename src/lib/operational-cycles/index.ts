@@ -69,7 +69,6 @@ export {
   cycleAppliesToUnit,
   cycleAppliesToSpace,
   describeOperationalCycleContext,
-  DIETARY_CYCLE_UNIT_TYPES,
   formatCycleHierarchyLabel,
   resolveActiveCycleNodes,
   resolveOperationalCycle,
@@ -77,22 +76,6 @@ export {
 } from "./resolve-operational-cycle";
 
 export { loadPublishedCyclesForDate, loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
-
-export {
-  describeCycleApplicability,
-  matchCycleApplicability,
-  primaryCycleApplicabilitySource,
-  type CycleApplicabilityMatch,
-  type CycleApplicabilitySource,
-} from "./cycle-applicability";
-
-export {
-  assignmentsFromBindings,
-  loadDepartmentOperationalTypeOptions,
-  loadSpaceOperationalTypeAssignments,
-  selectProfileIdForOperationalTypes,
-  type OperationalTypePerspective,
-} from "./load-operational-type-targets";
 
 export {
   detectRunModelProvenance,
@@ -264,8 +247,6 @@ export {
   parseServiceStartTimesField,
   scopeGroupLabel,
   shouldShowServiceStartTimes,
-  standardRoomTypeOptions,
-  userFacingScopeFromMode,
   type CycleScopeLocationOption,
   type CycleUserScope,
 } from "./cycle-scope";

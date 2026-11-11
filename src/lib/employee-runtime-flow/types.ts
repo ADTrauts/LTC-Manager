@@ -51,8 +51,6 @@ export type EmployeeRuntimeLocation = {
   unitName: string | null;
   floorName: string | null;
   neighborhoodName: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
   operationLabel: string | null;
   operationState: "ACTIVE" | "NONE";
 };

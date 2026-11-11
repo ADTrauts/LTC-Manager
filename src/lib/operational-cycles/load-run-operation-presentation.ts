@@ -258,7 +258,6 @@ export async function loadLocationRunPresentation(input: {
     operationalDateKey: model.operationalDateKey,
     spaceId: input.spaceId,
     // Forward Run uses explicit cycle locations / ALL_DEPARTMENT_UNITS — not OT hub.
-    operationalTypeKey: null,
     location,
     nowLocalHhMm: model.nowLocalHhMm,
     canAdjust: hasAtLeastRole(role, "SUPERVISOR"),
@@ -289,6 +288,5 @@ export async function loadDepartmentRunPresentation(input: {
     nowLocalHhMm: model.nowLocalHhMm,
     spaceIdFilter: input.spaceIdFilter,
     // OT hub no longer feeds department presentation room counts.
-    functionSpaces: [],
   });
 }

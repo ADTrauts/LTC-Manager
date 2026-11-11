@@ -48,7 +48,6 @@ import {
   loadPublishedCyclesForDate,
   resolveOperationalCycle,
 } from "@/lib/operational-cycles";
-import { roomTypeKeyForStoredSpace } from "@/lib/operational-cycles/cycle-scope";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { resolveUnitEvidenceRequirements } from "@/lib/operational-evidence/load-runtime-evidence";
 import { loadEmployeeAssignmentOfflineContext } from "@/lib/scheduling/operational-assignments/load-employee-assignments";
@@ -134,9 +133,9 @@ export async function buildRuntimeBundle(
       parentUnitId: true,
       updatedAt: true,
       facility: { select: { id: true, displayName: true, timezone: true } },
-            childSpaces: {
+      childSpaces: {
         where: { isActive: true },
-        select: { id: true, spaceType: true, customTypeLabel: true },
+        select: { id: true },
       },
     },
   });
@@ -405,10 +404,6 @@ export async function buildRuntimeBundle(
       dietary.id,
       serviceDateKey,
     );
-    const roomTypeKeys = [
-      ...new Set(unit.childSpaces.map((space) => roomTypeKeyForStoredSpace(space))),
-    ];
-    // Offline cycle resolve uses explicit cycle locations — not OT hub keys.
     resolvedCycle = resolveOperationalCycle({
       cycles,
       now,
@@ -417,9 +412,7 @@ export async function buildRuntimeBundle(
       unit: {
         id: unit.id,
         unitType: unit.unitType,
-        childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
-        childOperationalTypeKeys: [],
       },
       mealTargets: includeMealMilestones
         ? runtimeMealTimes.map((m) => ({

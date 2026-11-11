@@ -182,10 +182,6 @@ export type UnitMealTarget = {
 export type CycleUnitScope = {
   id: string;
   unitType: UnitType;
-  /** Child Room Type preset keys — used for ROOM_TYPE applicability. */
-  childRoomTypeKeys?: string[];
   /** Space ids under this location — used for EXPLICIT_UNITS space matching. */
   spaceIds?: string[];
-  /** Child Operational Type keys — used for OPERATIONAL_TYPES at unit grain. */
-  childOperationalTypeKeys?: string[];
 };

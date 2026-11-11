@@ -1,8 +1,4 @@
-/**
- * Operational Cycle scope + configured meal-time helpers (pure).
- * User-facing: Operational Types | Entire department | Specific locations.
- * Physical Room Type and legacy Unit.unitType remain compatibility scopes.
- */
+/** Operational Cycle location scope and configured meal times. */
 
 import type {
   OperationalCycleLocationMode,
@@ -10,14 +6,7 @@ import type {
   UnitHierarchyRole,
 } from "@prisma/client";
 
-import {
-  SPACE_TYPE_PRESETS,
-  findSpaceTypePreset,
-  roomTypeIdentity,
-} from "@/lib/facility-builder/space-type-presets";
-import type { SpaceType } from "@prisma/client";
-
-export type CycleUserScope = "department" | "operational_types" | "room_type" | "specific";
+export type CycleUserScope = "department" | "specific";
 
 export type CycleMilestoneTimeInput = {
   unitId: string;
@@ -47,38 +36,8 @@ export type StandardRoomTypeOption = {
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export function isStandardRoomTypeKey(key: string): boolean {
-  if (!key || key.startsWith("custom:")) return false;
-  const preset = findSpaceTypePreset(key);
-  return Boolean(preset && !preset.requiresCustomLabel);
-}
-
-export function standardRoomTypeOptions(): StandardRoomTypeOption[] {
-  return SPACE_TYPE_PRESETS.filter((p) => !p.requiresCustomLabel).map((p) => ({
-    key: p.key,
-    label: p.label,
-  }));
-}
-
-export function userFacingScopeFromMode(
-  mode: OperationalCycleLocationMode,
-): CycleUserScope {
-  if (mode === "OPERATIONAL_TYPES") return "operational_types";
-  if (mode === "ROOM_TYPE") return "room_type";
-  if (mode === "EXPLICIT_UNITS") return "specific";
-  return "department";
-}
-
-export function locationModeFromUserScope(
-  scope: CycleUserScope,
-): Extract<
-  OperationalCycleLocationMode,
-  "ALL_DEPARTMENT_UNITS" | "OPERATIONAL_TYPES" | "ROOM_TYPE" | "EXPLICIT_UNITS"
-> {
-  if (scope === "operational_types") return "OPERATIONAL_TYPES";
-  if (scope === "room_type") return "ROOM_TYPE";
-  if (scope === "specific") return "EXPLICIT_UNITS";
-  return "ALL_DEPARTMENT_UNITS";
+export function locationModeFromUserScope(scope: CycleUserScope) {
+  return scope === "specific" ? "EXPLICIT_UNITS" : "ALL_DEPARTMENT_UNITS";
 }
 
 export function normalizeConfiguredTime(raw: string): string | null {
@@ -107,39 +66,6 @@ export function unitMayOwnConfiguredMealTime(input: {
  * Unique Neighborhood/Unit ids for meal-time rows from scoped Servery (or other) rooms.
  * Orphan rooms whose parent is a Floor (or missing) are skipped.
  */
-export function neighborhoodIdsFromScopedRooms(
-  rooms: readonly CycleScopeLocationOption[],
-): string[] {
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const room of rooms) {
-    if (room.kind !== "room") continue;
-    const neighborhoodId = room.neighborhoodId?.trim();
-    if (!neighborhoodId) continue;
-    if (seen.has(neighborhoodId)) continue;
-    seen.add(neighborhoodId);
-    ids.push(neighborhoodId);
-  }
-  return ids;
-}
-
-export function roomsMatchingRoomType(
-  rooms: readonly CycleScopeLocationOption[],
-  roomTypeKey: string,
-): CycleScopeLocationOption[] {
-  if (!isStandardRoomTypeKey(roomTypeKey)) return [];
-  return rooms.filter(
-    (room) => room.kind === "room" && room.roomTypeKey === roomTypeKey,
-  );
-}
-
-export function roomTypeKeyForStoredSpace(input: {
-  spaceType: SpaceType;
-  customTypeLabel?: string | null;
-}): string {
-  return roomTypeIdentity(input).key;
-}
-
 export function shouldShowServiceStartTimes(input: {
   cycleType: string;
   mealType: string | null | undefined;
@@ -154,25 +80,10 @@ export function shouldShowServiceStartTimes(input: {
 
 export function scopeGroupLabel(input: {
   locationMode: OperationalCycleLocationMode;
-  roomTypeKey?: string | null;
-  applicableOperationalTypeKeys?: readonly string[];
-  operationalTypeNames?: Readonly<Record<string, string>>;
   unitIds?: readonly string[];
   spaceIds?: readonly string[];
   locationNames?: Readonly<Record<string, string>>;
 }): string {
-  if (input.locationMode === "OPERATIONAL_TYPES") {
-    const keys = input.applicableOperationalTypeKeys ?? [];
-    const names = input.operationalTypeNames ?? {};
-    if (keys.length === 1) return names[keys[0]!] ?? "Operational Type";
-    if (keys.length > 1) return "Operational Types";
-    return "Operational Types";
-  }
-  if (input.locationMode === "ROOM_TYPE") {
-    const preset = input.roomTypeKey ? findSpaceTypePreset(input.roomTypeKey) : undefined;
-    if (preset?.key === "servery") return "Serveries";
-    return preset?.label ?? "Room Type";
-  }
   if (input.locationMode === "EXPLICIT_UNITS") {
     const names = input.locationNames ?? {};
     const ids = [...(input.spaceIds ?? []), ...(input.unitIds ?? [])];
@@ -181,31 +92,15 @@ export function scopeGroupLabel(input: {
     }
     return "Specific locations";
   }
-  if (input.locationMode === "UNIT_TYPES") return "Legacy scope — edit to update";
-  return "Entire department";
+  return input.locationMode === "ALL_DEPARTMENT_UNITS" ? "Entire department" : "Locations unavailable";
 }
 
 export function describeUserFacingScope(input: {
   locationMode: OperationalCycleLocationMode;
-  roomTypeKey?: string | null;
-  applicableOperationalTypeKeys?: readonly string[];
-  operationalTypeNames?: Readonly<Record<string, string>>;
   unitIds?: readonly string[];
   spaceIds?: readonly string[];
   locationNames?: Readonly<Record<string, string>>;
 }): string {
-  if (input.locationMode === "OPERATIONAL_TYPES") {
-    const keys = input.applicableOperationalTypeKeys ?? [];
-    const names = input.operationalTypeNames ?? {};
-    const labels = keys.map((key) => names[key] ?? key);
-    if (labels.length === 0) return "Operational Types";
-    if (labels.length <= 3) return `Operational Types: ${labels.join(", ")}`;
-    return `Operational Types: ${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
-  }
-  if (input.locationMode === "ROOM_TYPE") {
-    const preset = input.roomTypeKey ? findSpaceTypePreset(input.roomTypeKey) : undefined;
-    return preset ? `Room Type: ${preset.label}` : "Room Type";
-  }
   if (input.locationMode === "EXPLICIT_UNITS") {
     const names = input.locationNames ?? {};
     const labels = [...(input.spaceIds ?? []), ...(input.unitIds ?? [])].map(
@@ -215,40 +110,29 @@ export function describeUserFacingScope(input: {
     if (labels.length <= 3) return labels.join(", ");
     return `${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
   }
-  if (input.locationMode === "UNIT_TYPES") return "Legacy scope — edit to update";
-  return "Entire department";
+  return input.locationMode === "ALL_DEPARTMENT_UNITS" ? "Entire department" : "Locations unavailable";
 }
 
 export function summarizeScopeChange(input: {
   from: {
     locationMode: OperationalCycleLocationMode;
-    roomTypeKey?: string | null;
-    applicableOperationalTypeKeys?: readonly string[];
-    operationalTypeNames?: Readonly<Record<string, string>>;
     unitIds?: readonly string[];
     spaceIds?: readonly string[];
   };
   to: {
     locationMode: OperationalCycleLocationMode;
-    roomTypeKey?: string | null;
-    applicableOperationalTypeKeys?: readonly string[];
-    operationalTypeNames?: Readonly<Record<string, string>>;
     unitIds?: readonly string[];
     spaceIds?: readonly string[];
   };
   locationNames?: Readonly<Record<string, string>>;
-  operationalTypeNames?: Readonly<Record<string, string>>;
 }): string | null {
-  const names = input.operationalTypeNames;
   const before = describeUserFacingScope({
     ...input.from,
     locationNames: input.locationNames,
-    operationalTypeNames: input.from.operationalTypeNames ?? names,
   });
   const after = describeUserFacingScope({
     ...input.to,
     locationNames: input.locationNames,
-    operationalTypeNames: input.to.operationalTypeNames ?? names,
   });
   if (before === after) return null;
   return `${before} → ${after}`;
@@ -312,7 +196,6 @@ export function locationNameMap(
 
 export function mealTimeNeighborhoodCandidates(input: {
   locationMode: OperationalCycleLocationMode;
-  roomTypeKey?: string | null;
   unitIds?: readonly string[];
   spaceIds?: readonly string[];
   locations: readonly CycleScopeLocationOption[];
@@ -339,25 +222,19 @@ export function mealTimeNeighborhoodCandidates(input: {
       ids.push(id);
       return;
     }
-    // Room Type / room-derived parents: include even when Neighborhood isn't a
+    // A selected room can supply its parent even when the Neighborhood isn't a
     // separate department-responsible catalog row (common Dietary setup).
     if (allowRoomDerived && nameFromRooms.has(id)) {
       ids.push(id);
     }
   };
 
-  if (input.locationMode === "ROOM_TYPE" && input.roomTypeKey) {
-    for (const id of neighborhoodIdsFromScopedRooms(
-      roomsMatchingRoomType(rooms, input.roomTypeKey),
-    )) {
-      add(id, true);
-    }
-  } else if (input.locationMode === "EXPLICIT_UNITS") {
+  if (input.locationMode === "EXPLICIT_UNITS") {
     for (const unitId of input.unitIds ?? []) add(unitId);
     for (const spaceId of input.spaceIds ?? []) {
       add(rooms.find((room) => room.id === spaceId)?.neighborhoodId, true);
     }
-  } else {
+  } else if (input.locationMode === "ALL_DEPARTMENT_UNITS") {
     for (const neighborhood of neighborhoods) add(neighborhood.id);
   }
 
@@ -369,9 +246,6 @@ export function mealTimeNeighborhoodCandidates(input: {
 
 export function validateCycleScopeAgainstCatalog(input: {
   locationMode: OperationalCycleLocationMode;
-  roomTypeKey?: string | null;
-  applicableOperationalTypeKeys?: readonly string[];
-  allowedOperationalTypeKeys?: readonly string[];
   unitIds?: readonly string[];
   spaceIds?: readonly string[];
   milestoneTimes?: readonly CycleMilestoneTimeInput[];
@@ -387,33 +261,6 @@ export function validateCycleScopeAgainstCatalog(input: {
   const spaceIds = new Set(
     input.locations.filter((row) => row.kind === "room").map((row) => row.id),
   );
-
-  if (input.locationMode === "OPERATIONAL_TYPES") {
-    const allowed = new Set(input.allowedOperationalTypeKeys ?? []);
-    const keys = (input.applicableOperationalTypeKeys ?? [])
-      .map((key) => key.trim())
-      .filter(Boolean);
-    if (allowed.size > 0) {
-      for (const key of keys) {
-        if (!allowed.has(key)) {
-          errors.push("Operational Type targets must belong to this department.");
-          break;
-        }
-      }
-    }
-  }
-
-  if (input.locationMode === "ROOM_TYPE") {
-    const key = input.roomTypeKey?.trim() ?? "";
-    if (!isStandardRoomTypeKey(key)) {
-      errors.push("Room Type scope requires a standard Facility Room Type.");
-    } else if (input.locations.some((row) => row.kind === "room")) {
-      const matching = roomsMatchingRoomType(input.locations, key);
-      if (matching.length === 0) {
-        errors.push("Room Type scope does not resolve to any responsible rooms.");
-      }
-    }
-  }
 
   if (input.locationMode === "EXPLICIT_UNITS") {
     for (const unitId of input.unitIds ?? []) {

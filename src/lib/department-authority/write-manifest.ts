@@ -231,10 +231,6 @@ export const WRITE_MANIFEST: WriteManifest = {
   [`${DEPARTMENT_ADMIN}/location-room-actions.ts`]: {
     updateDepartmentSpaceNoteAction: department("department"),
     removeRoomLogAction: department("logAttachment"),
-    addFacilityTypeLogDefaultAction: department("department"),
-    removeFacilityTypeLogDefaultAction: department("logTypeDefault"),
-    suppressFacilityTypeLogDefaultAction: department("logTypeDefault"),
-    restoreFacilityTypeLogDefaultAction: department("logSuppression"),
   },
   [`${DEPARTMENT_ADMIN}/plant-starter-actions.ts`]: each(department("department"), [
     "loadPlantStarterAction",

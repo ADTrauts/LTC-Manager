@@ -52,6 +52,7 @@ export async function loadDepartmentLocationsView(input: {
   const locations = collectDepartmentActionableLocations({
     departmentId: department.id,
     units: hierarchy.units,
+    roomTypes: hierarchy.roomTypes,
   });
 
   return {

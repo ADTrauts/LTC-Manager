@@ -10,7 +10,6 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import { resolveCycleAuthority } from "./cycle-authority";
-import { roomTypeKeyForStoredSpace } from "./cycle-scope";
 import {
   describeKeyTimeStatus,
   localHhMmFromInstant,
@@ -112,9 +111,7 @@ export async function loadEmployeeCycleContext(input: {
     id: string;
     unitType: import("@prisma/client").UnitType;
     parentUnitId: string | null;
-    childRoomTypeKeys?: string[];
     spaceIds?: string[];
-    childOperationalTypeKeys?: string[];
   } | null = null;
   let mealTargets: UnitMealTarget[] = [];
   let keyTimes: EmployeeKeyTimeCard[] = [];
@@ -130,13 +127,8 @@ export async function loadEmployeeCycleContext(input: {
         id: true,
         unitType: true,
         parentUnitId: true,
-                childSpaces: {
-          select: {
-            id: true,
-            spaceType: true,
-            customTypeLabel: true,
-            facilityRoomType: { select: { displayName: true } },
-          },
+        childSpaces: {
+          select: { id: true },
         },
       },
     });
@@ -145,13 +137,8 @@ export async function loadEmployeeCycleContext(input: {
       id: row.id,
       unitType: row.unitType,
       parentUnitId: row.parentUnitId,
-      childRoomTypeKeys: [
-        ...new Set(row.childSpaces.map((space) => roomTypeKeyForStoredSpace(space))),
-      ],
       spaceIds: row.childSpaces.map((space) => space.id),
     };
-    // Forward employee cycle context uses explicit cycle locations — not OT hub keys.
-    unit.childOperationalTypeKeys = [];
     const ownerIds = timingOwnerUnitIds(unit);
     const unitTimings = timingsForOwnerUnits(mealMaterialized.timings, ownerIds);
     if (unitTimings.length > 0) {
@@ -212,7 +199,6 @@ export async function loadEmployeeCycleContext(input: {
     operationalDateKey,
     unit,
     spaceId: input.spaceId,
-    operationalTypeKey: null,
     mealTargets,
   });
 
