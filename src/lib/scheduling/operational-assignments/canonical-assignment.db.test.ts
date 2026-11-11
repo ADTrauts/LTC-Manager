@@ -11,6 +11,7 @@ import { buildDietaryCoverageSummary } from "./build-coverage-summary";
 import { loadAssignmentTemplatePreview } from "./load-assignment-template-preview";
 import { requireAssignmentLocationScope, resolveAssignmentLocationWrites } from "./location-scope";
 import type { TemplatePreviewPosition } from "./template-types";
+import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 
 const url = process.env.VERIFY_DATABASE_URL;
 if (url) {
@@ -92,6 +93,24 @@ test("canonical Assignment eligibility and published Space Coverage", { skip: ur
       assert(!summary.rows.some(row => row.spaceId === sibling.id));
       const preview = await loadAssignmentTemplatePreview({ templateId: template.id, facilityId: facility.id, departmentId: evs.id, serviceDate: "2026-11-10" }, [], []);
       assert.equal(preview.positions.length, 0);
+    });
+    await t.test("real RLS counts a person once when multiple persisted Assignment rows match", async () => {
+      await prisma.departmentOperationalCycle.create({ data: { facilityId: facility.id, departmentId: department.id,
+        stableKey: `assignment-count-${tag}`, label: "Explicit active Cycle", nodeKind: "PERIOD", cycleType: "SERVICE", status: "PUBLISHED",
+        effectiveFrom: new Date("2026-11-01T00:00:00Z"), publishedAt: new Date("2026-11-01T00:00:00Z"), startLocal: "00:00", endLocal: "23:59",
+        applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6], locationMode: "EXPLICIT_UNITS", locations: { create: { spaceId: target.id } } } });
+      const assignment = await prisma.operationalAssignment.findFirstOrThrow({ where: { employeeId: employee.id,
+        templateItemId: template.items[0].id } });
+      await prisma.operationalAssignmentPlan.update({ where: { id: assignment.planId! }, data: { status: "CONFIRMED" } });
+      await prisma.operationalAssignment.create({ data: { facilityId: facility.id, departmentId: department.id,
+        employeeId: employee.id, serviceDate: assignment.serviceDate, planId: assignment.planId, roleKey: "COOK", roleLabel: "Cook",
+        startsAt: assignment.startsAt, endsAt: assignment.endsAt, unitId: assignment.unitId,
+        locations: { create: { unitSpaceId: target.id, unitId: unit.id } } } });
+      const result = await loadRuntimeLocationStates({ facilityId: facility.id,
+        spaceRefs: [{ departmentId: department.id, spaceId: target.id }], now: new Date("2026-11-10T17:00:00Z") });
+      const slot = result.states[0]?.coverage.slots.find(row => row.templateStableKey === template.stableKey);
+      assert(slot); assert.equal(slot.filledCount, 1); assert.equal(slot.state, "AT_RISK");
+      assert.equal(slot.assignmentIds.length, 2);
     });
   } finally { await prisma.$disconnect(); }
 });

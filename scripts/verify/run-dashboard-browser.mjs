@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { randomBytes } from "node:crypto";
 /**
  * DSH-02 Dashboard persona check. The flag is on only for this process.
  * Uses the dev server so the check does not replace the app's production build.
@@ -81,6 +82,9 @@ async function main() {
   if (!process.env.SEED_DEMO_PASSWORD) {
     process.env.SEED_DEMO_PASSWORD = "DashboardBrowserSeed!ChangeMe";
   }
+
+  process.env.OFFLINE_RECOVERY_KEYS ||= JSON.stringify({ verification: randomBytes(32).toString("base64") });
+  process.env.OFFLINE_RECOVERY_ACTIVE_KEY ||= "verification";
 
   mkdirSync(ARTIFACT_DIR, { recursive: true });
   rmSync(FIXTURE_PATH, { force: true });

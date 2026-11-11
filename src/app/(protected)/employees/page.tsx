@@ -62,6 +62,8 @@ function toEmployeeCardProps(
     primaryUnitId: string | null;
     primaryDepartmentId: string | null;
     jobTitleId: string | null;
+    jobTitle?: { name: string } | null;
+    operationalRoleQualifications?: { departmentId: string; roleKey: string }[];
     employeeDepartments?: { departmentId: string }[];
     teamMemberships?: { teamId: string; isPrimary: boolean }[];
     departmentJobRoles?: { departmentId: string; jobRoleId: string }[];
@@ -122,6 +124,8 @@ function toEmployeeCardProps(
       .map((row) => row.departmentId)
       .filter((id) => id !== employee.primaryDepartmentId),
     jobTitleId: employee.jobTitleId,
+    jobTitleName: employee.jobTitle?.name ?? null,
+    operationalQualifications: employee.operationalRoleQualifications ?? [],
     teamMemberships: employee.teamMemberships ?? [],
     jobRoleAssignments: (employee.departmentJobRoles ?? []).map((row) => ({
       departmentId: row.departmentId,
@@ -247,6 +251,8 @@ export default async function EmployeesPage({
         primaryUnitId: true,
         primaryDepartmentId: true,
         jobTitleId: true,
+        jobTitle: { select: { name: true } },
+        operationalRoleQualifications: { where: { status: "ACTIVE", ...(visibleDepartmentIds ? { departmentId: { in: [...visibleDepartmentIds] } } : {}) }, select: { departmentId: true, roleKey: true } },
         employeeDepartments: { select: { departmentId: true } },
         teamMemberships: {
           where: { team: { status: "ACTIVE" } },
@@ -348,7 +354,7 @@ export default async function EmployeesPage({
         ],
       },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, showInEmployeeApp: true },
+      select: { id: true, key: true, name: true, showInEmployeeApp: true },
     })
   ).filter((department) => operableIds.has(department.id));
 

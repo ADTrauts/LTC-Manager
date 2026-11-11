@@ -166,10 +166,11 @@ function findExistingMatch(
       .map((p) => p.existingAssignmentId!),
   );
 
+  const usedEmployeeIds = new Set(alreadyMatchedPositions.filter(row => row.itemId === item.id).map(row => row.assignedEmployeeId));
   const match = assignments.find(
     (a) =>
       assignmentMatchesCoverageItem(a, item) &&
-      !alreadyUsedIds.has(a.id),
+      !alreadyUsedIds.has(a.id) && !usedEmployeeIds.has(a.employeeId),
   );
 
   if (!match) return null;

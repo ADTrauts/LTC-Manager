@@ -150,20 +150,7 @@ const inspection = item({
   usageLabel: "placements",
 });
 
-const round = item({
-  sourceType: "WORK_PRESET",
-  stableKey: "MECHANICAL_ROOM_ROUND",
-  name: "Mechanical Room Round",
-  catalogFamily: "WORK",
-  categoryKey: "PLANT",
-  categoryLabel: "Facility Plant Operations",
-  facilityInstallCount: 4,
-  usageCount: 6,
-  usageLabel: "published plans",
-  detailHref: "/console/catalog/work/MECHANICAL_ROOM_ROUND",
-});
-
-const catalog = [round, cooler, evs, opening, plant, food, dishwasher, inspection];
+const catalog = [cooler, evs, opening, plant, food, dishwasher, inspection];
 
 test("family and subtype filters stay on the unified projection", () => {
   const all = filterMarketplaceItems(catalog, resolveMarketplaceBrowse({}, catalog));
@@ -317,8 +304,6 @@ test("install, usage, type, empty, and create presentation stay source-specific"
   assert.equal(formatMarketplaceUsage(32, "users"), "32 users");
   assert.equal(formatMarketplaceUsage(1, "placements"), "1 placement");
   assert.equal(formatMarketplaceUsage(14, "placements"), "14 placements");
-  assert.equal(formatMarketplaceUsage(1, "published plans"), "1 published plan");
-  assert.equal(formatMarketplaceUsage(6, "published plans"), "6 published plans");
   assert.equal(formatMarketplaceUsage(null, null), CONSOLE_CATALOG_EMPTY);
   assert.equal(formatMarketplaceResultCount(1), "1 item");
   assert.equal(formatMarketplaceResultCount(14), "14 items");
@@ -327,14 +312,11 @@ test("install, usage, type, empty, and create presentation stay source-specific"
   assert.equal(marketplaceTypeLabel(cooler), "Log");
   assert.equal(marketplaceTypeLabel(opening), "Checklist");
   assert.equal(marketplaceTypeLabel(inspection), "Inspection");
-  assert.equal(marketplaceTypeLabel(round), "Work");
   assert.equal(plant.versionDisplay, "1.0");
   assert.equal(cooler.versionDisplay, "v1");
-  assert.equal(round.versionDisplay, CONSOLE_CATALOG_EMPTY);
 
   assert.equal(marketplaceRowHref(cooler), "/console/catalog/cooler_temperature_log");
   assert.equal(marketplaceRowHref(plant), "/console/catalog/products/PLANT");
-  assert.equal(marketplaceRowHref(round), "/console/catalog/work/MECHANICAL_ROOM_ROUND");
 
   assert.equal(marketplaceEmptyCopy(resolveMarketplaceBrowse({}, [])), "No Marketplace items are available.");
   assert.equal(

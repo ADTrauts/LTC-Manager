@@ -27,7 +27,7 @@ function TeamRooms({ catalog, initialIds }: { catalog: TeamCatalog; initialIds: 
   return (
     <fieldset className="space-y-2" data-testid="team-room-membership">
       <legend className="text-sm font-medium">Normal rooms</legend>
-      <p className="text-xs text-zinc-600">Choose explicit rooms for this Team's normal view. This does not grant access or configure staffing.</p>
+      <p className="text-xs text-zinc-600">Choose explicit rooms for this Team&apos;s normal view. This does not grant access or configure staffing.</p>
       <RoomPicker locations={catalog.locations} selectedIds={ids} onChange={setIds} name="spaceIds" />
     </fieldset>
   );

@@ -56,10 +56,12 @@ export function buildAssignmentFulfillmentSummary(input: {
 
   for (const template of activeTemplates) {
     for (const item of template.items) {
+      const usedEmployeeIds = new Set<string>();
       for (let i = 0; i < item.requiredCount; i++) {
-        const match = findFulfillingAssignment(activeAssignments, item, usedAssignmentIds);
+        const match = findFulfillingAssignment(activeAssignments, item, usedAssignmentIds, usedEmployeeIds);
         if (match) {
           usedAssignmentIds.add(match.id);
+          usedEmployeeIds.add(match.employeeId);
         }
         positions.push({
           itemId: item.id,
@@ -111,11 +113,12 @@ function findFulfillingAssignment(
   assignments: AssignmentBoardEntry[],
   item: TemplateItemView,
   usedIds: Set<string>,
+  usedEmployeeIds: Set<string>,
 ): AssignmentBoardEntry | null {
   return assignments.find(
     (a) =>
       assignmentMatchesCoverageItem(a, item) &&
-      !usedIds.has(a.id),
+      !usedIds.has(a.id) && !usedEmployeeIds.has(a.employeeId),
   ) ?? null;
 }
 

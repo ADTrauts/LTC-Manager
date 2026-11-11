@@ -1,27 +1,18 @@
 /**
  * Canonical SPACE offline fixture for disposable VERIFY_DATABASE_URL only.
  *
- * Phase 2C R3: does NOT call Location Function bind/publish or Work Plan draft/publish.
- * Uses Facility structure + Department responsibility, Operating Rhythm publication,
- * supervisor ONE_OFF Work occurrences, optional Catalog Records attachment, and an
- * isolated historical WORK_PLAN occurrence seed for legacy command compatibility.
+ * Physical Space, Department responsibility, qualified employees, published
+ * Operating Rhythm, and optional Catalog Record placement.
  */
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { tsImport } from "tsx/esm/api";
 import { activateFixtureAccount } from "./fixture-account.mjs";
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
 
-function cuidLike() {
-  return `c${randomBytes(12).toString("hex")}`;
-}
-
-const WORK_INSTRUCTIONS =
-  "Verify supplies for this exact Space before confirming completion.";
-
 export async function prepareCanonicalOfflineFixture(
   db,
-  { facilityId, departmentId, tag, pin, extraWorkItems = 0, extraKeyTimes = 0 },
+  { facilityId, departmentId, tag, pin, extraKeyTimes = 0 },
 ) {
   assertDisposableDatabaseUrl(process.env.VERIFY_DATABASE_URL);
   const secret = process.env.AUTH_SECRET;
@@ -49,15 +40,6 @@ export async function prepareCanonicalOfflineFixture(
     import.meta.url,
   );
   const cycles = await tsImport("../../src/lib/operational-cycles/cycle-service.ts", import.meta.url);
-  const { createOneOff } = await tsImport(
-    "../../src/lib/department-work/occurrence-service.ts",
-    import.meta.url,
-  );
-  const { buildOccurrenceKey } = await tsImport(
-    "../../src/lib/department-work/occurrence-key.ts",
-    import.meta.url,
-  );
-
   const facility = await db.facility.findUniqueOrThrow({ where: { id: facilityId } });
   const effectiveFrom = toServiceDateKey(getFacilityServiceDate(facility.timezone, new Date()));
 
@@ -149,6 +131,13 @@ export async function prepareCanonicalOfflineFixture(
         teamMemberships: [],
       }),
     );
+    if (roleKey === "STAFF") {
+      await db.employeeOperationalRoleQualification.upsert({
+        where: { employeeId_departmentId_roleKey: { employeeId: employee.id, departmentId, roleKey: "SERVER" } },
+        update: { status: "ACTIVE", revokedAt: null },
+        create: { facilityId, employeeId: employee.id, departmentId, roleKey: "SERVER" },
+      });
+    }
     people[key] = { userId: user.id, employeeId: employee.id, email };
   }
 
@@ -271,99 +260,6 @@ export async function prepareCanonicalOfflineFixture(
     });
   }
 
-  // ONE_OFF compatibility Work — supported runtime path (not Work Plan authoring).
-  const workLabel = "Check food service supplies";
-  const oneOffIds = [];
-  const totalWork = 1 + Math.max(0, extraWorkItems);
-  const operationalDate = new Date(`${effectiveFrom}T00:00:00.000Z`);
-  for (let i = 0; i < totalWork; i++) {
-    const title = i === 0 ? workLabel : `Certification Work ${i}`;
-    const existing = await db.departmentWorkOccurrence.findFirst({
-      where: {
-        facilityId,
-        departmentId,
-        spaceId: room.id,
-        sourceKind: "ONE_OFF",
-        status: "OPEN",
-        operationalDate,
-        workItemLabelSnapshot: title,
-      },
-      orderBy: { createdAt: "asc" },
-    });
-    if (existing) {
-      oneOffIds.push(existing.id);
-      continue;
-    }
-    const created = await createOneOff(session, {
-      client: db,
-      actor: {
-        userId: manager.userId,
-        employeeId: people.manager.employeeId,
-        label: "Canonical manager",
-        authenticationMethod: "PASSWORD",
-      },
-      work: {
-        facilityId,
-        departmentId,
-        operationalDate: effectiveFrom,
-        unitId: room.unitId,
-        spaceId: room.id,
-        title,
-        instructions: WORK_INSTRUCTIONS,
-        priority: "ROUTINE",
-        assignedEmployeeId: people.worker.employeeId,
-      },
-    });
-    oneOffIds.push(created.id);
-  }
-
-  // Isolated historical WORK_PLAN occurrence for legacy command compatibility only.
-  // Not advertised by new offline presentation; not created via Work Plan publish.
-  const legacyOccurrenceKey = buildOccurrenceKey({
-    sourceKind: "WORK_PLAN",
-    workPlanStableKey: `legacy_offline_${tag}`,
-    workPlanVersion: 1,
-    workItemKey: "legacy_opening",
-    operationalDate: effectiveFrom,
-    unitId: room.unitId,
-    spaceId: room.id,
-    windowStartLocal: null,
-    windowEndLocal: null,
-    employeeId: null,
-  });
-  let legacyWorkPlanOccurrence = await db.departmentWorkOccurrence.findFirst({
-    where: { facilityId, departmentId, occurrenceKey: legacyOccurrenceKey },
-  });
-  if (!legacyWorkPlanOccurrence) {
-    legacyWorkPlanOccurrence = await db.departmentWorkOccurrence.create({
-      data: {
-        id: cuidLike(),
-        facilityId,
-        departmentId,
-        occurrenceKey: legacyOccurrenceKey,
-        sourceKind: "WORK_PLAN",
-        operationalDate,
-        workPlanId: null,
-        workPlanStableKey: `legacy_offline_${tag}`,
-        workPlanVersion: 1,
-        workItemId: null,
-        workItemKey: "legacy_opening",
-        workItemLabelSnapshot: `Legacy plan work ${tag}`,
-        instructionsSnapshot:
-          "Historical plan-derived occurrence for sync compatibility only.",
-        priority: "ROUTINE",
-        completionMode: "EXPLICIT_CONFIRMATION",
-        responsibilityMode: "UNIT_SHARED",
-        unitId: room.unitId,
-        spaceId: room.id,
-        status: "OPEN",
-        assignedEmployeeId: people.worker.employeeId,
-        createdByUserId: manager.userId,
-        authenticationMethod: "PASSWORD",
-      },
-    });
-  }
-
   // Optional Records attachment when a published Catalog definition exists and flag is on.
   let logAttachmentId = null;
   try {
@@ -395,7 +291,7 @@ export async function prepareCanonicalOfflineFixture(
       }
     }
   } catch (err) {
-    // Records are optional for SPACE Work/Key Point offline CI-gate. Log and continue.
+    // Records are optional for SPACE Assignment/Key Point offline CI-gate. Log and continue.
     console.warn(
       `canonical-offline-fixtures: Records attachment skipped — ${String(err?.message || err)}`,
     );
@@ -406,16 +302,9 @@ export async function prepareCanonicalOfflineFixture(
     departmentId,
     unitId: room.unitId,
     spaceId: room.id,
-    /** Location Function profiles are retired — always null after Phase 2C R3. */
-    profileId: null,
     cycleId: cycle.id,
     keyPointId: keyPoint.id,
     cycleStableKey: stableKey,
-    /** Primary ONE_OFF occurrence id (field name retained for Playwright fixture consumers). */
-    workPlanId: oneOffIds[0],
-    workLabel,
-    oneOffOccurrenceIds: oneOffIds,
-    legacyWorkPlanOccurrenceId: legacyWorkPlanOccurrence.id,
     logAttachmentId,
     people,
   };

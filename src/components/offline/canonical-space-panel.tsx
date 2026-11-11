@@ -12,9 +12,10 @@ export function SpaceIdentityBoundary({ session }: {
     const identity = session ? `${session.authKind}:${session.uid}:${session.scopeKind}:${session.facilityId || ""}:${session.sessionVersion}` : "signed-out";
     return <><span hidden data-space-identity={identity}/></>;
 }
-export function CanonicalSpacePanel({ scope, session }: {
+export function CanonicalSpacePanel({ scope, session, canPrepare = true }: {
     scope: SpaceScope;
     session: FacilitySession;
+    canPrepare?: boolean;
 }) {
-    return <div data-testid="canonical-space-offline" data-space-offline={JSON.stringify({ scope, actorRef: `${session.authKind}:${session.uid}`, sessionVersion: session.sessionVersion })}>Preparing offline controls…</div>;
+    return <div data-testid="canonical-space-offline" data-space-offline={JSON.stringify({ scope, actorRef: `${session.authKind}:${session.uid}`, sessionVersion: session.sessionVersion, canPrepare })}>Preparing offline controls…</div>;
 }

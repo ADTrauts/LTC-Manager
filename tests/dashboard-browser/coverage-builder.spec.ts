@@ -161,10 +161,18 @@ test("PF-2D-002 @coverage-builder: reachable Unit and Space authoring persists a
     // explicit eligibility. Fill both today's need and the newly published future need.
     const assignedEmployee = await db.employee.create({ data: { facilityId: fx.facilityId,
       primaryDepartmentId: fx.dietaryDepartmentId, firstName: "Space", lastName: `Assignment ${name}`,
-      roleType: "STAFF", operationalRoleQualifications: { create: { facilityId: fx.facilityId,
-        departmentId: fx.dietaryDepartmentId, roleKey: "SERVER" } } } });
+      roleType: "STAFF" } });
     const unqualifiedEmployee = await db.employee.create({ data: { facilityId: fx.facilityId,
       primaryDepartmentId: fx.dietaryDepartmentId, firstName: "Unqualified", lastName: name, roleType: "STAFF" } });
+    await page.goto(`/employees?dept=${fx.dietaryDepartmentId}`);
+    const employeeCard = page.locator(`#employee-${assignedEmployee.id}`);
+    await employeeCard.getByRole("button", { name: /Space Assignment/ }).click();
+    const eligibility = employeeCard.getByTestId("operational-eligibility");
+    await eligibility.getByRole("checkbox", { name: "Server", exact: true }).check();
+    await eligibility.getByRole("button", { name: "Save eligibility", exact: true }).click();
+    await expect.poll(() => db.employeeOperationalRoleQualification.count({ where: {
+      employeeId: assignedEmployee.id, departmentId: fx.dietaryDepartmentId, roleKey: "SERVER", status: "ACTIVE",
+    } })).toBe(1);
     for (const day of [saved.effectiveFrom!.toISOString().slice(0, 10), fx.serviceDateKey]) {
       await page.goto(`/staffing/assignments?department=${fx.dietaryDepartmentId}&date=${day}`);
       const assignmentForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Create Assignment", exact: true }) });

@@ -23,7 +23,6 @@ export const MARKETPLACE_BROWSE_PATH = "/console/catalog";
 
 const MAX_QUERY_LENGTH = 200;
 
-/** Phase 2C-2H-3: Work family removed from customer discovery (WORK_PRESET retired). */
 export const MARKETPLACE_FAMILIES = [
   { key: "all", label: "All" },
   { key: "departments", label: "Departments" },
@@ -31,9 +30,6 @@ export const MARKETPLACE_FAMILIES = [
 ] as const;
 
 export type MarketplaceFamilyKey = (typeof MARKETPLACE_FAMILIES)[number]["key"];
-
-/** Legacy query value — not advertised; resolves to empty discovery. */
-export const RETIRED_MARKETPLACE_WORK_FAMILY = "work" as const;
 
 export const MARKETPLACE_RECORD_TYPES = [
   { key: "all", label: "All" },
@@ -68,7 +64,6 @@ const TYPE_TO_SUBTYPE: Record<MarketplaceRecordTypeKey, ConsoleCatalogRecordSubt
 const USAGE_SINGULAR: Record<ConsoleCatalogUsageLabel, string> = {
   users: "user",
   placements: "placement",
-  "published plans": "published plan",
 };
 
 export type MarketplaceBrowseParamInput = Record<string, string | string[] | undefined>;
@@ -265,8 +260,6 @@ export function filterMarketplaceItems(
   return sortMarketplaceItems(
     items.filter(
       (item) =>
-        // Phase 2C-2H-3: never advertise retired WORK_PRESET in Marketplace browse.
-        item.sourceType !== "WORK_PRESET" &&
         matchesFamily(item, query.family) &&
         matchesSubtype(item, query) &&
         (query.status == null || item.statusLabel === query.status) &&
@@ -278,7 +271,6 @@ export function filterMarketplaceItems(
 
 export function marketplaceTypeLabel(item: ConsoleCatalogItem): string {
   if (item.sourceType === "DEPARTMENT_PRODUCT") return "Department";
-  if (item.sourceType === "WORK_PRESET") return "Work";
   if (item.catalogSubtype) return catalogPurposeLabel(item.catalogSubtype);
   return "Record";
 }

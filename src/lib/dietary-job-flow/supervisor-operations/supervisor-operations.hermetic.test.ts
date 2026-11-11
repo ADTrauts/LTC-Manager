@@ -173,9 +173,7 @@ function facts(partial: Partial<SupervisorOperationsFacts> = {}): SupervisorOper
     coverageCounts: { covered: 0, atRisk: 0, uncovered: 0 },
     coverageGaps: [],
     historicalRecords: [],
-    workExceptions: [],
     sync: { retryRequired: 0, pendingConflicts: 0, items: [], unscopableExcluded: false },
-    evsOverlay: null,
     plantOverlay: null,
     ...partial,
   };
@@ -583,25 +581,6 @@ test("only operational-impact assets become generic exceptions", () => {
   assert.equal(view.overlay.plant?.openWorkOrders, 1);
 });
 
-test("work exception stays work, not evidence", () => {
-  const view = composeSupervisorOperations(
-    facts({
-      workExceptions: [
-        {
-          occurrenceKey: "wp-1",
-          label: "Hood filter",
-          unitId: "unit-a",
-          unitName: "3A",
-          state: "PAST_DUE_NOT_CONFIRMED",
-          assignedEmployeeId: "mary",
-        },
-      ],
-    }),
-  );
-  assert.match(view.needsAttention.work[0]?.status ?? "", /past due/);
-  assert.deepEqual(view.needsAttention.evidence, []);
-});
-
 test("sync items stay outside RLS and keep department-scoped facts", () => {
   const view = composeSupervisorOperations(
     facts({
@@ -617,36 +596,6 @@ test("sync items stay outside RLS and keep department-scoped facts", () => {
   );
   assert.equal(view.sync.pendingConflicts, 1);
   assert.equal(view.needsAttention.sync[0]?.unitId, "dietary-unit");
-});
-
-test("EVS overlay uses location coverage engine, not Dietary gaps", () => {
-  const view = composeSupervisorOperations(
-    facts({
-      department: { id: "evs-1", name: "EVS", key: "EVS" },
-      coverageCounts: { covered: 4, atRisk: 0, uncovered: 2 },
-      evsOverlay: {
-        locationCovered: 4,
-        locationAtRisk: 0,
-        locationUncovered: 2,
-        locationOverlapping: 1,
-        locationRequired: 6,
-        visibleUnitIds: null,
-        locationCoverage: { unassigned: [], overlapping: [] },
-        filters: {
-          floor: null,
-          unit: null,
-          zone: null,
-          employee: null,
-          floors: [],
-          units: [],
-          zones: [],
-          employees: [],
-        },
-      },
-    }),
-  );
-  assert.equal(view.coverage.engine, "evs");
-  assert.equal(view.overlay.evs?.locationUncovered, 2);
 });
 
 test("pipeline source scan: one RLS batch, assignments always read, no readiness/dashboard/cycle engines", () => {
@@ -665,8 +614,6 @@ test("pipeline source scan: one RLS batch, assignments always read, no readiness
   assert.match(files, /loadRuntimeLocationStates/);
   assert.match(files, /presentSupervisorEvidenceAttention/);
   assert.match(files, /buildDietaryCoverageSummary/);
-  assert.match(files, /buildLocationCoverageSummary/);
-  assert.match(files, /loadSupervisorWorkExceptions/);
   assert.equal(files.includes("resolveOperationalCycle"), false);
   assert.equal(files.includes("loadSupervisorCycleOverview"), false);
   assert.equal(files.includes("computeReadinessBatch"), false);

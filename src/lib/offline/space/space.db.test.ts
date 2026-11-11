@@ -9,7 +9,7 @@ import { getFacilityServiceDate, toServiceDateKey, facilityLocalDateToServiceDat
 import { prepareSpace, recoverSpace, syncSpace, digest } from "./service";
 import { credentialProof, escrowKey, openEscrow, readCredentialProof } from "./keys";
 import { commandSchema, requestSchema, type SpaceCommand } from "./contract";
-// Canonical physical/function/cycle/work fixture owners; confirmed assignment
+// Physical Space and Cycle owners; confirmed assignment
 // snapshots below are SQL setup only. Browser gates exercise actual board owners.
 import { prepareCanonicalOfflineFixture } from "../../../../scripts/verify/canonical-offline-fixtures.mjs";
 const url = process.env.VERIFY_DATABASE_URL || process.env.OFFLINE_RUNTIME_TEST_DATABASE_URL;
@@ -36,31 +36,31 @@ async function fixture(db: PrismaClient) {
     const f = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: department.id, tag: `sql-${tag}`, pin: "846205" });
     const date = facilityLocalDateToServiceDate(toServiceDateKey(getFacilityServiceDate(facility.timezone, new Date()))), plan = await db.operationalAssignmentPlan.create({ data: { facilityId: facility.id, departmentId: department.id, serviceDate: date, status: "CONFIRMED", confirmedAt: new Date(), confirmedByUserId: f.people.manager.userId } });
     for (const p of [f.people.worker, f.people.secondWorker])
-        await db.operationalAssignment.create({ data: { facilityId: facility.id, departmentId: department.id, employeeId: p.employeeId, unitId: f.unitId, serviceDate: date, planId: plan.id, roleKey: "SERVER", roleLabel: "Server", status: "ACTIVE" } });
+        await db.operationalAssignment.create({ data: { facilityId: facility.id, departmentId: department.id, employeeId: p.employeeId, unitId: f.unitId, serviceDate: date, planId: plan.id, roleKey: "SERVER", roleLabel: "Server", status: "ACTIVE", notes: "Verify supplies for this exact Space before confirming completion.", locations: { create: { unitId: f.unitId, unitSpaceId: f.spaceId } } } });
     const session = { uid: f.people.worker.userId, authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "STAFF", facilityId: facility.id, primaryDepartmentId: department.id, name: "Canonical worker", email: f.people.worker.email, sessionVersion: 0, exp: Math.floor(Date.now() / 1000) + 43200 } as FacilitySession;
     const scope = { facilityId: facility.id, departmentId: department.id, unitId: f.unitId, spaceId: f.spaceId }, device = { facilityId: facility.id, unitId: f.unitId };
     const prepare = (s = session) => prepareSpace(db, s, scope, device);
-    const command = (bundle: Awaited<ReturnType<typeof prepare>>["bundle"], kind: SpaceCommand["kind"] = "WORK") => { const target = bundle.targets.find(t => t.kind === kind && t.available && !t.completed)!; assert.ok(target, `Missing ${kind}`); return commandSchema.parse({ id: randomUUID(), issuanceId: bundle.issuanceId, kind, target: target.id, baseline: target.baseline, occurredAt: new Date().toISOString(), note: "" }); };
+    const command = (bundle: Awaited<ReturnType<typeof prepare>>["bundle"], kind: SpaceCommand["kind"] = "ASSIGNMENT") => { const target = bundle.targets.find(t => t.kind === kind && t.available && !t.completed)!; assert.ok(target, `Missing ${kind}`); return commandSchema.parse({ id: randomUUID(), issuanceId: bundle.issuanceId, kind, target: target.id, baseline: target.baseline, occurredAt: new Date().toISOString(), note: "" }); };
     return { ...f, session, scope, device, prepare, command, plan };
 }
 test("space SQL: canonical OTHER Space prepares exact targets and no domain completion", { skip }, () => run(async (db) => {
     const f = await fixture(db), p = await f.prepare();
     assert.equal(p.bundle.scope.spaceId, f.spaceId);
-    assert.equal(p.bundle.targets.find(t => t.kind === "WORK")!.instructions, "Verify supplies for this exact Space before confirming completion.");
+    assert.equal(p.bundle.targets.find(t => t.kind === "ASSIGNMENT")!.instructions, "Verify supplies for this exact Space before confirming completion.");
     assert.equal(p.bundle.targets.filter(t => t.kind === "KEY_TIME_ACTUAL").length, 1);
-    assert.equal(await db.departmentWorkOccurrence.count({ where: { facilityId: f.facilityId } }), 0);
+    assert.equal(await db.operationalAssignment.count({ where: { facilityId: f.facilityId, status: "COMPLETED" } }), 0);
     assert.equal(await db.operationalCycleKeyPointActual.count({ where: { facilityId: f.facilityId } }), 0);
     const issued = await db.offlineBundleIssuance.findUniqueOrThrow({ where: { id: p.bundle.issuanceId } });
     assert.ok(issued.recoveryKeyEnvelope);
     assert.ok(!JSON.stringify(issued.recoveryKeyEnvelope).includes(p.key));
     assert.equal(openEscrow(issued.recoveryKeyEnvelope, digest({ id: issued.id, scope: issued.spaceScope, sessionVersion: issued.sessionVersion, user: issued.actorUserId, employee: issued.actorEmployeeId })).toString("base64"), p.key);
 }));
-test("space SQL: concurrent/repeated Work commits one canonical effect/event and immutable receipt; changed intent rejects", { skip }, () => run(async (db) => {
+test("space SQL: concurrent/repeated Assignment commits one canonical effect/event and immutable receipt; changed intent rejects", { skip }, () => run(async (db) => {
     const f = await fixture(db), p = await f.prepare(), cmd = f.command(p.bundle);
     const outcomes = await Promise.all([syncSpace(db, f.session, [cmd], f.device), syncSpace(db, f.session, [cmd], f.device)]);
     assert.ok(outcomes.every(r => r[0]!.status === "committed"), JSON.stringify(outcomes));
-    assert.equal(await db.departmentWorkOccurrence.count({ where: { facilityId: f.facilityId } }), 1);
-    assert.equal(await db.departmentWorkEvent.count({ where: { facilityId: f.facilityId, eventType: "COMPLETED" } }), 1);
+    assert.equal(await db.operationalAssignment.count({ where: { facilityId: f.facilityId, status: "COMPLETED" } }), 1);
+    assert.equal(await db.operationalAssignmentEvent.count({ where: { facilityId: f.facilityId, eventType: "COMPLETED" } }), 1);
     assert.equal(await db.offlineSyncReceipt.count({ where: { facilityId: f.facilityId } }), 1);
     const changed = await syncSpace(db, f.session, [{ ...cmd, note: "different intent" }], f.device);
     assert.equal(changed[0]!.status, "blocked");
@@ -77,16 +77,16 @@ test("space SQL: Key Time actual is once; another command conflicts, never corre
 test("space SQL: injected receipt failure rolls back effect; same-ID unknown reconciliation and partial retry commit once", { skip }, () => run(async (db) => {
     const f = await fixture(db), p = await f.prepare(), work = f.command(p.bundle), actual = f.command(p.bundle, "KEY_TIME_ACTUAL");
     let fail = true;
-    const broken = db.$extends({ query: { offlineSyncReceipt: { async create({ args, query }) { if (fail && args.data.commandType === "space/1:WORK") {
+    const broken = db.$extends({ query: { offlineSyncReceipt: { async create({ args, query }) { if (fail && args.data.commandType === "space/1:ASSIGNMENT") {
                     fail = false;
                     throw Error("injected receipt loss");
                 } return query(args); } } } }) as unknown as PrismaClient;
     const partial = await syncSpace(broken, f.session, [work, actual], f.device);
     assert.deepEqual(partial.map(r => r.status), ["unknown", "committed"]);
-    assert.equal(await db.departmentWorkOccurrence.count({ where: { facilityId: f.facilityId } }), 0);
+    assert.equal(await db.operationalAssignment.count({ where: { facilityId: f.facilityId, status: "COMPLETED" } }), 0);
     assert.equal((await syncSpace(db, f.session, [work], f.device, true))[0]!.status, "unknown");
     assert.equal((await syncSpace(db, f.session, [work], f.device))[0]!.status, "committed");
-    assert.equal(await db.departmentWorkOccurrence.count({ where: { facilityId: f.facilityId } }), 1);
+    assert.equal(await db.operationalAssignment.count({ where: { facilityId: f.facilityId, status: "COMPLETED" } }), 1);
 }));
 test("space SQL: publication drift conflicts; billing suspension, wrong scope and Console denied", { skip }, () => run(async (db) => {
     const f = await fixture(db), p = await f.prepare(), cmd = f.command(p.bundle);
@@ -94,7 +94,7 @@ test("space SQL: publication drift conflicts; billing suspension, wrong scope an
     assert.equal((await syncSpace(db, f.session, [f.command(p.bundle, "KEY_TIME_ACTUAL")], f.device))[0]!.status,"conflict");
     assert.equal(await db.operationalCycleKeyPointActual.count({ where: { facilityId: f.facilityId } }),0);
     await db.facility.update({ where: { id: f.facilityId }, data: { timezone: "America/New_York" } });
-    await db.departmentWorkPlan.update({ where: { id: f.workPlanId }, data: { status: "RETIRED" } });
+    await db.operationalAssignment.updateMany({ where: { facilityId: f.facilityId, employeeId: f.people.worker.employeeId }, data: { notes: "Updated instructions" } });
     assert.equal((await syncSpace(db, f.session, [cmd], f.device))[0]!.status, "conflict");
     await assert.rejects(() => prepareSpace(db, { ...f.session, facilityId: "other" }, f.scope, f.device), /context changed/);
     await assert.rejects(() => f.prepare({ ...f.session, authKind: "harbor_staff" }), /employee execution/);
@@ -127,7 +127,7 @@ test("space SQL: authority expires during lock wait; no effect/receipt commits",
     await holder;
     const r = await request;
     assert.equal(r[0]!.status, "blocked");
-    assert.equal(await db.departmentWorkOccurrence.count({ where: { facilityId: f.facilityId } }), 0);
+    assert.equal(await db.operationalAssignment.count({ where: { facilityId: f.facilityId, status: "COMPLETED" } }), 0);
     assert.equal(await db.offlineSyncReceipt.count({ where: { facilityId: f.facilityId } }), 0);
 }));
 test("space contract: no offline correction/adjustment; exact scope and bounded commands", () => {
@@ -170,10 +170,10 @@ test("space SQL: a lost committed response reconciles the authoritative same-ID 
     assert.equal((await syncSpace(lost, f.session, [cmd], f.device))[0]!.status, "unknown");
     assert.equal((await syncSpace(db, f.session, [cmd], f.device, true))[0]!.status, "committed");
     assert.equal((await syncSpace(db, f.session, [cmd], f.device))[0]!.status, "committed");
-    assert.equal(await db.departmentWorkEvent.count({ where: { facilityId: f.facilityId, eventType: "COMPLETED" } }), 1);
+    assert.equal(await db.operationalAssignmentEvent.count({ where: { facilityId: f.facilityId, eventType: "COMPLETED" } }), 1);
     assert.equal(await db.offlineSyncReceipt.count({ where: { facilityId: f.facilityId } }), 1);
 }));
-test("space SQL: NONE has no actual target; OPTIONAL and REQUIRED preserve semantics; evidence stays online", { skip }, () => run(async (db) => {
+test("space SQL: NONE has no actual target; OPTIONAL and REQUIRED preserve semantics", { skip }, () => run(async (db) => {
     const f = await fixture(db);
     await db.departmentOperationalCycle.update({ where: { id: f.keyPointId }, data: { occurrenceTracking: "NONE" } });
     assert.equal((await f.prepare()).bundle.targets.filter(t => t.kind === "KEY_TIME_ACTUAL").length, 0);
@@ -181,13 +181,7 @@ test("space SQL: NONE has no actual target; OPTIONAL and REQUIRED preserve seman
     const optional = await f.prepare();
     assert.equal(optional.bundle.targets.filter(t => t.kind === "KEY_TIME_ACTUAL").length, 1);
     assert.equal((await syncSpace(db, f.session, [f.command(optional.bundle, "KEY_TIME_ACTUAL")], f.device))[0]!.status, "committed");
-    await db.departmentWorkItem.updateMany({ where: { workPlanId: f.workPlanId }, data: { completionMode: "LINKED_EVIDENCE" } });
-    const evidence = await f.prepare(), target = evidence.bundle.targets.find(t => t.kind === "WORK")!;
-    assert.equal(target.available, false);
-    assert.match(target.unavailableReason!, /evidence/);
-    const command = commandSchema.parse({ id: randomUUID(), issuanceId: evidence.bundle.issuanceId, kind: "WORK", target: target.id, baseline: target.baseline, occurredAt: new Date().toISOString() });
-    assert.equal((await syncSpace(db, f.session, [command], f.device))[0]!.status, "blocked");
-    assert.equal(await db.departmentWorkOccurrence.count({ where: { facilityId: f.facilityId } }), 0);
+    assert.equal((await f.prepare()).bundle.targets.find(t => t.kind === "KEY_TIME_ACTUAL")!.completed, true);
 }));
 test("space SQL: online and replay share canonical completion locks", { skip }, () => run(async (db) => {
     const f = await fixture(db), p = await f.prepare(), cmd = f.command(p.bundle, "KEY_TIME_ACTUAL");
@@ -196,22 +190,15 @@ test("space SQL: online and replay share canonical completion locks", { skip }, 
     if (outcomes[0][0]!.status === "unknown")
         await syncSpace(db, f.session, [cmd], f.device);
     assert.equal(await db.operationalCycleKeyPointActual.count({ where: { facilityId: f.facilityId } }), 1);
-    const work = f.command(p.bundle), { resolveUnitWorkRequirements } = await import("@/lib/department-work/load-runtime-work"), { completeExplicit } = await import("@/lib/department-work/occurrence-service");
-    const requirements = await resolveUnitWorkRequirements({ client: db, facilityId: f.facilityId, departmentId: f.departmentId, unitId: f.unitId, operationalDate: facilityLocalDateToServiceDate(p.bundle.operationalDate), operationalDateKey: p.bundle.operationalDate, now: new Date(), facilityTimezone: "America/New_York" });
-    const [replay] = await Promise.all([syncSpace(db, f.session, [work], f.device), completeExplicit(f.session, { facilityId: f.facilityId, departmentId: f.departmentId, requirement: requirements.find(r => r.occurrenceKey === work.target)!, operationalDate: p.bundle.operationalDate, actor: { userId: f.session.uid, employeeId: f.people.worker.employeeId }, client: db })]);
-    if (replay[0]!.status === "unknown")
-        assert.ok(["reused", "committed"].includes((await syncSpace(db, f.session, [work], f.device))[0]!.status));
-    assert.equal(await db.departmentWorkOccurrence.count({ where: { facilityId: f.facilityId } }), 1);
-    assert.equal(await db.departmentWorkEvent.count({ where: { facilityId: f.facilityId, eventType: "COMPLETED" } }), 1);
-}));
-test("space SQL: supervisor not-required direction conflicts instead of implicit completion",{skip},()=>run(async db=>{
- const f=await fixture(db),p=await f.prepare(),cmd=f.command(p.bundle);
- const {resolveUnitWorkRequirements}=await import("@/lib/department-work/load-runtime-work"),{markNotRequired}=await import("@/lib/department-work/occurrence-service");
- const requirements=await resolveUnitWorkRequirements({client:db,facilityId:f.facilityId,departmentId:f.departmentId,unitId:f.unitId,operationalDate:facilityLocalDateToServiceDate(p.bundle.operationalDate),operationalDateKey:p.bundle.operationalDate,now:new Date(),facilityTimezone:"America/New_York"});
- const manager={...f.session,uid:f.people.manager.userId,email:f.people.manager.email,role:"GM" as const};
- await db.$transaction(tx=>markNotRequired(manager,{facilityId:f.facilityId,departmentId:f.departmentId,requirement:requirements.find(r=>r.occurrenceKey===cmd.target)!,operationalDate:p.bundle.operationalDate,actor:{userId:manager.uid},reason:"Manager deferred this check",client:tx}));
- assert.equal((await syncSpace(db,f.session,[cmd],f.device))[0]!.status,"conflict");assert.equal((await db.departmentWorkOccurrence.findFirstOrThrow({where:{facilityId:f.facilityId}})).status,"NOT_REQUIRED");assert.equal(await db.departmentWorkEvent.count({where:{facilityId:f.facilityId,eventType:"COMPLETED"}}),0);
- assert.equal((await f.prepare()).bundle.targets.find(t=>t.id===cmd.target)!.available,false);
+    const assignment = f.command(p.bundle);
+    const { transitionAssignment } = await import("@/lib/scheduling/operational-assignments/lifecycle");
+    const row = await db.operationalAssignment.findUniqueOrThrow({ where: { id: assignment.target } });
+    await Promise.allSettled([
+        syncSpace(db, f.session, [assignment], f.device),
+        transitionAssignment(db, { session: f.session, assignmentId: row.id, expectedUpdatedAt: row.updatedAt.toISOString(), action: "complete" }),
+    ]);
+    assert.equal((await db.operationalAssignment.findUniqueOrThrow({ where: { id: row.id } })).status, "COMPLETED");
+    assert.equal(await db.operationalAssignmentEvent.count({ where: { assignmentId: row.id, eventType: "COMPLETED" } }), 1);
 }));
 test("space SQL: PIN scope rebind requires fresh authentication and preserves Employee attribution",{skip},()=>run(async db=>{
  const f=await fixture(db),pin={...f.session,uid:f.people.worker.employeeId,authKind:"employee" as const,authMethod:"QUICK_PIN" as const,activeUnitId:f.unitId},p=await f.prepare(pin),cmd=f.command(p.bundle);
@@ -222,7 +209,7 @@ test("space SQL: PIN scope rebind requires fresh authentication and preserves Em
 test("space SQL: exhausted confirmed rollbacks report failed attempt; same identity reconciles before safe retry",{skip},()=>run(async db=>{
  const f=await fixture(db),p=await f.prepare(),cmd=f.command(p.bundle);let attempts=0;
  const unavailable=new Proxy(db,{get(target,key,receiver){if(key==="$transaction")return async()=>{attempts++;const error=Object.assign(Error("synthetic confirmed rollback"),{name:"PrismaClientKnownRequestError",code:"P2034"});throw error;};return Reflect.get(target,key,receiver);}});
- const failed=await syncSpace(unavailable,f.session,[cmd],f.device);assert.equal(attempts,5);assert.equal(failed[0]!.status,"failed");assert.match(failed[0]!.message,/This attempt rolled back/);assert.equal(await db.departmentWorkOccurrence.count({where:{facilityId:f.facilityId}}),0);
+ const failed=await syncSpace(unavailable,f.session,[cmd],f.device);assert.equal(attempts,5);assert.equal(failed[0]!.status,"failed");assert.match(failed[0]!.message,/This attempt rolled back/);assert.equal(await db.operationalAssignment.count({where:{facilityId:f.facilityId,status:"COMPLETED"}}),0);
  assert.equal((await syncSpace(db,f.session,[cmd],f.device,true))[0]!.status,"unknown");assert.equal((await syncSpace(db,f.session,[cmd],f.device))[0]!.status,"committed");assert.equal(await db.offlineSyncReceipt.count({where:{facilityId:f.facilityId}}),1);
 }));
 test("space SQL: timing adjustment committed during lock wait invalidates the reviewed actual",{skip},()=>run(async db=>{
@@ -234,4 +221,25 @@ test("space SQL: timing adjustment committed during lock wait invalidates the re
  try { for(let i=0;i<50;i++){const waiting=await db.$queryRaw<Array<{n:bigint}>>`SELECT count(*) AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'`;if(waiting[0]!.n>0n){observedWait=true;break;}await new Promise(r=>setTimeout(r,20));} }finally{release();}
  await writer;assert.equal(observedWait,true,"PostgreSQL lock wait must be observed");const result=await pending;assert.equal(result[0]!.status,"conflict",JSON.stringify(result));assert.equal(await db.operationalCycleKeyPointActual.count({where:{facilityId:f.facilityId}}),0);
  const cycle=await db.departmentOperationalCycle.findUniqueOrThrow({where:{id:f.keyPointId}});assert.equal(cycle.timingAdjustmentRevision,1);assert.equal(cycle.updatedAt.toISOString(),original.updatedAt.toISOString());assert.equal(cycle.status,"PUBLISHED");assert.equal(cycle.version,1);assert.equal(await db.operationalCycleTimingAdjustment.count({where:{cycleId:f.keyPointId}}),1);
+}));
+
+test("space SQL: lost batch response returns Key Point and Assignment receipts after completion; recovery remains review-only", { skip }, () => run(async db => {
+    const f = await fixture(db), p = await f.prepare();
+    const actual = f.command(p.bundle, "KEY_TIME_ACTUAL"), assignment = f.command(p.bundle);
+    const committed = await syncSpace(db, f.session, [actual, assignment], f.device);
+    assert.deepEqual(committed.map(row => row.status), ["committed", "committed"]);
+    assert.deepEqual(await syncSpace(db, f.session, [actual, assignment], f.device, true), committed);
+    assert.deepEqual(await syncSpace(db, f.session, [actual, assignment], f.device), committed);
+    assert.equal((await syncSpace(db, f.session, [{ ...actual, id: randomUUID() }], f.device))[0].status, "blocked");
+    await new Promise(resolve => setTimeout(resolve, 5));
+    const recovered = await recoverSpace(db, f.session, p.bundle.issuanceId, p.bundle.reviewDigest, f.device, credentialProof(`user:${f.session.uid}`, 0));
+    assert.equal(recovered.reviewOnly, true);
+    assert.equal(recovered.bundle.expiresAt, p.bundle.expiresAt);
+    assert.equal(await db.offlineSyncReceipt.count({ where: { issuanceId: p.bundle.issuanceId } }), 2);
+    assert.equal(await db.operationalCycleKeyPointActual.count({ where: { facilityId: f.facilityId } }), 1);
+    assert.equal(await db.operationalAssignmentEvent.count({ where: { facilityId: f.facilityId, eventType: "COMPLETED" } }), 1);
+    const other = { ...f.session, uid: f.people.secondWorker.userId, email: f.people.secondWorker.email };
+    assert.equal((await syncSpace(db, other, [actual], f.device, true))[0].status, "blocked");
+    await db.user.update({ where: { id: f.session.uid }, data: { sessionVersion: { increment: 1 } } });
+    assert.equal((await syncSpace(db, f.session, [actual], f.device, true))[0].status, "blocked");
 }));

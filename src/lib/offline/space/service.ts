@@ -7,10 +7,8 @@ import { isCustomerDepartmentAccessAllowed } from "@/lib/department-products/loa
 import { isDepartmentJobFlowEnabled } from "@/lib/department-operations";
 import { resolveSpaceWorkspaceViewer } from "@/lib/unit-workspace/space";
 import { loadFrontlineEmployeeAssignments } from "@/lib/employee-runtime-flow/load-assignments";
-import { resolveUnitWorkRequirements } from "@/lib/department-work/load-runtime-work";
 import { transitionAssignment } from "@/lib/scheduling/operational-assignments/lifecycle";
 import { processNotificationOutboxAfterCommit } from "@/lib/notifications/live-publishers";
-import { completeExplicit } from "@/lib/department-work/occurrence-service";
 import { materializeKeyTimeDayExpectations } from "@/lib/operational-cycles/materialize-key-time-day-expectations";
 import { completeKeyTimeDayExpectation } from "@/lib/operational-cycles/key-time-day-actions";
 import { loadPublishedCyclesWithKeyTimesForDate } from "@/lib/operational-cycles/load-published-cycles";
@@ -74,6 +72,8 @@ export async function authorize(tx: Tx, s: FacilitySession, scope: SpaceScope, d
     const assignment = (completedAssignmentId ? loaded.day.find(row => row.id === completedAssignmentId && row.status === "COMPLETED") : null) ?? loaded.current;
     if (!assignment)
         fail("A current confirmed assignment is required.");
+    if (assignment.planStatus === "CLOSED" && assignment.status !== "COMPLETED")
+        fail("The Assignment plan is closed. Reopen it before preparing or executing offline actions.");
     const assigned = assignment.scopeKind === "SPACES"
         ? loaded.locationsByAssignmentId.get(assignment.id)?.some(l => l.unitSpaceId === scope.spaceId && l.unitId === scope.unitId)
         : assignment.unitId === scope.unitId;
@@ -87,9 +87,7 @@ export async function authorize(tx: Tx, s: FacilitySession, scope: SpaceScope, d
     if (!responsibility)
         fail("Confirm Department responsibility for this Space before offline preparation.");
     // Published configuration remains locked through domain write and receipt.
-    await tx.$queryRaw `SELECT "id" FROM "DepartmentWorkPlan" WHERE "departmentId"=${scope.departmentId} FOR SHARE`;
     await tx.$queryRaw `SELECT "id" FROM "DepartmentOperationalCycle" WHERE "departmentId"=${scope.departmentId} FOR SHARE`;
-    await tx.$queryRaw`SELECT "id" FROM "DepartmentWorkOccurrence" WHERE "facilityId"=${s.facilityId} AND "departmentId"=${scope.departmentId} AND "spaceId"=${scope.spaceId} AND "operationalDate"=${facilityLocalDateToServiceDate(operationalDate)} FOR UPDATE`;
     const periods = s.authKind === "user" ? await tx.userFacilityRolePeriod.findMany({ where: { userFacilityAccess: { userId: s.uid, facilityId: s.facilityId }, startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] } }) : [];
     const authorityEnd = periods.some(p => !p.endsAt) ? Infinity : Math.max(...periods.map(p => +p.endsAt!), 0) || Infinity;
     if (!(await validateSessionAuthority(s, tx)).valid)
@@ -102,6 +100,8 @@ export async function authorize(tx: Tx, s: FacilitySession, scope: SpaceScope, d
     return {
         employee,
         assignment,
+        assignmentFitsDevice: assignment.scopeKind !== "SPACES" ||
+            (loaded.locationsByAssignmentId.get(assignment.id) ?? []).every(row => row.unitId === scope.unitId),
         assignmentDigest: digest({
             assignment,
             timezone: facility.timezone,
@@ -117,28 +117,17 @@ export async function authorize(tx: Tx, s: FacilitySession, scope: SpaceScope, d
 }
 async function catalog(tx: Tx, s: FacilitySession, scope: SpaceScope, device: Device, now: Date, dateKey?: string, completedAssignmentId?: string) {
     const context = await authorize(tx, s, scope, device, now, dateKey, completedAssignmentId);
-    const workRaw = await resolveUnitWorkRequirements({ client: tx, facilityId: s.facilityId, departmentId: scope.departmentId, unitId: scope.unitId, operationalDate: facilityLocalDateToServiceDate(context.operationalDate), operationalDateKey: context.operationalDate, now, facilityTimezone: context.facility.timezone });
-    // Phase 2C-2H-2 / R3: newly issued SPACE bundles omit WORK_PLAN. Keep completed
-    // ONE_OFF rows so target-order identity and "already confirmed" display remain stable.
-    const work = workRaw.filter((row) => row.sourceKind === "ONE_OFF");
     const cycles = await loadPublishedCyclesWithKeyTimesForDate(s.facilityId, scope.departmentId, context.operationalDate, tx);
     await materializeKeyTimeDayExpectations({ facilityId: s.facilityId, departmentId: scope.departmentId, operationalDateKey: context.operationalDate, now, createIfMissing: true }, tx);
     const keys = await tx.operationalCycleKeyTimeDayExpectation.findMany({ where: { facilityId: s.facilityId, departmentId: scope.departmentId, spaceId: scope.spaceId, serviceDate: facilityLocalDateToServiceDate(context.operationalDate) }, orderBy: { id: "asc" } });
     for (const k of keys)
         await tx.$queryRaw `SELECT "id" FROM "OperationalCycleKeyTimeDayExpectation" WHERE "id"=${k.id} FOR UPDATE`;
     const targets: Target[] = [{ kind: "ASSIGNMENT", id: context.assignment.id,
-        label: `Complete Assignment — ${context.assignment.roleLabel}`, instructions: context.assignment.notes ?? null,
+        label: `Complete Assignment — ${context.assignment.roleLabel} — ${context.assignment.locationLabels?.join(", ") || context.assignment.unitName || context.space.name}`,
+        instructions: context.assignment.notes ?? null,
         baseline: digest({ assignment: context.assignmentDigest, instructions: context.assignment.notes ?? null }),
-        completed: context.assignment.status === "COMPLETED", available: context.assignment.status !== "COMPLETED" }];
-    const requirements = new Map<string, typeof work[number]>();
-    for (const w of work.filter(w => w.spaceId === scope.spaceId)) {
-        requirements.set(w.occurrenceKey, w);
-        const intent = Object.fromEntries(Object.entries(w).filter(([key]) => !["state", "occurrenceId", "occurrenceStatus", "completedByLabel", "completedAt"].includes(key)));
-        const directive = ["NOT_REQUIRED", "CANCELLED", "REOPENED"].includes(w.occurrenceStatus || "") ? w.occurrenceStatus : null;
-        const evidence = w.completionMode !== "EXPLICIT_CONFIRMATION";
-        const unavailable = evidence || ["NOT_REQUIRED", "NOT_APPLICABLE", "NOT_CONFIGURED"].includes(w.state) || Boolean(w.assignedEmployeeId && w.assignedEmployeeId !== context.employee.id);
-        targets.push({ kind: "WORK", id: w.occurrenceKey, label: w.label, instructions: w.instructions, baseline: digest({ intent, directive, assignment: context.assignmentDigest }), completed: ["COMPLETED", "COMPLETED_WITH_EVIDENCE"].includes(w.state), available: !unavailable, unavailableReason: evidence ? "Canonical evidence is required; complete online." : unavailable ? "Work responsibility or supervisor direction requires online review." : undefined });
-    }
+        completed: context.assignment.status === "COMPLETED", available: context.assignment.status !== "COMPLETED" && context.assignmentFitsDevice,
+        unavailableReason: context.assignmentFitsDevice ? undefined : "This Assignment includes places outside this device's Neighborhood. Review and complete the whole Assignment online." }];
     const keyRows = new Map<string, typeof keys[number]>();
     for (const k of keys) {
         const cycle = cycles.find(c => c.id === k.cycleId);
@@ -149,9 +138,9 @@ async function catalog(tx: Tx, s: FacilitySession, scope: SpaceScope, device: De
         keyRows.set(k.id, k);
         targets.push({ kind: "KEY_TIME_ACTUAL", id: k.id, label: `${k.displayPath} — ${adjustments[0]?.adjustedDueLocal || k.adjustedDueLocal || k.configuredDueLocal}`, baseline: digest({ cycleId: k.cycleId, version: k.cycleVersion, spaceId: k.spaceId, configured: k.configuredDueLocal, adjusted: k.adjustedDueLocal, timingAdjustmentId: adjustments[0]?.id || null, tracking: tracking.occurrenceTracking, assignment: context.assignmentDigest }), completed: actuals.length > 0, available: true });
     }
-    if (targets.filter(t => t.kind === "WORK").length > LIMITS.targets || targets.filter(t => t.kind === "KEY_TIME_ACTUAL").length > LIMITS.targets)
+    if (targets.filter(t => t.kind === "KEY_TIME_ACTUAL").length > LIMITS.targets)
         fail("Offline target limit exceeded. Narrow the published scope.");
-    return { ...context, targets, requirements, keyRows };
+    return { ...context, targets, keyRows };
 }
 function owned(row: OfflineBundleIssuance, s: FacilitySession) {
     const actor = row.actorUserId ? `user:${row.actorUserId}` : `employee:${row.actorEmployeeId}`;
@@ -178,14 +167,21 @@ export async function recoverSpace(db: PrismaClient, s: FacilitySession, id: str
         const row = await tx.offlineBundleIssuance.findUniqueOrThrow({ where: { id } });
         owned(row, s);
         const bundle = row.spaceManifest as unknown as SpaceBundle;
-        await authorize(tx, s, bundle.scope, device, new Date());
+        await tx.$queryRaw `SELECT "id" FROM "Facility" WHERE "id"=${s.facilityId} FOR UPDATE`;
+        const assignmentId = bundle.targets.find(target => target.kind === "ASSIGNMENT")?.id;
+        const completionReceipt = assignmentId ? await tx.offlineSyncReceipt.findFirst({ where: {
+            issuanceId: id, commandType: "space/1:ASSIGNMENT", authoritativeRecordId: assignmentId,
+            resultCategory: "ACCEPTED",
+        } }) : null;
+        const receiptAssignmentId = completionReceipt ? assignmentId : undefined;
+        await authorize(tx, s, bundle.scope, device, new Date(), bundle.operationalDate, receiptAssignmentId);
         await tx.$queryRaw `SELECT "id" FROM "OfflineBundleIssuance" WHERE "id"=${id} FOR UPDATE`;
         const current = await tx.offlineBundleIssuance.findUniqueOrThrow({ where: { id } });
         if (reviewDigest !== bundle.reviewDigest || !readCredentialProof(proof, actorRefForSession(s), s.sessionVersion!, +(current.recoveryAfter || current.issuedAt)))
             fail("Authenticate again online and explicitly review this issuance before recovery.");
-        await authorize(tx, s, bundle.scope, device, new Date());
+        await authorize(tx, s, bundle.scope, device, new Date(), bundle.operationalDate, receiptAssignmentId);
         await tx.offlineBundleIssuance.update({ where: { id }, data: { recoveryAfter: new Date() } });
-        return { bundle, key: openEscrow(current.recoveryKeyEnvelope, aad(current)).toString("base64"), reviewOnly: +current.offlineAuthorizedUntil <= Date.now() };
+        return { bundle, key: openEscrow(current.recoveryKeyEnvelope, aad(current)).toString("base64"), reviewOnly: Boolean(completionReceipt) || +current.offlineAuthorizedUntil <= Date.now() };
     }, options);
 }
 function result(id: string, status: Outcome["status"], message: string, recordId?: string): Outcome { return { id, status, message, ...(recordId ? { recordId } : {}) }; }
@@ -202,13 +198,17 @@ export async function syncSpace(db: PrismaClient, s: FacilitySession, commands: 
                 const issuance = await tx.offlineBundleIssuance.findUniqueOrThrow({ where: { id: cmd.issuanceId } });
                 owned(issuance, s);
                 const bundle = issuance.spaceManifest as unknown as SpaceBundle;
-                const completedAssignmentId = cmd.kind === "ASSIGNMENT" ? cmd.target : undefined;
-                const context = await authorize(tx, s, bundle.scope, device, new Date(), bundle.operationalDate, completedAssignmentId);
-                // Natural target parents are locked before absence checks; canonical writers
-                // also share these rows. Serializable protects writers not using these locks.
-                await tx.$queryRaw `SELECT "id" FROM "OfflineBundleIssuance" WHERE "id"=${issuance.id} FOR UPDATE`;
+                // Receipt reads remain authorized after this issuance completes its
+                // Assignment. Only a previously persisted receipt gets that context;
+                // new effects still need a current confirmed Assignment.
+                await tx.$queryRaw `SELECT "id" FROM "Facility" WHERE "id"=${s.facilityId} FOR UPDATE`;
                 const where = { facilityId_unitId_clientCommandId: { facilityId: s.facilityId, unitId: bundle.scope.unitId, clientCommandId: cmd.id } };
                 const prior = await tx.offlineSyncReceipt.findUnique({ where });
+                const completedAssignmentId = prior
+                    ? bundle.targets.find(target => target.kind === "ASSIGNMENT")?.id
+                    : cmd.kind === "ASSIGNMENT" ? cmd.target : undefined;
+                await authorize(tx, s, bundle.scope, device, new Date(), bundle.operationalDate, completedAssignmentId);
+                await tx.$queryRaw `SELECT "id" FROM "OfflineBundleIssuance" WHERE "id"=${issuance.id} FOR UPDATE`;
                 const intent = digest(cmd);
                 if (prior) {
                     if (prior.intentDigest !== intent || prior.issuanceId !== issuance.id || prior.actorUserId !== sessionUserIdForFk(s) || prior.actorEmployeeId !== (s.authKind === "employee" ? s.uid : null))
@@ -228,7 +228,7 @@ export async function syncSpace(db: PrismaClient, s: FacilitySession, commands: 
                 const live = await catalog(tx, s, bundle.scope, device, new Date(), bundle.operationalDate, completedAssignmentId);
                 const current = live.targets.find(t => t.id === cmd.target && t.kind === cmd.kind);
                 let outcome: Outcome;
-                if (!current || current.baseline !== cmd.baseline || s.sessionVersion !== issuance.sessionVersion)
+                if (!current || !current.available || current.baseline !== cmd.baseline || s.sessionVersion !== issuance.sessionVersion)
                     outcome = result(cmd.id, "conflict", "Assignment, publication, scope or target facts changed. Review online.");
                 else if (cmd.kind === "KEY_TIME_ACTUAL" && current.completed)
                     outcome = result(cmd.id, "conflict", "An actual already exists. Corrections are online-only.");
@@ -237,13 +237,6 @@ export async function syncSpace(db: PrismaClient, s: FacilitySession, commands: 
                         expectedUpdatedAt: live.assignment.updatedAt?.toISOString(), reason: cmd.note });
                     pendingOutboxIds.push(...done.outboxIds);
                     outcome = result(cmd.id, "committed", "Assignment completed.", done.assignmentId);
-                }
-                else if (cmd.kind === "WORK") {
-                    const requirement = live.requirements.get(cmd.target)!;
-                    if (requirement.completionMode !== "EXPLICIT_CONFIRMATION")
-                        fail("Canonical evidence is required; complete online.");
-                    const done = await completeExplicit(s, { facilityId: s.facilityId, departmentId: bundle.scope.departmentId, requirement, operationalDate: bundle.operationalDate, actor: { userId: sessionUserIdForFk(s), employeeId: context.employee.id, label: s.name, authenticationMethod: s.authMethod }, note: cmd.note, clientCommandId: cmd.id, deviceBoundUnitId: device.unitId, recordedOnline: false, client: tx });
-                    outcome = result(cmd.id, done.deduplicated ? "reused" : "committed", "Canonical Work confirmed.", done.occurrence.id);
                 }
                 else {
                     await tx.$queryRaw `SELECT "id" FROM "OperationalCycleKeyTimeDayExpectation" WHERE "id"=${cmd.target} FOR UPDATE`;

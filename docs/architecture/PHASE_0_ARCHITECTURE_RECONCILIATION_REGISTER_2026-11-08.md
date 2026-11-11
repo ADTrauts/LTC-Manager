@@ -31,7 +31,7 @@ Rows outside the current retirement/PF scope retain their historical classificat
 |---|---|---|---|---|
 | ARR-001 | Premature Work/profile retirement restored into live schema | Confirmed conflict | Critical | Historical status; reassess in vertical workflow |
 | ARR-002 | Department Builder Work tab — **authoring/nav closed Phase 2B** | Closed (authoring/nav) | Critical → mitigated | Historical status; reassess in vertical workflow |
-| ARR-003 | Generic Work retirement and ONE_OFF rehoming | OPEN — implementation | High | Workforce Assignment rehome → offline/UI verification → remove Work |
+| ARR-003 | Generic Work retirement and ONE_OFF rehoming | Runtime verified; persistence awaits baseline | High | Remove unused Work models from the clean baseline |
 | ARR-004 | Retire Location Function/profile/archetype and type Log overlays | OPEN — traced dependencies | Critical | Remove remaining selectors/readers → remove schema → new baseline |
 | ARR-005 | Phase 6 retirement tests assert gone objects that exist again | Documentation/test drift | High | Historical status; reassess in vertical workflow |
 | ARR-006 | Product registry still sells Work and Location Functions | Documentation drift | High | Historical status; reassess in vertical workflow |
@@ -61,7 +61,7 @@ Rows outside the current retirement/PF scope retain their historical classificat
 
 ## ARR-003 — Generic Work retirement
 
-Live readers/writers remain in `src/lib/department-work`, offline command processing, partner read-only Work, Audit, catalog detail and builder summaries. Schema includes Plan/Item/Applicability/Occurrence/Event. The approved Assignment owner now has a shared completion/reopen/attention path and canonical Space-offline receipts. Production-build browser verification passes all three Coverage/Team/employee-offline workflows. Finish the remaining scope cases, preserve the older suite’s legitimate authority/recovery/Key Point scenarios with canonical fixtures, then remove Work services, adapters, APIs/UI, obsolete tests, catalog seeds and persistence. No compatibility promise to retired application versions remains.
+The approved Workforce Assignment owner is verified for instructions, completion, reopen, and exact Space offline receipts. Removed the generic Work service and UI, partner and Console paths, Dashboard expectations, audit adapters, presets, and old offline completion command. The old Plan/Item/Applicability/Occurrence/Event models remain only in the transitional schema. Remove those tables from the new initial baseline. See [Work retirement progress](PRELAUNCH_WORK_RETIREMENT_PROGRESS_2026-11-10.md) for verification and limits.
 
 ## ARR-004 — Classification and overlay retirement
 
@@ -69,7 +69,7 @@ Current source still has profile/archetype readers in Menu applicability, Cycle 
 
 ## ARR-008 — Workforce roles
 
-`DepartmentJobRole` / `EmployeeDepartmentJobRole` still feed employee organization, workbook/catalog imports and the old role editor; Assignment label/default-role inference has been removed. `OPERATIONAL_ROLE_REGISTRY` + `EmployeeOperationalRoleQualification` is the accepted operational identity/eligibility. `RoleKey` is authorization; Job Title is HR; Team is membership/view configuration. Remove competing operational capabilities/tiers and selectors, keep explicit Department membership/qualification checks, and exercise bulk import and actual Assignment UI before closing.
+`DepartmentJobRole` / `EmployeeDepartmentJobRole` still feed employee organization, workbook/catalog imports and the old role editor; Assignment label/default-role inference has been removed. Employee Builder now renders and persists operational qualifications; the actual Assignment and Dashboard workflow consumes them. `OPERATIONAL_ROLE_REGISTRY` + `EmployeeOperationalRoleQualification` is the accepted operational identity/eligibility. `RoleKey` is authorization; Job Title is HR; Team is membership/view configuration. Remove competing operational capabilities/tiers and selectors, keep explicit Department membership/qualification checks, and exercise bulk import and actual Assignment UI before closing.
 
 ## Baseline and verification gate
 

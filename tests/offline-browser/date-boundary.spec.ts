@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loadFixtures, prisma, ensureDeviceBoundAsAdmin, loginPassword, setNetworkOffline, waitForServiceWorkerControl } from './helpers';
-import { prepareCanonicalResponsibility, openCanonicalSpaceWork, expectCanonicalOfflinePreparation } from './canonical-journey';
+import { prepareCanonicalResponsibility, openCanonicalSpace, expectCanonicalOfflinePreparation } from './canonical-journey';
 
 // The live boundary chooses a timezone with midnight inside its lease. Keep an
 // independent +13h control so its runtime remains covered at every CI hour.
@@ -13,7 +13,7 @@ test('Auckland civil day @ci-gate: published operation and exact Space preparati
     await db.facility.update({ where: { id: fx.facilityId }, data: { timezone } });
     await prepareCanonicalResponsibility(page, fx.canonical, serviceDate);
     await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.canonical.unitId);
-    await openCanonicalSpaceWork(page, fx.canonical);
+    await openCanonicalSpace(page, fx.canonical);
     await waitForServiceWorkerControl(page);
     await expectCanonicalOfflinePreparation(page);
     const bundle = await page.evaluate(async () => {
@@ -63,7 +63,7 @@ for (const restore of ['idle', 'focus', 'visibilitychange'] as const) {
       await db.facility.update({ where: { id: fx.facilityId }, data: { timezone } });
       await prepareCanonicalResponsibility(page, fx.canonical, serviceDate);
       await ensureDeviceBoundAsAdmin(page, fx.adminEmail, fx.canonical.unitId);
-      await openCanonicalSpaceWork(page, fx.canonical);
+      await openCanonicalSpace(page, fx.canonical);
       await waitForServiceWorkerControl(page);
       await page.evaluate(time => sessionStorage.setItem('date-test-clock', String(time)), midnight - 10000);
       await expectCanonicalOfflinePreparation(page);
@@ -81,14 +81,14 @@ for (const restore of ['idle', 'focus', 'visibilitychange'] as const) {
       // transport/store write). Exactly one pending command must survive.
       // Target 12 is unused by the earlier required conflict/replay journeys.
       // Boundary review never submits it, so all three cases remain independent.
-      await page.locator('[data-testid="space-work-complete"][data-target-order="12"]').click();
+      await page.locator('[data-testid="space-assignment-complete"][data-target-order="0"]').click();
       const sealed = await page.evaluate(async id => {
         const s = await import(String('/space-offline-store.js')); return (await s.envelopes()).find((r: {id:string}) => r.id === id);
       }, prepared.id);
       expect(sealed.commands).toHaveLength(1);
       expect(JSON.stringify(sealed)).not.toContain('Verify supplies');
       await page.waitForTimeout(1000);
-      await expect(page.getByTestId('space-work-instructions').first()).toBeVisible();
+      await expect(page.getByTestId('space-assignment-instructions').first()).toBeVisible();
       const boundaryStarted = await page.evaluate(() => performance.now());
       await page.evaluate(time => sessionStorage.setItem('date-test-clock', String(time)), midnight);
       if (restore !== 'idle') await page.evaluate(event => {
@@ -103,8 +103,8 @@ for (const restore of ['idle', 'focus', 'visibilitychange'] as const) {
       expect(expiration).toBeTruthy();
       expect(expiration.monotonic - boundaryStarted).toBeLessThanOrEqual(1100); // 1s timer + scheduling tolerance.
       await info.attach('facility-date-boundary', { body: JSON.stringify({ timezone, operationalDate: serviceDate, midnight: new Date(midnight).toISOString(), expiresAt: prepared.meta.expiresAt, restore, lockDelayMs: expiration.monotonic - boundaryStarted, lockEvents, commandId: sealed.commands[0].id }, null, 2), contentType: 'application/json' });
-      await expect(page.getByTestId('space-work-instructions')).toHaveCount(0);
-      await expect(page.getByTestId('space-work-complete')).toHaveCount(0);
+      await expect(page.getByTestId('space-assignment-instructions')).toHaveCount(0);
+      await expect(page.getByTestId('space-assignment-complete')).toHaveCount(0);
       await expect(page.getByTestId('space-key-time-actual')).toHaveCount(0);
       await expect(page.getByTestId('space-offline-sync')).toBeHidden();
       await expect(page.getByRole('heading', { name: 'Offline for this Space', exact: true })).toBeVisible();
@@ -112,14 +112,14 @@ for (const restore of ['idle', 'focus', 'visibilitychange'] as const) {
       const result = await page.evaluate(async id => {
         const s = await import(String('/space-offline-store.js')), r = (await s.envelopes()).find((r: {id:string}) => r.id === id);
         const secrets = Object.keys(sessionStorage).filter(k => k.startsWith(s.PREFIX));
-        try { await s.queue(r, { id: 'invalid-new-action', kind: 'WORK' }); return { row: r, secrets, rejected: false }; }
+        try { await s.queue(r, { id: 'invalid-new-action', kind: 'ASSIGNMENT' }); return { row: r, secrets, rejected: false }; }
         catch { return { row: r, secrets, rejected: true }; }
       }, prepared.id);
       expect(result.secrets).toEqual([]);
       expect(result.rejected).toBe(true);
       expect(result.row).toEqual(sealed);
       await page.reload();
-      await expect(page.getByTestId('space-work-instructions')).toHaveCount(0);
+      await expect(page.getByTestId('space-assignment-instructions')).toHaveCount(0);
       await setNetworkOffline(context, false, page);
       // Return to the real wall clock for the credential UI. The old issuance
       // remains locked; recovery is explicitly review-only even if its numeric
@@ -130,8 +130,8 @@ for (const restore of ['idle', 'focus', 'visibilitychange'] as const) {
       await page.getByTestId('space-offline-recovery').click();
       await page.getByTestId('space-recover-issuance').filter({ hasText: prepared.id }).click();
       await expect(page.getByTestId('space-offline-status')).toContainText('intent review only');
-      await expect(page.getByTestId('space-work-instructions')).toHaveCount(0);
-      await expect(page.getByTestId('space-work-complete')).toHaveCount(0);
+      await expect(page.getByTestId('space-assignment-instructions')).toHaveCount(0);
+      await expect(page.getByTestId('space-assignment-complete')).toHaveCount(0);
       await expect(page.getByTestId('space-command-result')).toContainText('pending');
       const recovered = await page.evaluate(async id => {
         const s = await import(String('/space-offline-store.js')), r = (await s.envelopes()).find((r: {id:string}) => r.id === id);

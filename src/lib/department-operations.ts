@@ -17,7 +17,6 @@ export type { DomainDepartmentKey };
 export type OperationalDepartmentKey = string;
 
 export type StaffingOperationalFeature =
-  | "workPlans"
   | "jobFlow"
   | "cycles"
   | "evidence"
@@ -50,10 +49,6 @@ export function isDepartmentAssetOperationsEnabled(
   return sharedEngineEnabled(key);
 }
 
-export function isDepartmentWorkPlansEnabled(key: string | null | undefined): boolean {
-  return sharedEngineEnabled(key);
-}
-
 export async function isDepartmentEngineEnabledForFacility(
   facilityId: string,
   feature: StaffingOperationalFeature,
@@ -71,8 +66,6 @@ function isFeatureEnabledForKey(
   key: string | null | undefined,
 ): boolean {
   switch (feature) {
-    case "workPlans":
-      return isDepartmentWorkPlansEnabled(key);
     case "jobFlow":
       return isDepartmentJobFlowEnabled(key);
     case "cycles":
@@ -108,7 +101,7 @@ export async function resolveStaffingOperationalDepartment(input: {
   skipFeatureGate?: boolean;
   session?: { authKind?: string | null } | null;
 }): Promise<{ id: string; name: string; key: string } | null> {
-  const feature = input.feature ?? "workPlans";
+  const feature = input.feature ?? "jobFlow";
   const preferKeys = input.preferKeys ?? DOMAIN_DEPARTMENT_KEYS;
   const gated = !input.skipFeatureGate;
 

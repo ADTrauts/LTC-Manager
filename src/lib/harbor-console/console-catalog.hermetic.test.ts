@@ -2,14 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
-
-import { DEPARTMENT_WORK_PRESET_KEYS, WORK_PRESET_PRODUCT_KEYS } from "@/lib/department-work/work-presets";
 import { getDepartmentProduct, listDepartmentProducts } from "@/lib/department-products/registry";
 
 import {
   CONSOLE_CATALOG_EMPTY,
   listConsoleCatalogItems,
-  toWorkPresetCatalogItem,
   type ConsoleCatalogItem,
 } from "./console-catalog";
 
@@ -374,7 +371,7 @@ function requireItem(items: ConsoleCatalogItem[], stableKey: string) {
   return item;
 }
 
-test("unified projection keeps Department, Record, and Work sources", async () => {
+test("unified projection keeps Department and Record sources", async () => {
   const { calls, client } = buildClient();
   const items = await listConsoleCatalogItems(client as never);
 
@@ -468,22 +465,6 @@ test("unified projection keeps Department, Record, and Work sources", async () =
     "PLANT",
   ]);
   assert.equal("name" in departmentQuery.where, false);
-});
-
-test("work category follows preset ownership metadata, not the display name", () => {
-  const plant = getDepartmentProduct("PLANT");
-  assert.ok(plant);
-  const item = toWorkPresetCatalogItem({
-    presetKey: "MECHANICAL_ROOM_ROUND",
-    name: "Dietary Servery Opening",
-    product: plant,
-    facilityInstallCount: 4,
-    usageCount: 1,
-  });
-  assert.equal(item.name, "Dietary Servery Opening");
-  assert.equal(item.categoryKey, "PLANT");
-  assert.equal(item.categoryLabel, "Facility Plant Operations");
-  assert.equal(WORK_PRESET_PRODUCT_KEYS.MECHANICAL_ROOM_ROUND, "PLANT");
 });
 
 test("Marketplace browse uses the unified projection once", () => {

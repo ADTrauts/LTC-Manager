@@ -13,7 +13,6 @@ import type { MealType, OperationalCycleType, ServeryMilestone } from "@prisma/c
 import type { CycleMilestoneStatusKey } from "@/lib/operational-cycles/milestone-cycle-status";
 import type { OfflineConnectivityState, OfflineMilestoneUiState } from "@/lib/offline/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 
 /** Due Soon window: 45 minutes before cycle start. */
 export const DUE_SOON_MS = 45 * 60 * 1000;
@@ -60,6 +59,7 @@ export type JobFlowAssignmentSnapshot = {
   id: string;
   notes?: string | null;
   updatedAt?: Date;
+  planStatus?: "DRAFT" | "CONFIRMED" | "REOPENED" | "CLOSED" | null;
   roleKey: string;
   roleLabel: string;
   unitId: string | null;
@@ -71,27 +71,6 @@ export type JobFlowAssignmentSnapshot = {
   locationCount?: number;
   locationLabels?: string[];
   sourceZoneName?: string | null;
-};
-
-export type JobFlowScopeSummary = {
-  title: string;
-  detail: string;
-};
-
-export type JobFlowLocationSequenceItem = {
-  unitSpaceId: string;
-  label: string;
-  hasCurrentWork: boolean;
-  allComplete: boolean;
-  hasUrgent: boolean;
-};
-
-export type JobFlowLocationSequence = {
-  now: JobFlowLocationSequenceItem | null;
-  next: JobFlowLocationSequenceItem | null;
-  queue: JobFlowLocationSequenceItem[];
-  all: JobFlowLocationSequenceItem[];
-  sequencingNote: string;
 };
 
 export type JobFlowUnitSnapshot = {
@@ -165,8 +144,6 @@ export type JobFlowBase = {
   attention: JobFlowAttentionItem[];
   /** Derived evidence requirements for the current unit/date (Phase 9C). Empty when flag off. */
   evidenceRequirements: EvidenceRequirement[];
-  /** Derived Work requirements for the current unit/date (Phase 11A). Empty when flag off. */
-  workRequirements: WorkRequirement[];
   /** Compact space Work progress when requirements carry spaceIds (Phase 11B EVS). */
   spaceWorkSummaries: Array<{
     spaceId: string;
@@ -176,9 +153,7 @@ export type JobFlowBase = {
     label: string;
   }>;
   /** Phase 11C — assigned location scope summary for Employee Job Flow. */
-  scopeSummary?: JobFlowScopeSummary | null;
   /** Phase 11C — deterministic NOW/NEXT/QUEUE (not route optimization). */
-  locationSequence?: JobFlowLocationSequence | null;
 };
 
 /** Only assignment-bearing / cycle-bearing variants carry those fields. */
@@ -232,7 +207,6 @@ export type SupervisorExceptionGroup =
   | "Readiness"
   | "ServiceTiming"
   | "Evidence"
-  | "Work"
   | "Asset"
   | "Equipment"
   | "OfflineSync"
@@ -278,12 +252,6 @@ export type SupervisorBoardSummaryCounts = {
   startedLate: number;
   startedNotConfirmed: number;
   conflicts: number;
-  /** Phase 11C EVS location coverage counts (null for Dietary). */
-  locationCovered?: number | null;
-  locationAtRisk?: number | null;
-  locationUncovered?: number | null;
-  locationOverlapping?: number | null;
-  locationRequired?: number | null;
 };
 
 export type SupervisorBoardUnitRow = {
@@ -296,29 +264,6 @@ export type SupervisorBoardUnitRow = {
   milestoneLabel: string | null;
   coverageState: string | null;
   workspaceHref: string;
-};
-
-export type SupervisorLocationCoverageRow = {
-  unitSpaceId: string;
-  label: string;
-  unitId: string | null;
-  unitName: string | null;
-  floorUnitId: string | null;
-  floorName: string | null;
-  state: string;
-  employeeLabels: string[];
-  zoneIds: string[];
-};
-
-export type SupervisorOperationsFilters = {
-  floor: string | null;
-  unit: string | null;
-  zone: string | null;
-  employee: string | null;
-  floors: Array<{ id: string; name: string }>;
-  units: Array<{ id: string; name: string }>;
-  zones: Array<{ id: string; name: string }>;
-  employees: Array<{ id: string; name: string }>;
 };
 
 export type SupervisorOperationsBoard = {
@@ -339,12 +284,6 @@ export type SupervisorOperationsBoard = {
   summary: SupervisorBoardSummaryCounts;
   exceptions: SupervisorExceptionItem[];
   viewAllUnits: SupervisorBoardUnitRow[];
-  /** Phase 11C — EVS location coverage projection (null when not EVS). */
-  locationCoverage: {
-    unassigned: SupervisorLocationCoverageRow[];
-    overlapping: SupervisorLocationCoverageRow[];
-  } | null;
-  filters: SupervisorOperationsFilters | null;
   /** Phase 12A — Plant triage / WO queue projection (null when not Plant). */
   plantOperations: {
     newRequests: number;

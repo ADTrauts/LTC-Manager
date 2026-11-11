@@ -73,10 +73,6 @@ export const WRITE_MANIFEST: WriteManifest = {
     "addPartnerKeyPointAction",
     "publishPartnerCycleAction",
   ]),
-  [`${APP}/partner/work/actions.ts`]: each(legacy("workPlan"), [
-    "addPartnerWorkPlanAction",
-    "publishPartnerWorkPlanAction",
-  ]),
   [`${APP}/partner/assets/actions.ts`]: each(department("department"), ["addPartnerAssetAction"]),
   [`${APP}/partner/menus/actions.ts`]: {
     addPartnerMenuAction: department("department"),
@@ -344,34 +340,6 @@ export const WRITE_MANIFEST: WriteManifest = {
     ...each(department("keyTimeDayExpectation"), [
       "delayKeyTimeExpectationAction",
       "completeKeyTimeExpectationAction",
-    ]),
-  },
-  [`${PROTECTED}/staffing/work-plans/actions.ts`]: each(legacy("workPlan"), [
-    "createWorkPlanDraftAction",
-    "createWorkPlanPresetDraftAction",
-    "updateWorkPlanDraftAction",
-    "publishWorkPlanAction",
-    "retireWorkPlanAction",
-    "duplicateWorkPlanAction",
-    "createWorkPlanSuccessorAction",
-  ]),
-  [`${PROTECTED}/staffing/work-plans/work-runtime-actions.ts`]: {
-    createOneOffWorkAction: department("department"),
-    ...each(department("workOccurrence"), [
-      "completeWorkRequirementAction",
-      "markWorkNotRequiredAction",
-      "reopenWorkOccurrenceAction",
-      "cancelOneOffWorkAction",
-    ]),
-  },
-  [`${PROTECTED}/staffing/operations/work-actions.ts`]: {
-    createOneOffWorkAction: department("department"),
-    ...each(department("workOccurrence"), [
-      "completeWorkAction",
-      "markWorkNotRequiredAction",
-      "reopenWorkAction",
-      "reassignWorkAction",
-      "cancelOneOffWorkAction",
     ]),
   },
   [`${PROTECTED}/menus/actions.ts`]: {

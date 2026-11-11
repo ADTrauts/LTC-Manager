@@ -86,6 +86,7 @@ export async function loadFrontlineEmployeeAssignments(input: {
       id: row.id,
       notes: row.notes,
       updatedAt: row.updatedAt,
+      planStatus: row.plan?.status ?? null,
       roleKey: row.roleKey,
       roleLabel: row.roleLabel,
       unitId: row.unitId,

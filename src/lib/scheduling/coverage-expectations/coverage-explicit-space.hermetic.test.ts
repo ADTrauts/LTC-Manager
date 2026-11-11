@@ -354,3 +354,17 @@ describe("explicit space coverage", () => {
     assert.deepEqual(validateCoverageLocationTarget({ unitId: "unit" }), { unitId: "unit", spaceId: null });
   });
 });
+
+
+it("counts one employee once across multiple matching Assignments and retains their provenance", () => {
+  const expectations = resolveCoverageExpectationsForLocation({ items: [need({ id: "people", spaceId: "space-a", roleKey: "SERVER", requiredCount: 2 })],
+    context: room("space-a"), cycles, cycleStableKey: "breakfast" });
+  const evaluate = (assignments: CoverageAssignmentActual[]) => evaluateCoverageSlots({ expectations, assignments,
+    spaceId: "space-a", unitId: "unit-1", plan: "RUNTIME_VISIBLE", cycleWindows: new Map([["breakfast", window]]) });
+  const samePerson = [assignment({ id: "first", employeeId: "worker-a" }), assignment({ id: "second", employeeId: "worker-a" })];
+  const one = evaluate(samePerson)[0];
+  assert.equal(one.filledCount, 1); assert.equal(one.state, "AT_RISK");
+  assert.deepEqual(one.fillingAssignmentIds, ["first", "second"]);
+  const two = evaluate([...samePerson, assignment({ id: "third", employeeId: "worker-b" })])[0];
+  assert.equal(two.filledCount, 2); assert.equal(two.state, "COVERED");
+});

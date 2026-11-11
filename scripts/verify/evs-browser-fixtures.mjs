@@ -358,46 +358,6 @@ async function main() {
         select: { id: true, title: true },
       }));
 
-    // Published EVS Work Plan with SPACE_TYPE PATIENT_ROOM
-    const planId = cuidLike();
-    const itemId = cuidLike();
-    const itemKey = "surfaces";
-    await db.departmentWorkPlan.create({
-      data: {
-        id: planId,
-        facilityId: facility.id,
-        departmentId: evs.id,
-        stableKey: `evs_browser_room_clean_${planId.slice(-6)}`,
-        version: 1,
-        name: "Browser EVS Room Clean",
-        description: "Published EVS Work Plan for browser gate",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-        weekdays: [],
-        applicabilities: {
-          create: [{ id: cuidLike(), kind: "SPACE_TYPE", spaceType: "PATIENT_ROOM" }],
-        },
-        items: {
-          create: [
-            {
-              id: itemId,
-              itemKey,
-              label: "Clean high-touch surfaces",
-              instructions: "Wipe high-touch surfaces per procedure.",
-              displaySequence: 10,
-              priority: "ROUTINE",
-              completionMode: "EXPLICIT_CONFIRMATION",
-              responsibilityMode: "UNIT_SHARED",
-              scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-              knowledgeArticleId: article.id,
-              procedureTitleSnapshot: article.title,
-              supervisorVisible: true,
-            },
-          ],
-        },
-      },
-    });
-
     // Confirmed assignment for primary unit
     let plan = await db.operationalAssignmentPlan.findFirst({
       where: { facilityId: facility.id, departmentId: evs.id, serviceDate },
@@ -500,10 +460,6 @@ async function main() {
       faWithoutEvsEmail: faWithout.email,
       faWithEvsEmail: faWith.email,
       staffEmployeeId: staffEmp.id,
-      workPlanId: planId,
-      workPlanItemId: itemId,
-      workPlanItemKey: itemKey,
-      workPlanName: "Browser EVS Room Clean",
       cycleId: cycle.id,
       cycleLabel: cycle.label,
       procedureArticleId: article.id,
@@ -512,7 +468,6 @@ async function main() {
       assetId: asset.id,
       assetCode: asset.assetCode,
       assetName: asset.name,
-      workPlansPath: "/staffing/work-plans",
       cyclesPath: "/staffing/cycles",
       operationsBoardPath: "/staffing/operations",
       logBookPath: "/staffing/log-book",

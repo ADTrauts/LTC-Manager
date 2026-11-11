@@ -8,7 +8,6 @@ import {
   loadCoverageSummary,
   loadDepartmentSetup,
   loadDepartmentSetupSummary,
-  loadExpectedWork,
   loadFacilitySetup,
   loadGlance,
   loadHandoff,
@@ -189,22 +188,6 @@ const definitions: DashboardCardDefinition[] = [
     drillDownRequired: true,
     summary: { load: loadTimelineSummary },
     load: loadTimeline,
-  },
-  {
-    id: "expected_work",
-    title: "Expected work",
-    // Capability never admitted after Phase 2C-2H-1; card remains registered so saved
-    // layouts that reference it degrade cleanly without a Work Plan drill-down.
-    question: "What Work is due and is it on track?",
-    category: "operations",
-    scopes: ["DEPARTMENT", "TEAM"],
-    minAuthority: "SUPERVISOR",
-    requires: { kind: "capabilities", allOf: ["work.expected"] },
-    sizes: ["M", "L"],
-    defaultSize: "M",
-    drillDowns: links({ href: "/staffing/operations", intent: "manage" }),
-    drillDownRequired: true,
-    load: loadExpectedWork,
   },
   {
     id: "maintenance_open",

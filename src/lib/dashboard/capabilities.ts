@@ -9,7 +9,6 @@ import { hasDietaryDomainCapabilities, hasPlantDomainCapabilities } from "@/lib/
 import {
   isDepartmentAssetOperationsEnabled,
   isDepartmentOperationalCyclesEnabled,
-  isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import {
@@ -27,7 +26,6 @@ import type { DashboardViewer } from "./viewer/types";
 export const DASHBOARD_CAPABILITIES = [
   "locations.runtime",
   "cycles.published",
-  "work.expected",
   "coverage.planned",
   "people.roster",
   "records.canonical",
@@ -60,8 +58,6 @@ export type DepartmentDashboardCapabilities = {
 export const NOT_CONFIGURED_MESSAGES = {
   "locations.runtime": "No locations are assigned to this Department.",
   "cycles.published": "No Operating Rhythm is published.",
-  // Retained for layout/type compatibility; work.expected is never admitted (Phase 2C-2H-1).
-  "work.expected": "Generic Work Plans are retired from the Dashboard.",
   "coverage.planned": "No coverage plan is set.",
   "people.roster": "No employees are in this Department.",
   "records.legacy": "This Department still uses legacy Records.",
@@ -69,7 +65,7 @@ export const NOT_CONFIGURED_MESSAGES = {
   menus: "No Menu is assigned to this Department's locations.",
 } as const satisfies Partial<Record<DashboardCapability, string>>;
 
-type SetupCapability = Exclude<keyof typeof NOT_CONFIGURED_MESSAGES, "records.legacy" | "work.expected">;
+type SetupCapability = Exclude<keyof typeof NOT_CONFIGURED_MESSAGES, "records.legacy">;
 
 /**
  * Setup steps each Department type declares in the Dashboard contract. Legacy Records add a
@@ -98,7 +94,7 @@ export type DepartmentCapabilityFacts = {
   hasMenuApplicability: boolean | null;
 };
 
-type EngineFeature = "cycles" | "workPlans" | "asset";
+type EngineFeature = "cycles" | "asset";
 
 /** `isDepartmentEngineEnabledForFacility` with Plant runtime resolved once per request. */
 export function isDashboardEngineAdmitted(
@@ -110,8 +106,6 @@ export function isDashboardEngineAdmitted(
   switch (feature) {
     case "cycles":
       return isDepartmentOperationalCyclesEnabled(departmentKey);
-    case "workPlans":
-      return isDepartmentWorkPlansEnabled(departmentKey);
     case "asset":
       return isDepartmentAssetOperationsEnabled(departmentKey);
   }

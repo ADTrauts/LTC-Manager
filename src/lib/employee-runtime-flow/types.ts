@@ -3,14 +3,13 @@
  *
  * Not persisted. Not a second operational truth engine.
  * OA = responsibility. RLS = place operation / Harbor evidence / impact / milestones.
- * Compatibility Work Plans remain until Phase 2C removes them from composition.
+ * Each contributor keeps its canonical owner and authorization.
  * Phase 2C-2A adds `items` as owner-referenced Job Flow rows (see job-flow-item.ts).
  */
 
 import type { AssetOperationalImpact } from "@prisma/client";
 
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import type { LogRequirementProductState } from "@/lib/logs-architecture/types";
 import type { RuntimeMilestoneKind } from "@/lib/runtime-location-state";
@@ -96,15 +95,12 @@ export type EmployeeRuntimeIssue = {
 };
 
 export type EmployeeRuntimeNextKind =
-  | "overdue_work"
   | "overdue_evidence"
-  | "due_work"
   | "due_evidence"
   | "due_work_order"
   | "upcoming_work_order"
   | "milestone"
   | "assignment_transition"
-  | "upcoming_work"
   | "upcoming_evidence"
   | "location_next"
   | "none";
@@ -141,8 +137,6 @@ export type EmployeeRuntimeFlow = {
   evidenceMode: EmployeeRuntimeEvidenceMode;
   evidence: EmployeeRuntimeEvidenceItem[];
   templateEvidence: EvidenceRequirement[];
-  /** Compatibility Work requirements (plan-derived + one-off). Prefer `items` for new readers. */
-  work: WorkRequirement[];
   /**
    * Owner-referenced Job Flow composition (Phase 2C-2A).
    * Includes compatibility Work plus Records / Key Points already on the flow.

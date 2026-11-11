@@ -200,14 +200,13 @@ async function countPlantContent(
   facilityId: string,
   departmentId: string,
 ) {
-  const [work, records, assets, pms, procedures] = await Promise.all([
-    prisma.departmentWorkPlan.count({ where: { facilityId, departmentId } }),
+  const [records, assets, pms, procedures] = await Promise.all([
     0,
     prisma.asset.count({ where: { departmentId } }),
     prisma.preventiveMaintenancePlan.count({ where: { facilityId, departmentId } }),
     prisma.knowledgeArticle.count({ where: { facilityId, departmentId } }),
   ]);
-  return { work, records, assets, pms, procedures };
+  return { records, assets, pms, procedures };
 }
 
 test.afterEach(() => {
@@ -249,7 +248,7 @@ test(
       assert.equal(installed.key, "PLANT");
       assert.equal(installed.name, "Plant Operations");
       const counts = await countPlantContent(prisma, facility.id, installed.id);
-      assert.deepEqual(counts, { work: 0, records: 0, assets: 0, pms: 0, procedures: 0 });
+      assert.deepEqual(counts, { records: 0, assets: 0, pms: 0, procedures: 0 });
       assert.equal(await isPlantRuntimeEnabled(facility.id, { authKind: "user" }), false);
       assert.equal(await isPlantRuntimeEnabled(facility.id, { authKind: "harbor_staff" }), true);
     } finally {
@@ -282,7 +281,7 @@ test(
       assert.equal(installed.created, true);
       assert.equal(installed.key, "PLANT");
       const counts = await countPlantContent(prisma, facility.id, installed.id);
-      assert.deepEqual(counts, { work: 0, records: 0, assets: 0, pms: 0, procedures: 0 });
+      assert.deepEqual(counts, { records: 0, assets: 0, pms: 0, procedures: 0 });
 
       const users = await createUsers(prisma, facility.id, installed.id, null, suffix);
       const runtime = await isPlantRuntimeEnabled(facility.id, {

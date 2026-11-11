@@ -3,10 +3,9 @@
  * Reshapes only. Does not recompute due state, operation, or next.
  *
  * Phase 2C-2D adds optional jobFlowItemContext (additive). Legacy
- * workContext / evidenceContext / milestones remain for command execution.
+ * evidenceContext / milestones remain for command execution.
  */
 
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type {
   OfflineJobFlowItemAction,
   OfflineJobFlowItemContext,
@@ -152,69 +151,6 @@ export function serializeEmployeeRuntimeEvidenceContext(
   return null;
 }
 
-const OFFLINE_WORK_PRESENTATION_STATES = [
-  "DUE",
-  "CURRENT",
-  "UPCOMING",
-  "PAST_DUE_NOT_CONFIRMED",
-  "SAVED_ON_THIS_TABLET",
-] as const;
-
-/**
- * Phase 2C-2H-2 — new offline workContext advertising.
- * ONE_OFF remains actionable; WORK_PLAN is omitted from newly issued presentation.
- * Does not mutate `flow.work`. Completion sync still accepts valid legacy commands.
- */
-export function filterWorkRequirementsForOfflinePresentation(
-  rows: readonly WorkRequirement[],
-): WorkRequirement[] {
-  return rows.filter((row) => {
-    if (!OFFLINE_WORK_PRESENTATION_STATES.includes(row.state as (typeof OFFLINE_WORK_PRESENTATION_STATES)[number])) {
-      return false;
-    }
-    // Authoritative discriminator only — do not infer from missing plan ids.
-    return row.sourceKind === "ONE_OFF";
-  });
-}
-
-export function serializeOfflineWorkContextRequirements(
-  rows: readonly WorkRequirement[],
-  lastSyncedAt: string,
-): NonNullable<OfflineRuntimeBundle["workContext"]> {
-  return {
-    requirements: rows.map((row) => ({
-      occurrenceKey: row.occurrenceKey,
-      label: row.label,
-      state: row.state,
-      priority: row.priority,
-      completionMode: row.completionMode,
-      workPlanStableKey: row.workPlanStableKey,
-      workPlanVersion: row.workPlanVersion,
-      workItemKey: row.workItemKey,
-      workPlanId: row.workPlanId,
-      workItemId: row.workItemId,
-      instructions: row.instructions,
-      knowledgeArticleId: row.knowledgeArticleId,
-      procedureTitle: row.procedureTitle,
-      dueAt: row.dueAt?.toISOString() ?? null,
-      cycleStableKey: row.cycleStableKey,
-      windowStartLocal: row.windowStartLocal,
-      windowEndLocal: row.windowEndLocal,
-      assignedEmployeeId: row.assignedEmployeeId,
-    })),
-    lastSyncedAt,
-  };
-}
-
-export function serializeEmployeeRuntimeWorkContext(
-  flow: EmployeeRuntimeFlow,
-  lastSyncedAt: string,
-): NonNullable<OfflineRuntimeBundle["workContext"]> | null {
-  if (flow.device.mismatch) return null;
-  const scoped = filterWorkRequirementsForOfflinePresentation(flow.work);
-  return serializeOfflineWorkContextRequirements(scoped, lastSyncedAt);
-}
-
 /**
  * Map a canonical JobFlowItem to the offline command it may queue, if any.
  * Display alone never implies execution — WO / exceptions / KEY_TIME stay null.
@@ -228,8 +164,6 @@ export function offlineActionForJobFlowItem(item: JobFlowItem): OfflineJobFlowIt
     return null;
   }
   switch (item.ownerKind) {
-    case "COMPATIBILITY_WORK":
-      return "COMPLETE_OPERATIONAL_TASK";
     case "RECORD_REQUIREMENT":
       return "SUBMIT_OPERATIONAL_EVIDENCE";
     case "OPERATING_RHYTHM_KEY_POINT":
@@ -263,8 +197,6 @@ export function serializeOfflineJobFlowItem(item: JobFlowItem): OfflineJobFlowIt
       windowEndLocal: item.time.windowEndLocal,
     },
     href: item.href,
-    compatibility: item.compatibility,
-    compatibilitySource: item.compatibilitySource,
     informational: item.ownerKind === "ASSIGNMENT_EXCEPTION" || item.attention === "informational",
     offlineAction,
   };
@@ -272,7 +204,7 @@ export function serializeOfflineJobFlowItem(item: JobFlowItem): OfflineJobFlowIt
 
 /**
  * Additive canonical item snapshot for offline presentation.
- * Does not replace workContext / evidenceContext command payloads.
+ * Does not replace Record command payloads.
  */
 export function serializeEmployeeRuntimeJobFlowItemContext(
   flow: EmployeeRuntimeFlow,

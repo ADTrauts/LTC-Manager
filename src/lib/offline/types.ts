@@ -12,7 +12,6 @@ export const OFFLINE_COMMAND_TYPES = [
   "RECORD_MEAL_SERVICE_STARTED",
   "SUBMIT_OPERATIONAL_EVIDENCE",
   "REPORT_ASSET_ISSUE",
-  "COMPLETE_OPERATIONAL_TASK",
 ] as const;
 
 export type OfflineCommandType = (typeof OFFLINE_COMMAND_TYPES)[number];
@@ -253,36 +252,6 @@ export type OfflineRuntimeBundle = {
     lastSyncedAt: string;
   } | null;
   /**
-   * Scoped Work requirements for offline presentation (DUE/CURRENT/UPCOMING…).
-   * Phase 2C-2H-2: newly issued bundles advertise ONE_OFF only (not WORK_PLAN).
-   * Older cached bundles may still list plan-derived rows; sync still accepts
-   * valid COMPLETE_OPERATIONAL_TASK payloads without requiring workContext membership.
-   * Unit rebind does not retarget occurrence keys in queued commands.
-   */
-  workContext?: {
-    requirements: Array<{
-      occurrenceKey: string;
-      label: string;
-      state: string;
-      priority: string;
-      completionMode: string;
-      workPlanStableKey: string;
-      workPlanVersion: number;
-      workItemKey: string;
-      workPlanId: string;
-      workItemId: string;
-      instructions: string | null;
-      knowledgeArticleId: string | null;
-      procedureTitle: string | null;
-      dueAt: string | null;
-      cycleStableKey: string | null;
-      windowStartLocal: string | null;
-      windowEndLocal: string | null;
-      assignedEmployeeId: string | null;
-    }>;
-    lastSyncedAt: string;
-  } | null;
-  /**
    * Phase 12A Plant — read-only assigned open Work Orders + assignment coverage.
    * Offline Work Order mutations are NOT implemented in Phase 12A.
    */
@@ -313,7 +282,6 @@ export type OfflineRuntimeBundle = {
 export const OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION = 1 as const;
 
 export type OfflineJobFlowItemAction =
-  | "COMPLETE_OPERATIONAL_TASK"
   | "SUBMIT_OPERATIONAL_EVIDENCE"
   | "RECORD_SERVERY_READY"
   | "RECORD_MEAL_SERVICE_STARTED"
@@ -336,9 +304,6 @@ export type OfflineJobFlowItemSnapshot = {
     windowEndLocal: string | null;
   };
   href: string | null;
-  compatibility: boolean;
-  /** WORK_PLAN | ONE_OFF for CompatWork; null otherwise. */
-  compatibilitySource: string | null;
   /** True when item is notice-only (e.g. call-off). */
   informational: boolean;
   /**
@@ -423,33 +388,6 @@ export type OfflineCommandEnvelope = {
     evidenceRecordId?: string | null;
     comment?: string | null;
     allowDuplicateOpen?: boolean;
-  };
-  /** Phase 11A Work completion payload — present when commandType=COMPLETE_OPERATIONAL_TASK. */
-  workCompletion?: {
-    occurrenceKey: string;
-    workPlanId: string;
-    workPlanStableKey: string;
-    workPlanVersion: number;
-    workItemId: string;
-    workItemKey: string;
-    label: string;
-    instructions?: string | null;
-    priority?: string;
-    completionMode?: string;
-    responsibilityMode?: string;
-    scheduleKind?: string;
-    cycleStableKey?: string | null;
-    windowStartLocal?: string | null;
-    windowEndLocal?: string | null;
-    dueAt?: string | null;
-    spaceId?: string | null;
-    assetId?: string | null;
-    knowledgeArticleId?: string | null;
-    procedureTitle?: string | null;
-    note?: string | null;
-    evidenceRecordId?: string | null;
-    /** Actor who queued — reassignment conflict if occurrence assigned elsewhere. */
-    expectedAssignedEmployeeId?: string | null;
   };
 };
 

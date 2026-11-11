@@ -88,6 +88,7 @@ export async function loadDepartmentTodayCoverage(
     facilityTimezone: facility?.timezone,
     assignments: assignments.map((row) => ({
       id: row.id,
+      employeeId: row.employeeId,
       unitId: row.unitId,
       unitName: row.unit?.name ?? null,
       roleKey: row.roleKey,

@@ -73,12 +73,6 @@ export type DepartmentProductDomainCapability = "dietary" | "evs" | "plant";
 export type DepartmentProductStarterRefs = {
   /** Configuration-time operating-rhythm starter. Plant has none. */
   cycleStarter?: "dietary" | "evs";
-  /**
-   * Compatibility: Product still declares Work preset catalogs for Harbor browse /
-   * historical install detection. Phase 2B closed applying those presets into new
-   * Work Plans (`GENERIC_WORK_AUTHORING_RETIRED`). Do not treat as forward capability.
-   */
-  workPresets?: true;
   /** `OPERATIONAL_ROLE_REGISTRY` keyed by productKey — product-authoring. */
   assignmentRoles?: true;
   /** Generic Team Member / Lead / Supervisor / Manager tiers — lazy on load. */
@@ -141,7 +135,6 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     domainCapability: "dietary",
     starters: {
       cycleStarter: "dietary",
-      workPresets: true,
       assignmentRoles: true,
       jobRoleTiers: "generic",
       responsibilityPresets: true,
@@ -162,7 +155,6 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     domainCapability: "evs",
     starters: {
       cycleStarter: "evs",
-      workPresets: true,
       assignmentRoles: true,
       jobRoleTiers: "generic",
       responsibilityPresets: true,
@@ -191,7 +183,6 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
       "Labor, parts, and vendor expense capture",
     ],
     starters: {
-      workPresets: true,
       assignmentRoles: true,
       jobRoleTiers: "generic",
       responsibilityPresets: true,

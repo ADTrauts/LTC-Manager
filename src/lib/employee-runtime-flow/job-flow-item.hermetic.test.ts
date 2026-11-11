@@ -1,74 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 
 import {
   composeJobFlowItems,
   dedupeJobFlowItems,
-  isOneOffCompatibilityWork,
-  isPlanDerivedCompatibilityWork,
-  jobFlowItemFromCompatibilityWork,
   jobFlowItemFromWorkOrder,
   jobFlowItemsFromAssignmentExceptions,
   jobFlowItemsFromPreventiveMaintenance,
   jobFlowItemsFromWorkOrders,
   suppressPmDuplicatesAgainstWorkOrders,
-  withoutPlanDerivedCompatibilityWork,
   type JobFlowPreventiveMaintenanceSource,
   type JobFlowWorkOrderSource,
 } from "./job-flow-item";
 import { composeEmployeeRuntimeFlow } from "./compose";
 import type { EmployeeRuntimeEvidenceItem, EmployeeRuntimeMilestone } from "./types";
-
-function work(
-  partial: Partial<WorkRequirement> & {
-    occurrenceKey: string;
-    label: string;
-    state: WorkRequirement["state"];
-  },
-): WorkRequirement {
-  return {
-    occurrenceKey: partial.occurrenceKey,
-    workPlanId: partial.workPlanId ?? "wp",
-    workPlanStableKey: partial.workPlanStableKey ?? "wp",
-    workPlanVersion: partial.workPlanVersion ?? 1,
-    workPlanName: partial.workPlanName ?? "Plan",
-    workItemId: partial.workItemId ?? "item",
-    workItemKey: partial.workItemKey ?? "item",
-    label: partial.label,
-    instructions: partial.instructions ?? null,
-    priority: partial.priority ?? "ROUTINE",
-    completionMode: partial.completionMode ?? "EXPLICIT_CONFIRMATION",
-    responsibilityMode: partial.responsibilityMode ?? "UNIT_SHARED",
-    scheduleKind: partial.scheduleKind ?? "ONCE_PER_OPERATIONAL_DATE",
-    cycleStableKey: partial.cycleStableKey ?? null,
-    windowStartLocal: partial.windowStartLocal ?? null,
-    windowEndLocal: partial.windowEndLocal ?? null,
-    dueAt: partial.dueAt ?? null,
-    windowStartsAt: partial.windowStartsAt ?? null,
-    windowEndsAt: partial.windowEndsAt ?? null,
-    unitId: partial.unitId ?? "unit-1",
-    unitName: partial.unitName ?? "Unit 1",
-    spaceId: partial.spaceId ?? "space-1",
-    assetId: partial.assetId ?? null,
-    roleKeys: partial.roleKeys ?? [],
-    knowledgeArticleId: partial.knowledgeArticleId ?? null,
-    procedureTitle: partial.procedureTitle ?? null,
-    linkedTemplateStableKey: partial.linkedTemplateStableKey ?? null,
-    linkedTemplateId: partial.linkedTemplateId ?? null,
-    state: partial.state,
-    occurrenceId: partial.occurrenceId ?? null,
-    occurrenceStatus: partial.occurrenceStatus ?? null,
-    assignedEmployeeId: partial.assignedEmployeeId ?? null,
-    completedByLabel: partial.completedByLabel ?? null,
-    completedAt: partial.completedAt ?? null,
-    evidenceRecordId: partial.evidenceRecordId ?? null,
-    sourceKind: partial.sourceKind ?? "WORK_PLAN",
-    sourceHref: partial.sourceHref ?? "/staffing/work-plans",
-  };
-}
 
 function wo(
   partial: Partial<JobFlowWorkOrderSource> & { id: string; title: string; status: string },
@@ -86,75 +32,6 @@ function wo(
     workOrderKind: partial.workOrderKind ?? "CORRECTIVE",
   };
 }
-
-test("compatibility Work becomes an owner-referenced COMPATIBILITY_WORK item", () => {
-  const row = work({
-    occurrenceKey: "occ-1",
-    occurrenceId: "db-occ-1",
-    label: "Wipe tables",
-    state: "PAST_DUE_NOT_CONFIRMED",
-    dueAt: new Date("2026-11-08T15:00:00.000Z"),
-  });
-  const item = jobFlowItemFromCompatibilityWork(row);
-  assert.equal(item.ownerKind, "COMPATIBILITY_WORK");
-  assert.equal(item.ownerId, "db-occ-1");
-  assert.equal(item.compatibility, true);
-  assert.equal(item.compatibilitySource, "WORK_PLAN");
-  assert.equal(item.ownerState, "PAST_DUE_NOT_CONFIRMED");
-  assert.equal(item.attention, "needs_attention");
-  assert.equal(item.place.spaceId, "space-1");
-  assert.equal(item.time.dueAt?.toISOString(), "2026-11-08T15:00:00.000Z");
-  assert.equal(item.href, "/staffing/work-plans");
-});
-
-test("plan-derived and one-off CompatWork are distinguishable without changing ownerKind", () => {
-  const plan = jobFlowItemFromCompatibilityWork(
-    work({ occurrenceKey: "plan-1", label: "Plan task", state: "DUE", sourceKind: "WORK_PLAN" }),
-  );
-  const oneOff = jobFlowItemFromCompatibilityWork(
-    work({
-      occurrenceKey: "oo-1",
-      occurrenceId: "db-oo-1",
-      label: "Supervisor ask",
-      state: "DUE",
-      sourceKind: "ONE_OFF",
-    }),
-  );
-  assert.equal(plan.ownerKind, "COMPATIBILITY_WORK");
-  assert.equal(oneOff.ownerKind, "COMPATIBILITY_WORK");
-  assert.equal(isPlanDerivedCompatibilityWork(plan), true);
-  assert.equal(isOneOffCompatibilityWork(plan), false);
-  assert.equal(isOneOffCompatibilityWork(oneOff), true);
-  assert.equal(isPlanDerivedCompatibilityWork(oneOff), false);
-
-  const woItem = jobFlowItemFromWorkOrder(
-    wo({ id: "wo-1", title: "Sink", status: "ASSIGNED" }),
-  );
-  assert.equal(woItem.compatibilitySource, null);
-  assert.equal(isPlanDerivedCompatibilityWork(woItem), false);
-
-  const mixed = composeJobFlowItems({
-    compatibilityWork: [
-      work({ occurrenceKey: "plan-1", label: "Plan task", state: "DUE", sourceKind: "WORK_PLAN" }),
-      work({
-        occurrenceKey: "oo-1",
-        occurrenceId: "db-oo-1",
-        label: "Supervisor ask",
-        state: "DUE",
-        sourceKind: "ONE_OFF",
-      }),
-    ],
-    workOrders: [wo({ id: "wo-1", title: "Sink", status: "ASSIGNED" })],
-  });
-  assert.equal(mixed.length, 3);
-  const cutoverPreview = withoutPlanDerivedCompatibilityWork(mixed);
-  assert.equal(cutoverPreview.length, 2);
-  assert.equal(cutoverPreview.every((row) => !isPlanDerivedCompatibilityWork(row)), true);
-  assert.equal(cutoverPreview.some((row) => isOneOffCompatibilityWork(row)), true);
-  assert.equal(cutoverPreview.some((row) => row.ownerKind === "WORK_ORDER"), true);
-  // Live compose still includes plan-derived (cutover not activated).
-  assert.equal(mixed.some((row) => isPlanDerivedCompatibilityWork(row)), true);
-});
 
 test("empty optional contributors contribute zero items", () => {
   assert.deepEqual(jobFlowItemsFromWorkOrders([]), []);
@@ -219,7 +96,6 @@ test("Records: due, completed, waived/not applicable, and no harbor/template dup
 
   const templateOnly = composeJobFlowItems({ templateEvidence: [waivedTemplate] });
   assert.equal(templateOnly[0]?.attention, "not_applicable");
-  assert.equal(templateOnly[0]?.compatibility, false);
 
   // Compose may receive both arrays only in tests; production evidenceMode is exclusive.
   // Dedup is by owner identity — different keys remain distinct facts.
@@ -377,7 +253,7 @@ test("Platform: stable identity, deterministic sort, domain state preserved, no 
   assert.equal(dedupeJobFlowItems(once).length, 2);
 });
 
-test("composeJobFlowItems merges Work, Records, Key Points, and WO without inventing overdue", () => {
+test("composeJobFlowItems merges Records, Key Points, and WO without inventing overdue", () => {
   const evidence: EmployeeRuntimeEvidenceItem = {
     attachmentId: "att-1",
     requirementKey: "req-1",
@@ -400,12 +276,10 @@ test("composeJobFlowItems merges Work, Records, Key Points, and WO without inven
     expectedLocal: "11:30",
   };
   const items = composeJobFlowItems({
-    compatibilityWork: [work({ occurrenceKey: "w1", label: "Sweep", state: "DUE" })],
     harborEvidence: [evidence],
     milestones: [milestone],
     workOrders: [wo({ id: "wo-1", title: "Leak", status: "IN_PROGRESS" })],
   });
-  assert.equal(items.filter((row) => row.ownerKind === "COMPATIBILITY_WORK").length, 1);
   assert.equal(items.filter((row) => row.ownerKind === "RECORD_REQUIREMENT").length, 1);
   assert.equal(items.filter((row) => row.ownerKind === "OPERATING_RHYTHM_KEY_POINT").length, 1);
   assert.equal(items.filter((row) => row.ownerKind === "WORK_ORDER").length, 1);
@@ -415,7 +289,7 @@ test("composeJobFlowItems merges Work, Records, Key Points, and WO without inven
   );
 });
 
-test("Employee Runtime Flow compose attaches items while preserving work array", () => {
+test("Employee Runtime Flow compose retains assigned Work Orders without inventing Assignment", () => {
   const flow = composeEmployeeRuntimeFlow({
     operationalAssignmentsEnabled: true,
     canonicalLogsEnabled: true,
@@ -425,23 +299,9 @@ test("Employee Runtime Flow compose attaches items while preserving work array",
     spaceRefs: [],
     states: [],
     templateEvidence: [],
-    workRequirements: [
-      work({
-        occurrenceKey: "w-signed-in",
-        label: "Check",
-        state: "DUE",
-        sourceKind: "ONE_OFF",
-        occurrenceId: "db-signed",
-      }),
-      work({ occurrenceKey: "w-plan", label: "Plan check", state: "DUE", sourceKind: "WORK_PLAN" }),
-    ],
     workOrders: [wo({ id: "wo-signed", title: "Assigned WO", status: "ASSIGNED" })],
   });
   assert.equal(flow.assignmentAvailability, "no_confirmed_assignment");
-  assert.equal(flow.work.length, 2);
-  assert.equal(flow.items.filter((row) => row.ownerKind === "COMPATIBILITY_WORK").length, 1);
-  assert.equal(flow.items.filter(isOneOffCompatibilityWork).length, 1);
-  assert.equal(flow.items.filter(isPlanDerivedCompatibilityWork).length, 0);
   assert.equal(flow.items.filter((row) => row.ownerKind === "WORK_ORDER").length, 1);
 });
 
@@ -475,6 +335,5 @@ test("template evidence adapter stays Records-owned and non-compatibility", () =
   } as EvidenceRequirement;
   const items = composeJobFlowItems({ templateEvidence: [row] });
   assert.equal(items[0]?.ownerKind, "RECORD_REQUIREMENT");
-  assert.equal(items[0]?.compatibility, false);
   assert.equal(items[0]?.label, "Sanitizer");
 });

@@ -89,7 +89,6 @@ export async function tryRenderNeighborhoodWorkspace(input: {
   query?: {
     unitTab?: string | string[];
     evidence?: string | string[];
-    work?: string | string[];
     reportAsset?: string | string[];
     reportProblem?: string | string[];
   };

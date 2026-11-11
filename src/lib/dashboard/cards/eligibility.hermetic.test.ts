@@ -99,9 +99,9 @@ const facility: DashboardScope = { kind: "FACILITY" };
 
 const ids = (rows: { card: { id: DashboardCardId } }[]) => rows.map((row) => row.card.id).sort();
 
-test("registry: 23 platform cards, unique ids, sizes include the default", () => {
-    assert.equal(DASHBOARD_CARDS.length, 23);
-    assert.equal(new Set(DASHBOARD_CARDS.map((card) => card.id)).size, 23);
+test("registry: 22 platform cards, unique ids, sizes include the default", () => {
+    assert.equal(DASHBOARD_CARDS.length, 22);
+    assert.equal(new Set(DASHBOARD_CARDS.map((card) => card.id)).size, 22);
   for (const card of DASHBOARD_CARDS) {
     assert.ok(card.sizes.includes(card.defaultSize), card.id);
     assert.ok(Object.isFrozen(card), card.id);

@@ -5,7 +5,6 @@ import { EmployeeStatus, RoleKey } from "@prisma/client";
 
 import type { AppRole } from "@/lib/access";
 import { decideAssetOperationsAuthority } from "@/lib/asset-operations/authority";
-import { decideWorkAuthority } from "@/lib/department-work/authority";
 import { decideJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
 import { decideEvidenceAuthority } from "@/lib/operational-evidence/evidence-authority";
 import { decideOperationalRequestAuthority } from "@/lib/operational-requests/authority";
@@ -33,7 +32,6 @@ const MODULES: Array<{
   view: string[];
   deniedView: string[];
 }> = [
-  { name: "Work", decide: decideWorkAuthority, view: ["canViewRuntime", "canViewDepartment"], deniedView: [] },
   {
     name: "Records",
     decide: decideEvidenceAuthority,
@@ -97,18 +95,6 @@ for (const authority of MODULES) {
     }
   });
 }
-
-test("CDA-03 view fix: the module flag still comes first", () => {
-  const decision = decideWorkAuthority({
-    ...base,
-    flagEnabled: false,
-    role: "FACILITY_ADMINISTRATOR",
-    primaryDepartmentId: "evs",
-    facilityAdministratorView: true,
-  });
-  assert.equal(decision.canViewDepartment, false);
-  assert.equal(decision.reason, "Department Work Plans are not enabled.");
-});
 
 const member = (overrides: Partial<{ status: EmployeeStatus; primaryDepartmentId: string | null; additional: string[] }> = {}) => ({
   status: overrides.status ?? EmployeeStatus.ACTIVE,

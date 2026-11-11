@@ -15,11 +15,9 @@ import { canManageDepartmentHeadSettings } from "@/lib/dept-settings-access";
 import { presentExceptionFirstLocationBoard } from "@/lib/locations/exception-first/from-runtime-state";
 import { loadRuntimeLocationStates } from "@/lib/runtime-location-state";
 import { loadPresenceCallOffs } from "@/lib/scheduling/load-presence-call-offs";
-import type { TodaysExpectedWorkView } from "@/lib/work/expected/types";
 
 import { attentionFromRuntimeLocations } from "./attention-mappers";
-import { loadAttention, loadExpectedWork } from "./cards/load";
-import { presentExpectedWork } from "./cards/present";
+import { loadAttention } from "./cards/load";
 import { isDashboardEngineAdmitted, resolveDepartmentDashboardCapabilities } from "./capabilities";
 import { createDashboardFactPack } from "./facts";
 import { resolveDashboardViewer } from "./viewer";
@@ -44,22 +42,6 @@ function suffixLike() {
 }
 
 const serviceDate = (key: string) => new Date(`${key}T00:00:00.000Z`);
-
-function assertExpectedCounts(view: TodaysExpectedWorkView, card: Awaited<ReturnType<typeof loadExpectedWork>>) {
-  const items = [...view.currentGroups.flatMap((group) => group.locations), ...view.otherWork].flatMap((location) =>
-    location.plans.flatMap((plan) => plan.items),
-  );
-  const late = items.filter((item) => item.state === "PAST_DUE_NOT_CONFIRMED" || item.state === "CONFLICT_REVIEW").length;
-  const due = items.filter((item) => item.state === "DUE" || item.state === "CURRENT").length;
-  if (late + due === 0) {
-    assert.equal(card.state, "quiet");
-    return;
-  }
-  assert.equal(card.state, "ready");
-  if (card.state !== "ready") return;
-  assert.equal(card.model.metrics.find((metric) => metric.label === "Late")?.value, late);
-  assert.equal(card.model.metrics.find((metric) => metric.label === "Due")?.value, due);
-}
 
 function userSession(facilityId: string, role: FacilitySession["role"]): FacilitySession {
   return {
@@ -145,15 +127,6 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
         },
         { departmentId: fn.id, organizationId: metz.id, effectiveFrom: serviceDate("2026-07-01") },
       ],
-    });
-    await prisma.departmentWorkPlan.create({
-      data: {
-        facilityId,
-        departmentId: activities.id,
-        stableKey: `afternoon-${suffix}`,
-        name: "Afternoon program",
-        status: "PUBLISHED",
-      },
     });
     await prisma.departmentRequestRoute.create({
       data: { facilityId, requestingDepartmentId: fn.id, responsibleDepartmentId: plant.id },
@@ -260,13 +233,13 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
         "plant.requests.filed",
         "records.legacy",
       ]);
-      assert.deepEqual(missing(fn.id), ["cycles.published", "work.expected", "coverage.planned", "menus", "records.legacy"]);
+      assert.deepEqual(missing(fn.id), ["cycles.published", "coverage.planned", "menus", "records.legacy"]);
 
       assert.ok(has(plant.id).includes("plant.maintenance"));
       assert.equal(has(plant.id).includes("locations.runtime"), false);
 
       assert.equal(capabilities.get(activities.id)?.productKey, null);
-      assert.deepEqual(withoutShared(activities.id), ["locations.runtime", "people.roster", "records.legacy", "work.expected"]);
+      assert.deepEqual(withoutShared(activities.id), ["locations.runtime", "people.roster", "records.legacy"]);
       assert.deepEqual(missing(activities.id), ["coverage.planned", "records.legacy"]);
     });
 
@@ -403,14 +376,7 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
       assert.equal(locationItems.length, activitiesBoard.attentionCount);
       assert.ok(locationItems.every((item) => item.departmentId === activities.id));
 
-      const activitiesWork = await activitiesPack.expectedWork(activities.id);
-      const fnWork = await fnPack.expectedWork(fn.id);
-      assert.equal(activitiesWork.hasPublishedWorkPlans, true);
-      assert.equal(fnWork.hasPublishedWorkPlans, false);
-      const card = await loadExpectedWork({ viewer: activitiesViewer, facts: activitiesPack, size: "M" });
-      const fromPage = presentExpectedWork(activitiesWork);
-      assert.deepEqual(card, fromPage);
-      assertExpectedCounts(activitiesWork, card);
+
     });
   } finally {
     if (previousFlag === undefined) delete process.env[CDA_FLAG];
@@ -420,7 +386,6 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
     await prisma.scheduleEntry.deleteMany({ where: { employee: inTestFacility } });
     await prisma.knowledgeArticle.deleteMany({ where: inTestFacility });
     await prisma.departmentRequestRoute.deleteMany({ where: inTestFacility });
-    await prisma.departmentWorkPlan.deleteMany({ where: inTestFacility });
     await prisma.unitSpaceResponsibility.deleteMany({ where: { department: inTestFacility } });
     await prisma.unitSpace.deleteMany({ where: inTestFacility });
     await prisma.department.updateMany({ where: inTestFacility, data: { headEmployeeId: null } });

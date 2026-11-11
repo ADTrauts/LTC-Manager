@@ -18,7 +18,6 @@
     "test:job-flow-browser": "node scripts/verify/run-job-flow-browser.mjs",
     "test:operational-evidence-browser": "node scripts/verify/run-operational-evidence-browser.mjs",
     "test:asset-operations-browser": "node scripts/verify/run-asset-operations-browser.mjs",
-    "test:work-plans-browser": "node scripts/verify/run-work-plans-browser.mjs",
     "test:evs-browser": "node scripts/verify/run-evs-browser.mjs",
     "test:evs-assignment-browser": "node scripts/verify/run-evs-assignment-browser.mjs",
     "test:plant-browser": "node scripts/verify/run-plant-browser.mjs",

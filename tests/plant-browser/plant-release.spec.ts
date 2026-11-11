@@ -78,42 +78,12 @@ async function loginPassword(page: Page, email: string, password: string) {
   await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30_000 });
 }
 
-const STARTER_WORK_KEYS = [
-  "MECHANICAL_ROOM_ROUND",
-  "BUILDING_WALKTHROUGH",
-  "EXTERIOR_GROUNDS_WALKTHROUGH",
-  "GENERATOR_VISUAL_CHECK",
-] as const;
-
-const STARTER_RECORD_KEYS = [
-  "EQUIPMENT_CONDITION_INSPECTION",
-  "MECHANICAL_ROOM_INSPECTION",
-  "GENERATOR_INSPECTION",
-  "BASIC_EQUIPMENT_READING",
-  "POST_WORK_ORDER_VERIFICATION",
-] as const;
-
-async function resetPlantStarterRows(
-  db: PrismaClient,
-  facilityId: string,
-  departmentId: string,
-) {
-  await db.departmentWorkPlan.deleteMany({
-    where: {
-      facilityId,
-      departmentId,
-      OR: [{ presetKey: { in: [...STARTER_WORK_KEYS] } }, { stableKey: { in: [...STARTER_WORK_KEYS] } }],
-    },
-  });
-  await Promise.resolve();
-}
 
 test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", () => {
-  test("1 install/setup/starter: Build Overview, starter subset, real Asset, quarterly PM draft", async () => {
+  test("1 Build Overview, real Asset, and quarterly PM draft", async () => {
     const fx = loadFixtures();
     const db = prisma();
     const password = demoPassword();
-    await resetPlantStarterRows(db, fx.facilityId, fx.plantDepartmentId);
     const { context, page } = await openPersistent("setup");
     try {
       await loginPassword(page, fx.users.manager.email, password);
@@ -123,7 +93,7 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
       await expect(nav.getByRole("link", { name: "Overview" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "Locations" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "Operating Rhythm" })).toBeVisible();
-      await expect(nav.getByRole("link", { name: "Work" })).toBeVisible();
+      await expect(nav.getByRole("link", { name: "Work", exact: true })).toHaveCount(0);
       await expect(nav.getByRole("link", { name: "Maintenance" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "People & Coverage" })).toBeVisible();
       await expect(nav.getByRole("link", { name: "Records" })).toBeVisible();
@@ -131,21 +101,6 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
       await expect(page.getByTestId("overview-getting-started")).toBeVisible();
       await expect(page.getByTestId("overview-plant-counts")).toBeVisible();
       await expect(page.getByTestId("add-starter-configuration")).toBeVisible();
-
-      await page.goto(`/build/departments/${fx.plantDepartmentId}?starter=1`);
-      await expect(page.getByTestId("plant-starter-panel")).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText("Plant Operations starter configuration")).toBeVisible();
-      await page.getByTestId("starter-work-EXTERIOR_GROUNDS_WALKTHROUGH").uncheck();
-      await page.getByTestId("starter-work-GENERATOR_VISUAL_CHECK").uncheck();
-      await page.getByTestId("starter-record-MECHANICAL_ROOM_INSPECTION").uncheck();
-      await page.getByTestId("starter-record-GENERATOR_INSPECTION").uncheck();
-      await page.getByTestId("starter-record-BASIC_EQUIPMENT_READING").uncheck();
-      await page.getByTestId("starter-record-POST_WORK_ORDER_VERIFICATION").uncheck();
-      await page.getByTestId("plant-starter-install").click();
-      await expect(page.getByTestId("plant-starter-result")).toContainText(
-        "2 recurring Work presets added",
-        { timeout: 20_000 },
-      );
 
       const assetId = fx.assets[0]?.id;
       expect(assetId).toBeTruthy();

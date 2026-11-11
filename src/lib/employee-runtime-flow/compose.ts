@@ -4,7 +4,6 @@
  */
 
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import type {
   RuntimeLocationSpaceRef,
@@ -12,14 +11,13 @@ import type {
 } from "@/lib/runtime-location-state";
 import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
 
-import { assignmentScopeKind, assignedSpaceIdSet, filterWorkToAssignedSpaces } from "./assigned-spaces";
+import { assignmentScopeKind, assignedSpaceIdSet } from "./assigned-spaces";
 import {
   collectHarborEvidence,
   filterTemplateEvidenceToAssignedSpaces,
 } from "./evidence";
 import {
   composeJobFlowItems,
-  withoutPlanDerivedCompatibilityWork,
   type JobFlowAssignmentExceptionSource,
   type JobFlowPreventiveMaintenanceSource,
   type JobFlowWorkOrderSource,
@@ -46,7 +44,6 @@ export type ComposeEmployeeRuntimeFlowInput = {
   spaceRefs: readonly RuntimeLocationSpaceRef[];
   states: readonly RuntimeLocationState[];
   templateEvidence: readonly EvidenceRequirement[];
-  workRequirements: readonly WorkRequirement[];
   /** Fail-closed assigned Work Orders for this employee (Plant). */
   workOrders?: readonly JobFlowWorkOrderSource[];
   /** Pre-WO PM rows; omit when WO owns execution. */
@@ -87,7 +84,6 @@ function emptyFlow(
     evidenceMode: "none",
     evidence: [],
     templateEvidence: [],
-    work: [],
     items: [],
     milestones: [],
     issues: [],
@@ -230,25 +226,17 @@ export function composeEmployeeRuntimeFlow(
 
   if (!input.currentAssignment && !input.upcomingAssignment) {
     const signedIn = emptyFlow(input, "no_confirmed_assignment", mismatch);
-    // Keep full WorkRequirement list for completion-key enrichment / sync.
-    // Newly issued workContext advertising is ONE_OFF-only (2C-2H-2).
-    // Employee Job Flow items exclude plan-derived CompatWork (2C-2G-2).
-    const work = filterWorkToAssignedSpaces(input.workRequirements, null);
     return {
       ...signedIn,
       responsibility: {
         ...signedIn.responsibility,
         unitId: input.deviceBoundUnitId ?? null,
       },
-      work,
-      items: withoutPlanDerivedCompatibilityWork(
-        composeJobFlowItems({
-          compatibilityWork: work,
+      items: composeJobFlowItems({
           workOrders: input.workOrders,
           preventiveMaintenance: input.preventiveMaintenance,
           assignmentExceptions: input.assignmentExceptions,
         }),
-      ),
     };
   }
 
@@ -268,29 +256,19 @@ export function composeEmployeeRuntimeFlow(
     evidenceMode === "template"
       ? filterTemplateEvidenceToAssignedSpaces(input.templateEvidence, spaceFilter)
       : [];
-  // flow.work retains plan-derived rows for sync/completion enrichment.
-  // Newly issued workContext advertising is ONE_OFF-only (2C-2H-2).
-  // flow.items / next exclude WORK_PLAN CompatWork (2C-2G-2 cutover).
-  const work = filterWorkToAssignedSpaces(input.workRequirements, spaceFilter);
   const milestones = collectMilestones(states);
   const issues = collectIssues(states);
   const locationNext = earliestLocationNext(states);
-  const items = withoutPlanDerivedCompatibilityWork(
-    composeJobFlowItems({
-      compatibilityWork: work,
+  const items = composeJobFlowItems({
       harborEvidence,
       templateEvidence,
       milestones,
       workOrders: input.workOrders,
       preventiveMaintenance: input.preventiveMaintenance,
       assignmentExceptions: input.assignmentExceptions,
-    }),
-  );
+    });
   const next = resolveEmployeeNextAction({
     items,
-    work,
-    evidence: harborEvidence,
-    milestones,
     currentAssignment: input.currentAssignment,
     upcomingAssignment: input.upcomingAssignment,
     locationNext,
@@ -315,7 +293,6 @@ export function composeEmployeeRuntimeFlow(
     evidenceMode,
     evidence: harborEvidence,
     templateEvidence,
-    work,
     items,
     milestones,
     issues,

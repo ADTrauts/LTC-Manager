@@ -21,7 +21,6 @@ export type LocationHistoryEventKind =
   | "WORK_ORDER_STATUS_CHANGED"
   | "WORK_COMPLETED"
   | "EVIDENCE_RECORD"
-  | "WORK_OCCURRENCE"
   | "KEY_POINT_ACTUAL"
   | "ASSIGNMENT"
   | "PLACE_NAME_CHANGED";
@@ -88,7 +87,6 @@ export async function loadLocationHistory(
     issues,
     repairs,
     evidence,
-    occurrences,
     keyPoints,
     assignments,
     placeChanges,
@@ -177,25 +175,6 @@ export async function loadLocationHistory(
         unitId: true,
         spaceId: true,
         placeLabelSnapshot: true,
-      },
-    }),
-    prisma.departmentWorkOccurrence.findMany({
-      where: {
-        facilityId: input.facilityId,
-        unitId: unit.id,
-        ...(spaceId ? { spaceId } : {}),
-        ...(cursorFilter ? { createdAt: cursorFilter } : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: fetchTake,
-      select: {
-        id: true,
-        workItemLabelSnapshot: true,
-        status: true,
-        createdAt: true,
-        completedAt: true,
-        unitId: true,
-        spaceId: true,
       },
     }),
     spaceIds.length
@@ -363,22 +342,6 @@ export async function loadLocationHistory(
       sourceId: record.id,
       unitId: record.unitId,
       spaceId: record.spaceId,
-    });
-  }
-
-  for (const occurrence of occurrences) {
-    events.push({
-      id: `work:${occurrence.id}`,
-      kind: "WORK_OCCURRENCE",
-      at: occurrence.completedAt ?? occurrence.createdAt,
-      title: occurrence.workItemLabelSnapshot,
-      detail: occurrence.status,
-      href: null,
-      status: occurrence.status,
-      source: "DepartmentWorkOccurrence",
-      sourceId: occurrence.id,
-      unitId: occurrence.unitId,
-      spaceId: occurrence.spaceId,
     });
   }
 

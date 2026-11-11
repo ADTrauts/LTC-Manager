@@ -1366,3 +1366,11 @@ test("Space-only staffing does not fill an entire Unit requirement; missing targ
   template.items[0].unitId = null;
   result = evaluate(); assert(result.available); assert.equal(result.filledPositions, 0);
 });
+
+
+test("fulfillment counts an employee once for a requirement with multiple positions", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 2 }]);
+  const result = buildAssignmentFulfillmentSummary({ templates: [template], serviceDate: "2026-07-15", scheduledEmployeeCount: 1,
+    assignments: [makeEntry({ id: "one", employeeId: "same", unitId: "unit1" }), makeEntry({ id: "two", employeeId: "same", unitId: "unit1" })] });
+  assert(result.available); assert.equal(result.filledPositions, 1); assert.equal(result.unfilledPositions, 1);
+});

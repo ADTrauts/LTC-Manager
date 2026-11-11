@@ -8,7 +8,6 @@ import { join } from "node:path";
 import test from "node:test";
 
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import {
   OFFLINE_COMMAND_TYPES,
   OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION,
@@ -21,7 +20,6 @@ import {
   offlineActionForJobFlowItem,
   readOfflineJobFlowItems,
   serializeEmployeeRuntimeJobFlowItemContext,
-  serializeEmployeeRuntimeWorkContext,
 } from "./serialize-offline";
 import type { JobFlowItem } from "./job-flow-item";
 
@@ -41,58 +39,6 @@ function assignment(
     locationCount: partial.locationCount,
     locationLabels: partial.locationLabels,
     sourceZoneName: partial.sourceZoneName ?? null,
-  };
-}
-
-function work(
-  partial: Partial<WorkRequirement> & {
-    occurrenceKey: string;
-    label: string;
-    state: WorkRequirement["state"];
-  },
-): WorkRequirement {
-  return {
-    occurrenceKey: partial.occurrenceKey,
-    workPlanId: "wp",
-    workPlanStableKey: "wp",
-    workPlanVersion: 1,
-    workPlanName: "Plan",
-    workItemId: "item",
-    workItemKey: "item",
-    label: partial.label,
-    instructions: null,
-    priority: "ROUTINE",
-    completionMode: "EXPLICIT_CONFIRMATION",
-    responsibilityMode: "UNIT_SHARED",
-    scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-    cycleStableKey: null,
-    windowStartLocal: null,
-    windowEndLocal: null,
-    dueAt: null,
-    windowStartsAt: null,
-    windowEndsAt: null,
-    unitId: "unit-a",
-    unitName: "3A",
-    spaceId: partial.spaceId ?? "servery-a",
-    assetId: null,
-    roleKeys: [],
-    knowledgeArticleId: null,
-    procedureTitle: null,
-    linkedTemplateStableKey: null,
-    linkedTemplateId: null,
-    state: partial.state,
-    occurrenceId: partial.occurrenceId ?? null,
-    occurrenceStatus: null,
-    assignedEmployeeId: null,
-    completedByLabel: null,
-    completedAt: null,
-    evidenceRecordId: null,
-    sourceKind: partial.sourceKind ?? "ONE_OFF",
-    sourceHref:
-      partial.sourceHref ??
-      (partial.sourceKind === "WORK_PLAN"
-        ? "/staffing/work-plans"
-        : `/staffing/operations?work=${partial.occurrenceKey}`),
   };
 }
 
@@ -181,16 +127,6 @@ test("canonical items serialize once with correct offlineAction flags", () => {
     spaceRefs: [],
     states: [],
     templateEvidence: [],
-    workRequirements: [
-      work({
-        occurrenceKey: "w1",
-        occurrenceId: "db-w1",
-        label: "Wipe",
-        state: "DUE",
-        sourceKind: "ONE_OFF",
-      }),
-      work({ occurrenceKey: "plan-w", label: "Plan wipe", state: "DUE", sourceKind: "WORK_PLAN" }),
-    ],
     workOrders: [
       {
         id: "wo-1",
@@ -237,15 +173,6 @@ test("canonical items serialize once with correct offlineAction flags", () => {
   assert.equal(ctx.schemaVersion, OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION);
   assert.equal(ctx.snapshotOperationalDate, "2026-08-17");
 
-  const workItem = ctx.items.find((row) => row.ownerKind === "COMPATIBILITY_WORK");
-  assert.equal(workItem?.offlineAction, "COMPLETE_OPERATIONAL_TASK");
-  assert.equal(workItem?.compatibility, true);
-  assert.equal(workItem?.compatibilitySource, "ONE_OFF");
-  assert.equal(
-    ctx.items.filter((row) => row.compatibilitySource === "WORK_PLAN").length,
-    0,
-  );
-
   const wo = ctx.items.find((row) => row.ownerKind === "WORK_ORDER");
   assert.ok(wo);
   assert.equal(wo.offlineAction, null);
@@ -263,11 +190,7 @@ test("canonical items serialize once with correct offlineAction flags", () => {
     }
   }
 
-  // Phase 2C-2H-2: newly issued workContext advertises ONE_OFF only (not WORK_PLAN).
-  const workCtx = serializeEmployeeRuntimeWorkContext(flow, "t");
-  assert.ok(workCtx);
-  assert.equal(workCtx.requirements.length, 1);
-  assert.equal(workCtx.requirements[0]?.occurrenceKey, "w1");
+
 });
 
 test("href alone does not grant offline Work Order completion", () => {
@@ -337,17 +260,16 @@ test("KEY_TIME Key Points are display-only; servery milestones remain actionable
   );
 });
 
-test("bundle builder and offline UI wire additive items without removing Work commands", () => {
+test("bundle builder and offline UI wire owner items without generic Work commands", () => {
   const root = process.cwd();
   const bundleSrc = readFileSync(join(root, "src/lib/offline/build-runtime-bundle.ts"), "utf8");
   assert.match(bundleSrc, /serializeEmployeeRuntimeJobFlowItemContext/);
-  assert.match(bundleSrc, /serializeEmployeeRuntimeWorkContext/);
   assert.match(bundleSrc, /jobFlowItemContext/);
-  assert.match(bundleSrc, /COMPLETE_OPERATIONAL_TASK|workContext/);
+  assert.doesNotMatch(bundleSrc, /COMPLETE_OPERATIONAL_TASK|workContext/);
 
   const processSrc = readFileSync(join(root, "src/lib/offline/process-sync-command.ts"), "utf8");
-  assert.match(processSrc, /processWorkCompletionCommand/);
-  assert.match(processSrc, /COMPLETE_OPERATIONAL_TASK/);
+  assert.doesNotMatch(processSrc, /processWorkCompletionCommand/);
+  assert.doesNotMatch(processSrc, /COMPLETE_OPERATIONAL_TASK/);
 
   const ui = readFileSync(join(root, "src/components/offline/offline-job-flow-context.tsx"), "utf8");
   assert.match(ui, /readOfflineJobFlowItems/);

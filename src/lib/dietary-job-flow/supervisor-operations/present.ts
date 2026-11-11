@@ -14,7 +14,6 @@ function exceptionRank(group: SupervisorExceptionItem["group"], temporal: Superv
     Readiness: 300,
     ServiceTiming: 400,
     Evidence: 450,
-    Work: 460,
     Asset: 470,
     Equipment: 475,
     OfflineSync: 500,
@@ -94,11 +93,7 @@ export function presentSupervisorOperationsBoard(
   }
   for (const item of view.needsAttention.assets) {
     push(exceptions, "Asset", item);
-  }
-  for (const item of view.needsAttention.work) {
-    push(exceptions, "Work", item);
-  }
-  for (const item of view.needsAttention.sync) {
+  }  for (const item of view.needsAttention.sync) {
     push(exceptions, "OfflineSync", item);
   }
   for (const item of view.needsAttention.configuration) {
@@ -110,7 +105,6 @@ export function presentSupervisorOperationsBoard(
   );
 
   const dietary = view.overlay.dietary;
-  const evs = view.overlay.evs;
 
   return {
     header: {
@@ -141,16 +135,9 @@ export function presentSupervisorOperationsBoard(
       startedLate: dietary?.startedLate ?? 0,
       startedNotConfirmed: dietary?.startedNotConfirmed ?? 0,
       conflicts: view.sync.pendingConflicts,
-      locationCovered: evs?.locationCovered ?? null,
-      locationAtRisk: evs?.locationAtRisk ?? null,
-      locationUncovered: evs?.locationUncovered ?? null,
-      locationOverlapping: evs?.locationOverlapping ?? null,
-      locationRequired: evs?.locationRequired ?? null,
     },
     exceptions,
     viewAllUnits: view.units,
-    locationCoverage: evs?.locationCoverage ?? null,
-    filters: evs?.filters ?? null,
     plantOperations: view.overlay.plant,
   };
 }

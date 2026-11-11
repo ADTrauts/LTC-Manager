@@ -214,7 +214,7 @@ async function main() {
 
     await linkFixtureAccount(db, staffUser, staffEmployee, { facilityId: facility.id, roleKey: "STAFF" });
     await linkFixtureAccount(db, supervisor, supervisorEmployee, { facilityId: facility.id, roleKey: "SUPERVISOR" });
-    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "offline", pin: "246815", extraWorkItems: 12, extraKeyTimes: 3 });
+    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "offline", pin: "246815", extraKeyTimes: 16 });
     mkdirSync(dirname(FIXTURE_PATH), { recursive: true });
     const payload = {
       canonical,

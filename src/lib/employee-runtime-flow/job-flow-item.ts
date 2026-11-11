@@ -6,7 +6,6 @@
  * is an explicit transitional owner kind until later phases remove it.
  */
 
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 
 import type {
@@ -21,14 +20,7 @@ export type JobFlowOwnerKind =
   | "WORK_ORDER"
   | "PREVENTIVE_MAINTENANCE"
   | "ASSIGNMENT_EXCEPTION"
-  | "COMPATIBILITY_WORK";
-
-/**
- * Discriminator for COMPATIBILITY_WORK only.
- * Mirrors DepartmentWorkOccurrenceSourceKind — plan-derived vs one-off.
- * Null for non-compatibility owners.
- */
-export type CompatibilityWorkSource = "WORK_PLAN" | "ONE_OFF";
+;
 
 /**
  * Owner-derived presentation band. Domains map their own states into this
@@ -67,21 +59,11 @@ export type JobFlowItem = {
   ownerId: string;
   place: JobFlowItemPlace;
   time: JobFlowItemTime;
-  /** Opaque owner state token (e.g. WorkRequirementState, productState). */
+  /** Opaque owner state token (e.g. Record productState or Work Order status). */
   ownerState: string;
   attention: JobFlowItemAttention;
   label: string;
   href: string | null;
-  /**
-   * True only for COMPATIBILITY_WORK (plan-derived or one-off Work).
-   * Must never be true for forward canonical owners.
-   */
-  compatibility: boolean;
-  /**
-   * Set only for COMPATIBILITY_WORK from WorkRequirement.sourceKind.
-   * Enables a later plan-derived cutover without a new owner kind.
-   */
-  compatibilitySource: CompatibilityWorkSource | null;
 };
 
 /** Assigned Plant Repair row already scoped by the loader (fail-closed). */
@@ -140,88 +122,6 @@ const ATTENTION_ORDER: Record<JobFlowItemAttention, number> = {
   not_applicable: 5,
 };
 
-function workAttention(state: WorkRequirement["state"]): JobFlowItemAttention {
-  switch (state) {
-    case "PAST_DUE_NOT_CONFIRMED":
-    case "CONFLICT_REVIEW":
-      return "needs_attention";
-    case "DUE":
-    case "CURRENT":
-    case "SAVED_ON_THIS_TABLET":
-    case "SYNCHRONIZING":
-      return "due_now";
-    case "UPCOMING":
-      return "upcoming";
-    case "COMPLETED":
-    case "COMPLETED_WITH_EVIDENCE":
-    case "NOT_REQUIRED":
-      return "completed";
-    case "NOT_APPLICABLE":
-    case "NOT_CONFIGURED":
-    case "REASSIGNED":
-      return "not_applicable";
-    default:
-      return "informational";
-  }
-}
-
-/**
- * Adapt a derived WorkRequirement into an explicit compatibility item.
- * Does not create or publish Work Plans.
- */
-export function jobFlowItemFromCompatibilityWork(row: WorkRequirement): JobFlowItem {
-  const compatibilitySource: CompatibilityWorkSource =
-    row.sourceKind === "ONE_OFF" ? "ONE_OFF" : "WORK_PLAN";
-  return {
-    ownerKind: "COMPATIBILITY_WORK",
-    ownerId: row.occurrenceId ?? row.occurrenceKey,
-    place: {
-      unitId: row.unitId,
-      spaceId: row.spaceId,
-      assetId: row.assetId,
-    },
-    time: {
-      windowStartsAt: row.windowStartsAt,
-      windowEndsAt: row.windowEndsAt,
-      dueAt: row.dueAt,
-      windowStartLocal: row.windowStartLocal,
-      windowEndLocal: row.windowEndLocal,
-    },
-    ownerState: row.state,
-    attention: workAttention(row.state),
-    label: row.label,
-    href: row.sourceHref,
-    compatibility: true,
-    compatibilitySource,
-  };
-}
-
-export function isPlanDerivedCompatibilityWork(item: JobFlowItem): boolean {
-  return item.ownerKind === "COMPATIBILITY_WORK" && item.compatibilitySource === "WORK_PLAN";
-}
-
-export function isOneOffCompatibilityWork(item: JobFlowItem): boolean {
-  return item.ownerKind === "COMPATIBILITY_WORK" && item.compatibilitySource === "ONE_OFF";
-}
-
-/**
- * Employee Job Flow cutover filter (Phase 2C-2G-2).
- * Removes plan-derived CompatWork while retaining one-off and all canonical owners.
- * Wired into `composeEmployeeRuntimeFlow` item composition / next-action only.
- * Does not mutate `flow.work` (legacy offline workContext may still list plan rows).
- */
-export function withoutPlanDerivedCompatibilityWork(
-  items: readonly JobFlowItem[],
-): JobFlowItem[] {
-  return items.filter((row) => !isPlanDerivedCompatibilityWork(row));
-}
-
-export function jobFlowItemsFromCompatibilityWork(
-  rows: readonly WorkRequirement[],
-): JobFlowItem[] {
-  return rows.map(jobFlowItemFromCompatibilityWork);
-}
-
 function harborEvidenceAttention(
   category: EmployeeRuntimeEvidenceItem["category"],
 ): JobFlowItemAttention {
@@ -260,8 +160,6 @@ export function jobFlowItemFromHarborEvidence(row: EmployeeRuntimeEvidenceItem):
     attention: harborEvidenceAttention(row.category),
     label: row.displayName,
     href: row.href,
-    compatibility: false,
-    compatibilitySource: null,
   };
 }
 
@@ -307,8 +205,6 @@ export function jobFlowItemFromTemplateEvidence(row: EvidenceRequirement): JobFl
     attention: templateEvidenceAttention(row),
     label: row.templateName,
     href: null,
-    compatibility: false,
-    compatibilitySource: null,
   };
 }
 
@@ -361,8 +257,6 @@ export function jobFlowItemFromMilestone(row: EmployeeRuntimeMilestone): JobFlow
     attention: milestoneAttention(row.statusKey),
     label: row.label,
     href: row.href ?? null,
-    compatibility: false,
-    compatibilitySource: null,
   };
 }
 
@@ -411,8 +305,6 @@ export function jobFlowItemFromWorkOrder(row: JobFlowWorkOrderSource): JobFlowIt
     attention: workOrderAttention(row.status),
     label: row.title.trim() || row.repairCode,
     href: `/repairs/${row.id}`,
-    compatibility: false,
-    compatibilitySource: null,
   };
 }
 
@@ -449,8 +341,6 @@ export function jobFlowItemFromPreventiveMaintenance(
     attention: row.status === "COMPLETED" || row.status === "SKIPPED" ? "completed" : "due_now",
     label: row.label,
     href: `/preventive-maintenance/${row.id}`,
-    compatibility: false,
-    compatibilitySource: null,
   };
 }
 
@@ -481,8 +371,6 @@ export function jobFlowItemFromAssignmentException(
     attention: row.kind === "CALL_OFF" ? "needs_attention" : "informational",
     label: row.label,
     href: row.href,
-    compatibility: false,
-    compatibilitySource: null,
   };
 }
 
@@ -540,7 +428,6 @@ export function sortJobFlowItems(items: readonly JobFlowItem[]): JobFlowItem[] {
 
 /** Compose the transitional unified list from currently available flow slices. */
 export function composeJobFlowItems(input: {
-  compatibilityWork?: readonly WorkRequirement[];
   harborEvidence?: readonly EmployeeRuntimeEvidenceItem[];
   templateEvidence?: readonly EvidenceRequirement[];
   milestones?: readonly EmployeeRuntimeMilestone[];
@@ -549,7 +436,6 @@ export function composeJobFlowItems(input: {
   assignmentExceptions?: readonly JobFlowAssignmentExceptionSource[];
 }): JobFlowItem[] {
   const merged = [
-    ...jobFlowItemsFromCompatibilityWork(input.compatibilityWork ?? []),
     ...jobFlowItemsFromHarborEvidence(input.harborEvidence ?? []),
     ...jobFlowItemsFromTemplateEvidence(input.templateEvidence ?? []),
     ...jobFlowItemsFromMilestones(input.milestones ?? []),

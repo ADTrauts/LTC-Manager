@@ -8,7 +8,6 @@ import { join } from "node:path";
 import test from "node:test";
 
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import { emptyLocationProgram } from "@/lib/department-administration/location-program";
 import {
   DEFERRED_READINESS,
@@ -50,60 +49,6 @@ function location(spaceId: string, label: string): ResolvedAssignmentLocation {
     roomNumber: null,
     spaceName: label,
     unitName: "3A",
-  };
-}
-
-function work(
-  partial: Partial<WorkRequirement> & {
-    occurrenceKey: string;
-    label: string;
-    state: WorkRequirement["state"];
-  },
-): WorkRequirement {
-  const sourceKind = partial.sourceKind ?? "ONE_OFF";
-  return {
-    occurrenceKey: partial.occurrenceKey,
-    workPlanId: sourceKind === "WORK_PLAN" ? "wp" : "",
-    workPlanStableKey: sourceKind === "WORK_PLAN" ? "wp" : "one_off",
-    workPlanVersion: sourceKind === "WORK_PLAN" ? 1 : 0,
-    workPlanName: sourceKind === "WORK_PLAN" ? "Plan" : "One-off Work",
-    workItemId: "item",
-    workItemKey: "item",
-    label: partial.label,
-    instructions: null,
-    priority: "ROUTINE",
-    completionMode: partial.completionMode ?? "EXPLICIT_CONFIRMATION",
-    responsibilityMode: "UNIT_SHARED",
-    scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-    cycleStableKey: null,
-    windowStartLocal: null,
-    windowEndLocal: null,
-    dueAt: null,
-    windowStartsAt: null,
-    windowEndsAt: null,
-    unitId: "unit-a",
-    unitName: "3A",
-    spaceId: partial.spaceId ?? "servery-a",
-    assetId: null,
-    roleKeys: [],
-    knowledgeArticleId: null,
-    procedureTitle: null,
-    linkedTemplateStableKey: partial.linkedTemplateStableKey ?? null,
-    linkedTemplateId: null,
-    state: partial.state,
-    occurrenceId:
-      partial.occurrenceId ?? (sourceKind === "ONE_OFF" ? `db-${partial.occurrenceKey}` : null),
-    occurrenceStatus: null,
-    assignedEmployeeId: null,
-    completedByLabel: null,
-    completedAt: null,
-    evidenceRecordId: null,
-    sourceKind,
-    sourceHref:
-      partial.sourceHref ??
-      (sourceKind === "WORK_PLAN"
-        ? "/staffing/work-plans"
-        : `/staffing/operations?work=${partial.occurrenceKey}`),
   };
 }
 
@@ -195,7 +140,7 @@ function present(flow: ReturnType<typeof composeEmployeeRuntimeFlow>) {
   });
 }
 
-test("presentation parity: Work, Records, Key Points, WO appear once from items", () => {
+test("presentation parity: Records, Key Points, WO appear once from items", () => {
   const flow = composeEmployeeRuntimeFlow({
     operationalAssignmentsEnabled: true,
     canonicalLogsEnabled: true,
@@ -247,7 +192,6 @@ test("presentation parity: Work, Records, Key Points, WO appear once from items"
       }),
     ],
     templateEvidence: [],
-    workRequirements: [work({ occurrenceKey: "w1", label: "Wipe tables", state: "DUE" })],
     workOrders: [
       {
         id: "wo-1",
@@ -275,8 +219,6 @@ test("presentation parity: Work, Records, Key Points, WO appear once from items"
   });
 
   const view = present(flow);
-  assert.equal(view.work.length, 1);
-  assert.equal(view.work[0]?.label, "Wipe tables");
   assert.equal(view.workOrders.length, 1);
   assert.equal(view.workOrders[0]?.href, "/repairs/wo-1");
   assert.equal(view.evidenceGroups.flatMap((g) => g.items).length, 1);
@@ -284,9 +226,8 @@ test("presentation parity: Work, Records, Key Points, WO appear once from items"
   assert.equal(view.exceptions.length, 1);
   assert.equal(view.exceptions[0]?.label, "Shift called off");
 
-  // No duplicate ids across work + evidence (same source would share owner)
+  // No duplicate ids across Work Orders and Records (same source would share owner)
   const ids = [
-    ...view.work.map((row) => `work:${row.id}`),
     ...view.workOrders.map((row) => `wo:${row.id}`),
     ...view.evidenceGroups.flatMap((g) => g.items.map((row) => `ev:${row.id}`)),
   ];
@@ -310,7 +251,6 @@ test("next-action ignores informational exceptions and completed items", () => {
     ],
     states: [],
     templateEvidence: [],
-    workRequirements: [work({ occurrenceKey: "w-done", label: "Done", state: "COMPLETED" })],
     assignmentExceptions: [
       {
         id: "call-off:x",
@@ -363,13 +303,11 @@ test("progressive empty: no Assignment / no Cycle / no Records / no WO", () => {
     spaceRefs: [],
     states: [],
     templateEvidence: [],
-    workRequirements: [],
   });
   assert.equal(noAssignment.assignmentAvailability, "no_confirmed_assignment");
   assert.equal(noAssignment.items.length, 0);
   const view = present(noAssignment);
   assert.equal(view.showExecution, false);
-  assert.equal(view.work.length, 0);
   assert.equal(view.workOrders.length, 0);
 
   const evaluatedEmpty = composeEmployeeRuntimeFlow({
@@ -388,11 +326,9 @@ test("progressive empty: no Assignment / no Cycle / no Records / no WO", () => {
     ],
     states: [state({ spaceId: "servery-a", name: "Servery" })],
     templateEvidence: [],
-    workRequirements: [],
   });
   const emptyView = present(evaluatedEmpty);
   assert.equal(emptyView.showExecution, true);
-  assert.equal(emptyView.work.length, 0);
   assert.equal(emptyView.workOrders.length, 0);
   assert.equal(emptyView.evidenceGroups.length, 0);
   assert.equal(emptyView.milestones.length, 0);
@@ -418,7 +354,6 @@ test("PM-generated WO presents once; identity stays owner-stable across spaces",
       state({ spaceId: "kitchen-a", name: "Kitchen" }),
     ],
     templateEvidence: [],
-    workRequirements: [],
     workOrders: [
       {
         id: "wo-pm",
@@ -451,30 +386,4 @@ test("PM-generated WO presents once; identity stays owner-stable across spaces",
   const view = present(flow);
   assert.equal(view.workOrders.length, 1);
   assert.equal(view.workOrders[0]?.id, "wo-pm");
-});
-
-test("compatibility fences remain closed; offline serialize still reads parallel Work", () => {
-  const root = process.cwd();
-  const phase2b = readFileSync(
-    join(root, "src/lib/department-work/phase-2b-generic-work-authoring.hermetic.test.ts"),
-    "utf8",
-  );
-  assert.match(phase2b, /GENERIC_WORK_AUTHORING_RETIRED/);
-
-  const ui = readFileSync(
-    join(root, "src/components/unit-workspace/employee-runtime-experience.tsx"),
-    "utf8",
-  );
-  assert.match(ui, /workOrders/);
-  assert.match(ui, /exceptions/);
-  assert.match(ui, /employee-runtime-work-order-item/);
-
-  const offline = readFileSync(
-    join(root, "src/lib/employee-runtime-flow/serialize-offline.ts"),
-    "utf8",
-  );
-  assert.match(offline, /flow\.work/);
-  // Phase 2C-2D adds additive jobFlowItemContext from flow.items; Work commands stay on workContext.
-  assert.match(offline, /flow\.items/);
-  assert.match(offline, /serializeEmployeeRuntimeJobFlowItemContext/);
 });

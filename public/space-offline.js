@@ -40,6 +40,10 @@ async function mount(root) {
             store.lock('Space or identity context changed.');
             row = null;
         }
+        if (row && ctx?.canPrepare === false && !review) {
+            store.lock('Assignment completed. Authenticate again to review pending offline actions.');
+            row = null;
+        }
         if (row && !ctx) {
             const url = new URL(location.href);
             if (url.pathname !== `/unit/${row.meta.scope.unitId}` || url.searchParams.get('space') !== row.meta.scope.spaceId) {
@@ -53,29 +57,31 @@ async function mount(root) {
         content.replaceChildren();
         syncButton.hidden = !row;
         if (!row) {
-            status.textContent = 'No unlocked offline context. Prepare online or authenticate and recover pending intent.';
+            status.textContent = ctx?.canPrepare === false ? 'Assignment completed. Authenticate again to review pending offline actions.' : 'No unlocked offline context. Prepare online or authenticate and recover pending intent.';
             return;
         }
         const data = await store.read(row, review);
         boundary();
         if (!data.bundle) {
             title.textContent = 'Offline for this Space';
-            status.textContent = 'Expired intent review only — no operational instructions or new actions.';
+            status.textContent = 'Pending intent review only — no operational instructions or new actions.';
         }
         else {
             title.textContent = `Offline — ${data.bundle.label}`;
             status.textContent = navigator.onLine ? 'Prepared on this tablet. Pending actions are not confirmed.' : 'Offline — prepared for this exact Space.';
             for (const t of data.bundle.targets) {
+                if (!['ASSIGNMENT', 'KEY_TIME_ACTUAL'].includes(t.kind)) continue;
                 const card = el('section');
                 card.className = 'border-t py-2';
-                card.append(el('p', t.label)); if (t.instructions) card.append(el('p', t.instructions, 'space-work-instructions'));
+                card.append(el('p', t.label)); if (t.instructions) card.append(el('p', t.instructions, 'space-assignment-instructions'));
                 const queued = data.commands.find(c => c.target === t.id);
                 if (queued)
                     card.append(el('p', `Result: ${queued.status}${queued.outcome?.message ? " — " + queued.outcome.message : ""}`, 'space-command-result'));
                 if (t.completed)
                     card.append(el('p', 'Already confirmed on server.'));
                 else if (t.available) {
-                    const b = button(t.kind === 'ASSIGNMENT' ? 'Complete Assignment on this tablet' : t.kind === 'WORK' ? 'Complete Work on this tablet' : 'Record Key Time actual on this tablet', t.kind === 'ASSIGNMENT' ? 'space-assignment-complete' : t.kind === 'WORK' ? 'space-work-complete' : 'space-key-time-actual', async () => { row = await store.queue(row, t); boundary(); await render(); });
+                    if (t.kind === 'ASSIGNMENT') card.append(el('p', 'Finish all assigned locations before completing this Assignment.'));
+                    const b = button(t.kind === 'ASSIGNMENT' ? 'Complete Assignment on this tablet' : 'Record Key Time actual on this tablet', t.kind === 'ASSIGNMENT' ? 'space-assignment-complete' : 'space-key-time-actual', async () => { row = await store.queue(row, t); boundary(); await render(); });
                     b.dataset.targetOrder = String(data.bundle.targets.filter(x => x.kind === t.kind).indexOf(t));
                     if (queued)
                         b.disabled = true;
@@ -98,7 +104,7 @@ async function mount(root) {
             throw Error('Recover the issuance first.');
         boundary();
         const data = await store.read(row, review);
-        const commands = data.commands.filter(c => !['committed', 'reused', 'blocked', 'conflict'].includes(c.status)).slice(0, 20).map(({ status, outcome, intentLabel, ...c }) => c);
+        const commands = data.commands.filter(c => !['committed', 'reused', 'blocked', 'conflict'].includes(c.status)).slice(0, 20).map(({ id, issuanceId, kind, target, baseline, occurredAt, note }) => ({ id, issuanceId, kind, target, baseline, occurredAt, note }));
         if (!commands.length) {
             await render();
             return;
@@ -118,7 +124,7 @@ async function mount(root) {
         }
         await render();
     }
-    if (ctx) {
+    if (ctx && ctx.canPrepare !== false) {
         controls.append(button('Save on this tablet', 'space-offline-prepare', async () => { if (!navigator.onLine)
             throw Error('Prepare this Space online before disconnecting.'); const start = store.generation(); const prepared = await call('prepare', { scope: ctx.scope }); if (!root.isConnected || start !== store.generation())
             throw Error('Context changed during preparation.'); if (prepared.bundle.actorRef !== ctx.actorRef || prepared.bundle.sessionVersion !== ctx.sessionVersion || !scopeEqual(prepared.bundle.scope, ctx.scope))

@@ -206,6 +206,7 @@ export async function loadCoverageSlotSnapshot(
   );
   const actuals: CoverageAssignmentActual[] = counting.map((assignment) => ({
     id: assignment.id,
+    employeeId: assignment.employeeId,
     roleKey: assignment.roleKey,
     status: assignment.status,
     unitId: assignment.unitId,

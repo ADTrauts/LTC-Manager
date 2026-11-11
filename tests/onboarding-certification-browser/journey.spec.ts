@@ -49,7 +49,7 @@ async function activate(browser: Browser, session: FacilitySession, email: strin
   return { context, page, employee };
 }
 
-for (const width of [1280, 768]) test(`operator provision → two Products → XLSX/CSV → customer publication → actual Run at ${width}px`, async ({ page, context, browser }) => {
+for (const width of [1280, 768]) test(`operator provision → two Products → XLSX/CSV → explicit eligibility and Assignment → actual Run at ${width}px`, async ({ page, context, browser }) => {
   await mkdir(output, { recursive: true });
   const id = randomUUID(), email = `admin-${id}@example.com`, managerEmail = `manager-${id}@example.com`, workerEmail = `worker-${id}@example.com`;
   const administratorPasswordHash = await bcrypt.hash("Onb07-Local-Password!", 4);
@@ -98,30 +98,30 @@ for (const width of [1280, 768]) test(`operator provision → two Products → X
   const manager = await activate(browser, session, managerEmail), worker = await activate(browser, session, workerEmail);
   try {
     await manager.page.setViewportSize({ width, height: 1024 }); await worker.page.setViewportSize({ width, height: 1024 });
-    await manager.page.goto("/staffing/work-plans");
-    await expect(manager.page.getByTestId("work-plan-builder")).toBeVisible();
-    await manager.page.getByTestId("create-work-plan").click();
-    await expect(manager.page.getByTestId("work-plan-name")).toHaveValue("New Work Plan");
-    await manager.page.getByTestId("work-plan-name").fill("Customer first useful workflow");
-    await manager.page.getByTestId("work-plan-item-label-0").fill("Check shared room supplies");
-    await manager.page.getByTestId("work-plan-applies-to-kind").selectOption("SPECIFIC_UNIT");
-    await manager.page.getByTestId("work-plan-applies-to-unit").selectOption(unit.id);
-    await manager.page.getByTestId("work-plan-save-draft").click();
-    await expect(manager.page.getByTestId("work-plan-message")).toContainText(/saved/i);
-    expect(await db.departmentWorkPlan.count({ where: { facilityId: session.facilityId, status: "PUBLISHED" } })).toBe(0);
-    await manager.page.getByTestId("publish-work-plan").click();
-    await expect(manager.page.getByTestId("work-plan-message")).toContainText(/Published/);
-    const published = await db.departmentWorkPlan.findFirstOrThrow({ where: { facilityId: session.facilityId, status: "PUBLISHED" } });
-    // B remains unprepared; A can deliberately publish and run independently.
-    expect(await db.departmentWorkPlan.count({ where: { departmentId: plant.id } })).toBe(0);
-    expect(await db.departmentOperationalProfile.count({ where: { departmentId: plant.id } })).toBe(0);
+    await page.goto(`/admin/departments/${dietary.id}/manage`);
+    await page.getByTestId("change-department-manager").click();
+    await page.getByTestId("department-manager-select").selectOption(manager.employee.id);
+    await page.getByTestId("save-department-manager").click();
+    await expect.poll(async () => (await db.department.findUniqueOrThrow({ where: { id: dietary.id } })).headEmployeeId).toBe(manager.employee.id);
+    await manager.page.goto("/employees");
+    const card = manager.page.locator(`#employee-${worker.employee.id}`);
+    await card.getByRole("button", { name: /Actual Worker/ }).click();
+    const eligibility = card.getByTestId("operational-eligibility").locator("form");
+    await eligibility.getByRole("checkbox", { name: "Server", exact: true }).check();
+    await eligibility.getByRole("button", { name: "Save eligibility" }).click();
+    await expect.poll(() => db.employeeOperationalRoleQualification.count({ where: {
+      employeeId: worker.employee.id, departmentId: dietary.id, roleKey: "SERVER", status: "ACTIVE",
+    } })).toBe(1);
+    // The other Department remains without operational configuration.
+    expect(await db.operationalAssignment.count({ where: { departmentId: plant.id } })).toBe(0);
     await worker.page.goto(`/unit/${unit.id}`);
     await expect(worker.page.getByTestId("employee-runtime-assignment")).toContainText("No confirmed assignment");
     await manager.page.goto("/staffing/assignments");
     const form = manager.page.locator("form").filter({ has: manager.page.getByRole("button", { name: "Create Assignment", exact: true }) });
-    await form.locator('select[name="employeeId"]').selectOption(worker.employee.id);
-    await form.locator('select[name="roleKey"]').selectOption("SERVER");
-    await form.locator('select[name="unitId"]').selectOption(unit.id);
+    await form.getByLabel("Operational role", { exact: true }).selectOption("SERVER");
+    await form.getByLabel("Employee", { exact: true }).selectOption(worker.employee.id);
+    await form.getByTestId("assignment-space-scope-picker").getByRole("checkbox", { name: /Shared Room/ }).check();
+    await form.getByLabel("Assignment instructions").fill("Check shared room supplies");
     await form.getByRole("button", { name: "Create Assignment", exact: true }).click();
     await expect.poll(() => db.operationalAssignment.count({ where: { employeeId: worker.employee.id } })).toBe(1);
     await manager.page.reload();
@@ -130,21 +130,21 @@ for (const width of [1280, 768]) test(`operator provision → two Products → X
     await confirm.getByRole("button", { name: "Confirm plan", exact: true }).click();
     await expect.poll(async () => (await db.operationalAssignmentPlan.findFirstOrThrow({ where: { facilityId: session.facilityId, departmentId: dietary.id } })).status).toBe("CONFIRMED");
     await worker.page.reload();
-    const work = worker.page.getByTestId("employee-runtime-work-item").filter({ hasText: "Check shared room supplies" });
-    await expect(work).toBeVisible(); await work.getByRole("link").click();
-    await worker.page.getByTestId("complete-work").click();
-    await expect(worker.page.getByTestId("work-completion-notice")).toContainText(/confirmed|complete/i);
-    const occurrences = await db.departmentWorkOccurrence.findMany({ where: { facilityId: session.facilityId, workPlanId: published.id } });
-    expect(occurrences).toHaveLength(1); expect(occurrences[0]!.status).toBe("COMPLETED");
+    await expect(worker.page.getByTestId("employee-assignment-completion")).toContainText("Check shared room supplies");
+    await worker.page.getByRole("button", { name: "Complete Assignment", exact: true }).click();
+    await expect(worker.page.getByTestId("employee-completed-assignments")).toContainText("Check shared room supplies");
+    const completed = await db.operationalAssignment.findFirstOrThrow({ where: { facilityId: session.facilityId, employeeId: worker.employee.id } });
+    expect(completed.status).toBe("COMPLETED");
+    expect(await db.operationalAssignmentEvent.count({ where: { assignmentId: completed.id, eventType: "COMPLETED" } })).toBe(1);
     await applyFacilitySubscription({ facilityId: session.facilityId, status: "UNPAID", departmentKeys: ["DIETARY", "PLANT"] }, db);
-    await worker.page.reload(); await expect(worker.page.getByTestId("complete-work")).toHaveCount(0);
+    await worker.page.reload(); await expect(worker.page.getByRole("button", { name: "Complete Assignment", exact: true })).toHaveCount(0);
     await applyFacilitySubscription({ facilityId: session.facilityId, status: "ACTIVE", departmentKeys: ["DIETARY", "PLANT"] }, db);
-    expect(await db.departmentWorkOccurrence.findMany({ where: { facilityId: session.facilityId, workPlanId: published.id } })).toEqual(occurrences);
+    expect(await db.operationalAssignment.findUniqueOrThrow({ where: { id: completed.id } })).toEqual(completed);
     expect(await db.department.count({ where: { facilityId: session.facilityId } })).toBe(2);
-    await worker.page.goto(`/unit/${unit.id}`); await expect(worker.page.getByTestId("employee-runtime-work-item").filter({ hasText: "Check shared room supplies" })).toContainText(/complete/i);
+    await worker.page.goto(`/unit/${unit.id}`); await expect(worker.page.getByTestId("employee-completed-assignments")).toContainText("Check shared room supplies");
     expect(await worker.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await worker.page.screenshot({ path: `${output}/whole-run-${width}.png`, fullPage: true });
-    await writeFile(`${output}/whole-${width}-facts.json`, JSON.stringify({ facilityId: session.facilityId, dietaryId: dietary.id, plantId: plant.id, publishedId: published.id, sharedRoomId: room.id, occurrenceId: occurrences[0]!.id, synthetic: true, liveProvider: false }, null, 2));
+    await writeFile(`${output}/whole-${width}-facts.json`, JSON.stringify({ facilityId: session.facilityId, dietaryId: dietary.id, plantId: plant.id, sharedRoomId: room.id, assignmentId: completed.id, synthetic: true, liveProvider: false }, null, 2));
     expect(errors).toEqual([]);
   } finally { await manager.context.close(); await worker.context.close(); }
 });

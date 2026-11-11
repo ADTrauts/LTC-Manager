@@ -15,7 +15,6 @@ import type {
   SupervisorOperationsViewModel,
   SupervisorPresenceEmployee,
   SupervisorSyncItem,
-  SupervisorWorkFact,
 } from "./types";
 import type { SupervisorOperationsFacts } from "./facts";
 
@@ -235,30 +234,6 @@ function unitsFromStates(
   return [...byUnit.values()].sort((a, b) => a.unitName.localeCompare(b.unitName));
 }
 
-function workAttention(rows: readonly SupervisorWorkFact[]): SupervisorAttentionItem[] {
-  return rows.map((row) => {
-    const temporal: SupervisorExceptionTemporal =
-      row.state === "PAST_DUE_NOT_CONFIRMED"
-        ? "NotConfirmed"
-        : row.state === "DUE" || row.state === "CURRENT" || row.state === "CONFLICT_REVIEW"
-          ? "Current"
-          : "Upcoming";
-    return {
-      status:
-        row.state === "PAST_DUE_NOT_CONFIRMED"
-          ? `${row.label} — past due not confirmed`
-          : `${row.label} — ${row.state.replaceAll("_", " ").toLowerCase()}`,
-      temporal,
-      unitId: row.unitId,
-      unitName: row.unitName,
-      sourceHref: row.unitId
-        ? `/staffing/operations?work=${encodeURIComponent(row.occurrenceKey)}&unit=${row.unitId}`
-        : `/staffing/operations?work=${encodeURIComponent(row.occurrenceKey)}`,
-      availableActions: ["Open Work", "Create one-off"],
-    };
-  });
-}
-
 function syncAttention(items: readonly SupervisorSyncItem[]): SupervisorAttentionItem[] {
   return items.map((item) => ({
     status: item.kind === "retry_required" ? "Pending offline sync" : "Conflict review required",
@@ -381,13 +356,7 @@ export function composeSupervisorOperations(
     },
     coverage: {
       availability: facts.oaEnabled ? "available" : "unavailable",
-      engine: !facts.oaEnabled
-        ? "none"
-        : facts.department.key === "EVS"
-          ? "evs"
-          : facts.department.key === "DIETARY"
-            ? "dietary"
-            : "none",
+      engine: facts.oaEnabled ? "explicit" : "none",
       covered: facts.oaEnabled ? facts.coverageCounts.covered : 0,
       atRisk: facts.oaEnabled ? facts.coverageCounts.atRisk : 0,
       uncovered: facts.oaEnabled ? facts.coverageCounts.uncovered : 0,
@@ -399,7 +368,6 @@ export function composeSupervisorOperations(
       milestones: milestoneAttention(facts.states),
       evidence: currentEvidence,
       assets: assetAttention(facts.states),
-      work: workAttention(facts.workExceptions),
       sync: syncAttention(facts.sync.items),
       configuration: [],
     },
@@ -408,18 +376,8 @@ export function composeSupervisorOperations(
     sync: facts.sync,
     overlay: {
       dietary: facts.department.key === "DIETARY" ? dietaryMilestoneChips(facts.states) : null,
-      evs: facts.oaEnabled ? facts.evsOverlay : null,
       plant: facts.plantOverlay,
     },
-    units: filterUnits(unitsFromStates(facts.states, coverageGaps), facts.evsOverlay),
+    units: unitsFromStates(facts.states, coverageGaps),
   };
-}
-
-function filterUnits(
-  units: SupervisorOperationsViewModel["units"],
-  evs: SupervisorOperationsFacts["evsOverlay"],
-): SupervisorOperationsViewModel["units"] {
-  if (!evs?.visibleUnitIds) return units;
-  const allowed = new Set(evs.visibleUnitIds);
-  return units.filter((row) => allowed.has(row.unitId));
 }

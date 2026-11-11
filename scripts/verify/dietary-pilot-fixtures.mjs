@@ -293,7 +293,7 @@ async function main() {
       });
     }
 
-    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "dietary", pin: "864205", extraWorkItems: 3, extraKeyTimes: 1 });
+    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "dietary", pin: "864205", extraKeyTimes: 1 });
     mkdirSync(ARTIFACT_DIR, { recursive: true });
     writeFileSync(
       FIXTURE_PATH,

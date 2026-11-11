@@ -25,17 +25,13 @@ export {
 export {
   composeJobFlowItems,
   dedupeJobFlowItems,
-  isOneOffCompatibilityWork,
-  isPlanDerivedCompatibilityWork,
   jobFlowItemFromAssignmentException,
-  jobFlowItemFromCompatibilityWork,
   jobFlowItemFromHarborEvidence,
   jobFlowItemFromMilestone,
   jobFlowItemFromPreventiveMaintenance,
   jobFlowItemFromTemplateEvidence,
   jobFlowItemFromWorkOrder,
   jobFlowItemsFromAssignmentExceptions,
-  jobFlowItemsFromCompatibilityWork,
   jobFlowItemsFromHarborEvidence,
   jobFlowItemsFromMilestones,
   jobFlowItemsFromPreventiveMaintenance,
@@ -43,8 +39,6 @@ export {
   jobFlowItemsFromWorkOrders,
   sortJobFlowItems,
   suppressPmDuplicatesAgainstWorkOrders,
-  withoutPlanDerivedCompatibilityWork,
-  type CompatibilityWorkSource,
   type JobFlowAssignmentExceptionSource,
   type JobFlowPreventiveMaintenanceSource,
   type JobFlowWorkOrderSource,
@@ -63,7 +57,6 @@ export { aggregateAssignedOperation, operationSummaryLabel } from "./operation";
 export {
   assignmentScopeKind,
   assignedSpaceIdSet,
-  filterWorkToAssignedSpaces,
   spaceRefsFromAssignmentLocations,
 } from "./assigned-spaces";
 export {
@@ -71,15 +64,12 @@ export {
   type AdaptEmployeeRuntimeFlowToJobFlowInput,
 } from "./to-job-flow";
 export {
-  filterWorkRequirementsForOfflinePresentation,
   offlineActionForJobFlowItem,
   readOfflineJobFlowItems,
   serializeEmployeeRuntimeEvidenceContext,
   serializeEmployeeRuntimeJobFlowContext,
   serializeEmployeeRuntimeJobFlowItemContext,
-  serializeEmployeeRuntimeWorkContext,
   serializeOfflineJobFlowItem,
-  serializeOfflineWorkContextRequirements,
 } from "./serialize-offline";
 export { loadFrontlineEmployeeAssignments } from "./load-assignments";
 export { loadAssignedEmployeeSpaceRefs } from "./load-assigned-space-refs";

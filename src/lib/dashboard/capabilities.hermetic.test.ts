@@ -201,7 +201,7 @@ test("engine admission matches isDepartmentEngineEnabledForFacility for every ke
   ];
   for (const values of settings) {
     for (const key of ["DIETARY", "EVS", "ACTIVITIES"]) {
-      for (const feature of ["cycles", "workPlans", "asset"] as const) {
+      for (const feature of ["cycles", "asset"] as const) {
         const expected = await withEnv(values, () => isDepartmentEngineEnabledForFacility("fac-1", feature, key));
         assert.equal(
           withEnv(values, () => isDashboardEngineAdmitted(feature, key, false)),
@@ -212,7 +212,7 @@ test("engine admission matches isDepartmentEngineEnabledForFacility for every ke
     }
   }
   for (const plantRuntimeEnabled of [true, false]) {
-    for (const feature of ["cycles", "workPlans", "asset"] as const) {
+    for (const feature of ["cycles", "asset"] as const) {
       assert.equal(isDashboardEngineAdmitted(feature, "PLANT", plantRuntimeEnabled), plantRuntimeEnabled);
     }
   }

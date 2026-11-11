@@ -216,9 +216,6 @@ test("quick PIN canonical SPACE offline Work and actual @ci-gate", async ({}, in
     await expect(page.getByTestId("employee-runtime-experience")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("employee-runtime-experience")).toHaveAttribute("data-grain", "space");
     await expect(page.getByTestId("employee-runtime-assignment")).not.toContainText("No confirmed assignment");
-    const work = page.getByTestId("employee-runtime-work-item").filter({ hasText: fx.canonical.workLabel });
-    await expect(work).toBeVisible();
-    await work.getByRole("link").click();
     await expectCanonicalOfflinePreparation(page);
     await page.evaluate(async () => { const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready; if (!reg.active) throw Error('Service worker not active'); });
     await page.reload();
@@ -226,7 +223,7 @@ test("quick PIN canonical SPACE offline Work and actual @ci-gate", async ({}, in
     await page.reload({waitUntil:'domcontentloaded'});
     await expect(page.getByTestId('space-offline-status')).toContainText('Offline — prepared');
     const i=info.project.name==='tablet'?1:0;
-    await page.locator(`[data-testid="space-work-complete"][data-target-order="${i}"]`).click();
+    await page.getByTestId("space-assignment-complete").click();
     await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`).click();
     await expect(page.getByTestId('space-command-result')).toHaveCount(2);
     await page.reload();

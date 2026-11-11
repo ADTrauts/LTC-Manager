@@ -128,7 +128,7 @@ export function evaluateCoverageSlots(input: {
       cycleStartsAt: window?.startsAt ?? null,
       cycleEndsAt: window?.endsAt ?? null,
     });
-    const filledCount = matches.length;
+    const filledCount = new Set(matches.map(row => row.employeeId ?? row.id)).size;
     const hasCallDownRisk = matches.some((row) => row.hasCallDown === true);
     return {
       expectation,

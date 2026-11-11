@@ -41,8 +41,6 @@ import { applyTemplateAction } from "./template-actions";
 import { isCoverageTemplateEffectiveOnDate } from "@/lib/scheduling/coverage-expectations/publication";
 import { loadDepartmentVisibility } from "@/lib/department-authority/visibility";
 import { AssignmentSpaceScopePicker } from "@/components/assignments/assignment-space-scope-picker";
-import { buildLocationCoverageSummary } from "@/lib/scheduling/operational-assignments/location-coverage";
-import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import {
   createDepartmentZoneAction,
   retireDepartmentZoneAction,
@@ -152,6 +150,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
           const emp = board.employees.find((e) => e.id === a.employeeId);
           return {
             id: a.id,
+            employeeId: a.employeeId,
             unitId: a.unitId,
             unitName: a.unitName,
             roleKey: a.roleKey,
@@ -171,16 +170,6 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
     : null;
 
   const isEvsDept = deptKey === "EVS";
-  const locationCoverage =
-    isEvsDept && boardDepartmentId
-      ? await buildLocationCoverageSummary(prisma, {
-          facilityId: session.facilityId,
-          departmentId: boardDepartmentId,
-          serviceDate: facilityLocalDateToServiceDate(selectedDateIso),
-          callOffEmployeeIds: board.employees.filter((e) => e.hasCallDown).map((e) => e.id),
-        })
-      : null;
-
   const zonesForManage =
     isEvsDept && boardDepartmentId
       ? await loadZonesForDepartment(prisma, {
@@ -298,25 +287,6 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
               </span>
               <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-700">
                 Call-offs {coverage.callOffAffectedCount}
-              </span>
-            </div>
-          ) : null}
-          {locationCoverage ? (
-            <div className="mt-2 flex flex-wrap gap-2 text-xs" data-testid="evs-location-coverage-summary">
-              <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-800">
-                Locations Covered {locationCoverage.covered}
-              </span>
-              <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-900">
-                Locations At Risk {locationCoverage.atRisk}
-              </span>
-              <span className="rounded-md bg-rose-50 px-2 py-1 text-rose-800">
-                Locations Unassigned {locationCoverage.uncovered}
-              </span>
-              <span className="rounded-md bg-violet-50 px-2 py-1 text-violet-900">
-                Overlapping {locationCoverage.overlapping}
-              </span>
-              <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-700">
-                Required locations {locationCoverage.totalRequired}
               </span>
             </div>
           ) : null}

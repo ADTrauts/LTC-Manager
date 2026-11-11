@@ -2,7 +2,6 @@ import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { SupervisorWorkActionsPanel } from "@/components/department-work/supervisor-work-actions-panel";
 import { PlantRequestRoutingPanel } from "@/components/operational-requests/plant-request-routing-panel";
 import { PlantTriagePanel } from "@/components/operational-requests/plant-triage-panel";
 import { PageHeader } from "@/components/design-system";
@@ -13,32 +12,14 @@ import { resolveActiveDepartmentForShell } from "@/lib/active-department-context
 import { getSession } from "@/lib/auth";
 import {
   isAnyStaffingOperationalFeatureEnabled,
-  isDepartmentWorkPlansEnabled,
   resolveStaffingOperationalDepartment,
 } from "@/lib/department-operations";
 import { loadSupervisorOperationsViewModel } from "@/lib/dietary-job-flow";
-import { resolveWorkAuthority } from "@/lib/department-work";
 import { isPlantRuntimeEnabled } from "@/lib/department-products";
 import { listRoutesForFacility, resolvePlantOperationsAuthority } from "@/lib/operational-requests";
 import { prisma } from "@/lib/prisma";
 
-function firstParam(value: string | string[] | undefined): string | null {
-  if (Array.isArray(value)) return value[0]?.trim() || null;
-  return value?.trim() || null;
-}
-
-type OperationsPageProps = {
-  searchParams?: Promise<{
-    floor?: string | string[];
-    unit?: string | string[];
-    zone?: string | string[];
-    employee?: string | string[];
-  }>;
-};
-
-export default async function SupervisorOperationsBoardPage({
-  searchParams,
-}: OperationsPageProps) {
+export default async function SupervisorOperationsBoardPage() {
   noStore();
 
   const session = await getSession();
@@ -91,24 +72,12 @@ export default async function SupervisorOperationsBoardPage({
     );
   }
 
-  const query = searchParams ? await searchParams : undefined;
-  const filterFloor = firstParam(query?.floor);
-  const filterUnit = firstParam(query?.unit);
-  const filterZone = firstParam(query?.zone);
-  const filterEmployee = firstParam(query?.employee);
-
   let view;
   try {
     view = await loadSupervisorOperationsViewModel({
       session,
       facilityId: session.facilityId,
       departmentId: department.id,
-      filters: {
-        floor: filterFloor,
-        unit: filterUnit,
-        zone: filterZone,
-        employee: filterEmployee,
-      },
     });
   } catch (error) {
     return (
@@ -135,20 +104,6 @@ export default async function SupervisorOperationsBoardPage({
 
   const canOpenBuilder = hasAtLeastRole(session.role, "MANAGER");
   const builderHref = departmentAdminHref(department.id, "operating-rhythm");
-
-  const workPlansEnabled = isDepartmentWorkPlansEnabled(department.key);
-  const oneOffUnits = workPlansEnabled
-    ? await prisma.unit.findMany({
-        where: {
-          facilityId: session.facilityId,
-          isActive: true,
-          departmentResponsibilities: { some: { departmentId: department.id } },
-        },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-        take: 40,
-      })
-    : [];
 
   const showPlantRouting =
     department.key === "PLANT" &&
@@ -202,18 +157,9 @@ export default async function SupervisorOperationsBoardPage({
   }
 
   const plantOperations = view.overlay.plant;
-  const [plantAuthority, workAuthority] = await Promise.all([
-    plantOperations
-      ? resolvePlantOperationsAuthority(session, session.facilityId, view.identity.departmentId)
-      : null,
-    workPlansEnabled ? resolveWorkAuthority(session, session.facilityId, department.id) : null,
-  ]);
-  const showSupervisorWorkActions = Boolean(
-    workAuthority &&
-      (workAuthority.canCreateOneOff ||
-        workAuthority.canMarkNotRequired ||
-        workAuthority.canReopen),
-  );
+  const plantAuthority = plantOperations
+    ? await resolvePlantOperationsAuthority(session, session.facilityId, view.identity.departmentId)
+    : null;
 
   return (
     <SupervisorOperationsBoardView
@@ -252,13 +198,7 @@ export default async function SupervisorOperationsBoardPage({
             />
           ) : null}
 
-          {showSupervisorWorkActions ? (
-            <SupervisorWorkActionsPanel
-              facilityId={session.facilityId}
-              departmentId={department.id}
-              units={oneOffUnits}
-            />
-          ) : null}
+
         </>
       }
     />

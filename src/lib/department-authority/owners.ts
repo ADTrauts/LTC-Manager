@@ -128,12 +128,6 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
 
   departmentTeamCycle: async () => null,
 
-  workPlan: async (db, { facilityId, id }) =>
-    owned(await db.departmentWorkPlan.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
-
-  workOccurrence: async (db, { facilityId, id }) =>
-    owned(await db.departmentWorkOccurrence.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
-
   menu: async (db, { facilityId, id }) =>
     owned(await db.menu.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
 

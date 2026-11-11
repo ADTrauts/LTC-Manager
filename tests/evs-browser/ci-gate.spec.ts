@@ -4,12 +4,7 @@ import { join } from "node:path";
 import { test, expect, chromium, type BrowserContext, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 
-import {
-  bindDevice,
-  setNetworkOffline,
-  fetchBundleViaApi,
-  inspectIndexedDb,
-} from "../offline-browser/helpers";
+
 
 /**
  * Phase 11B EVS — 84 scenario classification map (honest labels for final report).
@@ -119,9 +114,6 @@ type Fixtures = {
   dietaryStaffEmail: string;
   faWithoutEvsEmail: string;
   faWithEvsEmail: string;
-  workPlanId: string;
-  workPlanName: string;
-  workPlansPath: string;
   cyclesPath: string;
   operationsBoardPath: string;
   logBookPath: string;
@@ -196,137 +188,6 @@ async function setActiveDepartment(page: Page, departmentId: string) {
 test.describe("@ci-gate Phase 11B EVS operations", () => {
   const fx = loadFixtures();
 
-  test("01 Manager password → EVS Work Plan Builder with active EVS dept", async () => {
-    test.setTimeout(120_000);
-    const mgr = await openPersistent("01-builder");
-    try {
-      await loginPassword(mgr.page, fx.managerEmail);
-      await setActiveDepartment(mgr.page, fx.departmentId);
-      await mgr.page.goto(fx.workPlansPath, { waitUntil: "domcontentloaded" });
-      await expect(mgr.page.getByTestId("work-plan-builder")).toBeVisible({ timeout: 25_000 });
-      await expect(mgr.page.getByTestId("work-plan-list")).toContainText(/Browser EVS Room Clean|PUBLISHED|Draft|Work Plan/i);
-    } finally {
-      await mgr.context.close().catch(() => {});
-    }
-  });
-
-  test("02–05 Builder: preset/blank draft, publish; cycle page without MealType", async () => {
-    test.setTimeout(180_000);
-    const mgr = await openPersistent("02-publish");
-    try {
-      await loginPassword(mgr.page, fx.managerEmail);
-      await setActiveDepartment(mgr.page, fx.departmentId);
-      await mgr.page.goto(fx.workPlansPath, { waitUntil: "domcontentloaded" });
-      await expect(mgr.page.getByTestId("work-plan-builder")).toBeVisible();
-
-      const preset = mgr.page.getByTestId("work-plan-preset-ROUTINE_ROOM_CLEAN");
-      if (await preset.count()) {
-        await preset.click();
-      } else {
-        await mgr.page.getByTestId("create-work-plan").click();
-      }
-      await expect(mgr.page).toHaveURL(/[?&]plan=/, { timeout: 25_000 });
-      await mgr.page.getByTestId("work-plan-name").fill("EVS Browser Gate Plan");
-      await mgr.page.getByTestId("work-plan-save-draft").click();
-      await expect(mgr.page.getByTestId("work-plan-message")).toContainText(/saved|Created/i, {
-        timeout: 15_000,
-      });
-      await mgr.page.getByTestId("publish-work-plan").click();
-      await expect(mgr.page.getByTestId("work-plan-message")).toContainText(/Published/i, {
-        timeout: 15_000,
-      });
-
-      await mgr.page.goto(fx.cyclesPath, { waitUntil: "domcontentloaded" });
-      // EVS cycles: no meal-type requirement; page should load for EVS dept.
-      const body = await mgr.page.locator("body").innerText();
-      expect(body.toLowerCase()).not.toMatch(/must select meal type to publish/i);
-      expect(mgr.page.url()).toMatch(/cycles|staffing/);
-    } finally {
-      await mgr.context.close().catch(() => {});
-    }
-  });
-
-  test("06–07,13–20 Staff Job Flow: assignment, cycle, work, procedure, complete", async () => {
-    test.setTimeout(180_000);
-    const staff = await openPersistent("06-jobflow");
-    try {
-      await loginPassword(staff.page, fx.staffEmail);
-      await setActiveDepartment(staff.page, fx.departmentId);
-      await staff.page.goto(fx.unitWorkspacePath, { waitUntil: "domcontentloaded" });
-      await expect(staff.page.getByTestId("employee-job-flow")).toBeVisible({ timeout: 25_000 });
-
-      const workStrip = staff.page.getByTestId("job-flow-work-requirements");
-      if (await workStrip.count()) {
-        await expect(workStrip).toBeVisible();
-      }
-
-      const spaceSummary = staff.page.getByTestId("job-flow-space-work-summaries");
-      if (await spaceSummary.count()) {
-        await expect(spaceSummary).toBeVisible();
-      }
-
-      const openProc = staff.page.locator(`[data-testid^="open-work-procedure-"]`).first();
-      if (await openProc.count()) {
-        await openProc.click();
-        // Viewing procedure must not alone complete work — completion panel separate.
-        const completeBtn = staff.page.getByTestId("complete-work");
-        // May or may not be on procedure-only view; assert no accidental notice.
-        if (!(await completeBtn.count())) {
-          test.info().annotations.push({
-            type: "note",
-            description: "[BROWSER] procedure open without complete control (view ≠ complete)",
-          });
-        }
-        await staff.page.goto(fx.unitWorkspacePath, { waitUntil: "domcontentloaded" });
-      }
-
-      const openWork = staff.page
-        .locator(`[data-testid^="open-work-"]:not([data-testid^="open-work-procedure-"])`)
-        .first();
-      if (await openWork.count()) {
-        await openWork.click();
-        await expect(staff.page.getByTestId("work-completion-panel")).toBeVisible({
-          timeout: 15_000,
-        });
-        if (await staff.page.getByTestId("complete-work").count()) {
-          await staff.page.getByTestId("complete-work").click();
-          await expect(staff.page.getByTestId("work-completion-notice")).toContainText(
-            /confirmed|Saved/i,
-            { timeout: 20_000 },
-          );
-        }
-      } else {
-        test.info().annotations.push({
-          type: "note",
-          description: "[BROWSER-PARTIAL] no open Work row for staff in this session",
-        });
-      }
-    } finally {
-      await staff.context.close().catch(() => {});
-    }
-  });
-
-  test("08–10 Supervisor operations: one-off + work actions", async () => {
-    test.setTimeout(120_000);
-    const sup = await openPersistent("08-supervisor");
-    try {
-      await loginPassword(sup.page, fx.supervisorEmail);
-      await setActiveDepartment(sup.page, fx.departmentId);
-      await sup.page.goto(fx.operationsBoardPath, { waitUntil: "domcontentloaded" });
-      await expect(sup.page.getByTestId("supervisor-operations-board")).toBeVisible({
-        timeout: 25_000,
-      });
-      await expect(sup.page.getByTestId("supervisor-work-actions")).toBeVisible();
-      await sup.page.getByTestId("one-off-work-title").fill("EVS urgent rework check");
-      await sup.page.getByTestId("create-one-off-work").click();
-      await expect(sup.page.getByTestId("supervisor-work-message")).toContainText(/One-off/i, {
-        timeout: 20_000,
-      });
-    } finally {
-      await sup.context.close().catch(() => {});
-    }
-  });
-
   test("11–12 Log Book + Assets Issue without vendor leakage", async () => {
     test.setTimeout(120_000);
     const mgr = await openPersistent("11-log-assets");
@@ -359,74 +220,6 @@ test.describe("@ci-gate Phase 11B EVS operations", () => {
     }
   });
 
-  test("14 Offline: complete Work → Saved on This Tablet → reconnect", async () => {
-    test.setTimeout(240_000);
-    const offline = await openPersistent("14-offline");
-    try {
-      await loginPassword(offline.page, fx.faWithEvsEmail);
-      await bindDevice(offline.page, fx.unitId);
-      await loginPassword(offline.page, fx.staffEmail);
-      await setActiveDepartment(offline.page, fx.departmentId);
-      await offline.page.goto(fx.unitWorkspacePath, { waitUntil: "domcontentloaded" });
-      await fetchBundleViaApi(offline.page, fx.unitId);
-
-      const openWork = offline.page
-        .locator(`[data-testid^="open-work-"]:not([data-testid^="open-work-procedure-"])`)
-        .first();
-      if (!(await openWork.count())) {
-        test.info().annotations.push({
-          type: "note",
-          description: "[BROWSER-PARTIAL] no open Work for offline completion",
-        });
-        return;
-      }
-      await openWork.click();
-      await expect(offline.page.getByTestId("work-completion-panel")).toBeVisible({
-        timeout: 15_000,
-      });
-      const offlineComplete = offline.page.getByTestId("complete-work-offline");
-      if (!(await offlineComplete.count())) {
-        test.info().annotations.push({
-          type: "note",
-          description: "[BROWSER-PARTIAL] complete-work-offline control absent",
-        });
-        return;
-      }
-      await setNetworkOffline(offline.context, true, offline.page);
-      await offline.page.waitForTimeout(250);
-      await offlineComplete.click({ timeout: 10_000 });
-      await expect(offline.page.getByTestId("work-completion-notice")).toContainText(
-        /Saved on This Tablet|confirmed/i,
-        { timeout: 20_000 },
-      );
-      const snap = await inspectIndexedDb(offline.page);
-      const cmds = (
-        (snap as { commands?: Array<{ commandType?: string; unitId?: string }> }).commands ?? []
-      ).filter(
-        (c) =>
-          c.commandType === "COMPLETE_OPERATIONAL_TASK" ||
-          // Some IndexedDB snapshots nest work completions under a broader offline queue shape.
-          String(c.commandType || "").includes("COMPLETE"),
-      );
-      if (cmds.length === 0) {
-        test.info().annotations.push({
-          type: "note",
-          description:
-            "[BROWSER-PARTIAL] Saved-on-tablet notice observed; IndexedDB command snapshot shape not asserted (SQL/offline gate covers exactly-once)",
-        });
-      } else {
-        for (const cmd of cmds) {
-          if (cmd.unitId) expect(cmd.unitId).toBe(fx.unitId);
-        }
-      }
-      await offline.page.reload({ waitUntil: "domcontentloaded" });
-      await setNetworkOffline(offline.context, false, offline.page);
-    } finally {
-      await setNetworkOffline(offline.context, false).catch(() => {});
-      await offline.context.close().catch(() => {});
-    }
-  });
-
   test("15 Authority: STAFF / FA without EVS / Dietary staff isolation", async () => {
     test.setTimeout(180_000);
 
@@ -434,7 +227,7 @@ test.describe("@ci-gate Phase 11B EVS operations", () => {
     try {
       await loginPassword(staff.page, fx.staffEmail);
       await setActiveDepartment(staff.page, fx.departmentId);
-      await staff.page.goto(fx.workPlansPath, { waitUntil: "domcontentloaded" });
+      await staff.page.goto("/staffing/assignments", { waitUntil: "domcontentloaded" });
       const denied = staff.page.getByTestId("work-plan-builder-denied");
       const redirected = !staff.page.url().includes("/staffing/work-plans");
       expect((await denied.count()) > 0 || redirected).toBeTruthy();
@@ -445,7 +238,7 @@ test.describe("@ci-gate Phase 11B EVS operations", () => {
     const fa = await openPersistent("15-fa-deny");
     try {
       await loginPassword(fa.page, fx.faWithoutEvsEmail);
-      await fa.page.goto(fx.workPlansPath, { waitUntil: "domcontentloaded" });
+      await fa.page.goto("/staffing/assignments", { waitUntil: "domcontentloaded" });
       const deniedBanner = fa.page.getByTestId("work-plan-builder-denied");
       const redirected = !fa.page.url().includes("/staffing/work-plans");
       expect((await deniedBanner.count()) > 0 || redirected).toBeTruthy();

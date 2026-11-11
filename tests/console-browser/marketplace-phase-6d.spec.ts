@@ -115,7 +115,7 @@ test.beforeAll(async () => {
     await department(decoy.id, "PHASE6D_DECOY", "Plant Operations", true);
     await department(dietary.id, "DIETARY", "Dietary", true);
     await department(food.id, "HEALTHCARE_FOOD_NUTRITION", "Food Services", true);
-    const workDepartment = await department(work.id, "PLANT", "Plant Operations", true);
+    await department(work.id, "PLANT", "Plant Operations", true);
 
     if (!(await prisma.facilityBilling.findUnique({ where: { facilityId: plantA.id } }))) {
       const billing = await prisma.facilityBilling.create({
@@ -191,29 +191,6 @@ test.beforeAll(async () => {
           emailVerifiedAt: new Date(),
         },
       });
-    }
-
-    const plans = await prisma.departmentWorkPlan.count({
-      where: { facilityId: work.id, presetKey: "MECHANICAL_ROOM_ROUND" },
-    });
-    if (plans === 0) {
-      for (const version of [
-        { version: 1, status: "DRAFT" as const, name: "Phase 6D Mechanical Draft" },
-        { version: 2, status: "PUBLISHED" as const, name: "Phase 6D Mechanical Published" },
-        { version: 3, status: "DRAFT" as const, name: "Phase 6D Mechanical Successor" },
-      ]) {
-        await prisma.departmentWorkPlan.create({
-          data: {
-            facilityId: work.id,
-            departmentId: workDepartment.id,
-            stableKey: "phase6d_mechanical_round",
-            presetKey: "MECHANICAL_ROOM_ROUND",
-            version: version.version,
-            name: version.name,
-            status: version.status,
-          },
-        });
-      }
     }
 
     if (!(await prisma.catalogLogDefinition.findUnique({ where: { stableKey_version: { stableKey: "cooler_temperature_log", version: 1 } } }))) {
@@ -314,21 +291,6 @@ test.describe("Harbor Marketplace detail", () => {
     await page.goto("/console/catalog/new");
     await expect(page.getByRole("heading", { name: "New catalog record" })).toBeVisible();
   });
-
-  test("Work preset detail lists facility plan versions", async ({ page }) => {
-    await page.goto("/console/catalog?family=work");
-    await page.locator('[data-stable-key="MECHANICAL_ROOM_ROUND"] a').click();
-    await expect(page).toHaveURL(/\/console\/catalog\/work\/MECHANICAL_ROOM_ROUND$/);
-    await expect(page.getByRole("heading", { name: "Mechanical Room Round" })).toBeVisible();
-    await expect(page.getByTestId("work-version")).toHaveText("—");
-    await expect(page.getByTestId("work-status")).toHaveText("—");
-    await expect(page.getByRole("link", { name: "Facility Plant Operations" })).toBeVisible();
-    const rows = page.locator('[data-testid="work-plan-row"][data-facility-name="Phase 6D Mechanical Facility"]');
-    await expect(rows).toHaveCount(3);
-    await expect(rows.filter({ hasText: "Phase 6D Mechanical Published" })).toContainText("PUBLISHED");
-    await expect(rows.filter({ hasText: "Phase 6D Mechanical Draft" })).toContainText("DRAFT");
-    await expect(page.getByRole("button", { name: /new work preset/i })).toHaveCount(0);
-  });
 });
 
 test("facility session cannot open Marketplace detail", async ({ page }) => {
@@ -340,7 +302,6 @@ test("facility session cannot open Marketplace detail", async ({ page }) => {
   await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30_000 });
   for (const path of [
     "/console/catalog/products/PLANT",
-    "/console/catalog/work/MECHANICAL_ROOM_ROUND",
     "/console/catalog/cooler_temperature_log",
   ]) {
     await page.goto(path);

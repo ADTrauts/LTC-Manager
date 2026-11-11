@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 import Link from "next/link";
 import { useState } from "react";
+import { EmployeeOperationalEligibility } from "@/components/employee-operational-eligibility";
 
 import type { DisciplineEntryForCard } from "@/app/(protected)/employees/employee-discipline-section";
 import {
@@ -62,6 +63,8 @@ export type EmployeeForManagementCard = {
   primaryDepartmentId: string | null;
   additionalDepartmentIds: string[];
   jobTitleId: string | null;
+  jobTitleName?: string | null;
+  operationalQualifications?: { departmentId: string; roleKey: string }[];
   teamMemberships: { teamId: string; isPrimary: boolean }[];
   jobRoleAssignments: OrganizationJobRoleAssignment[];
   unitAccesses: { unitId: string }[];
@@ -86,7 +89,7 @@ export type EmployeeForManagementCard = {
 };
 
 type UnitOption = { id: string; name: string };
-type DeptJobOption = { id: string; name: string; showInEmployeeApp?: boolean };
+type DeptJobOption = { id: string; name: string; key?: string; showInEmployeeApp?: boolean };
 type TeamOption = { id: string; displayName: string; departmentId: string };
 
 type EmployeeManagementCardProps = {
@@ -445,9 +448,7 @@ function EmployeePinSection({
 
 export function EmployeeManagementCard({
   employee,
-  units: _units,
   departments = [],
-  jobTitles: _jobTitles = [],
   teams = [],
   jobRoles = [],
   showManagerTools,
@@ -549,6 +550,17 @@ export function EmployeeManagementCard({
           ) : (
             <p className="text-sm text-zinc-600">You can view employee cards; editing requires manager access.</p>
           )}
+
+          <EmployeeOperationalEligibility
+            employeeId={employee.id}
+            departments={departments}
+            membershipDepartmentIds={[employee.primaryDepartmentId, ...employee.additionalDepartmentIds].filter((id): id is string => Boolean(id))}
+            qualifications={employee.operationalQualifications ?? []}
+            jobTitleName={employee.jobTitleName ?? null}
+            teams={teams}
+            teamMemberships={employee.teamMemberships}
+            canEdit={showManagerTools}
+          />
 
           {showPinManagement || showManagerTools ? (
             <section

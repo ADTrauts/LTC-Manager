@@ -343,15 +343,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
     notes: "Harbor Department Product detail. Read-only registry metadata and adoption.",
   },
-  {
-    pattern: "/console/catalog/work/[presetKey]",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "HARBOR_STAFF" },
-    module: "harbor-console",
-    requiresDownstreamAuthorization: true,
-    notes: "Harbor Work preset detail. Read-only preset metadata and Facility Work Plan usage.",
-  },
 
   // ── Partner Facility Dashboard (Phase 2D7) ────────────────────────────────
   {
@@ -393,16 +384,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
     notes:
       "Partner operating rhythm (CDA-08). Cycles, phases, and key points for the active Department. The cycle covers the whole Department.",
-  },
-  {
-    pattern: "/partner/work",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "PARTNER_SESSION" },
-    module: "partner-facility-session",
-    requiresDownstreamAuthorization: true,
-    notes:
-      "Partner work plans (CDA-08). A step may link an organization-owned Catalog Record.",
   },
   {
     pattern: "/partner/menus",
@@ -870,26 +851,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "build",
     featureFlag: "CANONICAL_LOGS",
-  },
-  {
-    pattern: "/staffing/work-plans",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
-    module: "staffing",
-    featureFlag: "DIETARY_WORK_PLANS",
-    // Phase 2B: generic Work Plan authoring retired. Route kept for read-only / deep-link notice.
-    notes:
-      "Retired generic Work Plan builder (Phase 2B). Existing plans remain readable for Job Flow until Phase 2C.",
-  },
-  {
-    pattern: "/staffing/work-plans/[workPlanId]",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
-    module: "staffing",
-    notes:
-      "Retired Work Plan detail (Phase 2B). Compatibility read path only.",
   },
   {
     pattern: "/staffing/log-book",

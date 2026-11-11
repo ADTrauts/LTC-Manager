@@ -11,6 +11,8 @@ import { commandSchema } from "@/lib/offline/space/contract";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { transitionAssignment } from "./lifecycle";
 import { prisma as applicationDb } from "@/lib/prisma";
+import { loadFrontlineEmployeeAssignments } from "@/lib/employee-runtime-flow/load-assignments";
+import { loadAssignedEmployeeSpaceRefs } from "@/lib/employee-runtime-flow/load-assigned-space-refs";
 
 const url = process.env.VERIFY_DATABASE_URL;
 if (url) assertDisposableDatabaseUrl(url);
@@ -185,4 +187,36 @@ test("Assignment: the application Prisma proxy enters the transaction and commit
   assert.equal(await db.operationalAssignmentEvent.count({ where: { assignmentId: f.assignment.id, eventType: "COMPLETED" } }), 1);
   assert.equal(await db.notificationOutbox.count({ where: { id: { in: result.outboxIds } } }), result.outboxIds.length);
   assert(result.outboxIds.length > 0);
+}));
+
+test("Assignment offline: closed plans and multi-Neighborhood completion do not authorize an action", { skip }, () => run(async db => {
+  const f = await fixture(db);
+  await db.operationalAssignmentPlan.update({ where: { id: f.plan.id }, data: { status: "CLOSED" } });
+  await assert.rejects(f.prepare(), /plan is closed/);
+  await db.operationalAssignmentPlan.update({ where: { id: f.plan.id }, data: { status: "REOPENED" } });
+  const otherUnit = await db.unit.create({ data: { facilityId: f.facility.id, name: "Other Neighborhood", unitType: "OTHER", hierarchyRole: "NEIGHBORHOOD" } });
+  const otherSpace = await db.unitSpace.create({ data: { facilityId: f.facility.id, unitId: otherUnit.id, name: "Other assigned Space", spaceType: "OTHER", responsibilities: { create: { departmentId: f.department.id } } } });
+  await db.operationalAssignmentLocation.create({ data: { assignmentId: f.assignment.id, unitSpaceId: otherSpace.id, unitId: otherUnit.id } });
+  const p = await f.prepare(), target = p.bundle.targets.find(row => row.kind === "ASSIGNMENT")!;
+  assert.equal(target.available, false); assert.match(target.unavailableReason!, /outside this device/);
+  assert.equal((await syncSpace(db, f.worker.session, [f.command(p.bundle)], f.device))[0].status, "blocked");
+  assert.equal((await db.operationalAssignment.findUniqueOrThrow({ where: { id: f.assignment.id } })).status, "ACTIVE");
+  assert.equal(await db.operationalAssignmentEvent.count({ where: { assignmentId: f.assignment.id } }), 0);
+}));
+
+test("Assignment room projection: Unit-wide scope remains inside active Department responsibility", { skip }, () => run(async db => {
+  const f = await fixture(db);
+  const evs = await db.department.create({ data: { facilityId: f.facility.id, key: "EVS", name: "Other Department" } });
+  await db.unitSpace.create({ data: { facilityId: f.facility.id, unitId: f.unit.id, name: "Other Department Space", spaceType: "OTHER", responsibilities: { create: { departmentId: evs.id } } } });
+  await db.unitSpace.create({ data: { facilityId: f.facility.id, unitId: f.unit.id, name: "Unassigned Space", spaceType: "OTHER" } });
+  await db.operationalAssignmentLocation.deleteMany({ where: { assignmentId: f.assignment.id } });
+  await db.operationalAssignment.update({ where: { id: f.assignment.id }, data: { unitId: f.unit.id } });
+  const loaded = await loadFrontlineEmployeeAssignments({ client: db, employeeId: f.worker.employee.id, facilityId: f.facility.id,
+    departmentId: f.department.id, serviceDate: f.plan.serviceDate, now: new Date() });
+  const input = { client: db, session: f.worker.session, facilityId: f.facility.id, departmentId: f.department.id,
+    assignment: loaded.current, locations: [] };
+  assert.deepEqual((await loadAssignedEmployeeSpaceRefs(input)).map(row => row.spaceId), [f.space.id]);
+  await db.unitSpaceResponsibility.deleteMany({ where: { spaceId: f.space.id, departmentId: f.department.id } });
+  assert.deepEqual(await loadAssignedEmployeeSpaceRefs(input), []);
+  assert.deepEqual(await loadAssignedEmployeeSpaceRefs({ ...input, session: { ...f.worker.session, facilityId: "foreign" } }), []);
 }));

@@ -62,7 +62,6 @@ function fakeSources(options: { canTriage?: boolean; view?: boolean } = {}) {
     }) as unknown,
     loadDepartmentRunPresentation: record("loadDepartmentRunPresentation", { presentation: true }),
     loadGmCycleSummary: record("loadGmCycleSummary", null),
-    loadTodaysExpectedWork: record("loadTodaysExpectedWork", { expected: true }),
     loadSupervisorDailyCoverage: record("loadSupervisorDailyCoverage", {}),
     loadPresenceCallOffs: record("loadPresenceCallOffs", { items: [], summary: { total: 0, open: 0, covered: 0 }, dateIso: "2026-10-20" }),
     loadSupervisorAssetExceptions: record("loadSupervisorAssetExceptions", []),
@@ -90,20 +89,14 @@ test("scope Departments: Facility covers all, Department and Team cover one, no 
   assert.deepEqual(scopeDepartmentIdsFor(viewer({ kind: "DEPARTMENT", departmentId: "dept-forged" })), []);
 });
 
-test("memo: each fact loads once per pack, and expected work reuses the run presentation", async () => {
+test("memo: each fact loads once per pack", async () => {
   const fake = fakeSources();
   const pack = createDashboardFactPack(viewer({ kind: "DEPARTMENT", departmentId: FN.id }), fake.sources);
   assert.equal(pack.now, NOW);
-  await Promise.all([pack.runPresentation(FN.id), pack.runPresentation(FN.id), pack.expectedWork(FN.id)]);
-  await pack.expectedWork(FN.id);
+  await Promise.all([pack.runPresentation(FN.id), pack.runPresentation(FN.id)]);
   await Promise.all([pack.runtimeLocations(), pack.runtimeLocations()]);
   assert.equal(fake.count("loadDepartmentRunPresentation"), 1);
-  assert.equal(fake.count("loadTodaysExpectedWork"), 1);
   assert.equal(fake.count("loadLocationsView"), 1);
-  assert.deepEqual(
-    (fake.argsOf("loadTodaysExpectedWork")![0] as { runPresentation: unknown }).runPresentation,
-    { presentation: true },
-  );
 
   const second = createDashboardFactPack(viewer({ kind: "DEPARTMENT", departmentId: FN.id }), fake.sources);
   await second.runPresentation(FN.id);

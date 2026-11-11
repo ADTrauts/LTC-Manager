@@ -57,8 +57,8 @@ test("product-mode — configuration surfaces resolve to BUILD", () => {
     "/menus/menu-1",
     "/build/logs",
     "/staffing/templates",
-    "/staffing/work-plans",
-    "/staffing/work-plans/wp-1",
+    "/staffing/templates",
+    "/staffing/templates/template-1",
   ]) {
     assert.equal(resolveProductModeForPath(path), "BUILD", path);
   }
@@ -82,7 +82,7 @@ test("product-mode — governance surfaces resolve to ADMIN", () => {
 test("product-mode — longest-prefix wins so BUILD tools override the RUN /staffing default", () => {
   assert.equal(resolveProductModeForPath("/staffing"), "RUN");
   assert.equal(resolveProductModeForPath("/staffing/templates"), "BUILD");
-  assert.equal(resolveProductModeForPath("/staffing/work-plans"), "BUILD");
+  assert.equal(resolveProductModeForPath("/staffing/templates"), "BUILD");
   // and BUILD tools override the ADMIN /admin default
   assert.equal(resolveProductModeForPath("/admin"), "ADMIN");
   assert.equal(resolveProductModeForPath("/admin/facility/builder"), "BUILD");
