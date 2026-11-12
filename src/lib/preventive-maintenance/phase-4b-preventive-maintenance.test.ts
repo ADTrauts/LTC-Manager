@@ -966,11 +966,26 @@ test(
         procedureVersionId: nyKit.procedure.id,
         templateId: nyKit.template.id,
       });
+      // The cron scans all published PM plans. Limit facility discovery to
+      // these fixtures so it cannot generate work for concurrent SQL suites.
+      const cronFacilityIds = [fx.facility.id, nz.facility.id, nyZone.facility.id];
+      const cronClient = prisma.$extends({
+        query: {
+          facility: {
+            findMany({ args, query }) {
+              return query({
+                ...args,
+                where: { AND: [args.where ?? {}, { id: { in: cronFacilityIds } }] },
+              });
+            },
+          },
+        },
+      }) as unknown as PrismaClient;
       const prevSecretInner = process.env.CRON_SECRET;
       delete process.env.CRON_SECRET;
       const unconfigured = await handlePlantPmCron(
         new Request("https://vssyl.com/api/internal/plant/preventive-maintenance"),
-        prisma,
+        cronClient,
         zoneNow,
       );
       assert.equal(unconfigured.status, 503);
@@ -979,7 +994,7 @@ test(
         new Request("https://vssyl.com/api/internal/plant/preventive-maintenance", {
           headers: { authorization: "Bearer wrong" },
         }),
-        prisma,
+        cronClient,
         zoneNow,
       );
       assert.equal(unauthorized.status, 401);
@@ -987,7 +1002,7 @@ test(
         new Request("https://vssyl.com/api/internal/plant/preventive-maintenance", {
           headers: { authorization: "Bearer phase4b-cron-secret" },
         }),
-        prisma,
+        cronClient,
         zoneNow,
       );
       assert.equal(authorized.status, 200);
@@ -997,7 +1012,7 @@ test(
         configurationErrors: unknown[];
       };
       assert.equal(body.ok, true);
-      assert.ok(body.facilitiesProcessed >= 1);
+      assert.equal(body.facilitiesProcessed, cronFacilityIds.length);
       const nzOcc = await prisma.preventiveMaintenanceOccurrence.findMany({
         where: { plan: { facilityId: nz.facility.id } },
       });
@@ -1009,8 +1024,8 @@ test(
       if (prevSecretInner === undefined) process.env.CRON_SECRET = "phase4b-cron-secret";
       else process.env.CRON_SECRET = prevSecretInner;
 
-      const batch = await runPmGeneration(prisma, { now: catchUpNow });
-      assert.ok(batch.facilitiesProcessed >= 1);
+      const batch = await runPmGeneration(cronClient, { now: catchUpNow });
+      assert.equal(batch.facilitiesProcessed, cronFacilityIds.length);
       assert.ok(Array.isArray(batch.configurationErrors));
     } finally {
       if (prevPlant === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;

@@ -72,10 +72,13 @@ test("board load @ci-gate: supervisor opens Assignment Board with scale roster",
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText(/40 scheduled employees/)).toBeVisible();
+    const roster = page.locator("article").filter({ has: page.getByRole("heading", { name: "By Employee" }) });
+    await expect(roster.getByText(/^Scale\d{3} Dietary$/)).toHaveCount(39);
+    await expect(roster.getByText("Assign StaffEmp", { exact: true })).toBeVisible();
+    await expect(roster.getByText("Scale040 Dietary", { exact: true })).toHaveCount(0);
     await expect(page.getByText(/Plan:/)).toHaveCount(0);
     await expect(page.getByTestId("assignment-by-unit")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /By Employee/i })).toBeVisible();
+    await expect(roster).toBeVisible();
   } finally {
     await context.close();
   }
