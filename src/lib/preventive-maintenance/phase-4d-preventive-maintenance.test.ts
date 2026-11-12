@@ -417,7 +417,8 @@ test(
         facilityId: fx.facility.id,
         now: catchUpNow,
       });
-      assert.equal(replacement.workOrdersCreated, 1);
+      assert.deepEqual(replacement.configurationErrors, [], "replacement generation must have no configuration or SQL errors");
+      assert.equal(replacement.workOrdersCreated, 1, JSON.stringify(replacement));
       const janHistory = await prisma.repair.findMany({
         where: { pmOccurrenceId: jan.id },
         orderBy: { createdAt: "asc" },

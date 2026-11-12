@@ -11,6 +11,7 @@ import { PrismaClient } from "@prisma/client";
 import { SupportTicketError } from "./errors";
 import { generateSupportReplyToken } from "./identifiers";
 import { sendSupportReply, type SupportReplyEmail } from "./reply";
+import { formatSupportTicketNumber, parseSupportTicketNumberQuery } from "./ticket-number";
 import {
   addSupportTicketNote,
   changeSupportTicketStatus,
@@ -36,6 +37,37 @@ async function rejectsWith(promise: Promise<unknown>, code: string) {
     return true;
   });
 }
+
+test("canonical migrations allocate unique, searchable Support Ticket numbers concurrently", { skip: skipReason }, async () => {
+  assert.ok(databaseUrl);
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+  const tag = suffix();
+  const emails = Array.from({ length: 4 }, (_, index) => `number-${tag}-${index}@example.invalid`);
+  const staff = await prisma.platformStaff.create({
+    data: { email: `number-${tag}@vssyl.test`, displayName: "Numbering test", passwordHash: "x" },
+  });
+  try {
+    const results = await Promise.allSettled(emails.map((requesterEmail) =>
+      createSupportTicket(prisma, { actorStaffId: staff.id, requesterEmail, subject: "Concurrent ticket" }),
+    ));
+    const numbers = results.map((result) => {
+      assert.equal(result.status, "fulfilled");
+      const { number } = result.value;
+      assert.ok(number >= 1001);
+      assert.equal(parseSupportTicketNumberQuery(formatSupportTicketNumber(number)), number);
+      assert.equal(parseSupportTicketNumberQuery(String(number)), number);
+      return number;
+    });
+    assert.equal(new Set(numbers).size, emails.length);
+  } finally {
+    const where = { contact: { email: { in: emails } } };
+    await prisma.supportTicketEvent.deleteMany({ where: { ticket: where } });
+    await prisma.supportTicket.deleteMany({ where });
+    await prisma.supportContact.deleteMany({ where: { email: { in: emails } } });
+    await cleanupSyntheticSupportStaff(prisma, [staff.id]);
+    await prisma.$disconnect();
+  }
+});
 
 test(
   "support tickets: create, note, status, details, replies, idempotency, constraints",

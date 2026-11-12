@@ -330,10 +330,11 @@ export async function changeOrganizationRole(
     revokeSessions?: boolean;
   },
 ): Promise<OrganizationMembershipView> {
-  const at = input.at ?? new Date();
-
-  await runInTransaction(db, async (tx) => {
+  const at = await runInTransaction(db, async (tx) => {
     await lockOrganizationForAdminMutation(tx, input.organizationId);
+    // Serialize implicit effective times with the mutations. A role change
+    // waiting behind an end must not act on an earlier, historical period.
+    const at = input.at ?? new Date();
     const row = await loadMembershipRow(tx, {
       userId: input.userId,
       organizationId: input.organizationId,
@@ -349,7 +350,7 @@ export async function changeOrganizationRole(
       );
     }
     if (current.role === input.role) {
-      return;
+      return at;
     }
 
     if (current.role === "ORG_ADMIN" && input.role !== "ORG_ADMIN") {
@@ -376,6 +377,7 @@ export async function changeOrganizationRole(
         createdByUserId: input.actorUserId ?? null,
       },
     });
+    return at;
   });
 
   await trackEvent("organization_member.role_changed", {
@@ -412,10 +414,9 @@ export async function endOrganizationMembership(
     revokeSessions?: boolean;
   },
 ): Promise<OrganizationMembershipView> {
-  const endsAt = input.endsAt ?? new Date();
-
-  await runInTransaction(db, async (tx) => {
+  const endsAt = await runInTransaction(db, async (tx) => {
     await lockOrganizationForAdminMutation(tx, input.organizationId);
+    const endsAt = input.endsAt ?? new Date();
     const row = await loadMembershipRow(tx, {
       userId: input.userId,
       organizationId: input.organizationId,
@@ -455,6 +456,7 @@ export async function endOrganizationMembership(
       where: { id: stillCurrent.id },
       data: { endsAt, endedByUserId: input.actorUserId ?? null },
     });
+    return endsAt;
   });
 
   await trackEvent("organization_member.ended", {

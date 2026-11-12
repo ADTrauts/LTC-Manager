@@ -1,4 +1,7 @@
+import { operationPeriodWhere, withOperatorPeriod } from "@/lib/department-authority/operator-period";
 import type { OperationalDepartmentKey } from "@/lib/department-nav";
+import { employeeBelongsToDepartmentWhere } from "@/lib/employee-membership";
+import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
 import { parseCallDownReason } from "@/lib/scheduling/call-down";
 import { prisma } from "@/lib/prisma";
 
@@ -27,20 +30,28 @@ export async function loadDailyAssignmentBoard(
   input: LoadDailyAssignmentBoardInput,
 ): Promise<DailyAssignmentBoardData> {
   const { facilityId, serviceDate, departmentId } = input;
-  const dateStart = new Date(`${serviceDate}T00:00:00`);
-  const dateEnd = new Date(`${serviceDate}T23:59:59.999`);
+  const dateStart = facilityLocalDateToServiceDate(serviceDate);
+  const dateEnd = new Date(dateStart);
+  dateEnd.setUTCDate(dateEnd.getUTCDate() + 1);
+  const operatorPeriod = departmentId
+    ? await operationPeriodWhere(prisma, { facilityId, departmentId })
+    : {};
 
   const deptFilter = departmentId ? { departmentId } : {};
 
   const [scheduleEntries, assignments, units] = await Promise.all([
     prisma.scheduleEntry.findMany({
-      where: {
-        date: { gte: dateStart, lte: dateEnd },
-        unit: { facilityId },
-        ...(departmentId
-          ? { employee: { employeeDepartments: { some: { departmentId } } } }
-          : {}),
-      },
+      where: withOperatorPeriod({
+        date: { gte: dateStart, lt: dateEnd },
+        employee: { facilityId },
+        ...(departmentId ? {
+          OR: [
+            { departmentId },
+            // Legacy Shifts can lack explicit Department ownership.
+            { departmentId: null, employee: employeeBelongsToDepartmentWhere(departmentId) },
+          ],
+        } : {}),
+      }, operatorPeriod),
       select: {
         id: true,
         employeeId: true,

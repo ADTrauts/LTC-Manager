@@ -1,10 +1,12 @@
 import { expectCanonicalOfflinePreparation, prepareCanonicalResponsibility } from "../offline-browser/canonical-journey";
 import type { CanonicalOfflineFixture } from "../offline-browser/canonical-journey";
+import { setNetworkOffline, waitForServiceWorkerControl } from "../offline-browser/helpers";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { test, expect, chromium, type BrowserContext, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { boardHref, createAndConfirmAssignment, roomHref } from "../assignment-browser/canonical-board";
 
 type Fixtures = {
   canonical: CanonicalOfflineFixture;
@@ -12,6 +14,7 @@ type Fixtures = {
   departmentId: string;
   serviceDateKey: string;
   serveryUnitId: string;
+  assignmentRoom: { id: string; unitId: string; name: string };
   supervisorEmail: string;
   gmEmail: string;
   staffEmail: string;
@@ -86,14 +89,14 @@ test("call-off and coverage @ci-gate: board shows call-offs and coverage summary
   const { context, page } = await openPersistent("calloff");
   try {
     await loginPassword(page, fx.supervisorEmail);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+    await page.goto(boardHref(fx), {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
       timeout: 25_000,
     });
-    await expect(page.getByText(/Call-offs/i).first()).toBeVisible();
-    await expect(page.getByText(/Plan:\s*(DRAFT|CONFIRMED|REOPENED|CLOSED)/i).first()).toBeVisible();
+    await expect(page.getByText(`Call-offs ${fx.callOffCount}`, { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Uncovered \d+$/)).toBeVisible();
     expect(fx.callOffCount).toBeGreaterThanOrEqual(7);
     expect(fx.serveryCount).toBeGreaterThanOrEqual(17);
   } finally {
@@ -101,58 +104,24 @@ test("call-off and coverage @ci-gate: board shows call-offs and coverage summary
   }
 });
 
-test("assignment create confirm employee @ci-gate: plan confirmation publishes Assignment", async () => {
+test("assignment create confirm employee @ci-gate: confirmed Room Assignment is visible to the employee", async () => {
   const fx = loadFixtures();
-  const fixtureDb = new PrismaClient({ datasources: { db: { url: process.env.VERIFY_DATABASE_URL } } });
-  try {
-    await fixtureDb.operationalAssignmentPlan.updateMany({ where: { facilityId: fx.facilityId, departmentId: fx.departmentId, serviceDate: new Date(`${fx.serviceDateKey}T00:00:00Z`) }, data: { status: "DRAFT", confirmedAt: null } });
-    await fixtureDb.operationalAssignment.deleteMany({ where: { facilityId: fx.facilityId, employeeId: fx.staffEmployeeId, serviceDate: new Date(`${fx.serviceDateKey}T00:00:00Z`) } });
-  } finally { await fixtureDb.$disconnect(); }
+  const db = new PrismaClient({ datasources: { db: { url: process.env.VERIFY_DATABASE_URL } } });
   const { context, page } = await openPersistent("assign");
   try {
     await loginPassword(page, fx.supervisorEmail);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await expect(page.getByRole("heading", { name: /Create Assignment/i })).toBeVisible({
-      timeout: 20_000,
-    });
+    await createAndConfirmAssignment(page, db, fx);
 
-    const createForm = page.locator("form").filter({ hasText: "Create Assignment" });
-    await createForm.locator('select[name="employeeId"]').selectOption({ value: fx.staffEmployeeId });
-    await createForm.locator('select[name="roleKey"]').selectOption({ index: 1 });
-    await createForm.locator('select[name="unitId"]').selectOption({ value: fx.serveryUnitId });
-    await createForm.locator('input[name="startsAt"]').fill("");
-    await createForm.locator('input[name="endsAt"]').fill("");
-    await createForm.getByRole("button", { name: /Create Assignment/i }).click();
-    await page.waitForTimeout(2000);
-
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
-      waitUntil: "domcontentloaded",
-    });
-    const confirm = page.locator("form").filter({ hasText: /Confirm plan/i });
-    await expect(confirm.getByRole("button", { name: /Confirm plan/i })).toBeVisible();
-    {
-      const ack = confirm.locator('input[name="acknowledgeCoverageGaps"]');
-      if (await ack.count()) await ack.check();
-      await confirm.getByRole("button", { name: /Confirm plan/i }).click();
-      await page.waitForTimeout(2000);
-    }
-
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await expect(page.getByText(/Plan:\s*CONFIRMED/i)).toBeVisible({ timeout: 15_000 });
-
-    // Employee sees confirmed Assignment.
     await context.clearCookies();
     await loginPassword(page, fx.staffEmail);
-    await page.goto(`/unit/${fx.serveryUnitId}`, { waitUntil: "domcontentloaded" });
+    await page.goto(roomHref(fx), { waitUntil: "domcontentloaded" });
     const panel = page.getByTestId("employee-runtime-assignment");
-    await expect(panel).toBeVisible({ timeout: 20_000 });
-    await expect(panel).not.toContainText(/No confirmed assignment/i);
+    await expect(panel).toContainText("Server");
+    await expect(panel).not.toContainText("No confirmed assignment");
+    await expect(page.getByTestId("employee-runtime-experience")).toHaveAttribute("data-grain", "space");
   } finally {
     await context.close();
+    await db.$disconnect();
   }
 });
 
@@ -161,7 +130,7 @@ test("gm staffing and timing @ci-gate: coverage page and unit milestones", async
   const { context, page } = await openPersistent("gm");
   try {
     await loginPassword(page, fx.gmEmail);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+    await page.goto(boardHref(fx), {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
@@ -175,11 +144,12 @@ test("gm staffing and timing @ci-gate: coverage page and unit milestones", async
   }
 });
 
-test("quick PIN canonical SPACE offline Work and actual @ci-gate", async ({}, info) => {
+test("quick PIN canonical Space Assignment and Key Time actual @ci-gate", async ({}, info) => {
   const fx = loadFixtures();
   const staffPin = process.env.CANONICAL_STAFF_PIN;
   expect(staffPin, "CANONICAL_STAFF_PIN required").toBeTruthy();
 
+  const db = new PrismaClient({ datasources: { db: { url: process.env.VERIFY_DATABASE_URL } } });
   const { context, page } = await openPersistent("pin-offline");
   try {
     await prepareCanonicalResponsibility(page, fx.canonical, fx.serviceDateKey);
@@ -205,11 +175,11 @@ test("quick PIN canonical SPACE offline Work and actual @ci-gate", async ({}, in
         credentials: "same-origin",
         body: JSON.stringify({ pin }),
       });
-      return { ok: res.ok, status: res.status, body: await res.text() };
+      return { ok: res.ok, status: res.status };
     }, staffPin);
     expect(
       pinResult.ok,
-      `pin-login failed status=${pinResult.status} body=${pinResult.body.slice(0, 120)}`,
+      `pin-login failed status=${pinResult.status}`,
     ).toBeTruthy();
 
     await page.goto(`/unit/${fx.canonical.unitId}?space=${fx.canonical.spaceId}`, { waitUntil: "domcontentloaded" });
@@ -217,24 +187,98 @@ test("quick PIN canonical SPACE offline Work and actual @ci-gate", async ({}, in
     await expect(page.getByTestId("employee-runtime-experience")).toHaveAttribute("data-grain", "space");
     await expect(page.getByTestId("employee-runtime-assignment")).not.toContainText("No confirmed assignment");
     await expectCanonicalOfflinePreparation(page);
-    await page.evaluate(async () => { const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready; if (!reg.active) throw Error('Service worker not active'); });
-    await page.reload();
-    await context.setOffline(true);
-    await page.reload({waitUntil:'domcontentloaded'});
+    await waitForServiceWorkerControl(page);
+    await setNetworkOffline(context, true, page);
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByTestId('space-offline-status')).toContainText('Offline — prepared');
-    const i=info.project.name==='tablet'?1:0;
-    await page.getByTestId("space-assignment-complete").click();
+    const i = info.project.name === "tablet" ? 1 : 0;
+    // An actual needs current responsibility. Completing the Assignment first
+    // would revoke that authority before the new actual is applied.
     await page.locator(`[data-testid="space-key-time-actual"][data-target-order="${i}"]`).click();
-    await expect(page.getByTestId('space-command-result')).toHaveCount(2);
-    await page.reload();
-    await expect(page.getByTestId('space-command-result')).toHaveCount(2);
-    await expect(page.getByTestId('space-online-only')).toContainText('unavailable offline');
-    await context.setOffline(false);
-    await page.getByTestId('space-offline-sync').click();
-    await expect(page.getByTestId('space-command-result').filter({hasText:'committed'})).toHaveCount(2);
+    await page.getByTestId("space-assignment-complete").click();
+    await expect(page.getByTestId("space-command-result")).toHaveCount(2);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("space-command-result").filter({ hasText: "pending" })).toHaveCount(2);
+    await expect(page.getByTestId("space-online-only")).toContainText("unavailable offline");
+    const queued = await page.evaluate(async () => {
+      const store = await import(/* webpackIgnore: true */ String("/space-offline-store.js"));
+      const id = store.activeId();
+      const row = (await store.envelopes()).find((entry: { id: string }) => entry.id === id);
+      const { bundle, commands } = await store.read(row);
+      return { id, scope: bundle.scope, commands } as {
+        id: string;
+        scope: { unitId: string; spaceId: string };
+        commands: Array<{ id: string; kind: string; target: string; status: string }>;
+      };
+    });
+    expect(queued.scope).toMatchObject({ unitId: fx.canonical.unitId, spaceId: fx.canonical.spaceId });
+    expect(queued.commands.map(c => [c.kind, c.status])).toEqual([
+      ["KEY_TIME_ACTUAL", "pending"], ["ASSIGNMENT", "pending"],
+    ]);
+    const where = { issuanceId: queued.id };
+    expect(await db.offlineSyncReceipt.count({ where })).toBe(0);
+    const completed = queued.commands[1]!;
+    const completionWhere = { assignmentId: completed.target, eventType: "COMPLETED" };
+    const before = await db.operationalAssignmentEvent.count({ where: completionWhere });
 
+    await setNetworkOffline(context, false, page);
+    const synced = page.waitForResponse(r =>
+      r.url().endsWith("/api/offline/runtime-sync") &&
+      r.request().method() === "POST" && r.request().postDataJSON()?.action === "sync",
+    );
+    await page.getByTestId("space-offline-sync").click();
+    const syncResponse = await synced;
+    expect(syncResponse.ok()).toBe(true);
+    const { outcomes } = await syncResponse.json();
+    expect(outcomes.map((outcome: { id: string; status: string }) => [outcome.id, outcome.status]))
+      .toEqual(queued.commands.map(c => [c.id, "committed"]));
+    await expect(page.getByTestId("space-command-result").filter({ hasText: "committed" })).toHaveCount(2);
+
+    const receipts = await db.offlineSyncReceipt.findMany({ where, orderBy: { id: "asc" } });
+    expect(receipts).toHaveLength(2);
+    for (const command of queued.commands) {
+      const receipt = receipts.find(r => r.clientCommandId === command.id);
+      const outcome = outcomes.find((entry: { id: string }) => entry.id === command.id);
+      expect(receipt).toMatchObject({
+        commandType: `space/1:${command.kind}`,
+        actorEmployeeId: fx.canonical.people.worker.employeeId,
+        deviceBoundUnitId: fx.canonical.unitId,
+        resultCategory: "ACCEPTED",
+        authoritativeRecordId: outcome.recordId,
+        outcome,
+      });
+      expect(receipt?.intentDigest).toBeTruthy();
+    }
+    expect(outcomes[1].recordId).toBe(completed.target);
+    const actual = await db.operationalCycleKeyPointActual.findUniqueOrThrow({ where: { id: outcomes[0].recordId } });
+    const target = await db.operationalCycleKeyTimeDayExpectation.findUniqueOrThrow({ where: { id: queued.commands[0]!.target } });
+    expect(actual).toMatchObject({ cycleId: target.cycleId, spaceId: fx.canonical.spaceId, serviceDate: target.serviceDate });
+    const actualWhere = { cycleId: target.cycleId, spaceId: target.spaceId, serviceDate: target.serviceDate };
+    expect(await db.operationalCycleKeyPointActual.count({ where: actualWhere })).toBe(1);
+    expect(await db.operationalAssignmentEvent.count({ where: completionWhere })).toBe(before + 1);
+
+    const replay = await page.evaluate(async (body) => {
+      const response = await fetch("/api/offline/runtime-sync", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body),
+      });
+      return { status: response.status, body: await response.json() };
+    }, syncResponse.request().postDataJSON());
+    expect(replay).toEqual({ status: 200, body: { outcomes } });
+    expect(await db.offlineSyncReceipt.findMany({ where, orderBy: { id: "asc" } })).toEqual(receipts);
+    expect(await db.operationalCycleKeyPointActual.count({ where: actualWhere })).toBe(1);
+    expect(await db.operationalAssignmentEvent.count({ where: completionWhere })).toBe(before + 1);
+
+    await page.goto(boardHref({ departmentId: fx.canonical.departmentId, serviceDateKey: fx.serviceDateKey }), {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByRole("heading", { name: "Daily Assignment Board" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Create Assignment", exact: true })).toHaveCount(0);
   } finally {
     await context.close();
+    await db.$disconnect();
   }
 });
 
@@ -306,7 +350,7 @@ test("overlap and role boundary @ci-gate: write-time overlap + STAFF denied boar
   const { context, page } = await openPersistent("staff-deny");
   try {
     await loginPassword(page, fx.staffEmail);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+    await page.goto(boardHref(fx), {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toHaveCount(0);

@@ -12,6 +12,8 @@ import { activateFixtureAccount, linkFixtureAccount } from "./fixture-account.mj
 import { PrismaClient } from "@prisma/client";
 
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
+import { prepareAssignmentBoardRoom } from "./assignment-board-fixture.mjs";
+import { tsImport } from "tsx/esm/api";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const FIXTURE_PATH =
@@ -119,6 +121,10 @@ async function main() {
       where: { facilityId: facility.id, key: "DIETARY", isActive: true },
       select: { id: true },
     });
+    const plant = await db.department.findFirstOrThrow({
+      where: { facilityId: facility.id, key: "PLANT", isActive: true },
+      select: { id: true },
+    });
     const servery = await db.unit.findFirstOrThrow({
       where: {
         facilityId: facility.id,
@@ -199,12 +205,14 @@ async function main() {
       scaleIds.push(emp.id);
     }
 
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, "0");
-    const d = String(today.getDate()).padStart(2, "0");
-    const serviceDateKey = `${y}-${m}-${d}`;
+    const { getFacilityServiceDate, toServiceDateKey } = await tsImport(
+      "../../src/lib/operational-time/index.ts", import.meta.url,
+    );
+    const serviceDateKey = toServiceDateKey(getFacilityServiceDate(facility.timezone));
     const serviceDate = serviceDateUtc(serviceDateKey);
+    const room = await prepareAssignmentBoardRoom(db, {
+      facilityId: facility.id, departmentId: dietary.id, employeeId: staffEmployee.id, tag: "Assignment",
+    });
 
     const scheduledIds = [staffEmployee.id, ...scaleIds.slice(0, 39)];
     for (const employeeId of scheduledIds) {
@@ -218,8 +226,7 @@ async function main() {
             employeeId,
             date: serviceDate,
             shift: "FULL_DAY",
-            roleType: "STAFF",
-            unitId: servery.id,
+            departmentId: dietary.id,
             plannedStart: "06:00",
             plannedEnd: "14:00",
           },
@@ -270,8 +277,10 @@ async function main() {
           facilityId: facility.id,
           facilityName: facility.displayName,
           departmentId: dietary.id,
+          plantDepartmentId: plant.id,
           unitId: servery.id,
           unitName: servery.name,
+          assignmentRoom: room,
           serviceDateKey,
           supervisorEmail: supervisor.email,
           staffEmail: staff.email,

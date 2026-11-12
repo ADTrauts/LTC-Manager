@@ -399,21 +399,53 @@ test(
         userId: janeId,
         partnerRole: "PARTNER_VIEWER",
       });
-      await Promise.allSettled([
-        changeOrganizationRole(prisma, {
-          userId: janeId,
-          organizationId: metzId,
-          role: "ORG_ADMIN",
-          actorUserId: adminId,
-          revokeSessions: false,
-        }),
-        endOrganizationMembership(prisma, {
-          userId: janeId,
-          organizationId: metzId,
-          actorUserId: adminId,
-          revokeSessions: false,
-        }),
-      ]);
+      // Hold the Organization lock for the end, then start the role change
+      // and observe it waiting in PostgreSQL. Its request time precedes the
+      // end, but its effective time must follow the serialized mutation.
+      let roleChange: Promise<PromiseSettledResult<unknown>> | undefined;
+      try {
+        await prisma.$transaction(async (ending) => {
+          await ending.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${metzId} FOR UPDATE`;
+          let waitingPid: number | undefined;
+          const change = prisma.$transaction(async (changing) => {
+            const [{ pid }] = await changing.$queryRaw<Array<{ pid: number }>>`SELECT pg_backend_pid() AS pid`;
+            waitingPid = pid;
+            return changeOrganizationRole(changing, {
+              userId: janeId,
+              organizationId: metzId,
+              role: "ORG_ADMIN",
+              actorUserId: adminId,
+              revokeSessions: false,
+            });
+          }, { timeout: 15_000 });
+          roleChange = change.then(
+            value => ({ status: "fulfilled", value }),
+            reason => ({ status: "rejected", reason }),
+          );
+          await waitFor(async () => {
+            if (!waitingPid) return false;
+            const rows = await ending.$queryRaw<Array<{ blocked: boolean }>>`
+              SELECT pg_backend_pid() = ANY(pg_blocking_pids(${waitingPid}::int)) AS blocked
+            `;
+            return rows[0]?.blocked === true;
+          }, "role change to wait on the membership end");
+          await endOrganizationMembership(ending, {
+            userId: janeId,
+            organizationId: metzId,
+            actorUserId: adminId,
+            revokeSessions: false,
+          });
+        }, { timeout: 15_000 });
+        const outcome = await roleChange;
+        assert.equal(outcome?.status, "rejected");
+        assert.ok(outcome?.status === "rejected" && outcome.reason instanceof OrganizationMembershipError);
+        assert.equal(outcome.reason.code, "NOT_ACTIVE_MEMBER");
+      } finally {
+        await roleChange;
+      }
+      assert.equal(await prisma.userOrganizationRolePeriod.count({
+        where: { membership: { userId: janeId, organizationId: metzId }, endsAt: null },
+      }), 0);
       const openAfterOrgRole = await prisma.partnerUserRolePeriod.count({
         where: {
           endsAt: null,
