@@ -20,7 +20,7 @@ Verify actual populated UI → persistence/reload → runtime/Dashboard workflow
 
 This is the current **Vssyl — Current Operations** application and VSSYL Console: [ADTrauts/LTC-Manager](https://github.com/ADTrauts/LTC-Manager). The `ltc-manager` package/folder name is retained. [ADTrauts/Vssyl](https://github.com/ADTrauts/Vssyl) is the mothballed **Vssyl — Legacy Platform** predecessor; do not use its architecture as current implementation guidance.
 
-Start new work from the integrated GitHub `main` and use a feature branch. Follow the [local development and release guide](docs/engineering/LOCAL_DEVELOPMENT_AND_RELEASE.md) for the canonical database baseline, local verification, protected staging, and controlled production builds.
+Start new work from GitHub `main` on a feature branch. Use local or disposable PostgreSQL, run tests appropriate to the change, and open a PR with the required Verify checks and a protected Vercel Preview. Merging to `main` builds a staged Production deployment. Review that deployment and apply any approved forward migrations in release order before separately authorizing promotion. Follow the [local development and release guide](docs/engineering/LOCAL_DEVELOPMENT_AND_RELEASE.md).
 
 The accepted onboarding program lives in [docs/onboarding](docs/onboarding/README.md). Its phase tracker records authorized scope; ONB identifiers do not replace historical wave numbers.
 
