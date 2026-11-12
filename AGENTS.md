@@ -20,6 +20,8 @@ Verify actual populated UI → persistence/reload → runtime/Dashboard workflow
 
 This is the current **Vssyl — Current Operations** application and VSSYL Console: [ADTrauts/LTC-Manager](https://github.com/ADTrauts/LTC-Manager). The `ltc-manager` package/folder name is retained. [ADTrauts/Vssyl](https://github.com/ADTrauts/Vssyl) is the mothballed **Vssyl — Legacy Platform** predecessor; do not use its architecture as current implementation guidance.
 
+Start new work from the integrated GitHub `main` and use a feature branch. Follow the [local development and release guide](docs/engineering/LOCAL_DEVELOPMENT_AND_RELEASE.md) for the canonical database baseline, local verification, protected staging, and controlled production builds.
+
 The accepted onboarding program lives in [docs/onboarding](docs/onboarding/README.md). Its phase tracker records authorized scope; ONB identifiers do not replace historical wave numbers.
 
 The accepted Dashboard program lives in [docs/dashboard](docs/dashboard/README.md). It replaces Business Workspace (`/workspace`) and retires Today's Work (`/today*`) phase by phase; its phase tracker records authorized scope (`DSH-` identifiers). Do not extend Business Workspace or Today's Work. Department Products contribute Dashboard capabilities, never dashboard UI ([contract](docs/dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md)).
