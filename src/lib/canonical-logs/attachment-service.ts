@@ -406,6 +406,9 @@ export async function updateLogAttachment(
   }
   const existingFromKey = effectiveFromKeyFromDate(existing.effectiveFrom);
   const existingToKey = existing.effectiveTo ? effectiveFromKeyFromDate(existing.effectiveTo) : null;
+  if (input.effectiveFromKey && input.effectiveFromKey !== existingFromKey && existingFromKey <= todayKey) {
+    throw new Error("An effective Log's start date cannot be changed. Create a prospective successor instead.");
+  }
 
   if (existing.status !== "ACTIVE" && existingToKey && input.status !== "ACTIVE") {
     throw new Error("This Attachment segment is closed. Edit the current configuration.");
@@ -580,6 +583,32 @@ export async function updateLogAttachment(
         localInstructions,
         effectiveFromKey: classified.successorFromKey ?? todayKey,
       });
+    }
+
+    const nextFromKey = input.effectiveFromKey ?? existingFromKey;
+    if (nextFromKey !== existingFromKey || input.target) {
+      const otherPlacements = await tx.logAttachment.findMany({
+        where: {
+          id: { not: existing.id },
+          facilityId: input.facilityId,
+          catalogStableKey,
+          targetKind,
+          assetId,
+          spaceId,
+          unitId,
+          targetDepartmentId,
+        },
+        select: { effectiveFrom: true, effectiveTo: true },
+      });
+      if (otherPlacements.some((row) => attachmentRangesOverlap(
+        {
+          fromKey: toServiceDateKey(row.effectiveFrom),
+          toKey: row.effectiveTo ? toServiceDateKey(row.effectiveTo) : null,
+        },
+        { fromKey: nextFromKey, toKey: existingToKey },
+      ))) {
+        throw new Error("Another Log placement already covers these service dates on this target.");
+      }
     }
 
     const nextStatus = input.status ?? existing.status;

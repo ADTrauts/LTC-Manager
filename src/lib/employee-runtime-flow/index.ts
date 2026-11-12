@@ -12,11 +12,41 @@ export type {
   EmployeeRuntimeNextKind,
   EmployeeRuntimeOperation,
   EmployeeRuntimeScopeKind,
+  JobFlowItem,
+  JobFlowItemAttention,
+  JobFlowItemPlace,
+  JobFlowItemTime,
+  JobFlowOwnerKind,
 } from "./types";
 export {
   EMPLOYEE_ASSIGNMENT_UNAVAILABLE_LABEL,
   EMPLOYEE_NO_ACTIVE_OPERATION_LABEL,
 } from "./types";
+export {
+  composeJobFlowItems,
+  dedupeJobFlowItems,
+  jobFlowItemFromAssignmentException,
+  jobFlowItemFromHarborEvidence,
+  jobFlowItemFromMilestone,
+  jobFlowItemFromPreventiveMaintenance,
+  jobFlowItemFromTemplateEvidence,
+  jobFlowItemFromWorkOrder,
+  jobFlowItemsFromAssignmentExceptions,
+  jobFlowItemsFromHarborEvidence,
+  jobFlowItemsFromMilestones,
+  jobFlowItemsFromPreventiveMaintenance,
+  jobFlowItemsFromTemplateEvidence,
+  jobFlowItemsFromWorkOrders,
+  sortJobFlowItems,
+  suppressPmDuplicatesAgainstWorkOrders,
+  type JobFlowAssignmentExceptionSource,
+  type JobFlowPreventiveMaintenanceSource,
+  type JobFlowWorkOrderSource,
+} from "./job-flow-item";
+export {
+  loadAssignedWorkOrdersForJobFlow,
+  loadOwnCallOffAssignmentExceptions,
+} from "./load-canonical-contributors";
 
 export {
   composeEmployeeRuntimeFlow,
@@ -27,7 +57,6 @@ export { aggregateAssignedOperation, operationSummaryLabel } from "./operation";
 export {
   assignmentScopeKind,
   assignedSpaceIdSet,
-  filterWorkToAssignedSpaces,
   spaceRefsFromAssignmentLocations,
 } from "./assigned-spaces";
 export {
@@ -35,9 +64,12 @@ export {
   type AdaptEmployeeRuntimeFlowToJobFlowInput,
 } from "./to-job-flow";
 export {
+  offlineActionForJobFlowItem,
+  readOfflineJobFlowItems,
   serializeEmployeeRuntimeEvidenceContext,
   serializeEmployeeRuntimeJobFlowContext,
-  serializeEmployeeRuntimeWorkContext,
+  serializeEmployeeRuntimeJobFlowItemContext,
+  serializeOfflineJobFlowItem,
 } from "./serialize-offline";
 export { loadFrontlineEmployeeAssignments } from "./load-assignments";
 export { loadAssignedEmployeeSpaceRefs } from "./load-assigned-space-refs";
@@ -54,4 +86,6 @@ export {
   presentEmployeeRuntimeExperience,
   type EmployeeRuntimeExperienceView,
   type EmployeeRuntimeGrain,
+  type EmployeeRuntimePresentedException,
+  type EmployeeRuntimePresentedItem,
 } from "./present";

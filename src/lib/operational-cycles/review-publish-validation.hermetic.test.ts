@@ -35,8 +35,7 @@ function cycle(
     mealType: partial.mealType ?? null,
     locationMode: partial.locationMode ?? "EXPLICIT_UNITS",
     locationInheritFromParent: partial.locationInheritFromParent ?? false,
-    applicableUnitTypes: partial.applicableUnitTypes ?? [],
-    roomTypeKey: partial.roomTypeKey ?? null,
+    keyPointGrain: partial.keyPointGrain,
     expectedMilestones: partial.expectedMilestones ?? [],
     status: partial.status ?? "DRAFT",
     unitIds: partial.unitIds ?? [],
@@ -157,6 +156,23 @@ test("empty Key Time group emits blocker", () => {
   const result = validateDraftsForReviewPublish({ drafts });
   assert.equal(result.valid, false);
   assert.ok(result.blockers.some((b) => b.code === "key_time_group_rooms_required"));
+});
+
+test("a Department Key Point publishes with one due time and no Room group", () => {
+  const drafts = [
+    cycle({ stableKey: "breakfast", label: "Breakfast", spaceIds: ["room-1"] }),
+    cycle({
+      stableKey: "breakfast_due",
+      label: "Breakfast Due",
+      parentStableKey: "breakfast",
+      nodeKind: "KEY_TIME",
+      keyPointGrain: "DEPARTMENT",
+      startLocal: null,
+      endLocal: null,
+      keyTimeGroups: [{ dueLocal: "08:00", spaceIds: [] }],
+    }),
+  ];
+  assert.equal(validateDraftsForReviewPublish({ drafts }).valid, true);
 });
 
 test("duplicate Room across groups emits blocker with room name", () => {

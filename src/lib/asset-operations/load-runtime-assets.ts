@@ -150,12 +150,14 @@ export type SupervisorAssetExceptionItem = {
 export async function loadSupervisorAssetExceptions(
   facilityId: string,
   departmentId: string,
+  spaceIdFilter?: ReadonlySet<string>,
 ): Promise<SupervisorAssetExceptionItem[]> {
   const [openIssues, outOfServiceAssets, openWorkOrders] = await Promise.all([
     prisma.assetIssue.findMany({
       where: {
         facilityId,
         departmentId,
+        ...(spaceIdFilter ? { spaceId: { in: [...spaceIdFilter] } } : {}),
         status: { in: OPEN_ASSET_ISSUE_STATUSES },
       },
       orderBy: [{ priority: "desc" }, { reportedAt: "asc" }],
@@ -182,6 +184,7 @@ export async function loadSupervisorAssetExceptions(
         unit: { facilityId },
         OR: [{ departmentId }, { departmentId: null }],
         ...assetAttentionConditionWhere(),
+        ...(spaceIdFilter ? { spaceId: { in: [...spaceIdFilter] } } : {}),
       },
       take: 40,
       select: {
@@ -202,6 +205,7 @@ export async function loadSupervisorAssetExceptions(
         ],
         status: { in: OPEN_WORK_ORDER_STATUSES },
         assetId: { not: null },
+        ...(spaceIdFilter ? { spaceId: { in: [...spaceIdFilter] } } : {}),
       },
       orderBy: { requestedAt: "asc" },
       take: 40,

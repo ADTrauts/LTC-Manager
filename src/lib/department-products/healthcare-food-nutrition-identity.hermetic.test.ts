@@ -5,7 +5,6 @@ import { describe, it } from "node:test";
 
 import { allocateDepartmentKey } from "@/lib/department-admission";
 import { customerCurrentDepartmentLabel } from "@/lib/department-products/eligibility";
-import { listWorkPlanPresetSummaries } from "@/lib/department-work/work-presets";
 
 import {
   DepartmentProductInstallError,
@@ -110,16 +109,15 @@ describe("Food and Nutrition product identity", () => {
           name: "Facility Plant Operations",
           status: "AVAILABLE",
           description:
-            "Manage facility maintenance requests, Issues, Work Orders, Assets, recurring operational Work, and Preventive Maintenance in one operational workspace.",
+            "Manage facility maintenance requests, Issues, Work Orders, Assets, and Preventive Maintenance in one operational workspace.",
         },
       ],
     );
     assert.deepEqual(catalog[0]?.customerCapabilities, [
-      "Location Functions",
       "Operating Rhythm",
-      "Work",
       "Records",
       "Menus",
+      "People & Coverage",
       "Audit / Reports",
     ]);
     assert.equal(catalog[0]?.industry, "HEALTHCARE");
@@ -237,16 +235,6 @@ describe("Food and Nutrition product identity", () => {
     assert.notEqual(
       customerCurrentDepartmentLabel({ name: "Dietary", key: "DIETARY" }),
       "Food and Nutrition",
-    );
-  });
-
-  it("does not duplicate starters under the canonical Product key", () => {
-    const fromLegacy = listWorkPlanPresetSummaries("DIETARY");
-    const fromCanonical = listWorkPlanPresetSummaries("HEALTHCARE_FOOD_NUTRITION");
-    assert.ok(fromLegacy.length > 0);
-    assert.deepEqual(
-      fromCanonical.map((row) => row.key),
-      fromLegacy.map((row) => row.key),
     );
   });
 

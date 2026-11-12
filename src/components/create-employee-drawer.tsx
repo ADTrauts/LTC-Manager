@@ -9,7 +9,6 @@ import {
 } from "@/app/(protected)/employees/actions";
 import {
   EmployeeOrganizationFields,
-  type OrganizationJobRoleOption,
 } from "@/components/employee-organization-fields";
 import { Button } from "@/components/design-system/Button";
 import { Select, TextInput } from "@/components/design-system/Field";
@@ -31,7 +30,6 @@ type CreateEmployeeDrawerProps = {
   departments: UnitOption[];
   jobTitles: UnitOption[];
   teams: TeamOption[];
-  jobRoles?: OrganizationJobRoleOption[];
 };
 
 export function CreateEmployeeDrawer({
@@ -40,7 +38,6 @@ export function CreateEmployeeDrawer({
   departments,
   jobTitles: _jobTitles,
   teams,
-  jobRoles = [],
 }: CreateEmployeeDrawerProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
@@ -116,7 +113,7 @@ export function CreateEmployeeDrawer({
           <Select
             name="roleType"
             label="Platform authority"
-            helper="Controls application-level access. Department work permissions come from Job Roles."
+            helper="Controls application access. Operational qualifications are managed separately."
             value={roleType}
             onChange={(event) => setRoleType(event.currentTarget.value as RoleKey)}
           >
@@ -154,12 +151,10 @@ export function CreateEmployeeDrawer({
             <EmployeeOrganizationFields
               departments={departments}
               teams={teams}
-              jobRoles={jobRoles}
               primaryDepartmentId={departments[0]?.id ?? null}
               additionalDepartmentIds={[]}
               jobTitleId={null}
               teamMemberships={[]}
-              jobRoleAssignments={[]}
               requirePrimaryDepartment
             />
           </div>

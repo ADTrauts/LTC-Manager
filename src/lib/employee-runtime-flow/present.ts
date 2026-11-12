@@ -1,13 +1,14 @@
 /**
  * EmployeeRuntimeFlow → Neighborhood / SPACE employee presentation.
+ * Phase 2C-2C: primary normalized source is flow.items. Parallel collections
+ * enrich href/actions only — they must not create duplicate visible rows.
  * Labels and grouping only. Does not resolve OA, RLS, evidence, or next.
  */
 
-import type { JobFlowLocationSequence } from "@/lib/dietary-job-flow/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import { formatClock } from "@/lib/unit-workspace/space";
 
+import type { JobFlowItem, JobFlowItemAttention, JobFlowOwnerKind } from "./job-flow-item";
 import { operationSummaryLabel } from "./operation";
 import type {
   EmployeeEvidenceCategory,
@@ -37,13 +38,15 @@ export type EmployeeRuntimeEvidenceGroupId =
 
 export type EmployeeRuntimePresentedItem = {
   id: string;
-  kind: "work" | "evidence";
+  kind: "evidence" | "work_order";
   label: string;
   stateLabel: string;
   spaceId: string | null;
   spaceName: string | null;
   href: string | null;
   actionLabel: string | null;
+  /** Present when sourced from canonical JobFlowItem. */
+  ownerKind?: JobFlowOwnerKind;
 };
 
 export type EmployeeRuntimePresentedSpace = {
@@ -71,6 +74,13 @@ export type EmployeeRuntimePresentedIssue = {
   href: string | null;
 };
 
+export type EmployeeRuntimePresentedException = {
+  id: string;
+  label: string;
+  stateLabel: string;
+  href: string | null;
+};
+
 export type EmployeeRuntimeExperienceView = {
   grain: EmployeeRuntimeGrain;
   landingUnitId: string;
@@ -90,12 +100,8 @@ export type EmployeeRuntimeExperienceView = {
   stale: boolean;
   showExecution: boolean;
   assignedSpaces: EmployeeRuntimePresentedSpace[];
-  evsSequence: {
-    now: { label: string; href: string } | null;
-    next: { label: string; href: string } | null;
-    queue: Array<{ label: string; href: string }>;
-  } | null;
-  work: EmployeeRuntimePresentedItem[];
+  /** Assigned Plant Work Orders — sourced from WORK_ORDER items. */
+  workOrders: EmployeeRuntimePresentedItem[];
   evidenceGroups: Array<{
     id: EmployeeRuntimeEvidenceGroupId;
     title: string;
@@ -103,7 +109,10 @@ export type EmployeeRuntimeExperienceView = {
   }>;
   evidenceMode: EmployeeRuntimeFlow["evidenceMode"];
   milestones: EmployeeRuntimePresentedMilestone[];
+  /** Asset impact issues — compatibility path (not yet JobFlowItem owners). */
   issues: EmployeeRuntimePresentedIssue[];
+  /** Informational Assignment exceptions (call-off / revision). */
+  exceptions: EmployeeRuntimePresentedException[];
   plantMessages: string[];
   spaceNotAssignedLabel: string | null;
 };
@@ -113,15 +122,6 @@ const IMPACT_LABEL = {
   EQUIPMENT_UNAVAILABLE: "Equipment unavailable",
   WORKAROUND_AVAILABLE: "Workaround available",
 } as const;
-
-const WORK_STATE_LABEL: Partial<Record<WorkRequirement["state"], string>> = {
-  PAST_DUE_NOT_CONFIRMED: "Overdue",
-  DUE: "Due now",
-  CURRENT: "Due now",
-  UPCOMING: "Upcoming",
-  COMPLETED: "Completed",
-  COMPLETED_WITH_EVIDENCE: "Completed",
-};
 
 const TEMPLATE_STATE_CATEGORY: Partial<Record<EvidenceRequirement["state"], EmployeeEvidenceCategory>> = {
   NOT_CONFIRMED: "needs_attention",
@@ -178,38 +178,6 @@ function templateHref(landingUnitId: string, item: Pick<EvidenceRequirement, "re
   return `/unit/${unitId}?evidence=${encodeURIComponent(item.requirementKey)}`;
 }
 
-function workHref(landingUnitId: string, row: WorkRequirement): string {
-  if (row.spaceId) {
-    return `/unit/${landingUnitId}?space=${encodeURIComponent(row.spaceId)}&work=${encodeURIComponent(row.occurrenceKey)}`;
-  }
-  return `/unit/${landingUnitId}?work=${encodeURIComponent(row.occurrenceKey)}`;
-}
-
-function linkedEvidenceHref(
-  flow: EmployeeRuntimeFlow,
-  landingUnitId: string,
-  row: WorkRequirement,
-): string | null {
-  const key = row.linkedTemplateStableKey?.trim();
-  if (!key || row.completionMode !== "LINKED_EVIDENCE") return null;
-  if (flow.evidenceMode === "harbor") {
-    const match = flow.evidence.find((item) => item.catalogStableKey === key);
-    if (match) return harborHref(match);
-  }
-  if (flow.evidenceMode === "template") {
-    const match = flow.templateEvidence.find(
-      (item) => item.templateStableKey === key || item.requirementKey === key,
-    );
-    if (match) return templateHref(landingUnitId, match);
-  }
-  return templateHref(landingUnitId, { requirementKey: key, spaceId: row.spaceId });
-}
-
-function workAction(row: WorkRequirement): string {
-  if (row.completionMode === "LINKED_EVIDENCE") return "Record";
-  return "Complete";
-}
-
 function evidenceAction(category: EmployeeEvidenceCategory, completedHref: boolean): string | null {
   if (category === "completed") return completedHref ? "View" : null;
   if (category === "upcoming") return "Open";
@@ -224,91 +192,175 @@ function spaceNameFor(
   return locations.find((row) => row.spaceId === spaceId)?.displayName ?? null;
 }
 
-function presentWork(
+function attentionStateLabel(attention: JobFlowItemAttention, ownerState: string): string {
+  switch (attention) {
+    case "needs_attention":
+      return ownerState === "OVERDUE" || ownerState === "PAST_DUE_NOT_CONFIRMED"
+        ? "Overdue"
+        : "Needs attention";
+    case "due_now":
+      return "Due now";
+    case "upcoming":
+      return "Upcoming";
+    case "completed":
+      return "Completed";
+    case "not_applicable":
+      return "Not applicable";
+    case "informational":
+    default:
+      return "Info";
+  }
+}
+
+function itemMatchesSpace(item: JobFlowItem, spaceFilter: string | null): boolean {
+  if (spaceFilter == null) return true;
+  if (spaceFilter === "__none__") return false;
+  return item.place.spaceId === spaceFilter;
+}
+
+function presentRecordItem(
+  item: JobFlowItem,
+  flow: EmployeeRuntimeFlow,
+  landingUnitId: string,
+): EmployeeRuntimePresentedItem | null {
+  if (item.attention === "not_applicable" || item.attention === "informational") return null;
+
+  const harbor = flow.evidence.find(
+    (row) => `${row.attachmentId}:${row.requirementKey}` === item.ownerId,
+  );
+  if (harbor) {
+    const href =
+      harbor.category === "completed" && harbor.href ? harbor.href : harborHref(harbor);
+    return {
+      id: `${harbor.attachmentId}:${harbor.requirementKey}`,
+      kind: "evidence",
+      label: harbor.displayName,
+      stateLabel: attentionStateLabel(item.attention, item.ownerState),
+      spaceId: harbor.spaceId,
+      spaceName: spaceNameFor(harbor.spaceId, flow.locations),
+      href,
+      actionLabel: evidenceAction(harbor.category, Boolean(harbor.href || harbor.recordId)),
+      ownerKind: "RECORD_REQUIREMENT",
+    };
+  }
+
+  const template = flow.templateEvidence.find((row) => row.requirementKey === item.ownerId);
+  if (template) {
+    const category = TEMPLATE_STATE_CATEGORY[template.state];
+    if (!category) return null;
+    return {
+      id: template.requirementKey,
+      kind: "evidence",
+      label: template.templateName,
+      stateLabel: attentionStateLabel(item.attention, item.ownerState),
+      spaceId: template.spaceId,
+      spaceName: spaceNameFor(template.spaceId, flow.locations),
+      href: templateHref(landingUnitId, template),
+      actionLabel: evidenceAction(category, false),
+      ownerKind: "RECORD_REQUIREMENT",
+    };
+  }
+
+  return {
+    id: item.ownerId,
+    kind: "evidence",
+    label: item.label,
+    stateLabel: attentionStateLabel(item.attention, item.ownerState),
+    spaceId: item.place.spaceId,
+    spaceName: spaceNameFor(item.place.spaceId, flow.locations),
+    href: item.href,
+    actionLabel:
+      item.attention === "completed"
+        ? item.href
+          ? "View"
+          : null
+        : item.attention === "upcoming"
+          ? "Open"
+          : "Start",
+    ownerKind: "RECORD_REQUIREMENT",
+  };
+}
+
+function presentWorkOrderItem(
+  item: JobFlowItem,
+  flow: EmployeeRuntimeFlow,
+): EmployeeRuntimePresentedItem {
+  return {
+    id: item.ownerId,
+    kind: "work_order",
+    label: item.label,
+    stateLabel: attentionStateLabel(item.attention, item.ownerState.split(":")[0] ?? item.ownerState),
+    spaceId: item.place.spaceId,
+    spaceName: spaceNameFor(item.place.spaceId, flow.locations),
+    href: item.href,
+    actionLabel: item.attention === "completed" ? "View" : "Open",
+    ownerKind: "WORK_ORDER",
+  };
+}
+
+function presentItemsFromCanonical(
   flow: EmployeeRuntimeFlow,
   landingUnitId: string,
   spaceFilter: string | null,
-): EmployeeRuntimePresentedItem[] {
-  return flow.work
-    .filter((row) => (spaceFilter ? row.spaceId === spaceFilter : true))
-    .filter((row) => WORK_STATE_LABEL[row.state])
-    .map((row) => {
-      const linked = linkedEvidenceHref(flow, landingUnitId, row);
-      const href = linked ?? workHref(landingUnitId, row);
-      return {
-        id: row.occurrenceKey,
-        kind: "work" as const,
-        label: row.label,
-        stateLabel: WORK_STATE_LABEL[row.state] ?? row.state,
-        spaceId: row.spaceId,
-        spaceName: spaceNameFor(row.spaceId, flow.locations),
-        href,
-        actionLabel: workAction(row),
-      };
-    });
-}
+): {
+  workOrders: EmployeeRuntimePresentedItem[];
+  evidence: EmployeeRuntimePresentedItem[];
+  milestones: EmployeeRuntimePresentedMilestone[];
+  exceptions: EmployeeRuntimePresentedException[];
+} {
+  const scoped = flow.items.filter((item) => itemMatchesSpace(item, spaceFilter));
+  const workOrders: EmployeeRuntimePresentedItem[] = [];
+  const evidence: EmployeeRuntimePresentedItem[] = [];
+  const milestones: EmployeeRuntimePresentedMilestone[] = [];
+  const exceptions: EmployeeRuntimePresentedException[] = [];
 
-function presentHarborEvidence(
-  flow: EmployeeRuntimeFlow,
-  spaceFilter: string | null,
-): EmployeeRuntimePresentedItem[] {
-  return flow.evidence
-    .filter((row) => (spaceFilter ? row.spaceId === spaceFilter : true))
-    .map((row) => {
-      const href =
-        row.category === "completed" && row.href
-          ? row.href
-          : harborHref(row);
-      return {
-        id: `${row.attachmentId}:${row.requirementKey}`,
-        kind: "evidence" as const,
-        label: row.displayName,
-        stateLabel:
-          row.category === "needs_attention"
-            ? row.productState === "OVERDUE"
-              ? "Overdue"
-              : "Needs attention"
-            : row.category === "due_now"
-              ? "Due now"
-              : row.category === "upcoming"
-                ? "Upcoming"
-                : "Completed",
-        spaceId: row.spaceId,
-        spaceName: spaceNameFor(row.spaceId, flow.locations),
-        href,
-        actionLabel: evidenceAction(row.category, Boolean(row.href || row.recordId)),
-      };
-    });
-}
+  for (const item of scoped) {
+    if (item.ownerKind === "RECORD_REQUIREMENT") {
+      const presented = presentRecordItem(item, flow, landingUnitId);
+      if (presented) evidence.push(presented);
+      continue;
+    }
+    if (item.ownerKind === "WORK_ORDER") {
+      workOrders.push(presentWorkOrderItem(item, flow));
+      continue;
+    }
+    if (item.ownerKind === "OPERATING_RHYTHM_KEY_POINT") {
+      const statusKey = item.ownerState;
+      const kindPart = item.ownerId.split(":").pop();
+      const kind = (
+        kindPart === "SERVERY_READY" || kindPart === "MEAL_SERVICE_STARTED" || kindPart === "KEY_TIME"
+          ? kindPart
+          : "KEY_TIME"
+      ) as EmployeeRuntimeMilestone["kind"];
+      if (!RECORDABLE_MILESTONES.has(kind)) continue;
+      if (
+        statusKey !== "not_recorded" &&
+        statusKey !== "overdue" &&
+        statusKey !== "completed_late" &&
+        statusKey !== "due"
+      ) {
+        continue;
+      }
+      milestones.push({
+        spaceId: item.place.spaceId ?? "",
+        spaceName: spaceNameFor(item.place.spaceId, flow.locations) ?? item.label,
+        kind,
+        label: item.label,
+        statusKey,
+      });
+      continue;
+    }
+    if (item.ownerKind === "ASSIGNMENT_EXCEPTION") {
+      exceptions.push({
+        id: item.ownerId,
+        label: item.label,
+        stateLabel: attentionStateLabel(item.attention, item.ownerState),
+        href: item.href,
+      });
+    }
+  }
 
-function presentTemplateEvidence(
-  flow: EmployeeRuntimeFlow,
-  landingUnitId: string,
-  spaceFilter: string | null,
-): EmployeeRuntimePresentedItem[] {
-  return flow.templateEvidence
-    .filter((row) => (spaceFilter ? row.spaceId === spaceFilter : true))
-    .filter((row) => TEMPLATE_STATE_CATEGORY[row.state])
-    .map((row) => {
-      const category = TEMPLATE_STATE_CATEGORY[row.state]!;
-      return {
-        id: row.requirementKey,
-        kind: "evidence" as const,
-        label: row.templateName,
-        stateLabel:
-          category === "needs_attention"
-            ? "Needs attention"
-            : category === "due_now"
-              ? "Due now"
-              : category === "upcoming"
-                ? "Upcoming"
-                : "Completed",
-        spaceId: row.spaceId,
-        spaceName: spaceNameFor(row.spaceId, flow.locations),
-        href: templateHref(landingUnitId, row),
-        actionLabel: evidenceAction(category, false),
-      };
-    });
+  return { workOrders, evidence, milestones, exceptions };
 }
 
 function groupEvidence(items: EmployeeRuntimePresentedItem[]): EmployeeRuntimeExperienceView["evidenceGroups"] {
@@ -341,29 +393,6 @@ function groupEvidence(items: EmployeeRuntimePresentedItem[]): EmployeeRuntimeEx
     }));
 }
 
-function presentMilestones(
-  rows: readonly EmployeeRuntimeMilestone[],
-  spaceFilter: string | null,
-): EmployeeRuntimePresentedMilestone[] {
-  return rows
-    .filter((row) => (spaceFilter ? row.spaceId === spaceFilter : true))
-    .filter((row) => {
-      if (!RECORDABLE_MILESTONES.has(row.kind)) return false;
-      return (
-        row.statusKey === "not_recorded" ||
-        row.statusKey === "overdue" ||
-        row.statusKey === "completed_late"
-      );
-    })
-    .map((row) => ({
-      spaceId: row.spaceId,
-      spaceName: row.spaceName,
-      kind: row.kind,
-      label: row.label,
-      statusKey: row.statusKey,
-    }));
-}
-
 function presentIssues(
   rows: readonly EmployeeRuntimeIssue[],
   spaceFilter: string | null,
@@ -384,42 +413,48 @@ function spaceAttention(
   flow: EmployeeRuntimeFlow,
   spaceId: string,
 ): string | null {
-  const overdueWork = flow.work.find(
-    (row) => row.spaceId === spaceId && row.state === "PAST_DUE_NOT_CONFIRMED",
+  const items = flow.items.filter((row) => row.place.spaceId === spaceId);
+  const overdue = items.find(
+    (row) =>
+      row.attention === "needs_attention" &&
+      (row.ownerKind === "RECORD_REQUIREMENT" ||
+        row.ownerKind === "WORK_ORDER"),
   );
-  if (overdueWork) return `${overdueWork.label} overdue`;
-  const overdueEvidence = flow.evidence.find(
-    (row) => row.spaceId === spaceId && row.productState === "OVERDUE",
+  if (overdue) {
+    return overdue.ownerState === "OVERDUE" || overdue.ownerState === "PAST_DUE_NOT_CONFIRMED"
+      ? `${overdue.label} overdue`
+      : `${overdue.label} needs attention`;
+  }
+  const due = items.find(
+    (row) =>
+      row.attention === "due_now" &&
+      (row.ownerKind === "RECORD_REQUIREMENT" ||
+        row.ownerKind === "WORK_ORDER"),
   );
-  if (overdueEvidence) return `${overdueEvidence.displayName} overdue`;
-  const dueWork = flow.work.find(
-    (row) => row.spaceId === spaceId && (row.state === "DUE" || row.state === "CURRENT"),
-  );
-  if (dueWork) return `${dueWork.label} due now`;
-  const dueEvidence = flow.evidence.find(
-    (row) => row.spaceId === spaceId && row.category === "due_now",
-  );
-  if (dueEvidence) return `${dueEvidence.displayName} due now`;
-  const dueTemplate = flow.templateEvidence.find(
-    (row) => row.spaceId === spaceId && row.state === "DUE",
-  );
-  if (dueTemplate) return `${dueTemplate.templateName} due now`;
+  if (due) return `${due.label} due now`;
   return "No work currently due";
 }
 
 function nextHref(
-  flow: EmployeeRuntimeFlow,
   landingUnitId: string,
-  work: EmployeeRuntimePresentedItem[],
+  workOrders: EmployeeRuntimePresentedItem[],
   evidence: EmployeeRuntimePresentedItem[],
+  flow: EmployeeRuntimeFlow,
 ): string | null {
   const next = flow.next;
   if (next.kind === "none") return null;
-  if (next.kind.endsWith("_work")) {
-    return work.find((row) => row.id === next.sourceId)?.href ?? null;
+  if (next.kind === "due_work_order" || next.kind === "upcoming_work_order") {
+    return (
+      workOrders.find((row) => row.id === next.sourceId)?.href ??
+      flow.items.find((row) => row.ownerId === next.sourceId)?.href ??
+      null
+    );
   }
   if (next.kind.endsWith("_evidence")) {
     return evidence.find((row) => row.id.endsWith(next.sourceId) || row.id === next.sourceId)?.href ?? null;
+  }
+  if (next.kind === "milestone" && next.spaceId) {
+    return spaceHref(landingUnitId, next.spaceId);
   }
   if (next.spaceId) return spaceHref(landingUnitId, next.spaceId);
   return null;
@@ -431,7 +466,6 @@ export function presentEmployeeRuntimeExperience(input: {
   landingUnitId: string;
   spaceId?: string | null;
   timezone: string;
-  locationSequence?: JobFlowLocationSequence | null;
   plantMessages?: readonly string[];
 }): EmployeeRuntimeExperienceView {
   const { flow, grain, landingUnitId, timezone } = input;
@@ -441,14 +475,16 @@ export function presentEmployeeRuntimeExperience(input: {
     flow.assignmentAvailability === "evaluated" && !flow.device.mismatch && spaceAssigned;
   const effectiveFilter = showExecution ? (grain === "space" ? spaceId : null) : "__none__";
 
-  const work = showExecution ? presentWork(flow, landingUnitId, effectiveFilter) : [];
-  const evidenceItems = showExecution
-    ? flow.evidenceMode === "harbor"
-      ? presentHarborEvidence(flow, effectiveFilter)
-      : flow.evidenceMode === "template"
-        ? presentTemplateEvidence(flow, landingUnitId, effectiveFilter)
-        : []
-    : [];
+  const presented = showExecution
+    ? presentItemsFromCanonical(flow, landingUnitId, effectiveFilter)
+    : {
+        workOrders: [] as EmployeeRuntimePresentedItem[],
+        evidence: [] as EmployeeRuntimePresentedItem[],
+        milestones: [] as EmployeeRuntimePresentedMilestone[],
+        exceptions: [] as EmployeeRuntimePresentedException[],
+      };
+  const workOrders = presented.workOrders;
+  const evidenceItems = presented.evidence;
 
   const current = flow.currentAssignment;
   const upcoming = flow.upcomingAssignment;
@@ -473,28 +509,6 @@ export function presentEmployeeRuntimeExperience(input: {
         attentionLabel: spaceAttention(flow, row.spaceId),
       }))
     : [];
-
-  const evsSequence =
-    showExecution && input.locationSequence
-      ? {
-          now: input.locationSequence.now
-            ? {
-                label: input.locationSequence.now.label,
-                href: spaceHref(landingUnitId, input.locationSequence.now.unitSpaceId),
-              }
-            : null,
-          next: input.locationSequence.next
-            ? {
-                label: input.locationSequence.next.label,
-                href: spaceHref(landingUnitId, input.locationSequence.next.unitSpaceId),
-              }
-            : null,
-          queue: input.locationSequence.queue.map((row) => ({
-            label: row.label,
-            href: spaceHref(landingUnitId, row.unitSpaceId),
-          })),
-        }
-      : null;
 
   return {
     grain,
@@ -524,7 +538,7 @@ export function presentEmployeeRuntimeExperience(input: {
       showExecution && flow.next.kind !== "none"
         ? {
             label: flow.next.label,
-            href: nextHref(flow, landingUnitId, work, evidenceItems),
+            href: nextHref(landingUnitId, workOrders, evidenceItems, flow),
           }
         : null,
     locationNext:
@@ -539,12 +553,12 @@ export function presentEmployeeRuntimeExperience(input: {
     stale: flow.offline.stale,
     showExecution,
     assignedSpaces,
-    evsSequence,
-    work,
+    workOrders,
     evidenceGroups: groupEvidence(evidenceItems),
     evidenceMode: flow.evidenceMode,
-    milestones: showExecution ? presentMilestones(flow.milestones, effectiveFilter) : [],
+    milestones: presented.milestones,
     issues: showExecution ? presentIssues(flow.issues, effectiveFilter) : [],
+    exceptions: presented.exceptions,
     plantMessages: showExecution ? [...(input.plantMessages ?? [])] : [],
     spaceNotAssignedLabel:
       grain === "space" && spaceId && !spaceAssigned ? EMPLOYEE_SPACE_NOT_ASSIGNED_LABEL : null,

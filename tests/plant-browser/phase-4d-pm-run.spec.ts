@@ -296,7 +296,7 @@ test.describe("Phase 4D preventive maintenance Run @phase-4d @ci-gate", () => {
         formatProjectedDateLabel(dueSoonDate, { includeYear: true }),
       );
       await expect(tech.page.getByTestId("pm-context-procedure")).toContainText("v1");
-      await expect(tech.page.getByTestId("pm-context-requirements")).toContainText("PM Inspection");
+      await expect(tech.page.getByTestId("pm-context-requirements")).toContainText(template.name);
       await expect(tech.page.getByTestId("work-order-closeout")).toBeVisible();
 
       await tech.page.getByTestId("wo-labor-minutes").fill("30");

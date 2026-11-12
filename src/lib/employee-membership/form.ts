@@ -11,7 +11,6 @@ export function parseEmployeeOrganizationForm(formData: FormData): {
   additionalDepartmentIds: string[];
   jobTitleId: string | null;
   teamMemberships: TeamMembershipInput[];
-  jobRoleByDepartmentId: Map<string, string | null>;
 } {
   const primaryDepartmentId = optionalId(formData.get("primaryDepartmentId"));
   const additionalDepartmentIds = formData
@@ -36,15 +35,6 @@ export function parseEmployeeOrganizationForm(formData: FormData): {
   for (const teamId of additionalTeamIds) memberships.set(teamId, false);
   for (const [teamId, isPrimary] of primaryByTeam) memberships.set(teamId, isPrimary);
 
-  const jobRoleByDepartmentId = new Map<string, string | null>();
-  for (const [key, value] of formData.entries()) {
-    if (typeof key !== "string" || !key.startsWith("jobRole:")) continue;
-    const departmentId = key.slice("jobRole:".length).trim();
-    if (!departmentId) continue;
-    const roleId = typeof value === "string" ? value.trim() : "";
-    jobRoleByDepartmentId.set(departmentId, roleId.length > 0 ? roleId : null);
-  }
-
   return {
     primaryDepartmentId,
     additionalDepartmentIds,
@@ -53,6 +43,5 @@ export function parseEmployeeOrganizationForm(formData: FormData): {
       teamId,
       isPrimary,
     })),
-    jobRoleByDepartmentId,
   };
 }

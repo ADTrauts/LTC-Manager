@@ -15,7 +15,6 @@ import {
   selectDietaryMealTimingModel,
 } from "@/lib/dietary/meal-timing";
 import { resolveCycleAuthority } from "./cycle-authority";
-import { roomTypeKeyForStoredSpace } from "./cycle-scope";
 import {
   describeMealServiceTiming,
   localHhMmFromInstant,
@@ -26,10 +25,6 @@ import {
   type KeyTimeDayTiming,
   type KeyTimeGroupSummary,
 } from "./key-time-day-expectation";
-import {
-  loadSpaceOperationalTypeAssignments,
-  operationalTypeKeysForSpaces,
-} from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import {
   materializeMealServiceDayExpectations,
@@ -214,8 +209,8 @@ export async function loadSupervisorCycleOverview(input: {
       name: true,
       unitType: true,
       parentUnitId: true,
-            childSpaces: {
-        select: { id: true, spaceType: true, customTypeLabel: true },
+      childSpaces: {
+        select: { id: true },
       },
     },
     orderBy: { name: "asc" },
@@ -266,11 +261,6 @@ export async function loadSupervisorCycleOverview(input: {
   };
 
   const rows: SupervisorUnitCycleRow[] = [];
-  const runtimeFunctions = await loadSpaceOperationalTypeAssignments({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    perspective: "runtime",
-  });
 
   if (!isCurrentPeriodModel(runProvenance)) {
   for (const unit of units) {
@@ -284,11 +274,6 @@ export async function loadSupervisorCycleOverview(input: {
           }))
         : [];
 
-    const roomTypeKeys = [
-      ...new Set(
-        unit.childSpaces.map((space) => roomTypeKeyForStoredSpace(space)),
-      ),
-    ];
 
     const context = resolveOperationalCycle({
       cycles,
@@ -298,12 +283,7 @@ export async function loadSupervisorCycleOverview(input: {
       unit: {
         id: unit.id,
         unitType: unit.unitType,
-        childRoomTypeKeys: roomTypeKeys.length > 0 ? roomTypeKeys : undefined,
         spaceIds: unit.childSpaces.map((space) => space.id),
-        childOperationalTypeKeys: operationalTypeKeysForSpaces(
-          runtimeFunctions,
-          unit.childSpaces.map((space) => space.id),
-        ),
       },
       mealTargets,
     });

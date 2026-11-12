@@ -3,11 +3,12 @@
 **Status:** Accepted product-owner architecture amendment  
 **Decision date:** November 1, 2026  
 **Amends:** [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md)  
-**Detailed contract:** [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md)
+**Detailed contract:** [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md)  
+**Phase 1 textual reconciliation:** [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md) (November 8, 2026)
 
 This amendment records a product-owner decision made after the October 26, 2026 foundation. It is forward architecture. Older Constitution language that names generic Work as a shared engine, Work presets as Department Product content, or Work as a standard Department Builder section is superseded by this amendment.
 
-The long-form Constitution should be textually reconciled when the implementation retirement is performed. Until then, this amendment prevents stale paragraphs from being treated as permission to extend the retired design.
+**Supersession — November 6–8, 2026.** Implementation attempted removal (`20261103140000_retire_generic_work_and_profiles`), then restored schema objects still required by the running app (`20261106214500_restore_schema_after_premature_retirement`, commit `e179c0d`). That restore is **temporary compatibility**, not a reversal of this amendment. Phase 1 reconciles documentation. Phase 2 performs traced code/schema retirement.
 
 ---
 

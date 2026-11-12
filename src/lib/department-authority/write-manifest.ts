@@ -73,10 +73,6 @@ export const WRITE_MANIFEST: WriteManifest = {
     "addPartnerKeyPointAction",
     "publishPartnerCycleAction",
   ]),
-  [`${APP}/partner/work/actions.ts`]: {
-    addPartnerWorkPlanAction: department("department"),
-    publishPartnerWorkPlanAction: department("workPlan"),
-  },
   [`${APP}/partner/assets/actions.ts`]: each(department("department"), ["addPartnerAssetAction"]),
   [`${APP}/partner/menus/actions.ts`]: {
     addPartnerMenuAction: department("department"),
@@ -202,28 +198,6 @@ export const WRITE_MANIFEST: WriteManifest = {
     "unblockPartnerUserAction",
   ]),
 
-  [`${DEPARTMENT_ADMIN}/actions.ts`]: {
-    ...each(legacy("locationFunctionProfile"), [
-      "createArchetypeAction",
-      "updateArchetypeAction",
-    ]),
-    bindRoomAction: department("roomArchetype"),
-    clearRoomBindingAction: department("roomBinding"),
-    ...each(department("department"), [
-      "createOperationalTypeAction",
-      "bindLocationFunctionAction",
-      "publishLocationFunctionsAction",
-      "ensurePatternDraftAction",
-      "bindRoomsToOperationalTypeAction",
-      "clearRoomOperationalTypeAction",
-      "renameOperationalTypeAction",
-      "updateRoomTypeDepartmentUseAction",
-      "ensureLocationOperationalTypesAction",
-      "assignLocationOperationalTypeAction",
-      "clearLocationOperationalTypeAction",
-      "createLocationOperationalTypeAction",
-    ]),
-  },
   [`${DEPARTMENT_ADMIN}/coverage-actions.ts`]: {
     createCoverageExpectationAction: department("department"),
     ...each(department("assignmentTemplate"), [
@@ -255,11 +229,8 @@ export const WRITE_MANIFEST: WriteManifest = {
     ]),
   },
   [`${DEPARTMENT_ADMIN}/location-room-actions.ts`]: {
+    updateDepartmentSpaceNoteAction: department("department"),
     removeRoomLogAction: department("logAttachment"),
-    addFacilityTypeLogDefaultAction: department("department"),
-    removeFacilityTypeLogDefaultAction: department("logTypeDefault"),
-    suppressFacilityTypeLogDefaultAction: department("logTypeDefault"),
-    restoreFacilityTypeLogDefaultAction: department("logSuppression"),
   },
   [`${DEPARTMENT_ADMIN}/plant-starter-actions.ts`]: each(department("department"), [
     "loadPlantStarterAction",
@@ -270,7 +241,7 @@ export const WRITE_MANIFEST: WriteManifest = {
     createDepartmentTeamAction: department("department"),
     ...each(department("departmentTeam"), [
       "updateDepartmentTeamAction",
-      
+
       "archiveDepartmentTeamAction",
     ]),
   },
@@ -301,10 +272,11 @@ export const WRITE_MANIFEST: WriteManifest = {
     ]),
     revokeEmployeeSessionsAction: GOVERNANCE,
   },
+  // Operational eligibility on the Employee workforce record (Department-scoped rows).
+  // Runtime: assertCanChangeDepartmentPeople — same people-change gate as neighboring workforce writes.
   [`${PROTECTED}/employees/qualification-actions.ts`]: {
-    setEmployeeOperationalQualificationsAction: department("department"),
+    setEmployeeOperationalQualificationsAction: department("workforceRecord"),
   },
-
   // Bulk employee setup: each row names its Departments.
   [`${PROTECTED}/employees/bulk-setup/actions.ts`]: each(department("department"), [
     "previewSetupImportAction",
@@ -323,10 +295,6 @@ export const WRITE_MANIFEST: WriteManifest = {
     "previewEmployeeCsvAction",
     "confirmEmployeeCsvAction",
   ]),
-  [`${PROTECTED}/employees/job-roles/actions.ts`]: {
-    createJobRoleAction: department("department"),
-    ...each(department("jobRole"), ["updateJobRoleAction", "archiveJobRoleAction"]),
-  },
   [`${PROTECTED}/staffing/schedule/actions.ts`]: {
     createCanonicalShiftAction: department("department"),
     ...each(department("scheduleEntry"), [
@@ -364,35 +332,6 @@ export const WRITE_MANIFEST: WriteManifest = {
     ...each(department("keyTimeDayExpectation"), [
       "delayKeyTimeExpectationAction",
       "completeKeyTimeExpectationAction",
-    ]),
-  },
-  [`${PROTECTED}/staffing/work-plans/actions.ts`]: {
-    ...each(department("department"), ["createWorkPlanDraftAction", "createWorkPlanPresetDraftAction"]),
-    ...each(department("workPlan"), [
-      "updateWorkPlanDraftAction",
-      "publishWorkPlanAction",
-      "retireWorkPlanAction",
-      "duplicateWorkPlanAction",
-      "createWorkPlanSuccessorAction",
-    ]),
-  },
-  [`${PROTECTED}/staffing/work-plans/work-runtime-actions.ts`]: {
-    createOneOffWorkAction: department("department"),
-    ...each(department("workOccurrence"), [
-      "completeWorkRequirementAction",
-      "markWorkNotRequiredAction",
-      "reopenWorkOccurrenceAction",
-      "cancelOneOffWorkAction",
-    ]),
-  },
-  [`${PROTECTED}/staffing/operations/work-actions.ts`]: {
-    createOneOffWorkAction: department("department"),
-    ...each(department("workOccurrence"), [
-      "completeWorkAction",
-      "markWorkNotRequiredAction",
-      "reopenWorkAction",
-      "reassignWorkAction",
-      "cancelOneOffWorkAction",
     ]),
   },
   [`${PROTECTED}/menus/actions.ts`]: {

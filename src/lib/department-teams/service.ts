@@ -2,7 +2,8 @@
  * Department Teams — organizational grouping of people inside one Department.
  *
  * A Team has a name, a description, members, and an optional lead.
- * It does not own rooms, cycles, coverage, or authorization.
+ * Its explicit normal room set is configuration/view context, never permission,
+ * Coverage need, or today's Assignment. Room Types never expand membership.
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -27,6 +28,7 @@ import {
   teamNamesConflict,
 } from "./validation";
 import { employeeBelongsToDepartment } from "@/lib/employee-membership";
+import { configuredTeamSpaceIds } from "./team-room-membership";
 
 export type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -75,6 +77,18 @@ export async function loadAllowedTeamSpaceIds(
     select: { spaceId: true },
   });
   return new Set(rows.map((row) => row.spaceId));
+}
+
+async function validateTeamRooms(
+  client: DbClient,
+  input: { facilityId: string; departmentId: string; spaceIds: readonly string[] },
+): Promise<string[]> {
+  const ids = configuredTeamSpaceIds({ explicitSpaceIds: input.spaceIds });
+  const allowed = await loadAllowedTeamSpaceIds(client, input);
+  if (ids.some(id => !allowed.has(id))) {
+    throw new Error("Choose active rooms this Department is responsible for.");
+  }
+  return ids;
 }
 
 async function assertActiveTeamNameAvailable(
@@ -146,6 +160,7 @@ function mapTeamView(
     archivedAt: Date | null;
     managerEmployeeId: string | null;
     managerEmployee: { firstName: string; lastName: string } | null;
+    roomMemberships: Array<{ spaceId: string; space: { name: string } }>;
   },
   activeMemberCount = 0,
 ): DepartmentTeamView {
@@ -162,11 +177,13 @@ function mapTeamView(
     managerEmployeeId: row.managerEmployeeId,
     managerLabel: manager ? `${manager.lastName}, ${manager.firstName}` : null,
     activeMemberCount,
+    rooms: row.roomMemberships.map(room => ({ spaceId: room.spaceId, name: room.space.name })),
   };
 }
 
 const TEAM_INCLUDE = {
   managerEmployee: { select: { firstName: true, lastName: true } },
+  roomMemberships: { include: { space: { select: { name: true } } } },
 } as const;
 
 async function loadActiveMemberCounts(
@@ -350,6 +367,7 @@ export async function createDepartmentTeam(
     displayName: string;
     description?: string | null;
     managerEmployeeId?: string | null;
+    spaceIds?: readonly string[];
   },
 ): Promise<DepartmentTeamView> {
   const authority = await resolveTeamAuthority(session, input.facilityId, input.departmentId);
@@ -369,6 +387,7 @@ export async function createDepartmentTeam(
       managerEmployeeId: input.managerEmployeeId ?? null,
     });
     const displayOrder = await nextDisplayOrder(tx, input.departmentId);
+    const spaceIds = await validateTeamRooms(tx, { ...input, spaceIds: input.spaceIds ?? [] });
     const created = await tx.departmentTeam.create({
       data: {
         facilityId: input.facilityId,
@@ -377,6 +396,7 @@ export async function createDepartmentTeam(
         description,
         displayOrder,
         managerEmployeeId,
+        roomMemberships: { create: spaceIds.map(spaceId => ({ spaceId })) },
       },
       select: { id: true },
     });
@@ -394,6 +414,7 @@ export async function updateDepartmentTeam(
     displayName?: string;
     description?: string | null;
     managerEmployeeId?: string | null;
+    spaceIds?: readonly string[];
   },
 ): Promise<DepartmentTeamView> {
   const existing = await prisma.departmentTeam.findFirst({
@@ -408,6 +429,10 @@ export async function updateDepartmentTeam(
 
   return prisma.$transaction(async (tx) => {
     const data: Prisma.DepartmentTeamUpdateInput = {};
+    if (input.spaceIds !== undefined) {
+      const ids = await validateTeamRooms(tx, { ...existing, spaceIds: input.spaceIds });
+      data.roomMemberships = { deleteMany: {}, create: ids.map(spaceId => ({ spaceId })) };
+    }
     if (input.displayName !== undefined) {
       const displayName = normalizeTeamDisplayName(input.displayName);
       await assertActiveTeamNameAvailable(tx, {
@@ -458,13 +483,16 @@ export async function archiveDepartmentTeam(
 }
 
 /**
- * A Team does not own rooms. Responsibility changes do not rewrite Team rows.
+ * A removed Department responsibility cannot remain in that Department's Team view.
  */
 export async function pruneTeamRoomsAfterResponsibilityRemoved(
-  _client: DbClient,
-  _input: { spaceId: string; departmentId: string },
+  client: DbClient,
+  input: { spaceId: string; departmentId: string },
 ): Promise<number> {
-  return 0;
+  const result = await client.departmentTeamRoomMembership.deleteMany({ where: {
+    spaceId: input.spaceId, team: { departmentId: input.departmentId },
+  } });
+  return result.count;
 }
 
 export function sessionMayViewDepartmentBuilderTeams(role: AppRole): boolean {

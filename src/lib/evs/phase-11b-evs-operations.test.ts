@@ -8,14 +8,6 @@ import { PrismaClient, type SpaceType } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { FacilitySession } from "@/lib/auth";
-import {
-  completeExplicit,
-  createDraft,
-  createOneOff,
-  publishWorkPlan,
-  resolveWorkRequirements,
-} from "@/lib/department-work";
-import type { PublishedWorkPlanForResolve, WorkRequirement } from "@/lib/department-work/types";
 import { processSyncCommand } from "@/lib/offline/process-sync-command";
 import type { OfflineCommandEnvelope } from "@/lib/offline/types";
 import { createDraft as createCycleDraft, publishCycle } from "@/lib/operational-cycles/cycle-service";
@@ -180,91 +172,6 @@ async function loadEvsFixture(prisma: PrismaClient) {
   return { facility, evs, unit, spaces, manager, staffEmployee };
 }
 
-function toPlanForResolve(published: {
-  id: string;
-  stableKey: string;
-  version: number;
-  name: string;
-  status: string;
-  items: Array<{
-    id: string;
-    itemKey: string;
-    label: string;
-    instructions: string | null;
-    displaySequence: number;
-    priority: string;
-    completionMode: string;
-    responsibilityMode: string;
-    scheduleKind: string;
-    cycleStableKeys: string[];
-    windowStartLocal: string | null;
-    windowEndLocal: string | null;
-    dueOffsetKind: string | null;
-    dueOffsetMinutes: number | null;
-    roleKeys: string[];
-    unitId: string | null;
-    spaceId: string | null;
-    assetId: string | null;
-    knowledgeArticleId: string | null;
-    procedureTitleSnapshot: string | null;
-    linkedTemplateStableKey: string | null;
-    linkedTemplateId: string | null;
-    supervisorVisible: boolean;
-  }>;
-  applicabilities: Array<{
-    kind: string;
-    unitId: string | null;
-    spaceId: string | null;
-    spaceType: string | null;
-    assetId: string | null;
-    assetType: string | null;
-  }>;
-}) : PublishedWorkPlanForResolve {
-  return {
-    id: published.id,
-    stableKey: published.stableKey,
-    version: published.version,
-    name: published.name,
-    status: "PUBLISHED",
-    effectiveStartDate: null,
-    effectiveEndDate: null,
-    weekdays: [],
-    applicabilities: published.applicabilities.map((a) => ({
-      kind: a.kind as PublishedWorkPlanForResolve["applicabilities"][number]["kind"],
-      unitId: a.unitId,
-      spaceId: a.spaceId,
-      spaceType: (a.spaceType as SpaceType | null) ?? null,
-      assetId: a.assetId,
-      assetType: a.assetType,
-    })),
-    items: published.items.map((i) => ({
-      id: i.id,
-      itemKey: i.itemKey,
-      label: i.label,
-      instructions: i.instructions,
-      displaySequence: i.displaySequence,
-      priority: i.priority as WorkRequirement["priority"],
-      completionMode: i.completionMode as WorkRequirement["completionMode"],
-      responsibilityMode: i.responsibilityMode as WorkRequirement["responsibilityMode"],
-      scheduleKind: i.scheduleKind as WorkRequirement["scheduleKind"],
-      cycleStableKeys: i.cycleStableKeys,
-      windowStartLocal: i.windowStartLocal,
-      windowEndLocal: i.windowEndLocal,
-      dueOffsetKind: i.dueOffsetKind as PublishedWorkPlanForResolve["items"][number]["dueOffsetKind"],
-      dueOffsetMinutes: i.dueOffsetMinutes,
-      roleKeys: i.roleKeys,
-      unitId: i.unitId,
-      spaceId: i.spaceId,
-      assetId: i.assetId,
-      knowledgeArticleId: i.knowledgeArticleId,
-      procedureTitleSnapshot: i.procedureTitleSnapshot,
-      linkedTemplateStableKey: i.linkedTemplateStableKey,
-      linkedTemplateId: i.linkedTemplateId,
-      supervisorVisible: i.supervisorVisible,
-    })),
-  };
-}
-
 // DEVELOPMENT does not grant customer operation, even with the engine flag enabled.
 // Direct SQL below represents retained pre-restriction history, never a product install
 // or a customer creation path. Positive shared-owner SQL coverage lives in AVAILABLE
@@ -286,59 +193,12 @@ async function withEvsHistory(run: (prisma: PrismaClient, fx: Awaited<ReturnType
   }
 }
 
-test("phase11b sql: historical SPACE_TYPE expansion survives; DEVELOPMENT blocks new Work and completion",
-  { skip: skipReason }, async () => withEvsHistory(async (prisma, fx, mgr) => {
-    const actor = { userId: fx.manager.id, label: "EVS Manager" };
-    const draft = { name: `EVS history ${cuidLike()}`, weekdays: [],
-      applicabilities: [{ kind: "SPACE_TYPE" as const, spaceType: "PATIENT_ROOM" as const }],
-      items: [{ itemKey: "surfaces", label: "Clean high-touch surfaces", displaySequence: 10,
-        scheduleKind: "ONCE_PER_OPERATIONAL_DATE" as const }] };
-    const before = await prisma.departmentWorkPlan.count({ where: { departmentId: fx.evs.id } });
-    await assert.rejects(createDraft(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
-      actor, client: prisma, draft }), /commercial access is unavailable/);
-    assert.equal(await prisma.departmentWorkPlan.count({ where: { departmentId: fx.evs.id } }), before);
-    const published = await prisma.departmentWorkPlan.create({ data: {
-      facilityId: fx.facility.id, departmentId: fx.evs.id, stableKey: cuidLike(),
-      name: draft.name, status: "PUBLISHED", publishedAt: new Date("2026-08-01T12:00:00Z"),
-      items: { create: draft.items }, applicabilities: { create: draft.applicabilities },
-    }, include: { items: true, applicabilities: true } });
-    await assert.rejects(publishWorkPlan(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
-      workPlanId: published.id, actor, client: prisma }), /commercial access is unavailable/);
-    const derived = resolveWorkRequirements({ facilityId: fx.facility.id, departmentId: fx.evs.id,
-      operationalDateKey: "2026-08-07", now: new Date("2026-08-07T15:00:00Z"),
-      facilityTimezone: fx.facility.timezone || "America/New_York", unitId: fx.unit.id,
-      spaces: fx.spaces.map(s => ({ ...s, unitId: fx.unit.id })),
-      publishedPlans: [toPlanForResolve(published)], publishedCycles: [],
-      confirmedAssignments: [{ employeeId: fx.staffEmployee.id, unitId: fx.unit.id, roleKey: null }],
-      existingOccurrences: [] });
-    assert.ok(new Set(derived.map(r => r.spaceId)).size >= 3);
-    const target = derived.find(r => r.spaceId === fx.spaces[0]!.id)!;
-    assert.ok(target);
-    await assert.rejects(completeExplicit(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
-      requirement: target, operationalDate: "2026-08-07", actor, client: prisma,
-      clientCommandId: cuidLike() }), /commercial access is unavailable/);
-    assert.equal(await prisma.departmentWorkOccurrence.count({ where: { workPlanId: published.id } }), 0);
-    const history = await prisma.departmentWorkOccurrence.create({ data: {
-      facilityId: fx.facility.id, departmentId: fx.evs.id, occurrenceKey: target.occurrenceKey,
-      operationalDate: new Date("2026-08-07T00:00:00Z"), workPlanId: published.id,
-      workItemId: published.items[0]!.id, workItemLabelSnapshot: target.label,
-      spaceId: fx.spaces[0]!.id, unitId: fx.unit.id, status: "COMPLETED",
-      completedAt: new Date("2026-08-07T15:00:00Z") } });
-    try {
-      await prisma.unitSpace.update({ where: { id: fx.spaces[0]!.id }, data: { spaceType: "PUBLIC_AREA" } });
-      assert.deepEqual(await prisma.departmentWorkOccurrence.findUniqueOrThrow({ where: { id: history.id } }), history);
-    } finally {
-      await prisma.unitSpace.update({ where: { id: fx.spaces[0]!.id }, data: { spaceType: "PATIENT_ROOM" } });
-    }
-  }));
-
 test("phase11b sql: DEVELOPMENT denies cycle creation/publication and retains historical draft",
   { skip: skipReason }, async () => withEvsHistory(async (prisma, fx, mgr) => {
     const actor = { userId: fx.manager.id, label: "EVS Manager" };
     const draft = { stableKey: cuidLike(), label: "Retained EVS morning", cycleType: "PREPARATION" as const,
       startLocal: "06:00", endLocal: "10:00", applicableDaysOfWeek: [0,1,2,3,4,5,6],
-      effectiveFrom: "2099-01-01", mealType: null, locationMode: "UNIT_TYPES" as const,
-      applicableUnitTypes: ["RESIDENT_AREA" as const], expectedMilestones: [] };
+      effectiveFrom: "2099-01-01", mealType: null, locationMode: "ALL_DEPARTMENT_UNITS" as const };
     await assert.rejects(createCycleDraft(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
       actor, client: prisma, draft }), /commercial access is unavailable/);
     assert.equal(await prisma.departmentOperationalCycle.count({ where: { departmentId: fx.evs.id, stableKey: draft.stableKey } }), 0);
@@ -350,7 +210,7 @@ test("phase11b sql: DEVELOPMENT denies cycle creation/publication and retains hi
     assert.equal(await prisma.departmentOperationalCycleEvent.count({ where: { cycleId: history.id } }), 0);
   }));
 
-test("phase11b sql: DEVELOPMENT denies new rework/Records; retained Needs Attention evidence stays unchanged",
+test("phase11b sql: DEVELOPMENT denies Records writes; retained Needs Attention evidence stays unchanged",
   { skip: skipReason }, async () => withEvsHistory(async (prisma, fx, mgr) => {
     // Retained legacy definition is required by the historical Record FK/check.
     // This is test history, not a new template creation service or forward writer.
@@ -369,77 +229,5 @@ test("phase11b sql: DEVELOPMENT denies new rework/Records; retained Needs Attent
     assert.equal(authority.canSubmit, false);
     assert.match(authority.reason!, /commercial access is unavailable/);
     const title = `Denied rework ${cuidLike()}`;
-    await assert.rejects(createOneOff(mgr, { work: { facilityId: fx.facility.id, departmentId: fx.evs.id,
-      operationalDate: "2026-08-07", unitId: fx.unit.id, spaceId: fx.spaces[0]!.id,
-      title, instructions: "Address Needs Attention", priority: "URGENT" },
-      actor: { userId: fx.manager.id, label: "EVS Manager" }, client: prisma }), /commercial access is unavailable/);
-    assert.equal(await prisma.departmentWorkOccurrence.count({ where: { departmentId: fx.evs.id, workItemLabelSnapshot: title } }), 0);
     assert.deepEqual(await prisma.operationalEvidenceRecord.findUniqueOrThrow({ where: { id: history.id }, include: { values: true } }), history);
   }));
-
-test(
-  "phase11b sql: offline process-sync Work completion gated by EVS flag",
-  { skip: skipReason },
-  async () => {
-    assert.ok(databaseUrl);
-    const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
-    const prev = process.env.EVS_OPERATIONS_ENABLED;
-    delete process.env.EVS_OPERATIONS_ENABLED;
-
-    try {
-      const fx = await loadEvsFixture(prisma);
-      const staffSession = session({
-        facilityId: fx.facility.id,
-        role: "STAFF",
-        uid: fx.staffEmployee?.id ?? fx.manager.id,
-        authMethod: "QUICK_PIN",
-        primaryDepartmentId: fx.evs.id,
-      });
-
-      const command: OfflineCommandEnvelope = {
-        clientCommandId: `cmd_evs_offline_${cuidLike()}`,
-        commandType: "COMPLETE_OPERATIONAL_TASK",
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        unitId: fx.unit.id,
-        operationalDate: "2026-08-07",
-        mealType: "LUNCH",
-        occurredAt: new Date().toISOString(),
-        locallyRecordedAt: new Date().toISOString(),
-        deviceBoundUnitId: fx.unit.id,
-        actorRef: staffSession.uid,
-        authMethod: "QUICK_PIN",
-        role: "STAFF",
-        bundleVersion: "1",
-        expectedServerRevision: "0",
-        deviceTimezoneOffsetMinutes: 240,
-        workCompletion: {
-          occurrenceKey: `plan|evs_offline|1|surfaces|2026-08-07|${fx.unit.id}|${fx.spaces[0]!.id}|||00:00|23:59|`,
-          workPlanId: cuidLike(),
-          workPlanStableKey: "evs_offline",
-          workPlanVersion: 1,
-          workItemId: cuidLike(),
-          workItemKey: "surfaces",
-          label: "Clean high-touch surfaces",
-          spaceId: fx.spaces[0]!.id,
-        },
-      };
-
-      const rejected = await processSyncCommand(
-        {
-          session: staffSession,
-          command,
-          deviceFacilityId: fx.facility.id,
-          deviceBoundUnitId: fx.unit.id,
-        },
-        prisma,
-      );
-      assert.equal(rejected.category, "REJECTED");
-      assert.equal(rejected.reasonCode, "Department commercial access is unavailable.");
-    } finally {
-      if (prev === undefined) delete process.env.EVS_OPERATIONS_ENABLED;
-      else process.env.EVS_OPERATIONS_ENABLED = prev;
-      await prisma.$disconnect();
-    }
-  },
-);

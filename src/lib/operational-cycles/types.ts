@@ -42,11 +42,6 @@ export type OperationalCycleDefinition = {
   locationMode: OperationalCycleLocationMode;
   /** When true (nested PERIOD only), effective rooms come from the immediate parent. */
   locationInheritFromParent: boolean;
-  applicableUnitTypes: UnitType[];
-  /** Department Operational Type keys when locationMode = OPERATIONAL_TYPES. */
-  applicableOperationalTypeKeys?: string[];
-  /** Facility Room Type preset key when locationMode = ROOM_TYPE. */
-  roomTypeKey: string | null;
   expectedMilestones: ServeryMilestone[];
   status: OperationalCycleStatus;
   /** Explicit unit ids when locationMode = EXPLICIT_UNITS. */
@@ -152,12 +147,9 @@ export type CycleDraftInput = {
   mealType?: MealType | null;
   locationMode?: OperationalCycleLocationMode;
   locationInheritFromParent?: boolean;
-  applicableUnitTypes?: UnitType[];
-  applicableOperationalTypeKeys?: string[];
   unitIds?: string[];
   spaceIds?: string[];
   keyTimeGroups?: KeyTimeGroupDefinition[];
-  roomTypeKey?: string | null;
   expectedMilestones?: ServeryMilestone[];
   milestoneTimes?: Array<{
     unitId: string;
@@ -182,10 +174,6 @@ export type UnitMealTarget = {
 export type CycleUnitScope = {
   id: string;
   unitType: UnitType;
-  /** Child Room Type preset keys — used for ROOM_TYPE applicability. */
-  childRoomTypeKeys?: string[];
   /** Space ids under this location — used for EXPLICIT_UNITS space matching. */
   spaceIds?: string[];
-  /** Child Operational Type keys — used for OPERATIONAL_TYPES at unit grain. */
-  childOperationalTypeKeys?: string[];
 };

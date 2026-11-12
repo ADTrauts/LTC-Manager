@@ -17,6 +17,7 @@ import { prisma } from "@/lib/prisma";
 import { selectRuntimeCoverageTemplates } from "@/lib/scheduling/coverage-expectations";
 
 import type { DepartmentActionableLocation } from "./department-locations";
+import { loadDepartmentSpaceNotes } from "./department-space-notes";
 import {
   composeLocationProgram,
   emptyLocationProgram,
@@ -56,6 +57,7 @@ async function loadProgramsForDepartmentRooms(input: {
 }): Promise<Record<string, LocationProgram>> {
   const spaceIds = input.rooms.map((room) => room.spaceId);
   const logsEnabled = isCanonicalLogsEnabled();
+  const departmentNotes = await loadDepartmentSpaceNotes(prisma, { facilityId: input.facilityId, departmentId: input.department.id, spaceIds });
 
   const serviceDateKey = toServiceDateKey(
     getFacilityServiceDate(await loadFacilityTimezone(prisma, input.facilityId)),
@@ -256,6 +258,7 @@ async function loadProgramsForDepartmentRooms(input: {
         facilityTypeLabel: type?.facilityTypeLabel ?? room.facilityTypeLabel,
         facilityRoomTypeId: type?.facilityRoomTypeId ?? room.facilityRoomTypeId,
         responsible: true,
+        departmentNote: departmentNotes.get(room.spaceId) ?? null,
       },
       teams: teamInput,
       teamCycles,
@@ -263,8 +266,6 @@ async function loadProgramsForDepartmentRooms(input: {
       coverageNeeds: coverageBySpace.get(room.spaceId) ?? [],
       spaceLogs,
       assetLogs,
-      typeDefaults: [],
-      suppressions: [],
       assets: assets
         .filter((asset) => asset.spaceId === room.spaceId)
         .map((asset) => ({

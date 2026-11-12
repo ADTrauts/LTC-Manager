@@ -56,9 +56,9 @@ export function toCoverageExpectationView(row: {
     requiredCount: number;
     applicableOperationalCycleStableKeys: string[];
     unitId: string | null;
+    spaceId?: string | null;
     unit: { name: string } | null;
-    spaceId: string | null;
-    space: { name: string } | null;
+    space?: { name: string } | null;
   }>;
 }): CoverageExpectationView {
   return {
@@ -79,7 +79,7 @@ export function toCoverageExpectationView(row: {
       applicableOperationalCycleStableKeys: item.applicableOperationalCycleStableKeys,
       unitId: item.unitId,
       unitName: item.unit?.name ?? null,
-      spaceId: item.spaceId,
+      spaceId: item.spaceId ?? null,
       spaceName: item.space?.name ?? null,
     })),
   };
@@ -130,26 +130,36 @@ export async function loadCoverageCatalog(input: {
         isActive: true,
         responsibilities: { some: { departmentId: input.departmentId } },
       },
-      orderBy: { name: "asc" },
       select: {
         id: true,
         name: true,
-        facilityRoomType: { select: { displayName: true } },
+        unitId: true,
+        unit: { select: { id: true, name: true } },
       },
+      orderBy: [{ name: "asc" }],
     }),
   ]);
+
+  const unitById = new Map<string, { id: string; name: string }>();
+  for (const space of spaces) {
+    if (space.unit?.id) {
+      unitById.set(space.unit.id, { id: space.unit.id, name: space.unit.name });
+    }
+  }
 
   return {
     roles: getRolesForDepartment(input.departmentKey).map((role) => ({
       key: role.key,
       label: role.label,
     })),
-    locations: spaces.map((space) => ({
+    cycles: cycleRows,
+    units: [...unitById.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    spaces: spaces.map((space) => ({
       id: space.id,
       name: space.name,
-      roomTypeLabel: space.facilityRoomType?.displayName ?? null,
+      unitId: space.unitId,
+      unitName: space.unit?.name ?? null,
     })),
-    cycles: cycleRows,
   };
 }
 

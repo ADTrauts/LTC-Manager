@@ -10,7 +10,9 @@ import { fileURLToPath } from "node:url";
 
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { tsImport } from "tsx/esm/api";
 
+import { activateFixtureAccount, linkFixtureAccount } from "./fixture-account.mjs";
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -42,7 +44,7 @@ function pinDigest(facilityId, pin) {
 async function upsertUser(db, { email, displayName, roleKey, facilityId, primaryDepartmentId }) {
   const role = await db.role.findUniqueOrThrow({ where: { key: roleKey } });
   const passwordHash = await bcrypt.hash(SYNTHETIC_PASSWORD, 12);
-  return db.user.upsert({
+  const user = await db.user.upsert({
     where: { email },
     update: {
       displayName,
@@ -66,6 +68,7 @@ async function upsertUser(db, { email, displayName, roleKey, facilityId, primary
     },
     select: { id: true, email: true },
   });
+  return activateFixtureAccount(db, user, { facilityId, roleKey });
 }
 
 async function ensureEmployee(db, {
@@ -246,6 +249,7 @@ async function main() {
       roleType: "STAFF",
       pinDigestValue: pinDigest(facility.id, techPin),
     });
+    await linkFixtureAccount(db, staff, techEmp, { facilityId: facility.id, roleKey: "STAFF" });
 
     const techEmployees = [techEmp];
     for (let i = 2; i <= 10; i += 1) {
@@ -260,7 +264,7 @@ async function main() {
       techEmployees.push(emp);
     }
 
-    await ensureEmployee(db, {
+    const supervisorEmp = await ensureEmployee(db, {
       facilityId: facility.id,
       email: supervisor.email,
       firstName: "Plant",
@@ -268,6 +272,24 @@ async function main() {
       departmentId: plant.id,
       roleType: "SUPERVISOR",
     });
+    await linkFixtureAccount(db, supervisor, supervisorEmp, { facilityId: facility.id, roleKey: "SUPERVISOR" });
+    const managerEmp = await ensureEmployee(db, {
+      facilityId: facility.id,
+      email: manager.email,
+      firstName: "Plant",
+      lastName: "Manager",
+      departmentId: plant.id,
+      roleType: "MANAGER",
+    });
+    await linkFixtureAccount(db, manager, managerEmp, { facilityId: facility.id, roleKey: "MANAGER" });
+    const dietaryEmp = await ensureEmployee(db, {
+      facilityId: facility.id,
+      email: dietaryStaff.email,
+      firstName: "Dietary",
+      lastName: "Staff",
+      departmentId: dietary.id,
+    });
+    await linkFixtureAccount(db, dietaryStaff, dietaryEmp, { facilityId: facility.id, roleKey: "STAFF" });
 
     // Floors / mechanical units
     const floors = [];
@@ -293,16 +315,59 @@ async function main() {
       floors.push(unit);
     }
 
-    const servery = await db.unit.findFirst({
+    const servery = await db.unit.findFirstOrThrow({
       where: { facilityId: facility.id, unitType: "SERVERY", isActive: true },
     });
-    if (servery) {
-      await db.unitDepartmentResponsibility.upsert({
-        where: { unitId_departmentId: { unitId: servery.id, departmentId: plant.id } },
-        update: {},
-        create: { unitId: servery.id, departmentId: plant.id, kind: "SUPPORT" },
+    await db.unitDepartmentResponsibility.upsert({
+      where: { unitId_departmentId: { unitId: servery.id, departmentId: plant.id } },
+      update: {},
+      create: { unitId: servery.id, departmentId: plant.id, kind: "SUPPORT" },
+    });
+    const roomName = "Plant Request Verification Servery";
+    let requestRoom = await db.unitSpace.findFirst({ where: { unitId: servery.id, name: roomName } });
+    if (!requestRoom) {
+      const { createFacilityRoomType } = await tsImport("../../src/lib/facility-builder/facility-room-types.ts", import.meta.url);
+      const type = await createFacilityRoomType({
+        facilityId: facility.id,
+        baseTypeKey: "kitchen",
+        displayName: "Request Verification Kitchen",
+      }, db);
+      requestRoom = await db.unitSpace.create({
+        data: {
+          facilityId: facility.id, unitId: servery.id, name: roomName,
+          facilityRoomTypeId: type.id, spaceType: "PRODUCTION_AREA",
+          responsibilities: { create: [{ departmentId: dietary.id }, { departmentId: plant.id }] },
+        },
       });
     }
+    await db.employeeOperationalRoleQualification.upsert({
+      where: { employeeId_departmentId_roleKey: { employeeId: dietaryEmp.id, departmentId: dietary.id, roleKey: "SERVER" } },
+      update: { status: "ACTIVE", revokedAt: null },
+      create: { facilityId: facility.id, departmentId: dietary.id, employeeId: dietaryEmp.id, roleKey: "SERVER" },
+    });
+    const { getFacilityServiceDate } = await tsImport("../../src/lib/operational-time/index.ts", import.meta.url);
+    const now = new Date();
+    const serviceDate = getFacilityServiceDate(facility.timezone, now);
+    const planKey = { facilityId: facility.id, departmentId: dietary.id, serviceDate };
+    const assignmentPlan = await db.operationalAssignmentPlan.upsert({
+      where: { facilityId_departmentId_serviceDate: planKey },
+      update: { status: "CONFIRMED", confirmedAt: now, confirmedByUserId: faWithout.id },
+      create: { ...planKey, status: "CONFIRMED", confirmedAt: now, confirmedByUserId: faWithout.id },
+    });
+    const startsAt = new Date(now.getTime() - 60 * 60_000);
+    const endsAt = new Date(now.getTime() + 3 * 60 * 60_000);
+    const clientCommandId = `plant-request-fixture-${serviceDate.toISOString().slice(0, 10)}`;
+    await db.operationalAssignment.upsert({
+      where: { facilityId_clientCommandId: { facilityId: facility.id, clientCommandId } },
+      update: { planId: assignmentPlan.id, startsAt, endsAt, status: "ACTIVE" },
+      create: {
+        facilityId: facility.id, departmentId: dietary.id, employeeId: dietaryEmp.id,
+        unitId: servery.id, roleKey: "SERVER", roleLabel: "Server", serviceDate, startsAt, endsAt,
+        planId: assignmentPlan.id,
+        status: "ACTIVE", clientCommandId,
+        locations: { create: { unitId: servery.id, unitSpaceId: requestRoom.id } },
+      },
+    });
 
     // Routes Dietary/EVS → Plant
     for (const requesting of [dietary, evs]) {
@@ -457,7 +522,8 @@ async function main() {
         title: "Waiting parts faucet",
         description: "Parts on order",
         priority: "LOW",
-        status: "WAITING_PARTS",
+        status: "ON_HOLD",
+        holdReason: "WAITING_FOR_PART",
         requestingDepartmentId: plant.id,
         responsibleDepartmentId: plant.id,
         reportedById: manager.id,
@@ -512,6 +578,7 @@ async function main() {
       evsDepartmentId: evs.id,
       floors: floors.map((f) => ({ id: f.id, name: f.name })),
       serveryUnitId: servery?.id ?? null,
+      serverySpaceId: requestRoom.id,
       assets: assets.slice(0, 12).map((a) => ({
         id: a.id,
         assetCode: a.assetCode,

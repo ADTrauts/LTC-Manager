@@ -43,7 +43,6 @@ export async function SpaceWorkspacePage({
   query?: {
     unitTab?: string | string[];
     evidence?: string | string[];
-    work?: string | string[];
     reportAsset?: string | string[];
     reportProblem?: string | string[];
     mealServiceEvent?: string | string[];
@@ -66,12 +65,10 @@ export async function SpaceWorkspacePage({
     params.set("space", spaceId);
     const unitTab = firstSearchValue(query?.unitTab);
     const evidence = firstSearchValue(query?.evidence);
-    const work = firstSearchValue(query?.work);
     const reportAsset = firstSearchValue(query?.reportAsset);
     const reportProblem = firstSearchValue(query?.reportProblem);
     if (unitTab) params.set("unitTab", unitTab);
     if (evidence) params.set("evidence", evidence);
-    if (work) params.set("work", work);
     if (reportAsset) params.set("reportAsset", reportAsset);
     if (reportProblem) params.set("reportProblem", reportProblem);
     redirect(`/unit/${resolved.identity.unitId}?${params.toString()}`);

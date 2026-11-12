@@ -31,6 +31,22 @@ export type ResolvedAssignmentLocation = {
 
 export type DbClient = PrismaClient | Prisma.TransactionClient;
 
+/** A forward Assignment always names an explicit responsible Unit or Space set. */
+export async function requireAssignmentLocationScope(client: DbClient, input: {
+  facilityId: string; departmentId: string; unitId: string | null; spaceIds: readonly string[];
+}): Promise<void> {
+  if (input.spaceIds.length > 0) return; // Resolved/validated by resolveAssignmentLocationWrites.
+  if (!input.unitId) throw new Error("Choose a Unit or explicit Rooms / Spaces for this Assignment.");
+  const unit = await client.unit.findFirst({ where: {
+    id: input.unitId, facilityId: input.facilityId, isActive: true,
+    OR: [
+      { departmentResponsibilities: { some: { departmentId: input.departmentId } } },
+      { childSpaces: { some: { isActive: true, responsibilities: { some: { departmentId: input.departmentId } } } } },
+    ],
+  }, select: { id: true } });
+  if (!unit) throw new Error("Choose an active Unit this Department is responsible for.");
+}
+
 export function deriveAssignmentScopeKind(locationCount: number): AssignmentScopeKind {
   return locationCount > 0 ? "SPACES" : "UNIT";
 }
@@ -87,12 +103,15 @@ export async function resolveAssignmentLocationWrites(
     if (!space.isActive) {
       throw new Error(`Room / Space "${formatAssignmentLocationLabel(space)}" is inactive.`);
     }
+    if (space.unit && !space.unit.isActive) {
+      throw new Error(`The Unit for Room / Space "${formatAssignmentLocationLabel(space)}" is inactive.`);
+    }
     if (space.responsibilities.length === 0) {
       throw new Error(
         `Room / Space "${formatAssignmentLocationLabel(space)}" is not assigned to the selected Department.`,
       );
     }
-    if (input.unitId && space.unitId && space.unitId !== input.unitId) {
+    if (input.unitId && space.unitId !== input.unitId) {
       throw new Error(
         `Room / Space "${formatAssignmentLocationLabel(space)}" is not under the selected Unit.`,
       );

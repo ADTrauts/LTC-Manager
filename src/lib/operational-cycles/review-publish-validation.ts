@@ -53,18 +53,11 @@ function hasExplicitLocationSelection(
     | "locationMode"
     | "spaceIds"
     | "unitIds"
-    | "roomTypeKey"
-    | "applicableOperationalTypeKeys"
   >,
 ): boolean {
   if (row.locationInheritFromParent) return false;
-  if (row.locationMode === "ROOM_TYPE" && Boolean(row.roomTypeKey?.trim())) return true;
   if (row.locationMode === "ALL_DEPARTMENT_UNITS") return true;
-  if (row.locationMode === "UNIT_TYPES") return true;
-  if (row.locationMode === "OPERATIONAL_TYPES") {
-    return (row.applicableOperationalTypeKeys?.length ?? 0) > 0;
-  }
-  return (row.spaceIds?.length ?? 0) + (row.unitIds?.length ?? 0) > 0;
+  return row.locationMode === "EXPLICIT_UNITS" && row.spaceIds.length + row.unitIds.length > 0;
 }
 
 /**
@@ -209,7 +202,9 @@ function mapKeyTimeIssue(
       severity: "error",
       code,
       title: `${row.label} needs a due time`,
-      message: "Add at least one due-time group and select the Rooms it applies to.",
+      message: row.keyPointGrain === "DEPARTMENT"
+        ? "Set the Department's due time."
+        : "Add a due-time group and select its Rooms.",
       fixLabel: "Set key time",
       focus: "key_times",
     });
@@ -359,7 +354,7 @@ export function validateDraftsForReviewPublish(input: {
       continue;
     }
     if (
-      (row.locationMode === "EXPLICIT_UNITS" || row.locationMode === "OPERATIONAL_TYPES") &&
+      row.locationMode === "EXPLICIT_UNITS" &&
       !hasExplicitLocationSelection(row)
     ) {
       locationFailKeys.add(row.stableKey);
@@ -438,11 +433,10 @@ export function validateDraftsForReviewPublish(input: {
       mealType: row.mealType,
       locationMode: row.locationMode,
       locationInheritFromParent: row.locationInheritFromParent,
-      applicableUnitTypes: row.applicableUnitTypes,
       unitIds: row.unitIds,
       spaceIds: row.spaceIds,
       keyTimeGroups: row.keyTimeGroups,
-      roomTypeKey: row.roomTypeKey,
+      keyPointGrain: row.keyPointGrain,
       expectedMilestones: row.expectedMilestones,
       forPublish: true,
     });

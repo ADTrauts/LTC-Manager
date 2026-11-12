@@ -9,6 +9,7 @@ export type AssignmentEventType =
   | "COVERAGE_ADDED"
   | "ACTIVATED"
   | "COMPLETED"
+  | "REOPENED"
   | "CANCELLED"
   | "PLAN_CONFIRMED"
   | "PLAN_REOPENED"

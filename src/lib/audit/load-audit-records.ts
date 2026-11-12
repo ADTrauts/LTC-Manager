@@ -4,10 +4,11 @@
  * Slot composition happens in memory.
  */
 
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { OperationalEvidenceFieldValue, Prisma, PrismaClient } from "@prisma/client";
 
 import { serializeEvidenceFieldForCsv, formatEvidenceFieldDisplay } from "@/lib/canonical-logs/evidence-field-display";
 import { scoreInspectionSnapshotJson } from "@/lib/canonical-logs/inspection-score";
+import { loadPublishedCyclesForLogsDateRange } from "@/lib/canonical-logs/load-published-cycles-for-logs";
 import { parseLogSubmissionSnapshot } from "@/lib/canonical-logs/snapshot";
 import { parseRepeatingGroups, evaluateCalculations, parseCalculations, type RepeatRowInput } from "@/lib/canonical-logs/template-structure";
 import { mapReviewAttachmentSegments } from "@/lib/operational-review/review-fact-maps";
@@ -43,7 +44,7 @@ export async function loadAuditOperationalRecords(
   const startDate = facilityLocalDateToServiceDate(input.fromDateKey);
   const endExclusive = facilityLocalDateToServiceDate(shiftDate(input.toDateKey, 1));
 
-  const [attachments, records, waivers, placeNames, spaces] = await Promise.all([
+  const [attachments, records, waivers, placeNames, spaces, publishedCyclesByDate] = await Promise.all([
     client.logAttachment.findMany({
       where: { facilityId: input.facilityId, departmentId: input.departmentId },
       include: {
@@ -76,6 +77,14 @@ export async function loadAuditOperationalRecords(
     client.unitSpace.findMany({
       where: { facilityId: input.facilityId },
       select: { id: true, name: true },
+    }),
+    loadPublishedCyclesForLogsDateRange({
+      client,
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      fromDateKey: input.fromDateKey,
+      toDateKey: input.toDateKey,
+      timezone,
     }),
   ]);
 
@@ -111,6 +120,7 @@ export async function loadAuditOperationalRecords(
       valueText: scalar?.valueText ?? (csvValue || null),
       correctiveActionText: row.correctiveActionText,
       inspection: inspectionExport(row.templateSnapshotJson, row.values),
+      scalarResponses: projectScalarRecordResponses(row.templateSnapshotJson, row.values),
       repeatResponses: projectRepeatResponses(row.templateSnapshotJson, row.values),
       occurredAt: row.occurredAt?.toISOString() ?? null,
       recordedAt: row.recordedAt?.toISOString() ?? null,
@@ -133,6 +143,7 @@ export async function loadAuditOperationalRecords(
     now,
     facilityTimezone: timezone,
     departmentId: input.departmentId,
+    publishedCyclesByDate,
     catalogStableKey: input.catalogStableKey,
     segments: mapReviewAttachmentSegments(attachments).map((segment) => ({
       ...segment,
@@ -149,6 +160,26 @@ export async function loadAuditOperationalRecords(
       recordedAt: row.recordedAt.toISOString(),
     })),
   });
+}
+
+function projectScalarRecordResponses(
+  snapshotJson: Prisma.JsonValue | null,
+  values: readonly OperationalEvidenceFieldValue[],
+): NonNullable<AuditRecordFact["scalarResponses"]> {
+  const snapshot = parseLogSubmissionSnapshot(snapshotJson);
+  const fields = new Map(snapshot?.catalog.fields.map((field) => [field.fieldKey, field]));
+  return values
+    .filter((value) => !value.groupKey)
+    .sort((a, b) =>
+      (fields.get(a.fieldKey)?.displaySequence ?? Number.MAX_SAFE_INTEGER) -
+      (fields.get(b.fieldKey)?.displaySequence ?? Number.MAX_SAFE_INTEGER),
+    )
+    .map((value) => ({
+      column: value.label,
+      value: serializeEvidenceFieldForCsv(value),
+      unit: fields.get(value.fieldKey)?.unitLabel ?? "",
+      outOfStandard: value.outOfStandard,
+    }));
 }
 
 function projectRepeatResponses(

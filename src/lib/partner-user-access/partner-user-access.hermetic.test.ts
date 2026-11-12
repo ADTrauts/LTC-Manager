@@ -1881,7 +1881,7 @@ test("invalid partner context recovers to account session; explicit leave stays 
 test("facility staffing policy and user restrictions govern assignment writers without changing Path B policy", async () => {
   const service = readFileSync(join(root, "src/lib/partner-user-access/service.ts"), "utf8");
   const migration = readFileSync(
-    join(root, "prisma/migrations/20261009030000_partner_staffing_governance/migration.sql"),
+    join(root, "prisma/migrations/20261111120000_canonical_baseline/migration.sql"),
     "utf8",
   );
   const partnerFn = service.slice(
@@ -1891,8 +1891,8 @@ test("facility staffing policy and user restrictions govern assignment writers w
   assert.equal(partnerFn.includes("StaffingPolicy"), false);
   assert.match(partnerFn, /restrictionPeriods/);
   assert.equal(service.includes("sessionVersion"), false);
-  assert.match(migration, /"createdByAuthorityKind" = 'facility_admin'/);
-  assert.match(migration, /"endedByAuthorityKind" = 'facility_admin'/);
+  assert.match(migration, /PartnerUserRolePeriod_created_authority_ck[^;]+"createdByAuthorityKind" = 'facility_admin'/);
+  assert.match(migration, /PartnerUserRolePeriod_ended_authority_ck[^;]+"endedByAuthorityKind" = 'facility_admin'/);
   assert.equal(migration.includes('INSERT INTO "FacilityPartnerStaffingPolicyPeriod"'), false);
   assert.equal(migration.includes('INSERT INTO "FacilityPartnerUserRestrictionPeriod"'), false);
 

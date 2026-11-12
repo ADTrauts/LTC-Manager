@@ -3,7 +3,12 @@ import { auditRecordsToCsv } from "@/lib/audit/audit-records";
 import type { ComplianceCsvMode, ComplianceReport } from "./types";
 
 export function renderComplianceCsv(report: ComplianceReport, mode: ComplianceCsvMode): string {
-  if (mode === "slots") return auditRecordsToCsv(report.slots);
+  if (mode === "slots") {
+    return auditRecordsToCsv(report.slots.map((slot) => ({
+      ...slot,
+      inspection: slot.inspection ? { ...slot.inspection, questions: [] } : slot.inspection,
+    })));
+  }
   const header = [
     "recordId",
     "serviceDate",

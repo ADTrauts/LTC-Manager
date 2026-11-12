@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAtLeastRole } from "@/lib/access";
@@ -13,6 +14,8 @@ import {
   applyAssignmentTemplate,
   loadAssignmentTemplatePreview,
   loadDailyAssignmentBoard,
+  resolveAssignmentAuthority,
+  requireAssignmentManage,
 } from "@/lib/scheduling/operational-assignments";
 
 const COVERAGE_AUTHORING_MOVED =
@@ -24,6 +27,7 @@ function revalidateViews() {
   revalidatePath("/today");
   revalidatePath("/today/coverage");
   revalidatePath("/unit/[unitId]", "page");
+  revalidatePath("/dashboard");
 }
 
 async function rejectCoverageAuthoring(formData: FormData): Promise<void> {
@@ -76,6 +80,9 @@ export async function applyTemplateAction(formData: FormData) {
     select: { id: true, key: true },
   });
   if (!department) throw new Error("Department not found.");
+  requireAssignmentManage(await resolveAssignmentAuthority({
+    session, facilityId: session.facilityId, departmentId: department.id,
+  }));
 
   const template = await prisma.operationalAssignmentTemplate.findFirst({
     where: {
@@ -115,7 +122,7 @@ export async function applyTemplateAction(formData: FormData) {
     board.assignments,
   );
 
-  await applyAssignmentTemplate({
+  const result = await applyAssignmentTemplate({
     facilityId: session.facilityId,
     departmentId: parsed.departmentId,
     departmentKey: department.key,
@@ -125,4 +132,7 @@ export async function applyTemplateAction(formData: FormData) {
   });
 
   revalidateViews();
+  const query = new URLSearchParams({ department: department.id, date: parsed.serviceDate,
+    notice: `${result.created} Assignment(s) created; ${result.skipped} skipped.${result.warnings.length ? ` ${[...new Set(result.warnings)].join(" ")}` : ""}` });
+  redirect(`/staffing/assignments?${query}`);
 }

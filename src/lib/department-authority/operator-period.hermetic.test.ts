@@ -82,7 +82,7 @@ test("the archive stays closed while enforcement is off", async () => {
   assert.deepEqual(periods, []);
 });
 
-test("a vendor handover retires menus, work plans, and cycles once the replacement has started", async () => {
+test("a vendor handover retires menus and cycles once the replacement has started", async () => {
   assert.equal(
     vendorPeriodEndsNow({
       organizationId: metz,
@@ -120,11 +120,6 @@ test("a vendor handover retires menus, work plans, and cycles once the replaceme
         calls.push(`menu:${args.where.operatorPeriodId}:${args.data.status}`);
       },
     },
-    departmentWorkPlan: {
-      updateMany: async (args: { data: { status: string } }) => {
-        calls.push(`plan:${args.data.status}`);
-      },
-    },
     departmentOperationalCycle: {
       updateMany: async (args: { data: { status: string } }) => {
         calls.push(`cycle:${args.data.status}`);
@@ -140,7 +135,7 @@ test("a vendor handover retires menus, work plans, and cycles once the replaceme
     if (previous === undefined) delete process.env.CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED;
     else process.env.CONTRACTED_DEPARTMENT_AUTHORITY_ENABLED = previous;
   }
-  assert.deepEqual(calls, ["menu:metz:INACTIVE", "plan:RETIRED", "cycle:RETIRED"]);
+  assert.deepEqual(calls, ["menu:metz:INACTIVE", "cycle:RETIRED"]);
 });
 
 test("operating reads keep the current vendor period and otherwise keep the facility period", () => {

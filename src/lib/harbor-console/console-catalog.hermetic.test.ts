@@ -2,14 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
-
-import { DEPARTMENT_WORK_PRESET_KEYS, WORK_PRESET_PRODUCT_KEYS } from "@/lib/department-work/work-presets";
 import { getDepartmentProduct, listDepartmentProducts } from "@/lib/department-products/registry";
 
 import {
   CONSOLE_CATALOG_EMPTY,
   listConsoleCatalogItems,
-  toWorkPresetCatalogItem,
   type ConsoleCatalogItem,
 } from "./console-catalog";
 
@@ -374,7 +371,7 @@ function requireItem(items: ConsoleCatalogItem[], stableKey: string) {
   return item;
 }
 
-test("unified projection keeps Department, Record, and Work sources", async () => {
+test("unified projection keeps Department and Record sources", async () => {
   const { calls, client } = buildClient();
   const items = await listConsoleCatalogItems(client as never);
 
@@ -430,36 +427,14 @@ test("unified projection keeps Department, Record, and Work sources", async () =
   assert.equal(draft.statusLabel, "Published · Draft");
   assert.equal(items.some((row) => row.stableKey === "phase6b_procedure"), false);
 
-  const round = requireItem(items, "MECHANICAL_ROOM_ROUND");
-  assert.equal(round.sourceType, "WORK_PRESET");
-  assert.equal(round.catalogFamily, "WORK");
-  assert.equal(round.categoryKey, "PLANT");
-  assert.equal(round.categoryLabel, "Facility Plant Operations");
-  assert.equal(round.versionDisplay, CONSOLE_CATALOG_EMPTY);
-  assert.equal(round.statusKey, null);
-  assert.equal(round.statusLabel, CONSOLE_CATALOG_EMPTY);
-  assert.equal(round.facilityInstallCount, 2);
-  assert.equal(round.usageCount, 2);
-  assert.equal(round.usageLabel, "published plans");
-  assert.equal(round.detailHref, "/console/catalog/work/MECHANICAL_ROOM_ROUND");
-  assert.equal(round.actions.author, false);
+  // Phase 2C-2H-3: Marketplace discovery omits WORK_PRESET; detail helper retains history.
+  assert.equal(items.some((row) => row.sourceType === "WORK_PRESET"), false);
+  assert.equal(items.some((row) => row.stableKey === "MECHANICAL_ROOM_ROUND"), false);
   assert.equal(items.some((row) => row.stableKey === "work_customer_round"), false);
-  assert.equal(
-    items.filter((row) => row.sourceType === "WORK_PRESET").length,
-    DEPARTMENT_WORK_PRESET_KEYS.length,
-  );
-
-  for (const key of DEPARTMENT_WORK_PRESET_KEYS) {
-    const item = requireItem(items, key);
-    const owner = getDepartmentProduct(WORK_PRESET_PRODUCT_KEYS[key]);
-    assert.ok(owner);
-    assert.equal(item.categoryKey, owner.productKey);
-    assert.equal(item.categoryLabel, owner.name);
-  }
 
   assert.deepEqual(
     [...new Set(items.map((row) => row.sourceType))].sort(),
-    ["CATALOG_RECORD", "DEPARTMENT_PRODUCT", "WORK_PRESET"],
+    ["CATALOG_RECORD", "DEPARTMENT_PRODUCT"],
   );
   assert.equal(items.filter((row) => row.catalogFamily === "DEPARTMENTS").length, listDepartmentProducts().length);
 
@@ -472,10 +447,11 @@ test("unified projection keeps Department, Record, and Work sources", async () =
     "catalogLogDefinition",
     "facilityCatalogInstall",
     "logAttachment",
-    "departmentWorkPlan",
   ]) {
     assert.equal(calls.filter((call) => call.model === model).length, 1, model);
   }
+  // WORK_PRESET discovery retired — browse no longer queries departmentWorkPlan.
+  assert.equal(calls.some((call) => call.model === "departmentWorkPlan"), false);
   assert.equal(calls.some((call) => call.model === "knowledgeArticle"), false);
   assert.equal(calls.some((call) => call.model === "operationalTemplate"), false);
 
@@ -489,22 +465,6 @@ test("unified projection keeps Department, Record, and Work sources", async () =
     "PLANT",
   ]);
   assert.equal("name" in departmentQuery.where, false);
-});
-
-test("work category follows preset ownership metadata, not the display name", () => {
-  const plant = getDepartmentProduct("PLANT");
-  assert.ok(plant);
-  const item = toWorkPresetCatalogItem({
-    presetKey: "MECHANICAL_ROOM_ROUND",
-    name: "Dietary Servery Opening",
-    product: plant,
-    facilityInstallCount: 4,
-    usageCount: 1,
-  });
-  assert.equal(item.name, "Dietary Servery Opening");
-  assert.equal(item.categoryKey, "PLANT");
-  assert.equal(item.categoryLabel, "Facility Plant Operations");
-  assert.equal(WORK_PRESET_PRODUCT_KEYS.MECHANICAL_ROOM_ROUND, "PLANT");
 });
 
 test("Marketplace browse uses the unified projection once", () => {

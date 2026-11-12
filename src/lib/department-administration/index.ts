@@ -52,11 +52,6 @@ export {
 } from "./builder-entry";
 
 export {
-  groupRoomsByFacilityRoomType,
-  type FacilityRoomTypeGroup,
-} from "./operational-type";
-
-export {
   composeLocationProgram,
   emptyLocationProgram,
   formatNeedSummary,
@@ -84,7 +79,6 @@ export {
   type DepartmentLocationKind,
   type DepartmentLocationNeighborhoodNode,
   type DepartmentLocationSource,
-  type DepartmentLocationStatus,
 } from "./department-locations";
 
 export type { DepartmentAdminView } from "./load-department-admin";

@@ -3,6 +3,8 @@
 **Mode:** BUILD — *Configure how the operation works.*
 **Companion docs:** `LTC_MANAGER_BUILD_RUN_INFORMATION_ARCHITECTURE_2026-08-08.md`, `LTC_MANAGER_RUN_GUIDE.md`, `LTC_MANAGER_ADMIN_BOUNDARY.md`
 
+> **Phase 1 supersession (November 8, 2026).** This guide is a historical BUILD surface map. Binding Department Builder structure is [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md) and [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md): Overview · Facility · Operating Rhythm · People & Coverage · Records (+ Menus / Preventive Maintenance). **Work Plans are retired / compatibility-only** — residual `/staffing/work-plans` is not forward architecture. Location Function authoring is retired. Prefer Constitution / 01A / 01B / 16 over older tab matrices and capability-flag tables below.
+
 ---
 
 ## What BUILD is

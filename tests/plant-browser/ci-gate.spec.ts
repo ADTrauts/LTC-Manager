@@ -48,6 +48,7 @@ type Fixtures = {
   plantDepartmentId: string;
   dietaryDepartmentId: string;
   serveryUnitId: string | null;
+  serverySpaceId: string;
   floors: Array<{ id: string; name: string }>;
   dietaryRequestId: string;
   dietaryRequestCode: string;
@@ -129,14 +130,14 @@ test.describe("Phase 12A Plant @ci-gate", () => {
     }
   });
 
-  test("dietary staff can open unit workspace report form when routes exist @ci-gate", async () => {
+  test("assigned Dietary staff can open the exact Room request form @ci-gate", async () => {
     const fx = loadFixtures();
     const unitId = fx.serveryUnitId ?? fx.floors[0]?.id;
     test.skip(!unitId, "no unit for report form");
     const { context, page } = await openPersistent("dietary-report");
     try {
       await loginPassword(page, fx.users.dietaryStaff.email, demoPassword());
-      await page.goto(`/unit/${unitId}?reportProblem=1`);
+      await page.goto(`/unit/${unitId}?space=${fx.serverySpaceId}&reportProblem=1`);
       const form = page.getByTestId("report-problem-form");
       const noRoutes = page.getByTestId("report-problem-no-routes");
       await expect(form.or(noRoutes)).toBeVisible({ timeout: 30_000 });

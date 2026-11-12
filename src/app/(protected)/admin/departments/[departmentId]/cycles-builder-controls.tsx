@@ -18,7 +18,6 @@ import {
   locationModeFromUserScope,
   mealTimeNeighborhoodCandidates,
   shouldShowServiceStartTimes,
-  userFacingScopeFromMode,
   type CycleScopeLocationOption,
   type CycleUserScope,
   type StandardRoomTypeOption,
@@ -278,10 +277,7 @@ export type CycleRowData = {
   effectiveTo: string | null;
   locationMode: string;
   locationInheritFromParent: boolean;
-  applicableUnitTypes: string[];
-  applicableOperationalTypeKeys: string[];
   expectedMilestones: string[];
-  roomTypeKey: string | null;
   unitIds: string[];
   spaceIds: string[];
   keyTimeGroups: Array<{ dueLocal: string; spaceIds: string[] }>;
@@ -294,7 +290,6 @@ export type CycleRowData = {
 export type CycleEditorCatalog = {
   locations: CycleScopeLocationOption[];
   roomTypes: StandardRoomTypeOption[];
-  operationalTypes?: Array<{ key: string; name: string }>;
 };
 
 function normalizeTimeInput(value: string | null | undefined): string {
@@ -329,10 +324,7 @@ export function CycleEditorFields({
   idPrefix: string;
   defaults: Partial<CycleRowData> & {
     applicableDaysOfWeek?: number[];
-    applicableUnitTypes?: string[];
-    applicableOperationalTypeKeys?: string[];
     expectedMilestones?: string[];
-    roomTypeKey?: string | null;
     unitIds?: string[];
     spaceIds?: string[];
     keyTimeGroups?: Array<{ dueLocal: string; spaceIds: string[] }>;
@@ -379,27 +371,14 @@ export function CycleEditorFields({
           ? [{ dueLocal: "", spaceIds: [] as string[] }]
           : [],
   );
-  const [showLegacyMilestones, setShowLegacyMilestones] = useState(false);
   const hasLegacyMilestoneData =
     (defaults.milestoneTimes ?? []).some((row) => row.milestone === "SERVICE_STARTED") ||
-    defaults.locationMode === "ROOM_TYPE" ||
     (defaults.expectedMilestones ?? []).includes("SERVICE_STARTED");
-  const [appliesTo, setAppliesTo] = useState<CycleUserScope>(() =>
-    userFacingScopeFromMode(
-      (defaults.locationMode as
-        | "ALL_DEPARTMENT_UNITS"
-        | "UNIT_TYPES"
-        | "EXPLICIT_UNITS"
-        | "ROOM_TYPE"
-        | "OPERATIONAL_TYPES") ?? "OPERATIONAL_TYPES",
-    ),
+  const [appliesTo, setAppliesTo] = useState<CycleUserScope>(
+    defaults.locationMode === "EXPLICIT_UNITS" || isNested ? "specific" : "department",
   );
-  const [roomTypeKey, setRoomTypeKey] = useState(defaults.roomTypeKey ?? "servery");
   const [unitIds, setUnitIds] = useState<string[]>(defaults.unitIds ?? []);
   const [spaceIds, setSpaceIds] = useState<string[]>(defaults.spaceIds ?? []);
-  const [operationalTypeKeys, setOperationalTypeKeys] = useState<string[]>(
-    defaults.applicableOperationalTypeKeys ?? [],
-  );
   const [cycleType, setCycleType] = useState(defaults.cycleType ?? "SERVICE");
   const [mealType, setMealType] = useState(
     defaults.mealType ?? (showMeal && !inheritedMealType ? "BREAKFAST" : defaults.mealType ?? ""),
@@ -421,16 +400,14 @@ export function CycleEditorFields({
     : locationModeFromUserScope(appliesTo);
   const locations = catalog?.locations ?? [];
   const roomTypes = catalog?.roomTypes ?? [];
-  const operationalTypes = catalog?.operationalTypes ?? [];
   const [roomTypeFilterId, setRoomTypeFilterId] = useState("");
   const neighborhoods = locations.filter((row) => row.kind === "neighborhood");
-  const rooms = locations.filter((row) => row.kind === "room");
   const effectiveMeal = mealType || inheritedMealType || null;
   const showLegacyServiceBlock =
     showMeal &&
     hasLegacyMilestoneData &&
     nodeKind === "PERIOD" &&
-    (showLegacyMilestones || (defaults.milestoneTimes ?? []).length > 0);
+    (defaults.milestoneTimes ?? []).length > 0;
   const showTimes =
     showLegacyServiceBlock &&
     shouldShowServiceStartTimes({
@@ -441,14 +418,12 @@ export function CycleEditorFields({
   const candidates = showTimes
     ? mealTimeNeighborhoodCandidates({
         locationMode,
-        roomTypeKey: appliesTo === "room_type" ? roomTypeKey : null,
         unitIds,
         spaceIds,
         locations,
       })
     : [];
   const mealTitle = formatMealTitle(effectiveMeal);
-  const serverySelected = appliesTo === "room_type" && roomTypeKey === "servery";
 
   function toggleMilestone(value: string, on: boolean) {
     setMilestones((prev) => {
@@ -462,19 +437,6 @@ export function CycleEditorFields({
     const next = { ...times };
     for (const row of candidates) next[row.unitId] = setAll;
     setTimes(next);
-  }
-
-  function emptyTimesMessage(): string {
-    if (appliesTo === "room_type" && roomTypeKey === "servery") {
-      return "No Servery rooms with Neighborhood parents are assigned to this department yet.";
-    }
-    if (appliesTo === "room_type") {
-      return "No matching rooms found for this Room Type in the department.";
-    }
-    if (appliesTo === "specific") {
-      return "Select Neighborhood locations (or rooms under them) to configure start times.";
-    }
-    return "Choose Room Type → Servery (or Neighborhood locations) to configure start times.";
   }
 
   return (
@@ -653,7 +615,7 @@ export function CycleEditorFields({
                       checked={!locationInheritFromParent}
                       onChange={() => setLocationInheritFromParent(false)}
                     />
-                    Choose different rooms
+                    Choose specific locations
                   </label>
                 </div>
               ) : null}
@@ -664,12 +626,11 @@ export function CycleEditorFields({
                       <input
                         type="radio"
                         name="appliesTo"
-                        value="operational_types"
-                        checked={appliesTo === "operational_types"}
-                        onChange={() => setAppliesTo("operational_types")}
-                        data-testid="cycle-applies-operational-types"
+                        value="department"
+                        checked={appliesTo === "department"}
+                        onChange={() => setAppliesTo("department")}
                       />
-                      Location Functions
+                      Entire department
                     </label>
                     <label className="flex items-center gap-2 text-sm text-zinc-800">
                       <input
@@ -680,53 +641,9 @@ export function CycleEditorFields({
                         onChange={() => setAppliesTo("specific")}
                         data-testid="cycle-applies-specific"
                       />
-                      Specific rooms
+                      Specific locations
                     </label>
                   </div>
-                  {appliesTo === "operational_types" ? (
-                    <div className="space-y-2" data-testid="cycle-operational-types">
-                      <p className="text-[11px] text-zinc-500">
-                        Apply this Cycle to every room bound to these Location Functions.
-                        This is not Physical Room Type.
-                      </p>
-                      {operationalTypes.length === 0 ? (
-                        <p className="text-xs text-zinc-500" data-testid="cycle-operational-types-empty">
-                          No Location Functions yet. Adopt them under Locations, then return
-                          here.
-                        </p>
-                      ) : (
-                        <div className="space-y-1 rounded-md border border-zinc-200 bg-white p-2">
-                          {operationalTypes.map((type) => (
-                            <label
-                              key={type.key}
-                              className="flex items-center gap-2 text-sm text-zinc-800"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={operationalTypeKeys.includes(type.key)}
-                                onChange={(event) => {
-                                  setOperationalTypeKeys((prev) =>
-                                    event.target.checked
-                                      ? [...prev, type.key]
-                                      : prev.filter((key) => key !== type.key),
-                                  );
-                                }}
-                                data-testid={`cycle-operational-type-${type.key}`}
-                              />
-                              {type.name}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                      <input
-                        type="hidden"
-                        name="applicableOperationalTypeKeys"
-                        value={operationalTypeKeys.join(",")}
-                      />
-                    </div>
-                  ) : (
-                    <input type="hidden" name="applicableOperationalTypeKeys" value="" />
-                  )}
                   {appliesTo === "specific" ? (
                     <>
                       <p className="text-[11px] text-zinc-500">
@@ -764,81 +681,38 @@ export function CycleEditorFields({
                       />
                     </>
                   ) : null}
-                  <details className="rounded-md border border-zinc-200 bg-zinc-50 p-2">
-                    <summary className="cursor-pointer text-xs font-medium text-zinc-700">
-                      Legacy location scope
-                    </summary>
-                    <div className="mt-2 space-y-2">
-                      {(
-                        [
-                          ["department", "Entire department"],
-                          ["room_type", "Physical Room Type"],
-                          ["specific", "Specific neighborhoods"],
-                        ] as const
-                      ).map(([value, label]) => (
-                        <label
-                          key={value}
-                          className="flex items-center gap-2 text-sm text-zinc-800"
-                        >
-                          <input
-                            type="radio"
-                            name="appliesTo"
-                            value={value}
-                            checked={appliesTo === value}
-                            onChange={() => setAppliesTo(value)}
-                          />
-                          {label}
-                        </label>
-                      ))}
-                      {appliesTo === "room_type" ? (
-                        <label className="block text-xs font-medium text-zinc-700">
-                          Physical Room Type
-                          <select
-                            name="roomTypeKey"
-                            value={roomTypeKey}
-                            onChange={(event) => setRoomTypeKey(event.target.value)}
-                            className={inputClass}
-                            data-testid="cycle-room-type"
+                  {appliesTo === "specific" && neighborhoods.length > 0 ? (
+                    <details className="rounded-md border border-zinc-200 p-2" open={unitIds.length > 0}>
+                      <summary className="cursor-pointer text-xs font-medium text-zinc-700">
+                        Neighborhoods
+                      </summary>
+                      <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
+                        {neighborhoods.map((neighborhood) => (
+                          <label
+                            key={neighborhood.id}
+                            className="flex items-center gap-2 text-sm text-zinc-800"
                           >
-                            {roomTypes.map((option) => (
-                              <option key={option.key} value={option.key}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      ) : (
-                        <input type="hidden" name="roomTypeKey" value="" />
-                      )}
-                      {appliesTo === "specific" ? (
-                        <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border border-zinc-200 bg-white p-2">
-                          {neighborhoods.map((neighborhood) => (
-                            <label
-                              key={neighborhood.id}
-                              className="flex items-center gap-2 text-sm text-zinc-800"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={unitIds.includes(neighborhood.id)}
-                                onChange={(event) => {
-                                  setUnitIds((prev) =>
-                                    event.target.checked
-                                      ? [...prev, neighborhood.id]
-                                      : prev.filter((id) => id !== neighborhood.id),
-                                  );
-                                }}
-                              />
-                              {neighborhood.name}
-                            </label>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </details>
+                            <input
+                              type="checkbox"
+                              checked={unitIds.includes(neighborhood.id)}
+                              onChange={(event) => {
+                                setUnitIds((previous) =>
+                                  event.target.checked
+                                    ? [...previous, neighborhood.id]
+                                    : previous.filter((id) => id !== neighborhood.id),
+                                );
+                              }}
+                            />
+                            {neighborhood.name}
+                          </label>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
                 </>
               ) : (
                 <p className="text-xs text-zinc-600">
-                  Rooms resolve from the parent phase when published.
+                  Locations follow the parent Operational Cycle.
                 </p>
               )}
             </fieldset>
@@ -884,7 +758,7 @@ export function CycleEditorFields({
                 </div>
                 {candidates.length === 0 ? (
                   <p className="text-xs text-zinc-500" data-testid="meal-times-empty">
-                    {emptyTimesMessage()}
+                    Select a Neighborhood or one of its rooms to configure service start times.
                   </p>
                 ) : (
                   <>

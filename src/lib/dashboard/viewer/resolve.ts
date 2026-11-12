@@ -22,7 +22,7 @@ import { getFacilityServiceDate, loadFacilityTimezone, toServiceDateKey } from "
 import { prisma } from "@/lib/prisma";
 import type { RouteFeatureFlags } from "@/lib/route-registry/authorize";
 import { getOperationalEmployeeIdForSession } from "@/lib/session-employee";
-import { resolveViewerTeamScopes } from "@/lib/dashboard/viewer/operational-placement";
+import { loadEmployeeTeamRoomView } from "@/lib/department-teams/team-room-membership";
 
 import {
   applyDashboardLens,
@@ -216,15 +216,9 @@ export async function resolveDashboardViewer(
 
   const teamDepartment = authority === "SUPERVISOR" ? scoped[0] : undefined;
   const teamScope = teamDepartment
-    ? ((
-        await resolveViewerTeamScopes({
-          session,
-          facilityId,
-          departments: [{ id: teamDepartment.id, label: teamDepartment.name }],
-          db,
-          resolveEmployeeId: async () => employeeId,
-        })
-      ).get(teamDepartment.id) ?? null)
+    ? { mode: "TEAM_SCOPED" as const, ...await loadEmployeeTeamRoomView(db, {
+        facilityId, departmentId: teamDepartment.id, employeeId,
+      }) }
     : null;
 
   return deriveDashboardViewer({

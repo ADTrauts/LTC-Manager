@@ -3,11 +3,14 @@ import { join } from "node:path";
 
 import { test, expect, chromium, type BrowserContext, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { boardHref, createAndConfirmAssignment, roomHref } from "./canonical-board";
 
 type Fixtures = {
   facilityId: string;
   departmentId: string;
+  plantDepartmentId: string;
   unitId: string;
+  assignmentRoom: { id: string; unitId: string; name: string };
   serviceDateKey: string;
   supervisorEmail: string;
   staffEmail: string;
@@ -63,71 +66,61 @@ test("board load @ci-gate: supervisor opens Assignment Board with scale roster",
   const { context, page } = await openPersistent("board");
   try {
     await loginPassword(page, fx.supervisorEmail);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+    await page.goto(boardHref(fx), {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText(/Plan:\s*(DRAFT|CONFIRMED|REOPENED|CLOSED)/i).first()).toBeVisible({
-      timeout: 20_000,
-    });
+    const roster = page.locator("article").filter({ has: page.getByRole("heading", { name: "By Employee" }) });
+    await expect(roster.getByText(/^Scale\d{3} Dietary$/)).toHaveCount(39);
+    await expect(roster.getByText("Assign StaffEmp", { exact: true })).toBeVisible();
+    await expect(roster.getByText("Scale040 Dietary", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/Plan:/)).toHaveCount(0);
     await expect(page.getByTestId("assignment-by-unit")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /By Employee/i })).toBeVisible();
+    await expect(roster).toBeVisible();
   } finally {
     await context.close();
   }
 });
 
-test("create and confirm @ci-gate: supervisor assigns and confirms plan", async () => {
+test("create, confirm, complete and reopen an exact Room Assignment @ci-gate", async () => {
   const fx = loadFixtures();
-  // Reused isolated environments may already hold a confirmed plan. Reset only
-  // this synthetic fixture's plan; real confirmation still happens in the UI.
-  const fixtureDb = new PrismaClient({ datasources: { db: { url: process.env.VERIFY_DATABASE_URL } } });
-  try {
-    await fixtureDb.operationalAssignmentPlan.updateMany({ where: { facilityId: fx.facilityId, departmentId: fx.departmentId, serviceDate: serviceDateUtc(fx.serviceDateKey) }, data: { status: "DRAFT", confirmedAt: null } });
-    await fixtureDb.operationalAssignment.deleteMany({ where: { facilityId: fx.facilityId, employeeId: fx.staffEmployeeId, serviceDate: serviceDateUtc(fx.serviceDateKey) } });
-  } finally { await fixtureDb.$disconnect(); }
+  const db = new PrismaClient({ datasources: { db: { url: process.env.VERIFY_DATABASE_URL } } });
   const { context, page } = await openPersistent("confirm");
   try {
     await loginPassword(page, fx.supervisorEmail);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await expect(page.getByRole("heading", { name: /Create Assignment/i })).toBeVisible({
-      timeout: 20_000,
-    });
+    const assignment = await createAndConfirmAssignment(page, db, fx);
 
-    const createForm = page.locator("form").filter({ hasText: "Create Assignment" });
-    await createForm.locator('select[name="employeeId"]').selectOption({ value: fx.staffEmployeeId });
-    await createForm.locator('select[name="roleKey"]').selectOption({ index: 1 });
-    await createForm.locator('select[name="unitId"]').selectOption({ value: fx.unitId });
-    await createForm.locator('input[name="startsAt"]').fill("06:00");
-    await createForm.locator('input[name="endsAt"]').fill("10:00");
-    await createForm.getByRole("button", { name: /Create Assignment/i }).click();
+    await context.clearCookies();
+    await loginPassword(page, fx.staffEmail);
+    await page.goto(roomHref(fx));
+    const completion = page.getByTestId("employee-assignment-completion");
+    await expect(completion).toContainText("Check the supplies in the assigned Room.");
+    await completion.getByLabel("Completion note").fill("Supplies verified.");
+    await completion.getByRole("button", { name: "Complete Assignment", exact: true }).click();
+    const status = async () => (await db.operationalAssignment.findUniqueOrThrow({ where: { id: assignment.id } })).status;
+    await expect.poll(status).toBe("COMPLETED");
+    await page.reload();
+    await expect(page.getByTestId("employee-completed-assignments")).toContainText("Server");
 
-    await page.waitForTimeout(2000);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await expect(page.getByTestId("assignment-by-unit")).toContainText(/StaffEmp|Server|Cook|Assign/i, {
-      timeout: 15_000,
-    });
-
-    const confirm = page.locator("form").filter({ hasText: /Confirm plan/i });
-    await expect(confirm.getByRole("button", { name: /Confirm plan/i })).toBeVisible({
-      timeout: 10_000,
-    });
-    const ack = confirm.locator('input[name="acknowledgeCoverageGaps"]');
-    if (await ack.count()) await ack.check();
-    await confirm.getByRole("button", { name: /Confirm plan/i }).click();
-    await page.waitForTimeout(2000);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await expect(page.getByText(/Plan:\s*CONFIRMED/i)).toBeVisible({ timeout: 15_000 });
+    await context.clearCookies();
+    await loginPassword(page, fx.supervisorEmail);
+    await page.goto(boardHref(fx));
+    const history = page.getByTestId("assignment-completed-list");
+    await history.locator("summary").click();
+    const row = history.getByTestId(`completed-assignment-${assignment.id}`);
+    await row.getByLabel("Reason to reopen Assignment").fill("Recheck the supplies.");
+    await row.getByRole("button", { name: "Reopen Assignment", exact: true }).click();
+    await expect.poll(status).toBe("ACTIVE");
+    await page.reload();
+    await expect(page.getByText("Plan: CONFIRMED", { exact: true })).toBeVisible();
+    for (const eventType of ["COMPLETED", "REOPENED"]) {
+      expect(await db.operationalAssignmentEvent.count({ where: { assignmentId: assignment.id, eventType } })).toBe(1);
+    }
   } finally {
     await context.close();
+    await db.$disconnect();
   }
 });
 
@@ -204,7 +197,7 @@ test("coverage gap @ci-gate: coverage page links to Assignment Board", async () 
   const { context, page } = await openPersistent("coverage");
   try {
     await loginPassword(page, fx.supervisorEmail);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+    await page.goto(boardHref(fx), {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
@@ -215,14 +208,15 @@ test("coverage gap @ci-gate: coverage page links to Assignment Board", async () 
   }
 });
 
-test("role denial @ci-gate: STAFF cannot open Assignment Board; FA without ops cannot create", async () => {
+test("role denial @ci-gate: STAFF is denied Dietary board; FA is denied Plant assignments", async () => {
   const fx = loadFixtures();
   const { context, page } = await openPersistent("deny-staff");
   try {
     await loginPassword(page, fx.staffEmail);
-    await page.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+    await page.goto(boardHref(fx), {
       waitUntil: "domcontentloaded",
     });
+    await expect(page).toHaveURL(/\/logs(?:[?#]|$)/);
     await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toHaveCount(0);
   } finally {
     await context.close();
@@ -231,12 +225,12 @@ test("role denial @ci-gate: STAFF cannot open Assignment Board; FA without ops c
   const { context: faCtx, page: faPage } = await openPersistent("deny-fa");
   try {
     await loginPassword(faPage, fx.faEmail);
-    await faPage.goto(`/staffing/assignments?date=${fx.serviceDateKey}`, {
+    // A Facility Administrator has Dietary authority, but no Plant Assignment authority.
+    await faPage.goto(boardHref({ ...fx, departmentId: fx.plantDepartmentId }), {
       waitUntil: "domcontentloaded",
     });
-    await expect(faPage.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible({
-      timeout: 20_000,
-    });
+    await expect(faPage.getByText("Department Assignment access is unavailable.")).toBeVisible();
+    await expect(faPage.getByRole("heading", { name: /Daily Assignment Board/i })).toHaveCount(0);
     await expect(faPage.getByRole("heading", { name: /Create Assignment/i })).toHaveCount(0);
   } finally {
     await faCtx.close();

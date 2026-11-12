@@ -3,8 +3,6 @@
 import { revalidatePath } from "next/cache";
 import {
   OperationalAssignmentSource,
-  OperationalAssignmentStatus,
-  type Prisma,
 } from "@prisma/client";
 import { z } from "zod";
 
@@ -24,12 +22,10 @@ import {
 } from "@/lib/staffing/assignment-references";
 import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
 import {
-  enqueueAssignmentChanged,
   processNotificationOutboxAfterCommit,
 } from "@/lib/notifications/live-publishers";
 import {
   recordAssignmentEvent,
-  type RecordAssignmentEventInput,
 } from "@/lib/scheduling/operational-assignments/assignment-events";
 import {
   requireAssignmentManage,
@@ -50,6 +46,7 @@ import {
   assertNoLocationResponsibilityOverlaps,
   replaceAssignmentLocations,
   resolveAssignmentLocationWrites,
+  requireAssignmentLocationScope,
 } from "@/lib/scheduling/operational-assignments/location-scope";
 
 import {
@@ -57,52 +54,12 @@ import {
   resolveDepartmentRoomUnitSpaceIdsFromNeighborhoodSelection,
 } from "@/lib/scheduling/operational-assignments/location-scope/department-room-selection";
 import { loadZoneSpaceIds } from "@/lib/department-zones";
-import {
-  deriveDefaultRoleKeyForDepartmentJobRole,
-  deriveRoleLabelSnapshot,
-} from "@/lib/scheduling/operational-assignments/department-job-role-derivation";
-import { loadCoverageSlotSnapshot, type CoverageSlotSnapshot } from "@/lib/scheduling/coverage-episodes/observe";
+import { requireAssignmentEligibility, recordAssignmentEligibilityOverride } from "@/lib/employee-operational-qualifications/assignment-eligibility";
+import { loadCoverageSlotSnapshot } from "@/lib/scheduling/coverage-episodes/observe";
+import { transitionAssignment } from "@/lib/scheduling/operational-assignments/lifecycle";
+import { writeAssignmentChangeAttention } from "@/lib/scheduling/operational-assignments/assignment-change";
 import { recordCoverageEpisodeTransitions } from "@/lib/scheduling/coverage-episodes/record";
 
-async function writeAssignmentChangeAttention(
-  tx: Prisma.TransactionClient,
-  input: {
-    facilityId: string;
-    departmentId: string;
-    assignmentId: string;
-    employeeId: string;
-    serviceDate: Date;
-    subjectLabel: string;
-    unitId?: string | null;
-    spaceId?: string | null;
-    coverageBefore: ReadonlyMap<string, CoverageSlotSnapshot>;
-    event: Omit<RecordAssignmentEventInput, "client">;
-  },
-): Promise<{ assignmentOutboxId: string; coverageOutboxIds: string[] }> {
-  const recorded = await recordAssignmentEvent({ ...input.event, client: tx });
-  const intake = await enqueueAssignmentChanged(tx, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    assignmentId: input.assignmentId,
-    assignmentEventId: recorded.id,
-    serviceDate: toServiceDateKey(input.serviceDate),
-    assigneeEmployeeId: input.employeeId,
-    subjectLabel: input.subjectLabel,
-    occurredAt: recorded.createdAt,
-    unitId: input.unitId,
-    spaceId: input.spaceId,
-  });
-  const coverageOutboxIds = await recordCoverageEpisodeTransitions(tx, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    serviceDateKey: toServiceDateKey(input.serviceDate),
-    before: input.coverageBefore,
-    occurredAt: recorded.createdAt,
-    sourceType: "assignment_event",
-    sourceId: recorded.id,
-  });
-  return { assignmentOutboxId: intake.id, coverageOutboxIds };
-}
 
 function parseUnitSpaceIds(raw: string | undefined): string[] {
   if (!raw) return [];
@@ -131,16 +88,18 @@ const sourceValues = [
 const createSchema = z.object({
   employeeId: z.string().min(1),
   departmentId: z.string().min(1),
-  roleKey: z.string().min(1).optional(),
+  roleKey: z.string().min(1),
   serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   unitId: z.string().min(1).optional(),
   startsAt: z.string().optional(),
   endsAt: z.string().optional(),
   source: z.enum(sourceValues).optional(),
-  notes: z.string().max(500).optional(),
+  eligibilityExceptionReason: z.string().max(500).optional(),
+  notes: z.string().max(4000).optional(),
   changeReason: z.string().max(500).optional(),
   clientCommandId: z.string().max(120).optional(),
-  /** Comma-separated UnitSpace ids for EVS Room/Space scope. Empty = unit-wide. */
+  replacementAssignmentId: z.string().min(1).optional(),
+  /** Explicit UnitSpace ids. Empty requires a responsible Unit. */
   unitSpaceIds: z.string().optional(),
   sourceZoneId: z.string().min(1).optional(),
 });
@@ -151,7 +110,8 @@ const editSchema = z.object({
   unitId: z.string().optional(),
   startsAt: z.string().optional(),
   endsAt: z.string().optional(),
-  notes: z.string().max(500).optional(),
+  eligibilityExceptionReason: z.string().max(500).optional(),
+  notes: z.string().max(4000).optional(),
   changeReason: z.string().min(1).max(500).optional(),
   unitSpaceIds: z.string().optional(),
   sourceZoneId: z.string().optional(),
@@ -159,7 +119,8 @@ const editSchema = z.object({
 
 const lifecycleSchema = z.object({
   assignmentId: z.string().min(1),
-  action: z.enum(["activate", "complete", "cancel"]),
+  action: z.enum(["activate", "complete", "cancel", "reopen"]),
+  expectedUpdatedAt: z.string().datetime().optional(),
   changeReason: z.string().max(500).optional(),
 });
 
@@ -206,14 +167,16 @@ export async function createAssignmentAction(formData: FormData) {
     startsAt: opt(formData.get("startsAt")),
     endsAt: opt(formData.get("endsAt")),
     source: opt(formData.get("source")) as OperationalAssignmentSource | undefined,
+    eligibilityExceptionReason: opt(formData.get("eligibilityExceptionReason")),
     notes: opt(formData.get("notes")),
     changeReason: opt(formData.get("changeReason")),
     clientCommandId: opt(formData.get("clientCommandId")),
+    replacementAssignmentId: opt(formData.get("replacementAssignmentId")),
     unitSpaceIds: opt(formData.get("unitSpaceIds")),
     sourceZoneId: opt(formData.get("sourceZoneId")),
   });
 
-  await requireManageForDepartment(session, parsed.departmentId);
+  const authority = await requireManageForDepartment(session, parsed.departmentId);
 
   const source = parsed.source ?? OperationalAssignmentSource.MANUAL_ADDITION;
   if (
@@ -224,68 +187,18 @@ export async function createAssignmentAction(formData: FormData) {
     throw new Error("Unscheduled coverage and overrides require a reason.");
   }
 
-  const [employee, department, employeeJobRole, timezone] = await Promise.all([
-    prisma.employee.findFirst({
-      where: {
-        id: parsed.employeeId,
-        facilityId: session.facilityId,
-        status: { not: "TERMINATED" },
-      },
-      select: { id: true, status: true },
-    }),
-    prisma.department.findFirst({
-      where: { id: parsed.departmentId, facilityId: session.facilityId },
-      select: { id: true, key: true },
-    }),
-    prisma.employeeDepartmentJobRole.findFirst({
-      where: {
-        employeeId: parsed.employeeId,
-        departmentId: parsed.departmentId,
-        jobRole: { status: "ACTIVE" },
-      },
-      select: { jobRole: { select: { displayName: true, tier: true, status: true } } },
-    }),
+  const [employee, department, timezone] = await Promise.all([
+    prisma.employee.findFirst({ where: { id: parsed.employeeId, facilityId: session.facilityId, status: "ACTIVE" }, select: { id: true } }),
+    prisma.department.findFirst({ where: { id: parsed.departmentId, facilityId: session.facilityId, isActive: true }, select: { id: true, key: true } }),
     loadFacilityTimezone(prisma, session.facilityId),
   ]);
-
-  if (!employee) throw new Error("Employee not found or inactive.");
-  if (!department) throw new Error("Department not found.");
-
-  const formRoleKey = parsed.roleKey;
-  let effectiveRoleKey: string;
-  let roleDef:
-    | ReturnType<typeof getRoleDefinition>
-    | {
-        // Keeps type widening predictable without importing prisma enums.
-        key: string;
-        label: string;
-        departmentKeys: string[];
-      };
-
-  if (formRoleKey) {
-    const found = getRoleDefinition(formRoleKey);
-    if (!found || !isRoleValidForDepartment(formRoleKey, department.key)) {
-      throw new Error(`Role "${formRoleKey}" is not valid for this department.`);
-    }
-    roleDef = found;
-    effectiveRoleKey = formRoleKey;
-  } else {
-    const derivedKey = deriveDefaultRoleKeyForDepartmentJobRole({
-      departmentKey: department.key,
-      tier: employeeJobRole?.jobRole.tier ?? null,
-    });
-    const found = getRoleDefinition(derivedKey);
-    if (!found || !isRoleValidForDepartment(derivedKey, department.key)) {
-      throw new Error(`Derived role "${derivedKey}" is not valid for this department.`);
-    }
-    roleDef = found;
-    effectiveRoleKey = derivedKey;
+  if (!employee || !department) throw new Error("Active employee and Department are required.");
+  const effectiveRoleKey = parsed.roleKey;
+  const roleDef = getRoleDefinition(effectiveRoleKey);
+  if (!roleDef || !isRoleValidForDepartment(effectiveRoleKey, department.key)) {
+    throw new Error("Choose an operational role from this Department's registry.");
   }
-
-  const roleLabel = deriveRoleLabelSnapshot({
-    jobRoleDisplayName: employeeJobRole?.jobRole.displayName,
-    roleDefLabel: roleDef.label,
-  });
+  const roleLabel = roleDef.label;
 
   const references = await resolveAssignmentReferences(prisma, {
     facilityId: session.facilityId,
@@ -305,11 +218,6 @@ export async function createAssignmentAction(formData: FormData) {
       facilityId: session.facilityId,
       zoneId: parsed.sourceZoneId,
     });
-  }
-
-  // Non-EVS keeps unit-wide scope only (zero location rows).
-  if (department.key !== "EVS") {
-    unitSpaceIds = [];
   }
 
   // EVS: if the manager selects a structural Floor / Neighborhood unit AND leaves Room/Space scope empty,
@@ -368,6 +276,9 @@ export async function createAssignmentAction(formData: FormData) {
     unitSpaceIds,
   });
 
+  await requireAssignmentLocationScope(prisma, { facilityId: session.facilityId, departmentId: parsed.departmentId,
+    unitId: unitIdForScope, spaceIds: locationWrites.map(row => row.unitSpaceId) });
+
   const serviceDate = facilityLocalDateToServiceDate(parsed.serviceDate);
   const startsAt = parseAssignmentWindowInstant(parsed.serviceDate, parsed.startsAt, timezone);
   const endsAt = parseAssignmentWindowInstant(parsed.serviceDate, parsed.endsAt, timezone);
@@ -385,20 +296,31 @@ export async function createAssignmentAction(formData: FormData) {
     }
   }
 
-  let attentionOutboxIds: string[] = [];
+  const attentionOutboxIds: string[] = [];
   await prisma.$transaction(async (tx) => {
     await lockEmployeeAssignmentDay(tx, parsed.employeeId, parsed.serviceDate);
+    const eligibilityReason = await requireAssignmentEligibility(tx, { facilityId: session.facilityId,
+      departmentId: parsed.departmentId, employeeId: parsed.employeeId, roleKey: effectiveRoleKey,
+      canOverride: authority.canOverride, exceptionReason: parsed.eligibilityExceptionReason });
     const plan = await ensureAssignmentPlan(tx, {
       facilityId: session.facilityId,
       departmentId: parsed.departmentId,
       serviceDateKey: parsed.serviceDate,
       actorUserId,
     });
+    if (plan.status === "CLOSED") throw new Error("Reopen the closed Assignment plan first.");
     const coverageBefore = await loadCoverageSlotSnapshot(tx, {
       facilityId: session.facilityId,
       departmentId: parsed.departmentId,
       serviceDateKey: parsed.serviceDate,
     });
+
+    if (parsed.replacementAssignmentId) {
+      const replaced = await transitionAssignment(tx, { session, assignmentId: parsed.replacementAssignmentId,
+        action: "cancel", reason: parsed.changeReason ?? parsed.notes ?? "Replaced by reassignment",
+        departmentId: parsed.departmentId, serviceDateKey: parsed.serviceDate, deferCoverageObservation: true });
+      attentionOutboxIds.push(...replaced.outboxIds);
+    }
 
     await assertNoOverlappingActiveAssignments(tx, {
       facilityId: session.facilityId,
@@ -447,6 +369,10 @@ export async function createAssignmentAction(formData: FormData) {
     if (locationWrites.length > 0) {
       await replaceAssignmentLocations(tx, created.id, locationWrites);
     }
+    await recordAssignmentEligibilityOverride(tx, { facilityId: session.facilityId,
+      departmentId: parsed.departmentId, employeeId: parsed.employeeId, roleKey: effectiveRoleKey,
+      assignmentId: created.id, actorUserId, actorRole: session.role, authMethod: session.authMethod,
+      reason: eligibilityReason });
 
     await tx.operationalAssignmentPlan.update({
       where: { id: plan.id },
@@ -488,7 +414,7 @@ export async function createAssignmentAction(formData: FormData) {
         }),
       },
     });
-    attentionOutboxIds = [attention.assignmentOutboxId, ...attention.coverageOutboxIds];
+    attentionOutboxIds.push(attention.assignmentOutboxId, ...attention.coverageOutboxIds);
   });
 
   for (const outboxId of attentionOutboxIds) {
@@ -503,12 +429,13 @@ export async function editAssignmentAction(formData: FormData) {
   const parsed = editSchema.parse({
     assignmentId: formData.get("assignmentId"),
     roleKey: opt(formData.get("roleKey")),
-    unitId: opt(formData.get("unitId")),
+    unitId: formData.has("unitId") ? String(formData.get("unitId") ?? "") : undefined,
     startsAt: opt(formData.get("startsAt")),
     endsAt: opt(formData.get("endsAt")),
-    notes: opt(formData.get("notes")),
+    eligibilityExceptionReason: opt(formData.get("eligibilityExceptionReason")),
+    notes: formData.has("notes") ? String(formData.get("notes") ?? "") : undefined,
     changeReason: opt(formData.get("changeReason")),
-    unitSpaceIds: opt(formData.get("unitSpaceIds")),
+    unitSpaceIds: formData.has("unitSpaceIds") ? String(formData.get("unitSpaceIds") ?? "") : undefined,
     sourceZoneId: opt(formData.get("sourceZoneId")),
   });
 
@@ -521,6 +448,7 @@ export async function editAssignmentAction(formData: FormData) {
       serviceDate: true,
       unitId: true,
       employeeId: true,
+      roleKey: true,
       roleLabel: true,
       startsAt: true,
       endsAt: true,
@@ -531,7 +459,7 @@ export async function editAssignmentAction(formData: FormData) {
     },
   });
   if (!assignment) throw new Error("Assignment not found.");
-  await requireManageForDepartment(session, assignment.departmentId);
+  const authority = await requireManageForDepartment(session, assignment.departmentId);
 
   if (assignment.status === "COMPLETED" || assignment.status === "CANCELLED") {
     throw new Error("Cannot edit a completed or cancelled assignment.");
@@ -593,7 +521,7 @@ export async function editAssignmentAction(formData: FormData) {
   if (parsed.changeReason) data.changeReason = parsed.changeReason;
 
   let locationWrites: Awaited<ReturnType<typeof resolveAssignmentLocationWrites>> | null = null;
-  if (parsed.unitSpaceIds !== undefined && assignment.department.key === "EVS") {
+  if (parsed.unitSpaceIds !== undefined) {
     locationWrites = await resolveAssignmentLocationWrites(prisma, {
       facilityId: session.facilityId,
       departmentId: assignment.departmentId,
@@ -601,6 +529,9 @@ export async function editAssignmentAction(formData: FormData) {
       unitSpaceIds: parseUnitSpaceIds(parsed.unitSpaceIds),
     });
   }
+
+  await requireAssignmentLocationScope(prisma, { facilityId: session.facilityId, departmentId: assignment.departmentId,
+    unitId: nextUnitId, spaceIds: locationWrites?.map(row => row.unitSpaceId) ?? assignment.locations.map(row => row.unitSpaceId) });
 
   const actorUserId = sessionUserIdForFk(session);
   data.lastChangedByUserId = actorUserId;
@@ -644,7 +575,15 @@ export async function editAssignmentAction(formData: FormData) {
       });
     }
 
+    const eligibilityRoleKey = parsed.roleKey ?? assignment.roleKey;
+    const eligibilityReason = await requireAssignmentEligibility(tx, { facilityId: session.facilityId,
+      departmentId: assignment.departmentId, employeeId: assignment.employeeId, roleKey: eligibilityRoleKey,
+      canOverride: authority.canOverride, exceptionReason: parsed.eligibilityExceptionReason });
     await tx.operationalAssignment.update({ where: { id: assignment.id }, data });
+    await recordAssignmentEligibilityOverride(tx, { facilityId: session.facilityId,
+      departmentId: assignment.departmentId, employeeId: assignment.employeeId, roleKey: eligibilityRoleKey,
+      assignmentId: assignment.id, actorUserId, actorRole: session.role, authMethod: session.authMethod,
+      reason: eligibilityReason });
     if (locationWrites) {
       await replaceAssignmentLocations(tx, assignment.id, locationWrites);
     }
@@ -692,95 +631,12 @@ export async function editAssignmentAction(formData: FormData) {
 
 export async function assignmentLifecycleAction(formData: FormData) {
   const session = await requireFacilitySession();
-
   const parsed = lifecycleSchema.parse({
-    assignmentId: formData.get("assignmentId"),
-    action: formData.get("action"),
-    changeReason: opt(formData.get("changeReason")),
+    assignmentId: formData.get("assignmentId"), action: formData.get("action"),
+    changeReason: opt(formData.get("changeReason")), expectedUpdatedAt: opt(formData.get("expectedUpdatedAt")),
   });
-
-  const assignment = await prisma.operationalAssignment.findFirst({
-    where: { id: parsed.assignmentId, facilityId: session.facilityId },
-    select: {
-      id: true,
-      status: true,
-      departmentId: true,
-      employeeId: true,
-      unitId: true,
-      serviceDate: true,
-      roleLabel: true,
-    },
-  });
-  if (!assignment) throw new Error("Assignment not found.");
-  await requireManageForDepartment(session, assignment.departmentId);
-
-  const transitions: Record<string, { from: OperationalAssignmentStatus[]; to: OperationalAssignmentStatus }> = {
-    activate: { from: ["PLANNED"], to: "ACTIVE" },
-    complete: { from: ["ACTIVE"], to: "COMPLETED" },
-    cancel: { from: ["PLANNED", "ACTIVE"], to: "CANCELLED" },
-  };
-
-  const rule = transitions[parsed.action];
-  if (!rule) throw new Error("Invalid lifecycle action.");
-  if (!rule.from.includes(assignment.status)) {
-    throw new Error(`Cannot ${parsed.action} an assignment with status "${assignment.status}".`);
-  }
-
-  const actorUserId = sessionUserIdForFk(session);
-  const eventTypeMap: Record<string, "ACTIVATED" | "COMPLETED" | "CANCELLED"> = {
-    activate: "ACTIVATED",
-    complete: "COMPLETED",
-    cancel: "CANCELLED",
-  };
-
-  let attentionOutboxIds: string[] = [];
-  await prisma.$transaction(async (tx) => {
-    const coverageBefore = await loadCoverageSlotSnapshot(tx, {
-      facilityId: session.facilityId,
-      departmentId: assignment.departmentId,
-      serviceDateKey: toServiceDateKey(assignment.serviceDate),
-    });
-    await tx.operationalAssignment.update({
-      where: { id: assignment.id },
-      data: {
-        status: rule.to,
-        lastChangedByUserId: actorUserId,
-        lastChangedAt: new Date(),
-        changeReason: parsed.changeReason ?? null,
-      },
-    });
-    const attention = await writeAssignmentChangeAttention(tx, {
-      facilityId: session.facilityId,
-      departmentId: assignment.departmentId,
-      assignmentId: assignment.id,
-      employeeId: assignment.employeeId,
-      serviceDate: assignment.serviceDate,
-      subjectLabel: assignment.roleLabel,
-      unitId: assignment.unitId,
-      coverageBefore,
-      event: {
-        assignmentId: assignment.id,
-        facilityId: session.facilityId,
-        departmentId: assignment.departmentId,
-        employeeId: assignment.employeeId,
-        unitId: assignment.unitId,
-        serviceDate: assignment.serviceDate,
-        eventType: eventTypeMap[parsed.action] ?? "UPDATED",
-        actorUserId,
-        actorRole: session.role,
-        authMethod: session.authMethod,
-        fromStatus: assignment.status,
-        toStatus: rule.to,
-        summary: `Assignment ${parsed.action}d`,
-        reason: parsed.changeReason ?? null,
-      },
-    });
-    attentionOutboxIds = [attention.assignmentOutboxId, ...attention.coverageOutboxIds];
-  });
-
-  for (const outboxId of attentionOutboxIds) {
-    await processNotificationOutboxAfterCommit(outboxId);
-  }
+  await transitionAssignment(prisma, { session, assignmentId: parsed.assignmentId, action: parsed.action,
+    reason: parsed.changeReason, expectedUpdatedAt: parsed.expectedUpdatedAt });
   revalidateAssignmentViews();
 }
 
@@ -797,6 +653,7 @@ export async function reassignAction(formData: FormData) {
     unitId: opt(formData.get("unitId")),
     startsAt: opt(formData.get("startsAt")),
     endsAt: opt(formData.get("endsAt")),
+    eligibilityExceptionReason: opt(formData.get("eligibilityExceptionReason")),
     notes: opt(formData.get("notes")),
     changeReason: opt(formData.get("changeReason")) ?? opt(formData.get("notes")),
     unitSpaceIds: opt(formData.get("unitSpaceIds")),
@@ -812,64 +669,9 @@ export async function reassignAction(formData: FormData) {
   formData.set("changeReason", parsed.changeReason ?? parsed.notes ?? "Coverage");
   if (parsed.unitSpaceIds) formData.set("unitSpaceIds", parsed.unitSpaceIds);
   if (parsed.sourceZoneId) formData.set("sourceZoneId", parsed.sourceZoneId);
-  if (existingId && mode === "replace") {
-    const existing = await prisma.operationalAssignment.findFirst({
-      where: { id: existingId, facilityId: session.facilityId },
-      select: {
-        id: true,
-        status: true,
-        departmentId: true,
-        employeeId: true,
-        unitId: true,
-        serviceDate: true,
-        roleLabel: true,
-      },
-    });
-    if (existing && (existing.status === "PLANNED" || existing.status === "ACTIVE")) {
-      const actorUserId = sessionUserIdForFk(session);
-      let attentionOutboxIds: string[] = [];
-      await prisma.$transaction(async (tx) => {
-        const coverageBefore = await loadCoverageSlotSnapshot(tx, {
-          facilityId: session.facilityId,
-          departmentId: existing.departmentId,
-          serviceDateKey: toServiceDateKey(existing.serviceDate),
-        });
-        await tx.operationalAssignment.update({
-          where: { id: existing.id },
-          data: { status: "CANCELLED", changeReason: parsed.changeReason ?? "Replaced" },
-        });
-        const attention = await writeAssignmentChangeAttention(tx, {
-          facilityId: session.facilityId,
-          departmentId: existing.departmentId,
-          assignmentId: existing.id,
-          employeeId: existing.employeeId,
-          serviceDate: existing.serviceDate,
-          subjectLabel: existing.roleLabel,
-          unitId: existing.unitId,
-          coverageBefore,
-          event: {
-            assignmentId: existing.id,
-            facilityId: session.facilityId,
-            departmentId: existing.departmentId,
-            employeeId: existing.employeeId,
-            unitId: existing.unitId,
-            serviceDate: existing.serviceDate,
-            eventType: "CANCELLED",
-            actorUserId,
-            actorRole: session.role,
-            authMethod: session.authMethod,
-            fromStatus: existing.status,
-            toStatus: "CANCELLED",
-            summary: "Replaced by reassignment",
-            reason: parsed.changeReason ?? null,
-          },
-        });
-        attentionOutboxIds = [attention.assignmentOutboxId, ...attention.coverageOutboxIds];
-      });
-      for (const outboxId of attentionOutboxIds) {
-        await processNotificationOutboxAfterCommit(outboxId);
-      }
-    }
+  if (mode === "replace") {
+    if (!existingId) throw new Error("Choose the Assignment to replace.");
+    formData.set("replacementAssignmentId", existingId);
   }
 
   await createAssignmentAction(formData);

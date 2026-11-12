@@ -32,7 +32,7 @@ test("the click path focuses an item and does not acknowledge it", () => {
   assert.match(enter, /safeAttentionReturn/);
   assert.match(center, /data-attention-id/);
   assert.match(center, /FocusedAttention/);
-  assert.match(worker, /ltc-offline-shell-v4/);
+  assert.match(worker, /const CACHE_VERSION = "ltc-offline-shell-v\d+"/);
   assert.match(worker, /\/icons\/apple-touch-icon\.png/);
 });
 

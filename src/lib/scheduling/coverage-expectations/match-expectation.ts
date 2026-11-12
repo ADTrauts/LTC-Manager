@@ -1,6 +1,11 @@
 /**
- * Resolve which coverage expectation items apply to a canonical location and cycle.
- * A space id matches that room only. Location Function keys are ignored.
+ * Resolve which coverage expectation items apply to a location / cycle.
+ *
+ * Forward targeting (Phase 2D-5):
+ * 1. Explicit spaceId → match that Space only
+ * 2. Explicit unitId (no spaceId) → match Spaces in that Unit
+ *
+ * Room Type and Department responsibility never invent Coverage.
  */
 
 import type {
@@ -11,10 +16,8 @@ import type {
   ResolvedCoverageExpectation,
 } from "./types";
 
-export function describeCoverageApplicability(input: {
-  source: CoverageProvenanceSource;
-}): string {
-  return "Applied to this location";
+export function describeCoverageApplicability(_input: { source: CoverageProvenanceSource }): string {
+  return "Applied directly to this location";
 }
 
 export function matchCoverageItemToLocation(
@@ -22,16 +25,8 @@ export function matchCoverageItemToLocation(
   context: CoverageLocationContext,
 ): CoverageProvenanceSource | null {
   const spaceId = item.spaceId?.trim() || "";
-  if (spaceId) {
-    return spaceId === context.spaceId ? "EXPLICIT_LOCATION" : null;
-  }
-  const unitId = item.unitId?.trim() || "";
-  if (unitId) {
-    if (context.spaceId) return null;
-    return unitId === (context.unitId ?? "") ? "EXPLICIT_LOCATION" : null;
-  }
-  if (context.spaceId || context.unitId) return null;
-  return "EXPLICIT_LOCATION";
+  if (spaceId) return spaceId === context.spaceId ? "EXPLICIT_LOCATION" : null;
+  return item.unitId && item.unitId === context.unitId ? "EXPLICIT_LOCATION" : null;
 }
 
 export function itemTargetsCycle(
@@ -104,6 +99,7 @@ function toResolved(
     cycleStableKey: cycle?.stableKey ?? null,
     cycleLabel: cycle?.label ?? null,
     unitId: item.unitId,
+    spaceId: item.spaceId?.trim() || null,
     provenance: source,
     detail: describeCoverageApplicability({
       source,
@@ -117,7 +113,7 @@ export function dedupeResolvedExpectations(
   const seen = new Set<string>();
   const out: ResolvedCoverageExpectation[] = [];
   for (const row of rows) {
-    const key = `${row.templateId}:${row.roleKey}:${row.cycleStableKey ?? ""}:${row.provenance}`;
+    const key = `${row.templateId}:${row.roleKey}:${row.cycleStableKey ?? ""}:${row.provenance}:${row.spaceId ?? ""}:${row.unitId ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(row);
@@ -129,16 +125,20 @@ export function dedupeResolvedExpectations(
   });
 }
 
-export function validateCoverageOperationalTypeKeys(input: {
-  submittedKeys: readonly string[];
-  allowedKeys: ReadonlySet<string>;
-}): string[] {
-  void input.allowedKeys;
-  const unique = [...new Set(input.submittedKeys.map((key) => key.trim()).filter(Boolean))];
-  if (unique.length > 0) {
-    throw new Error("Choose the rooms this coverage need applies to.");
+/** Forward items must target exactly one of: a Space, or a Unit (not both). */
+export function validateCoverageLocationTarget(input: {
+  spaceId?: string | null;
+  unitId?: string | null;
+}): { spaceId: string | null; unitId: string | null } {
+  const spaceId = input.spaceId?.trim() || null;
+  const unitId = input.unitId?.trim() || null;
+  if (spaceId && unitId) {
+    throw new Error("Choose either a specific Space or a Unit-wide target, not both.");
   }
-  return [];
+  if (!spaceId && !unitId) {
+    throw new Error("Choose a Unit or a specific Space for this coverage need.");
+  }
+  return { spaceId, unitId };
 }
 
 export function validateCoverageCycleStableKeys(input: {

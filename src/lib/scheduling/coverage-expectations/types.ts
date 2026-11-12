@@ -1,21 +1,21 @@
 /**
- * Canonical coverage need.
+ * Canonical Coverage expectations.
  *
- * WHAT: operational assignment roleKey
+ * WHAT: OperationalAssignment roleKey
  * HOW MANY: requiredCount
- * WHERE: canonical UnitSpace (spaceId). A Unit id is that Unit, not its rooms.
- * WHEN: DepartmentOperationalCycle.stableKey for a period
- * ACTUAL: OperationalAssignment (never ScheduleEntry, Team membership, or Job Role)
+ * WHERE: exactly one explicit UnitSpace.id or Unit.id.
+ * WHEN: DepartmentOperationalCycle.stableKey
+ * ACTUAL: OperationalAssignment (never ScheduleEntry, Team, or Job Role)
  *
  * Coverage state is derived. Do not persist isCovered.
- * Location Function does not select the room.
  */
 
 export type CoverageExpectationStatus = "DRAFT" | "PUBLISHED" | "RETIRED";
 
 export type CoveragePerspective = "working" | "runtime";
 
-export type CoverageProvenanceSource = "EXPLICIT_LOCATION";
+export type CoverageProvenanceSource =
+  | "EXPLICIT_LOCATION";
 
 export type CoverageExpectationItemInput = {
   id: string;
@@ -29,7 +29,7 @@ export type CoverageExpectationItemInput = {
   roleLabel: string;
   requiredCount: number;
   unitId: string | null;
-  spaceId: string | null;
+  spaceId?: string | null;
   applicableOperationalCycleStableKeys: readonly string[];
 };
 
@@ -58,6 +58,7 @@ export type ResolvedCoverageExpectation = {
   cycleStableKey: string | null;
   cycleLabel: string | null;
   unitId: string | null;
+  spaceId: string | null;
   provenance: CoverageProvenanceSource;
   detail: string;
 };

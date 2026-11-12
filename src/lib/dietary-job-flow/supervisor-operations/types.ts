@@ -6,9 +6,7 @@
 import type { SupervisorEvidenceAttentionItem } from "../supervisor-evidence-attention";
 import type {
   SupervisorExceptionTemporal,
-  SupervisorLocationCoverageRow,
   SupervisorOperationsBoard,
-  SupervisorOperationsFilters,
 } from "../types";
 
 export type SupervisorOperationKind = "shared" | "mixed" | "none";
@@ -57,15 +55,6 @@ export type SupervisorCoverageGap = {
   filledCount: number;
 };
 
-export type SupervisorWorkFact = {
-  occurrenceKey: string;
-  label: string;
-  unitId: string | null;
-  unitName: string | null;
-  state: string;
-  assignedEmployeeId: string | null;
-};
-
 export type SupervisorSyncItem = {
   kind: "retry_required" | "pending_conflict";
   unitId: string;
@@ -107,7 +96,7 @@ export type SupervisorOperationsViewModel = {
   };
   coverage: {
     availability: SupervisorDomainAvailability;
-    engine: "dietary" | "evs" | "none";
+    engine: "explicit" | "none";
     covered: number;
     atRisk: number;
     uncovered: number;
@@ -119,7 +108,6 @@ export type SupervisorOperationsViewModel = {
     milestones: SupervisorAttentionItem[];
     evidence: SupervisorEvidenceAttentionItem[];
     assets: SupervisorAttentionItem[];
-    work: SupervisorAttentionItem[];
     sync: SupervisorAttentionItem[];
     configuration: SupervisorAttentionItem[];
   };
@@ -141,19 +129,6 @@ export type SupervisorOperationsViewModel = {
       started: number;
       startedLate: number;
       startedNotConfirmed: number;
-    } | null;
-    evs: {
-      locationCovered: number;
-      locationAtRisk: number;
-      locationUncovered: number;
-      locationOverlapping: number;
-      locationRequired: number;
-      visibleUnitIds: string[] | null;
-      locationCoverage: {
-        unassigned: SupervisorLocationCoverageRow[];
-        overlapping: SupervisorLocationCoverageRow[];
-      };
-      filters: SupervisorOperationsFilters;
     } | null;
     plant: SupervisorOperationsBoard["plantOperations"];
   };

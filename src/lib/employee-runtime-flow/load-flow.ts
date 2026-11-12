@@ -1,6 +1,6 @@
 /**
  * Server loader for EmployeeRuntimeFlow.
- * OA → assigned SPACE refs → one RLS batch → Work Plans → compose.
+ * Assignment → responsible SPACE refs → one RLS batch → canonical contributors.
  * Returns null only when Job Flow is off or the session lacks authority.
  */
 
@@ -8,10 +8,7 @@ import type { FacilitySession } from "@/lib/auth";
 import {
   isDepartmentJobFlowEnabled,
   isDepartmentOperationalEvidenceEnabled,
-  isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
-import { resolveUnitWorkRequirements } from "@/lib/department-work";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import { resolveJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
 import {
   detectAssignmentRevision,
@@ -20,12 +17,11 @@ import {
 import type {
   JobFlowAssignmentSnapshot,
   JobFlowAttentionItem,
-  JobFlowLocationSequence,
-  JobFlowScopeSummary,
 } from "@/lib/dietary-job-flow/types";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   facilityLocalDateToServiceDate,
+  getFacilityLocalTodayWindow,
   getFacilityServiceDate,
   loadFacilityTimezone,
   toServiceDateKey,
@@ -35,16 +31,17 @@ import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import { loadPublishedCyclesForDate } from "@/lib/operational-cycles/load-published-cycles";
 import { resolveCycleWindowInstants } from "@/lib/operational-cycles/cycle-windows";
 import { loadRuntimeLocationStates, type RuntimeLocationState } from "@/lib/runtime-location-state";
-import {
-  buildDeterministicLocationSequence,
-  formatAssignedScopeSummary,
-} from "@/lib/scheduling/operational-assignments/location-sequencing";
 import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
 import { prisma } from "@/lib/prisma";
 
 import { composeEmployeeRuntimeFlow } from "./compose";
 import { loadAssignedEmployeeSpaceRefs } from "./load-assigned-space-refs";
 import { loadFrontlineEmployeeAssignments } from "./load-assignments";
+import {
+  loadAssignedWorkOrdersForJobFlow,
+  loadOwnCallOffAssignmentExceptions,
+} from "./load-canonical-contributors";
+import type { JobFlowAssignmentExceptionSource } from "./job-flow-item";
 import type { EmployeeRuntimeFlow } from "./types";
 
 export type LoadEmployeeRuntimeFlowInput = {
@@ -61,11 +58,10 @@ export type LoadEmployeeRuntimeFlowInput = {
 
 export type LoadedEmployeeRuntimeFlow = {
   flow: EmployeeRuntimeFlow;
+  completedAssignments: Array<JobFlowAssignmentSnapshot & { spaceIds: string[] }>;
   department: { id: string; name: string; key: string };
   assignmentLocations: ResolvedAssignmentLocation[];
   states: readonly RuntimeLocationState[];
-  locationSequence: JobFlowLocationSequence | null;
-  scopeSummary: JobFlowScopeSummary | null;
   plantAttention: JobFlowAttentionItem[];
   timezone: string;
   now: Date;
@@ -73,56 +69,6 @@ export type LoadedEmployeeRuntimeFlow = {
   planStatus: string | null;
   assignmentUpdated: boolean;
 };
-
-function toJobFlowLocationSequence(
-  locations: ResolvedAssignmentLocation[],
-  workRequirements: WorkRequirement[],
-): JobFlowLocationSequence {
-  const seq = buildDeterministicLocationSequence({
-    locations,
-    workRequirements,
-  });
-  const mapItem = (item: (typeof seq.all)[number]) => ({
-    unitSpaceId: item.unitSpaceId,
-    label: item.label,
-    hasCurrentWork: item.hasCurrentWork,
-    allComplete: item.allComplete,
-    hasUrgent: item.hasUrgent,
-  });
-  return {
-    now: seq.now ? mapItem(seq.now) : null,
-    next: seq.next ? mapItem(seq.next) : null,
-    queue: seq.queue.map(mapItem),
-    all: seq.all.map(mapItem),
-    sequencingNote: seq.sequencingNote,
-  };
-}
-
-function buildEvsScopeAttachment(input: {
-  departmentKey: string;
-  assignment: JobFlowAssignmentSnapshot | null;
-  locations: ResolvedAssignmentLocation[];
-  workRequirements: WorkRequirement[];
-}): {
-  scopeSummary: JobFlowScopeSummary | null;
-  locationSequence: JobFlowLocationSequence | null;
-} {
-  if (input.departmentKey !== "EVS" || !input.assignment) {
-    return { scopeSummary: null, locationSequence: null };
-  }
-  const scopeKind = input.assignment.scopeKind ?? "UNIT";
-  const scopeSummary = formatAssignedScopeSummary({
-    scopeKind,
-    unitName: input.assignment.unitName,
-    zoneName: input.assignment.sourceZoneName,
-    locations: input.locations,
-  });
-  const locationSequence =
-    scopeKind === "SPACES" && input.locations.length > 0
-      ? toJobFlowLocationSequence(input.locations, input.workRequirements)
-      : null;
-  return { scopeSummary, locationSequence };
-}
 
 async function buildPlantWorkOrderAttention(input: {
   facilityId: string;
@@ -240,7 +186,6 @@ export async function loadEmployeeRuntimeFlow(
       : { states: [], stats: { perSpaceDomainLoads: 0 } };
 
   const evidenceEnabled = isDepartmentOperationalEvidenceEnabled(department.key);
-  const workEnabled = isDepartmentWorkPlansEnabled(department.key);
 
   let templateEvidence: EvidenceRequirement[] = [];
   if (oaEnabled && !canonicalLogsEnabled && evidenceEnabled && activeAssignment) {
@@ -283,19 +228,6 @@ export async function loadEmployeeRuntimeFlow(
     });
   }
 
-  const workRequirementsRaw =
-    oaEnabled && workEnabled && (activeAssignment?.unitId || input.unitId)
-      ? await resolveUnitWorkRequirements({
-          facilityId: input.facilityId,
-          departmentId: input.departmentId,
-          operationalDateKey,
-          operationalDate: serviceDate,
-          now,
-          facilityTimezone: timezone,
-          unitId: activeAssignment?.unitId ?? input.unitId ?? "",
-        })
-      : [];
-
   const plan = await prisma.operationalAssignmentPlan.findUnique({
     where: {
       facilityId_departmentId_serviceDate: {
@@ -306,6 +238,39 @@ export async function loadEmployeeRuntimeFlow(
     },
     select: { status: true },
   });
+
+  const serviceDayStartsAt = getFacilityLocalTodayWindow(timezone, now).start;
+
+  const [assignedWorkOrders, ownCallOffExceptions] = await Promise.all([
+    department.key === "PLANT"
+      ? loadAssignedWorkOrdersForJobFlow({
+          facilityId: input.facilityId,
+          departmentId: input.departmentId,
+          employeeId: input.employeeId,
+          serviceDayStartsAt,
+        })
+      : Promise.resolve([]),
+    loadOwnCallOffAssignmentExceptions({
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      employeeId: input.employeeId,
+      now,
+    }),
+  ]);
+
+  const assignmentExceptions: JobFlowAssignmentExceptionSource[] = [...ownCallOffExceptions];
+  if (revision.changed) {
+    const revisedId =
+      assignments.current?.id ?? assignments.upcoming?.id ?? "assignment-revision";
+    assignmentExceptions.push({
+      id: `assignment-revision:${revisedId}`,
+      kind: "ASSIGNMENT_REVISION",
+      label: "Your Assignment was updated",
+      ownerState: "ASSIGNMENT_REVISION",
+      unitId: assignments.current?.unitId ?? assignments.upcoming?.unitId ?? null,
+      href: null,
+    });
+  }
 
   const flow = composeEmployeeRuntimeFlow({
     operationalAssignmentsEnabled: oaEnabled,
@@ -318,16 +283,12 @@ export async function loadEmployeeRuntimeFlow(
     spaceRefs,
     states: loadedStates.states,
     templateEvidence,
-    workRequirements: workRequirementsRaw,
+    workOrders: assignedWorkOrders,
+    // PM stays empty: actionable execution is the generated Work Order.
+    preventiveMaintenance: [],
+    assignmentExceptions,
     deviceBoundUnitId: input.deviceBoundUnitId ?? input.unitId ?? null,
     offline: { stale: input.offlineStale ?? false },
-  });
-
-  const scope = buildEvsScopeAttachment({
-    departmentKey: department.key,
-    assignment: flow.assignmentAvailability === "evaluated" ? activeAssignment : null,
-    locations: assignmentLocations,
-    workRequirements: flow.work,
   });
 
   const plantAttention =
@@ -341,11 +302,13 @@ export async function loadEmployeeRuntimeFlow(
 
   return {
     flow,
+    completedAssignments: assignments.day.filter(row => row.status === "COMPLETED").map(row => ({
+      ...row,
+      spaceIds: (assignments.locationsByAssignmentId.get(row.id) ?? []).map(location => location.unitSpaceId),
+    })),
     department,
     assignmentLocations,
     states: loadedStates.states,
-    locationSequence: scope.locationSequence,
-    scopeSummary: scope.scopeSummary,
     plantAttention,
     timezone,
     now,

@@ -6,10 +6,7 @@
 import type { AppJwtPayload } from "@/lib/auth";
 import {
   isDepartmentOperationalEvidenceEnabled,
-  isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
-import { loadSupervisorWorkExceptions } from "@/lib/department-work";
-import { loadZonesForDepartment } from "@/lib/department-zones";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
@@ -33,11 +30,10 @@ import {
 import { calledOffShiftExcludesAssignment } from "@/lib/scheduling/call-off-window";
 import { buildDietaryCoverageSummary } from "@/lib/scheduling/operational-assignments/build-coverage-summary";
 import { loadAssignmentPlanView } from "@/lib/scheduling/operational-assignments/assignment-plan";
-import { buildLocationCoverageSummary } from "@/lib/scheduling/operational-assignments/location-coverage";
 import { loadDailyAssignmentBoard } from "@/lib/scheduling/operational-assignments/load-daily-assignment-board";
 
 import type { SupervisorHistoricalEvidenceRecord } from "../supervisor-evidence-attention";
-import type { SupervisorOperationsBoard, SupervisorOperationsFilters } from "../types";
+import type { SupervisorOperationsBoard } from "../types";
 import type { SupervisorOperationsFacts } from "./facts";
 import type { SupervisorAssignmentFact, SupervisorCoverageGap, SupervisorSyncItem } from "./types";
 
@@ -48,12 +44,6 @@ export type LoadSupervisorOperationsFactsInput = {
   departmentKey: string;
   departmentName: string;
   now?: Date;
-  filters?: {
-    floor?: string | null;
-    unit?: string | null;
-    zone?: string | null;
-    employee?: string | null;
-  };
 };
 
 export async function loadSupervisorOperationsFacts(
@@ -66,12 +56,9 @@ export async function loadSupervisorOperationsFacts(
   const oaEnabled = true;
   const harborLogsEnabled = isCanonicalLogsEnabled();
   const evidenceCompatEnabled = isDepartmentOperationalEvidenceEnabled(input.departmentKey);
-  const workPlansEnabled = isDepartmentWorkPlansEnabled(input.departmentKey);
-  const isEvs = input.departmentKey === "EVS";
   const isPlant =
     input.departmentKey === "PLANT" &&
     (await isPlantRuntimeEnabled(input.facilityId, input.session));
-  const isDietary = input.departmentKey === "DIETARY";
 
   const [facility, spaces, departmentUnits] = await Promise.all([
     prisma.facility.findFirst({
@@ -116,7 +103,6 @@ export async function loadSupervisorOperationsFacts(
     plan,
     board,
     historicalRecords,
-    workExceptions,
     pendingConflictRows,
     pendingOfflineReceipts,
     plantOverlay,
@@ -170,16 +156,6 @@ export async function loadSupervisorOperationsFacts(
           take: 50,
         })
       : Promise.resolve([] as SupervisorHistoricalEvidenceRecord[]),
-    workPlansEnabled
-      ? loadSupervisorWorkExceptions({
-          facilityId: input.facilityId,
-          departmentId: input.departmentId,
-          operationalDate: serviceDate,
-          operationalDateKey,
-          now,
-          facilityTimezone: timezone,
-        })
-      : Promise.resolve([]),
     // Sync models have no departmentId. Scope is unit responsibility.
     // A shared unit conflict may surface for every responsible department.
     departmentUnitIds.length > 0
@@ -260,9 +236,8 @@ export async function loadSupervisorOperationsFacts(
 
   let coverageCounts = { covered: 0, atRisk: 0, uncovered: 0 };
   let coverageGaps: SupervisorCoverageGap[] = [];
-  let evsOverlay: SupervisorOperationsFacts["evsOverlay"] = null;
 
-  if (oaEnabled && isDietary) {
+  if (oaEnabled) {
     const assignedEmployeeIds = [
       ...new Set(assignments.map((row) => row.employeeId).filter((id): id is string => Boolean(id))),
     ];
@@ -272,6 +247,9 @@ export async function loadSupervisorOperationsFacts(
       serviceDateKey: operationalDateKey,
       planStatus: plan?.status ?? null,
       assignments: countingAssignments.map((row) => ({
+        id: row.id,
+        employeeId: row.employeeId,
+        coveredSpaceIds: row.spaceIds ?? [],
         unitId: row.unitId,
         unitName: row.unitName,
         roleKey: row.roleKey,
@@ -301,28 +279,6 @@ export async function loadSupervisorOperationsFacts(
         requiredCount: row.requiredCount,
         filledCount: row.filledCount,
       }));
-  }
-
-  if (oaEnabled && isEvs) {
-    const [locSummary, zones] = await Promise.all([
-      buildLocationCoverageSummary(prisma, {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        serviceDate,
-        now,
-        callOffEmployeeIds,
-      }),
-      loadZonesForDepartment(prisma, {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-      }),
-    ]);
-    coverageCounts = {
-      covered: locSummary.covered,
-      atRisk: locSummary.atRisk,
-      uncovered: locSummary.uncovered,
-    };
-    evsOverlay = presentEvsOverlay(locSummary, zones, board.employees, input.filters ?? {});
   }
 
   const syncItems: SupervisorSyncItem[] = [
@@ -357,117 +313,13 @@ export async function loadSupervisorOperationsFacts(
     coverageCounts,
     coverageGaps,
     historicalRecords,
-    workExceptions: workExceptions.map((row) => ({
-      occurrenceKey: row.occurrenceKey,
-      label: row.label,
-      unitId: row.unitId,
-      unitName: row.unitName,
-      state: row.state,
-      assignedEmployeeId: row.assignedEmployeeId,
-    })),
     sync: {
       retryRequired: pendingOfflineReceipts.length,
       pendingConflicts: pendingConflictRows.length,
       items: syncItems,
       unscopableExcluded: false,
     },
-    evsOverlay,
     plantOverlay,
-  };
-}
-
-function presentEvsOverlay(
-  locSummary: Awaited<ReturnType<typeof buildLocationCoverageSummary>>,
-  zones: Awaited<ReturnType<typeof loadZonesForDepartment>>,
-  employees: Array<{ id: string; firstName: string; lastName: string }>,
-  filters: {
-    floor?: string | null;
-    unit?: string | null;
-    zone?: string | null;
-    employee?: string | null;
-  },
-): NonNullable<SupervisorOperationsFacts["evsOverlay"]> {
-  const filterFloor = filters.floor?.trim() || null;
-  const filterUnit = filters.unit?.trim() || null;
-  const filterZone = filters.zone?.trim() || null;
-  const filterEmployee = filters.employee?.trim() || null;
-
-  const matchesFilters = (row: {
-    unitId: string | null;
-    floorUnitId: string | null;
-    zoneIds: string[];
-    employeeIds: string[];
-  }) => {
-    if (filterFloor && row.floorUnitId !== filterFloor) return false;
-    if (filterUnit && row.unitId !== filterUnit) return false;
-    if (filterZone && !row.zoneIds.includes(filterZone)) return false;
-    if (filterEmployee && !row.employeeIds.includes(filterEmployee)) return false;
-    return true;
-  };
-
-  const filteredRows = locSummary.rows.filter(matchesFilters);
-  const toLocationRow = (row: (typeof locSummary.rows)[number]) => ({
-    unitSpaceId: row.unitSpaceId,
-    label: row.label,
-    unitId: row.unitId,
-    unitName: row.unitName,
-    floorUnitId: row.floorUnitId,
-    floorName: row.floorName,
-    state: row.state,
-    employeeLabels: row.employeeLabels,
-    zoneIds: row.zoneIds,
-  });
-
-  const floorOptions = new Map<string, string>();
-  const unitOptions = new Map<string, string>();
-  for (const row of locSummary.rows) {
-    if (row.floorUnitId && row.floorName) floorOptions.set(row.floorUnitId, row.floorName);
-    if (row.unitId && row.unitName) unitOptions.set(row.unitId, row.unitName);
-  }
-
-  const filterModel: SupervisorOperationsFilters = {
-    floor: filterFloor,
-    unit: filterUnit,
-    zone: filterZone,
-    employee: filterEmployee,
-    floors: [...floorOptions.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    units: [...unitOptions.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    zones: zones
-      .filter((zone) => zone.status === "ACTIVE" || zone.status === "DRAFT")
-      .map((zone) => ({ id: zone.id, name: zone.name })),
-    employees: employees
-      .map((employee) => ({
-        id: employee.id,
-        name: `${employee.firstName} ${employee.lastName}`.trim(),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  };
-
-  const visibleUnitIds =
-    filterUnit || filterFloor
-      ? [
-          ...new Set(
-            filteredRows.map((row) => row.unitId).filter((id): id is string => Boolean(id)),
-          ),
-        ]
-      : null;
-
-  return {
-    locationCovered: locSummary.covered,
-    locationAtRisk: locSummary.atRisk,
-    locationUncovered: locSummary.uncovered,
-    locationOverlapping: locSummary.overlapping,
-    locationRequired: locSummary.totalRequired,
-    visibleUnitIds,
-    locationCoverage: {
-      unassigned: filteredRows.filter((row) => row.state === "UNCOVERED").map(toLocationRow),
-      overlapping: filteredRows.filter((row) => row.state === "OVERLAPPING").map(toLocationRow),
-    },
-    filters: filterModel,
   };
 }
 

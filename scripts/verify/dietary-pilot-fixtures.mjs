@@ -14,6 +14,8 @@ import { activateFixtureAccount, linkFixtureAccount } from "./fixture-account.mj
 import { PrismaClient } from "@prisma/client";
 
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
+import { prepareAssignmentBoardRoom } from "./assignment-board-fixture.mjs";
+import { tsImport } from "tsx/esm/api";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ARTIFACT_DIR = join(ROOT, "tmp", "dietary-pilot-artifacts");
@@ -225,9 +227,14 @@ async function main() {
       scaleIds.push(emp.id);
     }
 
-    const today = new Date();
-    const serviceDateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const { getFacilityServiceDate, toServiceDateKey } = await tsImport(
+      "../../src/lib/operational-time/index.ts", import.meta.url,
+    );
+    const serviceDateKey = toServiceDateKey(getFacilityServiceDate(facility.timezone));
     const serviceDate = serviceDateUtc(serviceDateKey);
+    const room = await prepareAssignmentBoardRoom(db, {
+      facilityId: facility.id, departmentId: dietary.id, employeeId: staffEmp.id, tag: "Dietary",
+    });
 
     const scheduledIds = [staffEmp.id, ...scaleIds.slice(0, 50)];
     for (const employeeId of scheduledIds) {
@@ -241,8 +248,7 @@ async function main() {
             employeeId,
             date: serviceDate,
             shift: "FULL_DAY",
-            roleType: "STAFF",
-            unitId: primaryServery.id,
+            departmentId: dietary.id,
             plannedStart: "05:30",
             plannedEnd: "19:30",
           },
@@ -293,7 +299,7 @@ async function main() {
       });
     }
 
-    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "dietary", pin: "864205", extraWorkItems: 3, extraKeyTimes: 1 });
+    const canonical = await prepareCanonicalOfflineFixture(db, { facilityId: facility.id, departmentId: dietary.id, tag: "dietary", pin: "864205", extraKeyTimes: 1 });
     mkdirSync(ARTIFACT_DIR, { recursive: true });
     writeFileSync(
       FIXTURE_PATH,
@@ -307,6 +313,7 @@ async function main() {
           serviceDateKey,
           serveryUnitId: primaryServery.id,
           serveryUnitName: primaryServery.name,
+          assignmentRoom: room,
           serveryCount: serverys.length,
           supervisorEmail: supervisor.email,
           gmEmail: gm.email,

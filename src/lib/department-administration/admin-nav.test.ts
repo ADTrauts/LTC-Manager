@@ -29,6 +29,10 @@ describe("Department Builder local navigation", () => {
       ],
     );
     assert.equal(
+      DEPARTMENT_ADMIN_TABS.some((t) => t.id === ("work" as string)),
+      false,
+    );
+    assert.equal(
       DEPARTMENT_ADMIN_TABS.some((t) => t.id === ("room-types" as string)),
       false,
     );
@@ -67,6 +71,7 @@ describe("Department Builder local navigation", () => {
     assert.equal(resolveDepartmentAdminTab("diagnostics"), "overview");
     assert.equal(resolveDepartmentAdminTab("versions"), "overview");
     assert.equal(resolveDepartmentAdminTab("settings"), "overview");
+    assert.equal(resolveDepartmentAdminTab("work"), "overview");
     assert.deepEqual([...DEPARTMENT_ADMIN_LEGACY_TABS], []);
     assert.deepEqual([...DEPARTMENT_ADMIN_DEFERRED_TABS], []);
   });

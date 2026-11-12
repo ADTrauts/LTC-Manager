@@ -212,6 +212,12 @@ async function main() {
       where: { facilityId: facility.id, name: "1A Naval Park", isActive: true },
       select: { id: true },
     });
+    // These legacy demo units predate the physical hierarchy. Verification uses
+    // real Floor → Neighborhood → Space structure, including offline authority.
+    const floor = await db.unit.findFirst({ where: { facilityId: facility.id, name: "People & Coverage fixture floor" } }) ??
+      await db.unit.create({ data: { facilityId: facility.id, name: "People & Coverage fixture floor", unitType: "OTHER", hierarchyRole: "FLOOR" } });
+    await db.unit.updateMany({ where: { id: { in: [kitchenUnit.id, neighborhoodUnit.id] }, facilityId: facility.id },
+      data: { hierarchyRole: "NEIGHBORHOOD", parentUnitId: floor.id } });
     const primarySpace = await ensureDietarySpace("Phase 9C Primary Servery", kitchenUnit.id);
     const altSpace = await ensureDietarySpace("Phase 9C Alt Dining", neighborhoodUnit.id);
 
@@ -417,7 +423,6 @@ async function main() {
               roleLabel: "Server",
               requiredCount: 2,
               spaceId: primarySpace.id,
-              unitId: primarySpace.unitId,
               applicableOperationalCycleStableKeys: cycleKeys,
               sortOrder: 1,
             },
@@ -443,7 +448,6 @@ async function main() {
               roleLabel: "Cook",
               requiredCount: 1,
               spaceId: altSpace.id,
-              unitId: altSpace.unitId,
               applicableOperationalCycleStableKeys: cycleKeys,
               sortOrder: 1,
             },

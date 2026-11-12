@@ -51,6 +51,7 @@ export type DepartmentAdminPrimaryTabId = (typeof DEPARTMENT_ADMIN_TABS)[number]
  * Cycles configure under Operating Rhythm. Teams configure under People & Coverage.
  */
 export const DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT = {
+  work: "overview",
   coverage: "people",
   cycles: "operating-rhythm",
   teams: "people",

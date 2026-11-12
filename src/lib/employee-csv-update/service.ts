@@ -17,7 +17,7 @@ import type { EmployeeCsvPreview, EmployeeCsvPreviewRow, EmployeeCsvResult, Empl
 type Db = PrismaClient | Prisma.TransactionClient;
 type Source = { text: string; fileName: string; contractVersion?: string };
 const employeeInclude = {
-  workStations: true, employeeDepartments: true, teamMemberships: true, departmentJobRoles: true,
+  workStations: true, employeeDepartments: true, teamMemberships: true,
   unitAccesses: true, primaryUnit: { select: { id: true, name: true, facilityId: true, isActive: true } },
 } satisfies Prisma.EmployeeInclude;
 type Employee = Prisma.EmployeeGetPayload<{ include: typeof employeeInclude }>;

@@ -151,7 +151,5 @@ export async function resolveAttachmentTargetLabel(
         departmentName: null,
         suggestionContext: { kind: "FACILITY" },
       };
-    case "OPERATIONAL_TYPE":
-      return null;
   }
 }

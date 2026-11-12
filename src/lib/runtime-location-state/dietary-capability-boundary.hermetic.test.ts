@@ -66,8 +66,6 @@ function legacyBreakfastCycle(spaceId: string): OperationalCycleDefinition {
     mealType: "BREAKFAST",
     locationMode: "EXPLICIT_UNITS",
     locationInheritFromParent: false,
-    applicableUnitTypes: [],
-    roomTypeKey: null,
     expectedMilestones: ["READY", "SERVICE_STARTED"],
     status: "PUBLISHED",
     unitIds: ["unit-1"],

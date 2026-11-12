@@ -52,6 +52,7 @@ export type DepartmentTeamView = {
   managerEmployeeId: string | null;
   managerLabel: string | null;
   activeMemberCount: number;
+  rooms: Array<{ spaceId: string; name: string }>;
 };
 
 export type TeamCatalog = {

@@ -210,7 +210,6 @@ export async function loadDepartmentWeekSchedule(input: {
       firstName: e.firstName,
       lastName: e.lastName,
       teamDisplayName: e.teamMemberships[0]?.team.displayName ?? null,
-      jobRoleDisplayName: null,
       jobTitleDisplayName: e.jobTitle?.name ?? null,
     })),
     scheduleEntries: scheduleEntries.map((s) => ({

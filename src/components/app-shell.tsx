@@ -143,7 +143,6 @@ export async function AppShell({ children }: AppShellProps) {
     authKind === "user" && hasAtLeastRole(session.role, "FACILITY_ADMINISTRATOR");
   const navFeatureFlags = {
     dietaryOperationalEvidenceEnabled: true,
-    dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled: isCanonicalLogsEnabled(),
   };
   const rawNavItems = platformNavItemsForRole(session.role, navFeatureFlags);

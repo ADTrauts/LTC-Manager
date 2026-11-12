@@ -27,7 +27,6 @@ export function CanonicalRangeReview({
   todayKey,
   validationMessage,
   definition = "",
-  locationFunction = "",
   auditSlots = null,
   timingRows = null,
   departmentId = "",
@@ -40,7 +39,6 @@ export function CanonicalRangeReview({
   todayKey: string;
   validationMessage?: string | null;
   definition?: string;
-  locationFunction?: string;
   auditSlots?: readonly AuditRecordSlot[] | null;
   timingRows?: readonly TimingAuditRow[] | null;
   departmentId?: string | null;
@@ -73,7 +71,6 @@ export function CanonicalRangeReview({
               locationOptions={locationOptions}
               testId="review-range-form"
               definition={definition}
-              locationFunction={locationFunction}
             />
           </div>
         }
@@ -90,7 +87,6 @@ export function CanonicalRangeReview({
                   definition,
                   from: start,
                   to: end,
-                  ...(locationFunction ? { locationFunction } : {}),
                 }).toString()}`
               : null
           }

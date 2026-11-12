@@ -8,9 +8,9 @@ import test from "node:test";
 const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
 const EXCEPTIONS_PATH = join(REPO_ROOT, "scripts/verify/migration-checksum-exceptions.json");
 const DOCS_PATH = join(REPO_ROOT, "docs/engineering/MIGRATION_HISTORY_EXCEPTIONS.md");
-const HISTORICAL_SQL = join(
+const BASELINE_SQL = join(
   REPO_ROOT,
-  "prisma/migrations/20260423105656/migration.sql",
+  "prisma/migrations/20261111120000_canonical_baseline/migration.sql",
 );
 const CHECKSUM_MODULE = join(REPO_ROOT, "scripts/verify/lib/migration-checksum.mjs");
 
@@ -20,7 +20,7 @@ async function loadChecksumModule() {
 
 test("sha256Hex matches known migration file contents", async () => {
   const { sha256Hex } = await loadChecksumModule();
-  const content = readFileSync(HISTORICAL_SQL, "utf8");
+  const content = readFileSync(BASELINE_SQL, "utf8");
   const expected = createHash("sha256").update(content, "utf8").digest("hex");
   assert.equal(sha256Hex(content), expected);
 });
@@ -33,7 +33,7 @@ test("verifyRepoMigrationChecksums accepts the committed manifest and docs", asy
     docsPath: DOCS_PATH,
   });
   assert.equal(result.pass, true);
-  assert.equal(result.exceptionCount, 1);
+  assert.equal(result.exceptionCount, 0);
 });
 
 test("verifyRepoMigrationChecksums fails when an excepted migration drifts without manifest update", async () => {
@@ -75,11 +75,13 @@ test("classifyLegacyMigrationChecksum accepts documented historical checksum dri
   const { classifyLegacyMigrationChecksum } = await loadChecksumModule();
   const repoSha = "c94c71258d91d8d4eb14c3d3aca09886fdb54ff8b46b0ffc88c9cf43fa039555";
   const legacyApplied = "deadbeef".repeat(8);
+  const exceptionsPath = join(mkdtempSync(join(tmpdir(), "ltc-migration-exception-")), "exceptions.json");
+  writeFileSync(exceptionsPath, JSON.stringify({ exceptions: [{ migration: "20260423105656", repoSha256: repoSha }] }));
   const decision = classifyLegacyMigrationChecksum(
     "20260423105656",
     repoSha,
     legacyApplied,
-    { exceptionsPath: EXCEPTIONS_PATH },
+    { exceptionsPath },
   );
   assert.equal(decision.accepted, true);
   assert.equal(decision.reason, "DOCUMENTED_HISTORICAL_EXCEPTION");

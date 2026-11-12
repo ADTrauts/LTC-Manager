@@ -38,11 +38,3 @@ export function assignedSpaceIdSet(
 ): Set<string> {
   return new Set(refs.map((row) => row.spaceId));
 }
-
-export function filterWorkToAssignedSpaces<T extends { spaceId: string | null }>(
-  rows: readonly T[],
-  assignedSpaceIds: ReadonlySet<string> | null,
-): T[] {
-  if (assignedSpaceIds == null) return [...rows];
-  return rows.filter((row) => row.spaceId == null || assignedSpaceIds.has(row.spaceId));
-}

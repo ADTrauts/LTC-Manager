@@ -10,7 +10,8 @@ import {
 } from "@/app/(protected)/admin/departments/[departmentId]/team-actions";
 import { Button } from "@/components/design-system/Button";
 import { Select, TextArea, TextInput } from "@/components/design-system/Field";
-import type { DepartmentTeamView, TeamEmployeeOption } from "@/lib/department-teams";
+import { RoomPicker } from "@/components/operational-cycles/room-picker";
+import type { DepartmentTeamView, TeamEmployeeOption, TeamCatalog } from "@/lib/department-teams";
 
 type Props = {
   departmentId: string;
@@ -18,7 +19,19 @@ type Props = {
   teams: DepartmentTeamView[];
   employees: TeamEmployeeOption[];
   canManage: boolean;
+  catalog: TeamCatalog;
 };
+
+function TeamRooms({ catalog, initialIds }: { catalog: TeamCatalog; initialIds: string[] }) {
+  const [ids, setIds] = useState(initialIds);
+  return (
+    <fieldset className="space-y-2" data-testid="team-room-membership">
+      <legend className="text-sm font-medium">Normal rooms</legend>
+      <p className="text-xs text-zinc-600">Choose explicit rooms for this Team&apos;s normal view. This does not grant access or configure staffing.</p>
+      <RoomPicker locations={catalog.locations} selectedIds={ids} onChange={setIds} name="spaceIds" />
+    </fieldset>
+  );
+}
 
 function leadSelect(
   employees: TeamEmployeeOption[],
@@ -48,6 +61,7 @@ export function EmployeeTeamsPanel({
   teams,
   employees,
   canManage,
+  catalog,
 }: Props) {
   const [adding, setAdding] = useState(false);
 
@@ -82,6 +96,7 @@ export function EmployeeTeamsPanel({
           <TextInput name="displayName" label="Name" required maxLength={80} data-testid="team-name-input" />
           <TextArea name="description" label="Description" maxLength={500} rows={2} />
           {leadSelect(employees, null)}
+          <TeamRooms catalog={catalog} initialIds={[]} />
           <div className="flex flex-wrap gap-2">
             <Button type="submit">Create Team</Button>
             <Button type="button" variant="secondary" onClick={() => setAdding(false)}>
@@ -115,6 +130,7 @@ export function EmployeeTeamsPanel({
                     defaultValue={team.description ?? ""}
                   />
                   {leadSelect(employees, team.managerEmployeeId, team.managerLabel)}
+                  <TeamRooms catalog={catalog} initialIds={team.rooms.map(room => room.spaceId)} />
                   <Button type="submit" size="compact" variant="secondary">
                     Save Team
                   </Button>
@@ -128,6 +144,7 @@ export function EmployeeTeamsPanel({
                 </div>
               )}
               <p className="text-sm text-zinc-700">
+                {team.rooms.length} normal rooms ·{" "}
                 {team.activeMemberCount} active{" "}
                 {team.activeMemberCount === 1 ? "employee" : "employees"}.{" "}
                 <a

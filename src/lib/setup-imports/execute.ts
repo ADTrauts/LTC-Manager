@@ -28,7 +28,7 @@ export async function executeRow(tx: Prisma.TransactionClient, session: Facility
   if (op.kind === "workforce") {
     if (row.action === "reuse") return { status: "reused", targetIds: { employeeId: op.employeeId!, userId: op.userId! }, message: "Reused existing Employee; no credentials, HR, authority or relationships changed." };
     const made = await onboardFacilityEmployee(tx,{ facilityId, actorUserId: session.authKind === "user" ? session.uid : null, firstName: op.firstName!, lastName: op.lastName!, email: op.email!, phone: op.phone, roleType: op.roleType as RoleKey, employmentType: op.employmentType as EmploymentType, status: "ACTIVE", pendingPinEnrollment: true, confirmExistingUser: Boolean(op.userId) });
-    await syncEmployeeOrganization(tx,{ employeeId: made.employeeId, facilityId, primaryDepartmentId: op.departmentId!, additionalDepartmentIds: [], jobTitleId: op.jobTitleId ?? null, teamMemberships: op.teamId ? [{ teamId: op.teamId, isPrimary: true }] : [], jobRoleByDepartmentId: op.jobRoleId ? new Map([[op.departmentId!,op.jobRoleId]]) : undefined });
+    await syncEmployeeOrganization(tx,{ employeeId: made.employeeId, facilityId, primaryDepartmentId: op.departmentId!, additionalDepartmentIds: [], jobTitleId: op.jobTitleId ?? null, teamMemberships: op.teamId ? [{ teamId: op.teamId, isPrimary: true }] : [] });
     return { status: "committed", targetIds: { employeeId: made.employeeId, userId: made.userId }, message: `Created linked Employee; ${made.reusedExistingUser ? "reused the explicitly confirmed global account" : "account activation pending"}. Eligible PIN enrollment remains separate; no credential generated.` };
   }
   if (op.kind === "employee_departments") {
@@ -38,7 +38,7 @@ export async function executeRow(tx: Prisma.TransactionClient, session: Facility
     const additional = [...new Set([...e.employeeDepartments.map(x => x.departmentId), ...(op.departmentId !== primary ? [op.departmentId!] : [])])];
     const teams = e.teamMemberships.map(t => ({ teamId: t.teamId, isPrimary: t.isPrimary }));
     if (op.teamId && !teams.some(t => t.teamId === op.teamId)) teams.push({ teamId: op.teamId, isPrimary: op.teamPrimary ?? false });
-    await syncEmployeeOrganization(tx,{ employeeId: e.id, facilityId, primaryDepartmentId: primary, additionalDepartmentIds: additional, jobTitleId: e.jobTitleId, teamMemberships: teams, jobRoleByDepartmentId: op.jobRoleId ? new Map([[op.departmentId!,op.jobRoleId]]) : undefined });
+    await syncEmployeeOrganization(tx,{ employeeId: e.id, facilityId, primaryDepartmentId: primary, additionalDepartmentIds: additional, jobTitleId: e.jobTitleId, teamMemberships: teams });
     return { status: "committed", targetIds: { employeeId: e.id, departmentId: op.departmentId! }, message: "Added the reviewed relationship; unprovided relationships and HR fields preserved." };
   }
   if (op.kind === "department_locations") {

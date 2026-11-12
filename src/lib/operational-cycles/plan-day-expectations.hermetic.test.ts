@@ -24,14 +24,12 @@ function cycle(
     effectiveFrom: new Date("2026-08-01T00:00:00.000Z"),
     effectiveTo: null,
     mealType: "BREAKFAST" as MealType,
-    locationMode: "ROOM_TYPE" as OperationalCycleLocationMode,
+    locationMode: "EXPLICIT_UNITS" as OperationalCycleLocationMode,
     locationInheritFromParent: false,
-    applicableUnitTypes: [],
-    roomTypeKey: "servery",
     expectedMilestones: ["READY", "SERVICE_STARTED"] as ServeryMilestone[],
     status: "PUBLISHED",
     unitIds: [],
-    spaceIds: [],
+    spaceIds: ["np-s", "lh-s", "ra-s"],
     milestoneTimes: [],
     keyTimeGroups: [],
     ...overrides,
@@ -97,7 +95,7 @@ const locations: CycleScopeLocationOption[] = [
   },
 ];
 
-test("ROOM_TYPE Servery resolves unique Neighborhoods and configured times", () => {
+test("Explicit rooms resolve unique Neighborhoods with configured service times", () => {
   const planned = planMealServiceDayExpectations({
     cycles: [
       cycle({
@@ -121,13 +119,12 @@ test("ROOM_TYPE Servery resolves unique Neighborhoods and configured times", () 
     [
       { unitId: "lh", configuredTime: "07:20" },
       { unitId: "np", configuredTime: "07:15" },
-      { unitId: "ra", configuredTime: null },
     ],
   );
   assert.ok(planned.every((row) => row.cycleVersion === 3 && row.cycleStableKey === "breakfast-service"));
 });
 
-test("missing configured time is planned as null — not guessed or copied", () => {
+test("No meal-service expectation is planned without a configured time", () => {
   const planned = planMealServiceDayExpectations({
     cycles: [
       cycle({
@@ -142,8 +139,7 @@ test("missing configured time is planned as null — not guessed or copied", () 
     existing: [],
   });
   const annex = planned.find((row) => row.unitId === "ra");
-  assert.ok(annex);
-  assert.equal(annex!.configuredTime, null);
+  assert.equal(annex, undefined);
   assert.equal(planned.find((row) => row.unitId === "np")?.configuredTime, "07:15");
 });
 
@@ -235,7 +231,6 @@ test("entire-department does not invent meal times for locations without configu
         id: "c-all",
         label: "Breakfast Service",
         locationMode: "ALL_DEPARTMENT_UNITS",
-        roomTypeKey: null,
         milestoneTimes: [
           { unitId: "np", milestone: "SERVICE_STARTED", configuredTime: "07:15" },
         ],
@@ -257,7 +252,6 @@ test("specific kitchen/retail rooms do not force neighborhood meal-start rows", 
         id: "c-prod",
         label: "Breakfast Production",
         locationMode: "EXPLICIT_UNITS",
-        roomTypeKey: null,
         unitIds: [],
         spaceIds: ["mk"],
         mealType: "BREAKFAST",
@@ -277,7 +271,6 @@ test("explicit Neighborhood with a configured SERVICE_STARTED time materializes"
         id: "c-retail",
         label: "Retail Breakfast",
         locationMode: "EXPLICIT_UNITS",
-        roomTypeKey: null,
         unitIds: ["np"],
         spaceIds: [],
         milestoneTimes: [
@@ -311,8 +304,7 @@ test("child with null mealType inherits parent meal for service-time planning", 
         stableKey: "servery",
         parentStableKey: "breakfast",
         mealType: null,
-        locationMode: "ROOM_TYPE",
-        roomTypeKey: "servery",
+        locationMode: "EXPLICIT_UNITS",
         expectedMilestones: ["READY", "SERVICE_STARTED"],
         milestoneTimes: [
           { unitId: "np", milestone: "SERVICE_STARTED", configuredTime: "07:15" },
@@ -347,8 +339,7 @@ test("parent umbrella does not duplicate child meal-service expectations", () =>
         stableKey: "servery",
         parentStableKey: "breakfast",
         mealType: null,
-        locationMode: "ROOM_TYPE",
-        roomTypeKey: "servery",
+        locationMode: "EXPLICIT_UNITS",
         expectedMilestones: ["READY", "SERVICE_STARTED"],
         milestoneTimes: [
           { unitId: "np", milestone: "SERVICE_STARTED", configuredTime: "07:15" },

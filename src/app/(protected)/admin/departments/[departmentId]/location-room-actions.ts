@@ -8,6 +8,7 @@ import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { resolveTeamAuthority } from "@/lib/department-teams";
 import { requireFacilitySession } from "@/lib/facility-context";
 import { prisma } from "@/lib/prisma";
+import { updateDepartmentSpaceNote } from "@/lib/department-administration/department-space-notes";
 
 export type LocationRoomActionResult =
   | { ok: true; message?: string }
@@ -23,16 +24,44 @@ function fail(error: unknown): LocationRoomActionResult {
   return { ok: false, message };
 }
 
-async function requireManager(departmentId: string) {
+async function requireDepartmentLocationManager(departmentId: string) {
   const session = await requireFacilitySession();
   const authority = await resolveTeamAuthority(session, session.facilityId, departmentId);
   if (!authority.canManage) {
     throw new Error("You do not have permission to change location programming.");
   }
+  return session;
+}
+
+async function requireManager(departmentId: string) {
+  const session = await requireDepartmentLocationManager(departmentId);
   if (!isCanonicalLogsEnabled()) {
     throw new Error("Canonical Logs are not enabled.");
   }
   return session;
+}
+
+/** Optional Department × Space descriptive note. Not operational configuration. */
+export async function updateDepartmentSpaceNoteAction(
+  formData: FormData,
+): Promise<LocationRoomActionResult> {
+  try {
+    const departmentId = z.string().cuid().parse(formData.get("departmentId"));
+    const spaceId = z.string().cuid().parse(formData.get("spaceId"));
+    const notesRaw = String(formData.get("notes") ?? "");
+    const session = await requireDepartmentLocationManager(departmentId);
+    await updateDepartmentSpaceNote(prisma, {
+      facilityId: session.facilityId,
+      departmentId,
+      spaceId,
+      notes: notesRaw,
+    });
+    revalidateLocations(departmentId);
+    return { ok: true, message: "Department room note saved." };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not update Department room note.";
+    return { ok: false, message };
+  }
 }
 
 export async function removeRoomLogAction(formData: FormData): Promise<LocationRoomActionResult> {
@@ -61,31 +90,4 @@ export async function removeRoomLogAction(formData: FormData): Promise<LocationR
   } catch (error) {
     return fail(error);
   }
-}
-
-const FACILITY_TYPE_LOG_RETIRED =
-  "Choose the rooms this record applies to. Facility Room Type does not add the record to current or future rooms.";
-
-export async function addFacilityTypeLogDefaultAction(
-  _formData: FormData,
-): Promise<LocationRoomActionResult> {
-  return { ok: false, message: FACILITY_TYPE_LOG_RETIRED };
-}
-
-export async function removeFacilityTypeLogDefaultAction(
-  _formData: FormData,
-): Promise<LocationRoomActionResult> {
-  return { ok: false, message: FACILITY_TYPE_LOG_RETIRED };
-}
-
-export async function suppressFacilityTypeLogDefaultAction(
-  _formData: FormData,
-): Promise<LocationRoomActionResult> {
-  return { ok: false, message: FACILITY_TYPE_LOG_RETIRED };
-}
-
-export async function restoreFacilityTypeLogDefaultAction(
-  _formData: FormData,
-): Promise<LocationRoomActionResult> {
-  return { ok: false, message: FACILITY_TYPE_LOG_RETIRED };
 }

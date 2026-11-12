@@ -50,6 +50,7 @@ export function PlantStarterPanel({
   }
 
   function onInstall() {
+    // Phase 2C-2H-3: Work Plan presets are not newly installable.
     const selectedIds = items
       .filter((item) => !item.alreadyAdded && selected[item.id])
       .map((item) => item.id);
@@ -69,7 +70,9 @@ export function PlantStarterPanel({
   }
 
   const records = items.filter((item) => item.kind === "record");
-  const selectable = items.filter((item) => !item.alreadyAdded && selected[item.id]).length;
+  const selectable = items.filter(
+    (item) => !item.alreadyAdded && selected[item.id],
+  ).length;
 
   return (
     <section className="space-y-3 rounded-lg border border-zinc-200 bg-white px-4 py-4" data-testid="plant-starter-panel">

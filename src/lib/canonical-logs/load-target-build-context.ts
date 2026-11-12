@@ -24,7 +24,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function loadTargetLogsBuildContext(input: {
   facilityId: string;
-  targetKind: Exclude<LogAttachmentTargetKind, "FACILITY" | "OPERATIONAL_TYPE">;
+  targetKind: Exclude<LogAttachmentTargetKind, "FACILITY">;
   targetId: string;
   /** Override owning department when target resolution is ambiguous. */
   departmentId?: string | null;
@@ -166,7 +166,7 @@ export async function loadTargetLogsBuildContext(input: {
 }
 
 export function buildAddHref(
-  targetKind: Exclude<LogAttachmentTargetKind, "FACILITY" | "OPERATIONAL_TYPE">,
+  targetKind: Exclude<LogAttachmentTargetKind, "FACILITY">,
   targetId: string,
   catalogStableKey?: string,
 ): string {

@@ -65,7 +65,6 @@ function cycle(
     mealType: partial.mealType ?? null,
     locationMode: partial.locationMode ?? "EXPLICIT_UNITS",
     locationInheritFromParent: partial.locationInheritFromParent ?? false,
-    applicableUnitTypes: partial.applicableUnitTypes ?? [],
     roomTypeKey: partial.roomTypeKey ?? null,
     expectedMilestones: partial.expectedMilestones ?? [],
     status: partial.status ?? "PUBLISHED",

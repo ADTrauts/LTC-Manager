@@ -1026,6 +1026,7 @@ function makeTemplate(items: Array<{roleKey: string; roleLabel: string; required
     name: "Test Template",
     description: null,
     isActive: true,
+    status: "PUBLISHED",
     departmentId: "dept1",
     departmentKey: "DIETARY",
     operationDefinitionId: null,
@@ -1036,7 +1037,7 @@ function makeTemplate(items: Array<{roleKey: string; roleLabel: string; required
       id: `item${i}`,
       roleKey: item.roleKey,
       roleLabel: item.roleLabel,
-      unitId: item.unitId ?? null,
+      unitId: item.unitId ?? "unit1",
       unitName: null,
       startsAtLocal: null,
       endsAtLocal: null,
@@ -1050,10 +1051,11 @@ function makeTemplate(items: Array<{roleKey: string; roleLabel: string; required
 
 test("M4: fully filled positions", () => {
   const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
-  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "ACTIVE" })];
+  const assignments = [makeEntry({ unitId: "unit1", id: "a1", roleKey: "COOK", status: "ACTIVE" })];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 1,
   });
   assert.ok(result.available);
@@ -1065,10 +1067,11 @@ test("M4: fully filled positions", () => {
 
 test("M4: unfilled position", () => {
   const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 2 }]);
-  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "ACTIVE" })];
+  const assignments = [makeEntry({ unitId: "unit1", id: "a1", roleKey: "COOK", status: "ACTIVE" })];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 2,
   });
   assert.ok(result.available);
@@ -1081,12 +1084,13 @@ test("M4: unfilled position", () => {
 test("M4: requiredCount expansion to multiple positions", () => {
   const template = makeTemplate([{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 3 }]);
   const assignments = [
-    makeEntry({ id: "a1", employeeId: "emp1", roleKey: "SERVER", status: "PLANNED" }),
-    makeEntry({ id: "a2", employeeId: "emp2", roleKey: "SERVER", status: "PLANNED" }),
+    makeEntry({ unitId: "unit1", id: "a1", employeeId: "emp1", roleKey: "SERVER", status: "PLANNED" }),
+    makeEntry({ unitId: "unit1", id: "a2", employeeId: "emp2", roleKey: "SERVER", status: "PLANNED" }),
   ];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 3,
   });
   assert.ok(result.available);
@@ -1098,10 +1102,11 @@ test("M4: requiredCount expansion to multiple positions", () => {
 
 test("M4: completed assignment does not fill current position", () => {
   const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
-  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "COMPLETED" })];
+  const assignments = [makeEntry({ unitId: "unit1", id: "a1", roleKey: "COOK", status: "COMPLETED" })];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 1,
   });
   assert.ok(result.available);
@@ -1112,10 +1117,11 @@ test("M4: completed assignment does not fill current position", () => {
 
 test("M4: cancelled assignment does not fill current position", () => {
   const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
-  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "CANCELLED" })];
+  const assignments = [makeEntry({ unitId: "unit1", id: "a1", roleKey: "COOK", status: "CANCELLED" })];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 1,
   });
   assert.ok(result.available);
@@ -1126,10 +1132,11 @@ test("M4: cancelled assignment does not fill current position", () => {
 
 test("M4: manual assignment fills matching template role", () => {
   const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
-  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "ACTIVE", source: "MANUAL" })];
+  const assignments = [makeEntry({ unitId: "unit1", id: "a1", roleKey: "COOK", status: "ACTIVE", source: "MANUAL" })];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 1,
   });
   assert.ok(result.available);
@@ -1139,10 +1146,11 @@ test("M4: manual assignment fills matching template role", () => {
 
 test("M4: coverage assignment fills compatible position", () => {
   const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
-  const assignments = [makeEntry({ id: "a1", roleKey: "COOK", status: "ACTIVE", source: "COVERAGE" })];
+  const assignments = [makeEntry({ unitId: "unit1", id: "a1", roleKey: "COOK", status: "ACTIVE", source: "COVERAGE" })];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 1,
   });
   assert.ok(result.available);
@@ -1154,6 +1162,7 @@ test("M4: no applicable template returns unavailable summary", () => {
   const result = buildAssignmentFulfillmentSummary({
     templates: [],
     assignments: [],
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 5,
   });
   assert.ok(!result.available);
@@ -1165,6 +1174,7 @@ test("M4: inactive template excluded from fulfillment", () => {
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments: [],
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 1,
   });
   assert.ok(!result.available);
@@ -1176,12 +1186,13 @@ test("M4: overlapping employee counts as conflict", () => {
     { roleKey: "HOT_PREP", roleLabel: "Hot Prep", requiredCount: 1 },
   ]);
   const assignments = [
-    makeEntry({ id: "a1", employeeId: "emp1", roleKey: "COOK", status: "ACTIVE" }),
-    makeEntry({ id: "a2", employeeId: "emp1", roleKey: "HOT_PREP", status: "ACTIVE" }),
+    makeEntry({ unitId: "unit1", id: "a1", employeeId: "emp1", roleKey: "COOK", status: "ACTIVE" }),
+    makeEntry({ unitId: "unit1", id: "a2", employeeId: "emp1", roleKey: "HOT_PREP", status: "ACTIVE" }),
   ];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 2,
   });
   assert.ok(result.available);
@@ -1192,12 +1203,13 @@ test("M4: overlapping employee counts as conflict", () => {
 test("M4: coverage/reassignment assignments counted", () => {
   const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 2 }]);
   const assignments = [
-    makeEntry({ id: "a1", employeeId: "emp1", roleKey: "COOK", status: "ACTIVE", source: "MANUAL" }),
-    makeEntry({ id: "a2", employeeId: "emp2", roleKey: "COOK", status: "ACTIVE", source: "COVERAGE" }),
+    makeEntry({ unitId: "unit1", id: "a1", employeeId: "emp1", roleKey: "COOK", status: "ACTIVE", source: "MANUAL" }),
+    makeEntry({ unitId: "unit1", id: "a2", employeeId: "emp2", roleKey: "COOK", status: "ACTIVE", source: "COVERAGE" }),
   ];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 3,
   });
   assert.ok(result.available);
@@ -1207,10 +1219,11 @@ test("M4: coverage/reassignment assignments counted", () => {
 
 test("M4: scheduled-only employees computed correctly", () => {
   const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
-  const assignments = [makeEntry({ id: "a1", employeeId: "emp1", roleKey: "COOK", status: "ACTIVE" })];
+  const assignments = [makeEntry({ unitId: "unit1", id: "a1", employeeId: "emp1", roleKey: "COOK", status: "ACTIVE" })];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 4,
   });
   assert.ok(result.available);
@@ -1221,11 +1234,12 @@ test("M4: scheduled-only employees computed correctly", () => {
 test("M4: unit-specific position only filled by matching unit", () => {
   const template = makeTemplate([{ roleKey: "SERVER", roleLabel: "Server", requiredCount: 1, unitId: "unitA" }]);
   const assignments = [
-    makeEntry({ id: "a1", roleKey: "SERVER", unitId: "unitB", status: "ACTIVE" }),
+    makeEntry({ unitId: "unit1", id: "a1", roleKey: "SERVER", unitId: "unitB", status: "ACTIVE" }),
   ];
   const result = buildAssignmentFulfillmentSummary({
     templates: [template],
     assignments,
+    serviceDate: "2026-07-15",
     scheduledEmployeeCount: 1,
   });
   assert.ok(result.available);
@@ -1317,4 +1331,46 @@ test("M4: workspace assignment summary unavailable when no templates", () => {
     activeCoverageAssignments: 0,
   };
   assert.ok(!summary.available);
+});
+
+
+test("Coverage fulfillment requires the explicit Space and published effective version", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
+  Object.assign(template.items[0], { unitId: null, spaceId: "space-a", spaceName: "Room A", spaceUnitId: "unit1" });
+  const evaluate = (assignments: AssignmentBoardEntry[]) => buildAssignmentFulfillmentSummary({
+    templates: [template], assignments, scheduledEmployeeCount: 2, serviceDate: "2026-07-15",
+  });
+  const otherRoom = makeEntry({ id: "wrong", roleKey: "COOK", unitId: "unit1", scopeKind: "SPACES", spaceIds: ["space-b"] });
+  const unlocated = makeEntry({ id: "unlocated", roleKey: "COOK" });
+  const exact = makeEntry({ id: "exact", roleKey: "COOK", unitId: "unit1", scopeKind: "SPACES", spaceIds: ["space-a"] });
+  const unitWide = makeEntry({ id: "unit", roleKey: "COOK", unitId: "unit1", scopeKind: "UNIT" });
+  let result = evaluate([otherRoom, unlocated]);
+  assert(result.available); assert.equal(result.filledPositions, 0);
+  result = evaluate([otherRoom, exact]);
+  assert(result.available); assert.equal(result.positions[0].filledByAssignmentId, "exact");
+  result = evaluate([unitWide]);
+  assert(result.available); assert.equal(result.filledPositions, 1);
+  template.status = "DRAFT";
+  assert.equal(evaluate([exact]).available, false);
+  template.status = "PUBLISHED"; template.effectiveFrom = "2026-07-16";
+  assert.equal(evaluate([exact]).available, false);
+  template.effectiveFrom = "2026-07-01"; template.effectiveTo = "2026-07-14";
+  assert.equal(evaluate([exact]).available, false);
+});
+
+test("Space-only staffing does not fill an entire Unit requirement; missing targets fail closed", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 1 }]);
+  const assignment = makeEntry({ roleKey: "COOK", unitId: "unit1", scopeKind: "SPACES", spaceIds: ["space-a"] });
+  const evaluate = () => buildAssignmentFulfillmentSummary({ templates: [template], assignments: [assignment], scheduledEmployeeCount: 1, serviceDate: "2026-07-15" });
+  let result = evaluate(); assert(result.available); assert.equal(result.filledPositions, 0);
+  template.items[0].unitId = null;
+  result = evaluate(); assert(result.available); assert.equal(result.filledPositions, 0);
+});
+
+
+test("fulfillment counts an employee once for a requirement with multiple positions", () => {
+  const template = makeTemplate([{ roleKey: "COOK", roleLabel: "Cook", requiredCount: 2 }]);
+  const result = buildAssignmentFulfillmentSummary({ templates: [template], serviceDate: "2026-07-15", scheduledEmployeeCount: 1,
+    assignments: [makeEntry({ id: "one", employeeId: "same", unitId: "unit1" }), makeEntry({ id: "two", employeeId: "same", unitId: "unit1" })] });
+  assert(result.available); assert.equal(result.filledPositions, 1); assert.equal(result.unfilledPositions, 1);
 });

@@ -3,16 +3,26 @@
  *
  * Not persisted. Not a second operational truth engine.
  * OA = responsibility. RLS = place operation / Harbor evidence / impact / milestones.
- * Work Plans = work to perform. This contract reduces and prioritizes.
+ * Each contributor keeps its canonical owner and authorization.
+ * Phase 2C-2A adds `items` as owner-referenced Job Flow rows (see job-flow-item.ts).
  */
 
 import type { AssetOperationalImpact } from "@prisma/client";
 
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import type { LogRequirementProductState } from "@/lib/logs-architecture/types";
 import type { RuntimeMilestoneKind } from "@/lib/runtime-location-state";
+
+import type { JobFlowItem } from "./job-flow-item";
+
+export type {
+  JobFlowItem,
+  JobFlowItemAttention,
+  JobFlowItemPlace,
+  JobFlowItemTime,
+  JobFlowOwnerKind,
+} from "./job-flow-item";
 
 export type EmployeeRuntimeAssignmentAvailability =
   | "evaluated"
@@ -41,8 +51,6 @@ export type EmployeeRuntimeLocation = {
   unitName: string | null;
   floorName: string | null;
   neighborhoodName: string | null;
-  operationalTypeKey: string | null;
-  operationalTypeName: string | null;
   operationLabel: string | null;
   operationState: "ACTIVE" | "NONE";
 };
@@ -66,6 +74,12 @@ export type EmployeeRuntimeMilestone = {
   kind: RuntimeMilestoneKind;
   label: string;
   statusKey: string;
+  /** Published Cycle stable key when the milestone is a Key Point. */
+  cycleStableKey?: string | null;
+  expectedLocal?: string | null;
+  adjustedLocal?: string | null;
+  actualLocal?: string | null;
+  href?: string | null;
 };
 
 export type EmployeeRuntimeIssue = {
@@ -79,13 +93,12 @@ export type EmployeeRuntimeIssue = {
 };
 
 export type EmployeeRuntimeNextKind =
-  | "overdue_work"
   | "overdue_evidence"
-  | "due_work"
   | "due_evidence"
+  | "due_work_order"
+  | "upcoming_work_order"
   | "milestone"
   | "assignment_transition"
-  | "upcoming_work"
   | "upcoming_evidence"
   | "location_next"
   | "none";
@@ -122,7 +135,12 @@ export type EmployeeRuntimeFlow = {
   evidenceMode: EmployeeRuntimeEvidenceMode;
   evidence: EmployeeRuntimeEvidenceItem[];
   templateEvidence: EvidenceRequirement[];
-  work: WorkRequirement[];
+  /**
+   * Owner-referenced Job Flow composition (Phase 2C-2A).
+   * Includes compatibility Work plus Records / Key Points already on the flow.
+   * Work Order / PM / Assignment exception slots stay empty until later wiring.
+   */
+  items: JobFlowItem[];
   milestones: EmployeeRuntimeMilestone[];
   issues: EmployeeRuntimeIssue[];
   next: EmployeeRuntimeNextAction;

@@ -8,6 +8,7 @@ import { randomBytes } from "node:crypto";
 import test from "node:test";
 import { PrismaClient } from "@prisma/client";
 
+import { syncEmployeeDepartmentMembership } from "@/lib/employee-membership/department";
 import { replaceEmployeeOperationalQualifications } from "./replace";
 
 const databaseUrl =
@@ -121,70 +122,29 @@ test(
       assert.equal(historical.roleKey, "SERVER");
       assert.equal(historical.roleLabel, "Server");
 
-      const exceptionAssignment = await prisma.operationalAssignment.create({
-        data: {
-          facilityId: facility.id,
-          departmentId: dietary.id,
-          employeeId: employee.id,
-          serviceDate: new Date("2026-11-05T00:00:00.000Z"),
-          roleKey: "COOK",
-          roleLabel: "Cook",
-          source: "SUPERVISOR_OVERRIDE",
-        },
+      const membership = {
+        employeeId: employee.id,
+        facilityId: facility.id,
+        primaryDepartmentId: dietary.id,
+      };
+      await syncEmployeeDepartmentMembership(prisma, { ...membership, additionalDepartmentIds: [] });
+      await syncEmployeeDepartmentMembership(prisma, { ...membership, additionalDepartmentIds: [evs.id] });
+      const qualifications = await prisma.employeeOperationalRoleQualification.findMany({
+        where: { employeeId: employee.id, status: "ACTIVE" },
+        select: { departmentId: true, roleKey: true },
       });
-      await prisma.operationalAssignmentEligibilityException.create({
-        data: {
-          assignmentId: exceptionAssignment.id,
-          facilityId: facility.id,
-          departmentId: dietary.id,
-          employeeId: employee.id,
-          roleKey: "COOK",
-          reason: "Only closer on the floor",
-        },
+      assert.deepEqual(qualifications, [{ departmentId: dietary.id, roleKey: "HOT_PREP" }]);
+      const removed = await prisma.employeeOperationalRoleQualification.findFirstOrThrow({
+        where: { employeeId: employee.id, departmentId: evs.id, roleKey: "CLEANING_ROUND" },
       });
-      // Schema keeps one exception row per assignment; a later role change updates that row.
-      await prisma.operationalAssignment.update({
-        where: { id: exceptionAssignment.id },
-        data: { roleKey: "DISHWASHING", roleLabel: "Dishwashing" },
-      });
-      await prisma.operationalAssignmentEligibilityException.update({
-        where: { assignmentId: exceptionAssignment.id },
-        data: {
-          roleKey: "DISHWASHING",
-          reason: "Moved to dish for the close",
-        },
-      });
-      const events = await prisma.operationalAssignmentEligibilityException.findMany({
-        where: { assignmentId: exceptionAssignment.id },
-        orderBy: { createdAt: "asc" },
-        select: { roleKey: true, reason: true },
-      });
-      assert.deepEqual(
-        events.map((event) => `${event.roleKey}:${event.reason}`),
-        ["DISHWASHING:Moved to dish for the close"],
-      );
-      const cookQualification = await prisma.employeeOperationalRoleQualification.count({
-        where: { employeeId: employee.id, departmentId: dietary.id, roleKey: "COOK", status: "ACTIVE" },
-      });
-      assert.equal(cookQualification, 0);
-      const dishwashingQualification = await prisma.employeeOperationalRoleQualification.count({
-        where: {
-          employeeId: employee.id,
-          departmentId: dietary.id,
-          roleKey: "DISHWASHING",
-          status: "ACTIVE",
-        },
-      });
-      assert.equal(dishwashingQualification, 0);
+      assert.equal(removed.status, "REVOKED");
+      assert.ok(removed.revokedAt);
       const stillStaff = await prisma.employee.findFirstOrThrow({
         where: { id: employee.id },
         select: { roleType: true },
       });
       assert.equal(stillStaff.roleType, "STAFF");
     } finally {
-      await prisma.operationalAssignmentEligibilityException.deleteMany({
-        where: { facility: { organization: { name: { contains: suffix } } } },
-      });
       await prisma.operationalAssignment.deleteMany({
         where: { facility: { organization: { name: { contains: suffix } } } },
       });

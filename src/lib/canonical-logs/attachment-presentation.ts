@@ -81,8 +81,6 @@ function targetFromRow(row: {
       return { kind: "DEPARTMENT", departmentId: row.targetDepartmentId! };
     case "FACILITY":
       return { kind: "FACILITY" };
-    case "OPERATIONAL_TYPE":
-      throw new Error("OPERATIONAL_TYPE attachments are not live requirements.");
   }
 }
 

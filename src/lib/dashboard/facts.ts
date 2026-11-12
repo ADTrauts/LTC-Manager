@@ -24,8 +24,6 @@ import { loadRuntimeLocationStates, type RuntimeLocationState } from "@/lib/runt
 import { loadSupervisorDailyCoverage } from "@/lib/scheduling/load-supervisor-daily-coverage";
 import type { SupervisorDailyCoverageProjection } from "@/lib/scheduling/supervisor-daily-coverage";
 import type { CallDownData } from "@/lib/scheduling/call-down";
-import { loadTodaysExpectedWork } from "@/lib/work/expected/load-expected-work";
-import type { TodaysExpectedWorkView } from "@/lib/work/expected/types";
 import { loadPresenceCallOffs } from "@/lib/scheduling/load-presence-call-offs";
 import {
   presentOperationalReviewDay,
@@ -65,7 +63,6 @@ export type DashboardFactSources = {
   loadRuntimeLocationStates: typeof loadRuntimeLocationStates;
   loadDepartmentRunPresentation: typeof loadDepartmentRunPresentation;
   loadGmCycleSummary: typeof loadGmCycleSummary;
-  loadTodaysExpectedWork: typeof loadTodaysExpectedWork;
   loadSupervisorDailyCoverage: typeof loadSupervisorDailyCoverage;
   loadPresenceCallOffs: typeof loadPresenceCallOffs;
   loadSupervisorAssetExceptions: typeof loadSupervisorAssetExceptions;
@@ -88,7 +85,6 @@ const DEFAULT_SOURCES: DashboardFactSources = {
   loadRuntimeLocationStates,
   loadDepartmentRunPresentation,
   loadGmCycleSummary,
-  loadTodaysExpectedWork,
   loadSupervisorDailyCoverage,
   loadPresenceCallOffs,
   loadSupervisorAssetExceptions,
@@ -119,7 +115,6 @@ export type DashboardFactPack = {
   /** Loading the run presentation records today's Key Time rows, as on every RUN surface. */
   runPresentation(departmentId: string): Promise<RunDepartmentOperationPresentation | null>;
   cycleSummary(departmentId: string): Promise<GmCycleSummary | null>;
-  expectedWork(departmentId: string): Promise<TodaysExpectedWorkView>;
   dailyCoverage(departmentId: string): Promise<SupervisorDailyCoverageProjection>;
   callOffs(departmentId: string): Promise<CallDownData>;
   assetExceptions(departmentId: string): Promise<SupervisorAssetExceptionItem[]>;
@@ -187,6 +182,11 @@ export function createDashboardFactPack(
     return teamRoomIds && teamRoomIds.departmentId === departmentId ? teamRoomIds.rooms : undefined;
   }
 
+  function spaceScopeFor(departmentId: string) {
+    const ids = spaceFilterFor(departmentId);
+    return ids ? { spaceIdFilter: ids } : {};
+  }
+
   async function loadRuntimeLocations(): Promise<readonly RuntimeLocationState[]> {
     const scope = viewer.scope;
     if (!scope || departmentIds.length === 0) return [];
@@ -230,16 +230,6 @@ export function createDashboardFactPack(
       scoped("cycleSummary", departmentId, () =>
         sources.loadGmCycleSummary({ session: facilitySession(), facilityId, departmentId, now }),
       ),
-    expectedWork: (departmentId) =>
-      scoped("expectedWork", departmentId, async () =>
-        sources.loadTodaysExpectedWork({
-          session: facilitySession(),
-          facilityId,
-          departmentId,
-          runPresentation: await pack.runPresentation(departmentId),
-          now,
-        }),
-      ),
     dailyCoverage: (departmentId) =>
       scoped("dailyCoverage", departmentId, () =>
         sources.loadSupervisorDailyCoverage({
@@ -254,15 +244,15 @@ export function createDashboardFactPack(
       scoped("callOffs", departmentId, () => sources.loadPresenceCallOffs(facilityId, { departmentId })),
     assetExceptions: (departmentId) =>
       scoped("assetExceptions", departmentId, () =>
-        sources.loadSupervisorAssetExceptions(facilityId, departmentId),
+        sources.loadSupervisorAssetExceptions(facilityId, departmentId, spaceFilterFor(departmentId)),
       ),
     workOrders: (departmentId) =>
       scoped("workOrders", departmentId, () =>
-        sources.listWorkOrders(facilitySession(), { facilityId, departmentId, client: sources.db }),
+        sources.listWorkOrders(facilitySession(), { facilityId, departmentId, client: sources.db, ...spaceScopeFor(departmentId) }),
       ),
     pmBoard: (departmentId) =>
       scoped("pmBoard", departmentId, () =>
-        sources.loadPmRunBoard(facilitySession(), { facilityId, departmentId, now, client: sources.db }),
+        sources.loadPmRunBoard(facilitySession(), { facilityId, departmentId, now, client: sources.db, ...spaceScopeFor(departmentId) }),
       ),
     triage: (plantDepartmentId) =>
       scoped("triage", plantDepartmentId, async () => {
@@ -272,6 +262,7 @@ export function createDashboardFactPack(
           facilityId,
           plantDepartmentId,
           status: TRIAGE_ELIGIBLE_STATUSES,
+          ...spaceScopeFor(plantDepartmentId),
         });
       }),
     runLogRequirements: (departmentId) =>

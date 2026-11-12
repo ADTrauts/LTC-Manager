@@ -30,7 +30,6 @@ import {
 import {
   locationModeFromUserScope,
   parseServiceStartTimesField,
-  type CycleUserScope,
 } from "@/lib/operational-cycles/cycle-scope";
 import {
   getFacilityServiceDate,
@@ -53,30 +52,10 @@ const cycleTypeSchema = z.enum([
 
 const mealTypeSchema = z.enum(["BREAKFAST", "LUNCH", "DINNER"]);
 
-const locationModeSchema = z.enum([
-  "ALL_DEPARTMENT_UNITS",
-  "UNIT_TYPES",
-  "EXPLICIT_UNITS",
-  "ROOM_TYPE",
-  "OPERATIONAL_TYPES",
-]);
+const locationModeSchema = z.enum(["ALL_DEPARTMENT_UNITS", "EXPLICIT_UNITS"]);
+const appliesToSchema = z.enum(["department", "specific"]);
 
 const milestoneSchema = z.enum(["READY", "SERVICE_STARTED"]);
-
-const unitTypeSchema = z.enum([
-  "SERVERY",
-  "KITCHEN",
-  "RETAIL",
-  "OFFICE",
-  "STORAGE",
-  "OTHER",
-  "RESIDENT_AREA",
-  "COMMON_AREA",
-  "MECHANICAL",
-  "RESTROOM_CLUSTER",
-  "EVS_ZONE",
-  "GROUND",
-]);
 
 function actorFromSession(session: {
   uid: string;
@@ -137,14 +116,7 @@ function parseCsvEnums<T extends string>(
 
 function parseLocationMode(formData: FormData) {
   const appliesTo = String(formData.get("appliesTo") ?? "").trim();
-  if (
-    appliesTo === "department" ||
-    appliesTo === "room_type" ||
-    appliesTo === "specific" ||
-    appliesTo === "operational_types"
-  ) {
-    return locationModeFromUserScope(appliesTo as CycleUserScope);
-  }
+  if (appliesTo) return locationModeFromUserScope(appliesToSchema.parse(appliesTo));
   return locationModeSchema.parse(
     String(formData.get("locationMode") ?? "ALL_DEPARTMENT_UNITS"),
   );
@@ -226,17 +198,6 @@ function parseDraftFromForm(formData: FormData) {
     })(),
     locationMode: locationInheritFromParent ? "EXPLICIT_UNITS" : locationMode,
     locationInheritFromParent,
-    applicableUnitTypes:
-      locationMode === "UNIT_TYPES"
-        ? parseCsvEnums(
-            formData.get("applicableUnitTypes"),
-            unitTypeSchema.options as unknown as readonly z.infer<typeof unitTypeSchema>[],
-          )
-        : [],
-    applicableOperationalTypeKeys:
-      locationMode === "OPERATIONAL_TYPES"
-        ? parseIdList(formData.get("applicableOperationalTypeKeys"))
-        : [],
     unitIds:
       locationMode === "EXPLICIT_UNITS" && !locationInheritFromParent
         ? parseIdList(formData.get("unitIds"))
@@ -246,10 +207,6 @@ function parseDraftFromForm(formData: FormData) {
         ? parseIdList(formData.get("spaceIds"))
         : [],
     keyTimeGroups: nodeKind === "KEY_TIME" ? parseKeyTimeGroups(formData.get("keyTimeGroups")) : [],
-    roomTypeKey:
-      locationMode === "ROOM_TYPE"
-        ? String(formData.get("roomTypeKey") ?? "").trim() || null
-        : null,
     expectedMilestones: parseCsvEnums(
       formData.get("expectedMilestones"),
       milestoneSchema.options as unknown as readonly z.infer<typeof milestoneSchema>[],

@@ -14,9 +14,11 @@ type RoleOption = { key: string; label: string };
 export function AssignmentEligibilityFields({
   employees,
   roles,
+  canOverride = false,
 }: {
   employees: EmployeeOption[];
   roles: RoleOption[];
+  canOverride?: boolean;
 }) {
   const [roleKey, setRoleKey] = useState("");
   const [exception, setException] = useState(false);
@@ -28,6 +30,7 @@ export function AssignmentEligibilityFields({
       <div className="grid gap-2 sm:grid-cols-2">
         <select
           name="roleKey"
+          aria-label="Operational role"
           required
           value={roleKey}
           onChange={(event) => {
@@ -43,7 +46,7 @@ export function AssignmentEligibilityFields({
             </option>
           ))}
         </select>
-        <select name="employeeId" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+        <select key={`${roleKey}:${exception}`} name="employeeId" aria-label="Employee" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
           <option value="">{roleKey ? "Eligible employee…" : "Choose a role first"}</option>
           {shown.map((employee) => {
             const eligible = employee.qualifiedRoleKeys.includes(roleKey);
@@ -56,7 +59,7 @@ export function AssignmentEligibilityFields({
           })}
         </select>
       </div>
-      {roleKey ? (
+      {roleKey && canOverride ? (
         <label className="flex items-center gap-2 text-xs text-zinc-600">
           <input
             type="checkbox"
@@ -70,6 +73,7 @@ export function AssignmentEligibilityFields({
         <input
           type="text"
           name="eligibilityExceptionReason"
+          aria-label="Eligibility exception reason"
           required
           maxLength={500}
           placeholder="Why this person is being assigned without eligibility"

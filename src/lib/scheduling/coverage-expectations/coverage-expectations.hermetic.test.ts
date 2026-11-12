@@ -240,11 +240,11 @@ describe("coverage expectation applicability", () => {
     assert.equal("operationalTypeKey" in (labeledRetail[0] ?? {}), false);
   });
 
-  it("does not apply a unit need to a room", () => {
+  it("applies an explicit Unit need to its room", () => {
     const resolved = resolveCoverageExpectationsForLocation({
       items: [
         item({
-          id: "legacy-unit",
+          id: "explicit-unit",
           roleKey: "SERVER",
           unitId: "unit-3a",
         }),
@@ -252,7 +252,8 @@ describe("coverage expectation applicability", () => {
       context: serveryContext(),
       cycles,
     });
-    assert.deepEqual(resolved, []);
+    assert.equal(resolved.length, 1);
+    assert.equal(resolved[0]?.unitId, "unit-3a");
   });
 });
 

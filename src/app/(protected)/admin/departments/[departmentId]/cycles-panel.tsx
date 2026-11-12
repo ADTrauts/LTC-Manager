@@ -73,10 +73,9 @@ function toRowData(row: CycleBuilderRow) {
     effectiveTo: row.effectiveTo ? toServiceDateKey(row.effectiveTo) : null,
     locationMode: row.locationMode,
     locationInheritFromParent: row.locationInheritFromParent,
-    applicableUnitTypes: row.applicableUnitTypes,
-    applicableOperationalTypeKeys: row.applicableOperationalTypeKeys ?? [],
+
     expectedMilestones: row.expectedMilestones,
-    roomTypeKey: row.roomTypeKey,
+
     unitIds: row.unitIds,
     spaceIds: row.spaceIds,
     keyTimeGroups: row.keyTimeGroups,
@@ -253,11 +252,8 @@ export async function CyclesPanel({
                     }))}
                   defaults={{
                     effectiveFrom: nextDay,
-                    cycleType: isDietary ? "CUSTOM" : "CUSTOM",
-                    locationMode: "OPERATIONAL_TYPES",
-                    roomTypeKey: null,
-                    applicableUnitTypes: [],
-                    applicableOperationalTypeKeys: [],
+                    cycleType: "CUSTOM",
+                    locationMode: "ALL_DEPARTMENT_UNITS",
                     applicableDaysOfWeek: [0, 1, 2, 3, 4, 5, 6],
                     expectedMilestones: [],
                     parentStableKey: null,

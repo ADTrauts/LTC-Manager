@@ -258,6 +258,7 @@ export async function loadPmRunBoard(
     departmentId: string;
     now?: Date;
     client?: DbClient;
+    spaceIdFilter?: ReadonlySet<string>;
   },
 ): Promise<{
   authority: PmPlanAuthorityDecision;
@@ -292,7 +293,9 @@ export async function loadPmRunBoard(
   }
 
   const plans = await client.preventiveMaintenancePlan.findMany({
-    where: { facilityId: input.facilityId, departmentId: input.departmentId },
+    where: { facilityId: input.facilityId, departmentId: input.departmentId,
+      ...(input.spaceIdFilter ? { asset: { spaceId: { in: [...input.spaceIdFilter] } } } : {}),
+    },
     include: {
       asset: {
         select: {

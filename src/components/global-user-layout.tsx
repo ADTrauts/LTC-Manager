@@ -52,7 +52,6 @@ export async function GlobalUserLayout({ children }: { children: ReactNode }) {
   const facilitySession = isFacilityScopedSession(session) ? session : null;
   const navFeatureFlags = {
     dietaryOperationalEvidenceEnabled: true,
-    dietaryWorkPlansEnabled: true,
     canonicalLogsEnabled: isCanonicalLogsEnabled(),
   };
   const runHomeHref = facilitySession

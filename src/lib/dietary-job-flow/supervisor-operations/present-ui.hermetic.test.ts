@@ -192,17 +192,6 @@ function view(partial: Partial<SupervisorOperationsViewModel> = {}): SupervisorO
           availableActions: ["Open asset"],
         },
       ],
-      work: [
-        {
-          status: "Dining Room cleaning — past due not confirmed",
-          temporal: "NotConfirmed",
-          unitId: "unit-3a",
-          unitName: "3A",
-          locationLabel: "3A Dining",
-          sourceHref: "/staffing/operations?work=wp-1&unit=unit-3a",
-          availableActions: ["Open Work"],
-        },
-      ],
       sync: [],
       configuration: [],
     },
@@ -225,7 +214,7 @@ function view(partial: Partial<SupervisorOperationsViewModel> = {}): SupervisorO
       callOffsAffectingAssignment: [{ id: "jane", name: "Jane Smith", hasCallOff: true }],
     },
     sync: { retryRequired: 0, pendingConflicts: 0, items: [], unscopableExcluded: false },
-    overlay: { dietary: null, evs: null, plant: null },
+    overlay: { dietary: null, plant: null },
     units: [],
     ...partial,
   };
@@ -289,7 +278,6 @@ test("quiet board hides empty exception groups and does not invent health chips"
         milestones: [],
         evidence: [],
         assets: [],
-        work: [],
         sync: [],
         configuration: [],
       },
@@ -346,7 +334,6 @@ test("OA unavailable shows explicit banners and no evaluated zero chips", () => 
         milestones: [],
         evidence: [],
         assets: [],
-        work: [],
         sync: [],
         configuration: [],
       },
@@ -362,7 +349,7 @@ test("OA unavailable shows explicit banners and no evaluated zero chips", () => 
   assert.equal(presented.people.show, false);
 });
 
-test("Needs Attention groups coverage, evidence, milestones, timing, work, and assets", () => {
+test("Needs Attention groups coverage, evidence, milestones, timing, and assets", () => {
   const presented = presentSupervisorOperationsBoardUi(view());
   const names = presented.needsAttention.sections.map((section) => section.category);
   assert.deepEqual(names, [
@@ -370,7 +357,6 @@ test("Needs Attention groups coverage, evidence, milestones, timing, work, and a
     "Evidence",
     "Service Milestones",
     "Service Timing",
-    "Work",
     "Equipment / Asset Impact",
   ]);
   const coverage = presented.needsAttention.sections.find((section) => section.category === "Coverage");
@@ -397,9 +383,6 @@ test("Needs Attention groups coverage, evidence, milestones, timing, work, and a
   assert.equal(timing?.items.some((item) => item.detail.includes("Meal Service Started late")), true);
   assert.equal(timing?.items.some((item) => item.detail.includes("Key Time overdue")), true);
 
-  const work = presented.needsAttention.sections.find((section) => section.category === "Work");
-  assert.match(work?.items[0]?.detail ?? "", /Dining Room cleaning/);
-  assert.equal(work?.items[0]?.href.includes("work="), true);
 
   const assets = presented.needsAttention.sections.find(
     (section) => section.category === "Equipment / Asset Impact",
@@ -490,37 +473,16 @@ test("EVS and Plant overlays pass through without Dietary relabeling", () => {
       },
       overlay: {
         dietary: null,
-        evs: {
-          locationCovered: 4,
-          locationAtRisk: 0,
-          locationUncovered: 2,
-          locationOverlapping: 1,
-          locationRequired: 6,
-          visibleUnitIds: null,
-          locationCoverage: { unassigned: [], overlapping: [] },
-          filters: {
-            floor: null,
-            unit: null,
-            zone: null,
-            employee: null,
-            floors: [],
-            units: [],
-            zones: [],
-            employees: [],
-          },
-        },
         plant: null,
       },
     }),
   );
-  assert.equal(evs.evs?.locationUncovered, 2);
   assert.equal(evs.currentOperation.departmentName, "EVS");
 
   const plant = presentSupervisorOperationsBoardUi(
     view({
       overlay: {
         dietary: null,
-        evs: null,
         plant: {
           newRequests: 2,
           untriaged: 1,

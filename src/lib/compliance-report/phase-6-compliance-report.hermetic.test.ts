@@ -139,6 +139,33 @@ test("cooler packet counts scheduled checks without the recheck", async () => {
   }), "Terrace_View_Cooler_Temperature_Log_2026-10-14_to_2026-10-15.pdf");
 });
 
+test("reports preserve scalar responses alongside repeating rows", async () => {
+  const report = composeComplianceReport({
+    metadata,
+    slots: [slot({
+      serviceDate: "2026-10-15",
+      slotState: "COMPLETE",
+      record: record("r1", 38, false, 1),
+      scalarResponses: [
+        { column: "Cooler temperature", value: "38", unit: "F", outOfStandard: false },
+        { column: "Door open", value: "No", unit: "", outOfStandard: false },
+      ],
+      repeatResponses: [
+        { group: "Shelves", row: "1", column: "Label", value: "Top", unit: "", outOfStandard: false },
+      ],
+    })],
+  });
+  assert.deepEqual(report.responses.map(({ field, response }) => [field, response]), [
+    ["Cooler temperature", "38"],
+    ["Door open", "No"],
+    ["Label", "Top"],
+  ]);
+  assert.match(renderComplianceCsv(report, "responses"), /Door open,No/);
+  assert.match(decodePdfText(await renderCompliancePdf(report, new Map())), /Door open: No/);
+  const book = await readBook(await renderComplianceWorkbook(report));
+  assert.equal(book.getWorksheet("Responses")?.rowCount, 4);
+});
+
 test("inspection packet reuses the derived 61.5% failure across renderers", async () => {
   const audit = composeComplianceReport({
     metadata: {

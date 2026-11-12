@@ -16,8 +16,6 @@ import {
 } from "@/lib/operational-cycles/cycle-canonical";
 import { buildDietaryDefaultCyclePlans } from "@/lib/operational-cycles/defaults";
 
-export const FOOD_SERVICE_AREA_FUNCTION_KEY = "food_service_area";
-
 export const DIETARY_MEAL_KEYS = ["breakfast", "lunch", "dinner"] as const;
 export type DietaryMealKey = (typeof DIETARY_MEAL_KEYS)[number];
 

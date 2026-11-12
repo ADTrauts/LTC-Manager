@@ -24,13 +24,6 @@ export type LoadSupervisorOperationsBoardInput = {
   facilityId: string;
   departmentId: string;
   now?: Date;
-  /** Phase 11C EVS location filters (query params). */
-  filters?: {
-    floor?: string | null;
-    unit?: string | null;
-    zone?: string | null;
-    employee?: string | null;
-  };
 };
 
 /**
@@ -62,7 +55,6 @@ export async function loadSupervisorOperationsViewModel(
     departmentKey: departmentRow.key,
     departmentName: departmentRow.name,
     now: input.now,
-    filters: input.filters,
   });
   return composeSupervisorOperations(facts);
 }

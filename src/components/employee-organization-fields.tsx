@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { JOB_ROLE_TIER_LABEL, type JobRoleTier } from "@/lib/department-job-roles/tiers";
 
 export type OrganizationDepartmentOption = {
   id: string;
@@ -16,21 +15,9 @@ export type OrganizationTeamOption = {
   departmentId: string;
 };
 
-export type OrganizationJobRoleOption = {
-  id: string;
-  displayName: string;
-  departmentId: string;
-  tier: JobRoleTier;
-};
-
 export type OrganizationTeamMembership = {
   teamId: string;
   isPrimary: boolean;
-};
-
-export type OrganizationJobRoleAssignment = {
-  departmentId: string;
-  jobRoleId: string;
 };
 
 /** Stable fingerprint so we rehydrate local select state after server-action refresh. */
@@ -39,15 +26,10 @@ function organizationStateKey(input: {
   additionalDepartmentIds: string[];
   jobTitleId: string | null;
   teamMemberships: OrganizationTeamMembership[];
-  jobRoleAssignments: OrganizationJobRoleAssignment[];
 }): string {
   const additional = [...input.additionalDepartmentIds].filter(Boolean).sort().join(",");
   const teams = [...input.teamMemberships]
     .map((row) => `${row.teamId}:${row.isPrimary ? "1" : "0"}`)
-    .sort()
-    .join("|");
-  const roles = [...input.jobRoleAssignments]
-    .map((row) => `${row.departmentId}:${row.jobRoleId}`)
     .sort()
     .join("|");
   return [
@@ -55,7 +37,6 @@ function organizationStateKey(input: {
     additional,
     input.jobTitleId ?? "",
     teams,
-    roles,
   ].join("::");
 }
 
@@ -64,13 +45,11 @@ type Props = {
   teams: OrganizationTeamOption[];
   /** @deprecated No longer shown in the org form; optional for callers that still pass catalog data. */
   jobTitles?: { id: string; name: string }[];
-  jobRoles?: OrganizationJobRoleOption[];
   primaryDepartmentId: string | null;
   additionalDepartmentIds: string[];
   /** Preserved via hidden input so saves do not clear an existing jobTitleId. */
   jobTitleId: string | null;
   teamMemberships: OrganizationTeamMembership[];
-  jobRoleAssignments?: OrganizationJobRoleAssignment[];
   requirePrimaryDepartment?: boolean;
 };
 
@@ -107,12 +86,10 @@ function RemovableChip({
 export function EmployeeOrganizationFields({
   departments,
   teams,
-  jobRoles = [],
   primaryDepartmentId,
   additionalDepartmentIds,
   jobTitleId,
   teamMemberships,
-  jobRoleAssignments = [],
   requirePrimaryDepartment = false,
 }: Props) {
   const teamById = useMemo(() => new Map(teams.map((team) => [team.id, team])), [teams]);
@@ -134,31 +111,21 @@ export function EmployeeOrganizationFields({
       ),
     [teamById, teamMemberships],
   );
-  const initialJobRoles = useMemo(() => {
-    const next: Record<string, string> = {};
-    for (const assignment of jobRoleAssignments) {
-      next[assignment.departmentId] = assignment.jobRoleId;
-    }
-    return next;
-  }, [jobRoleAssignments]);
-
   const [primaryDept, setPrimaryDept] = useState(primaryDepartmentId ?? "");
   const [additional, setAdditional] = useState<Set<string>>(
     () => new Set(additionalDepartmentIds.filter((id) => id && id !== primaryDepartmentId)),
   );
   const [primaryTeamByDept, setPrimaryTeamByDept] = useState<Record<string, string>>(initialPrimaryTeams);
   const [additionalTeams, setAdditionalTeams] = useState<Set<string>>(initialAdditionalTeams);
-  const [jobRoleByDept, setJobRoleByDept] = useState<Record<string, string>>(initialJobRoles);
 
   const serverOrganizationKey = organizationStateKey({
     primaryDepartmentId,
     additionalDepartmentIds,
     jobTitleId,
     teamMemberships,
-    jobRoleAssignments,
   });
 
-  // After Save, the server revalidates and passes the persisted Team / Job Role props.
+  // After Save, the server revalidates and passes the persisted Department and Team memberships.
   // Local useState does not pick that up on its own (and React form reset can blank the selects).
   useEffect(() => {
     setPrimaryDept(primaryDepartmentId ?? "");
@@ -167,7 +134,6 @@ export function EmployeeOrganizationFields({
     );
     setPrimaryTeamByDept(initialPrimaryTeams);
     setAdditionalTeams(new Set(initialAdditionalTeams));
-    setJobRoleByDept(initialJobRoles);
     // Fingerprint is the intentional sync signal; initial* maps are derived from the same props.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when server org payload changes
   }, [serverOrganizationKey]);
@@ -196,11 +162,6 @@ export function EmployeeOrganizationFields({
         if (team.departmentId === departmentId) nextTeams.delete(team.id);
       }
       return nextTeams;
-    });
-    setJobRoleByDept((current) => {
-      const copy = { ...current };
-      delete copy[departmentId];
-      return copy;
     });
   }
 
@@ -328,9 +289,7 @@ export function EmployeeOrganizationFields({
 
       {selectedDepartments.map((department) => {
         const departmentTeams = teams.filter((team) => team.departmentId === department.id);
-        const departmentRoles = jobRoles.filter((role) => role.departmentId === department.id);
         const primaryTeamId = primaryTeamByDept[department.id] ?? "";
-        const jobRoleId = jobRoleByDept[department.id] ?? "";
         const selectedExtraTeams = departmentTeams.filter(
           (team) => team.id !== primaryTeamId && additionalTeams.has(team.id),
         );
@@ -405,29 +364,6 @@ export function EmployeeOrganizationFields({
               </div>
             )}
 
-            <label className="block text-xs text-zinc-600">
-              Job Role
-              <select
-                name={`jobRole:${department.id}`}
-                value={jobRoleId}
-                onChange={(event) => {
-                  const nextRoleId = event.currentTarget.value;
-                  setJobRoleByDept((current) => ({
-                    ...current,
-                    [department.id]: nextRoleId,
-                  }));
-                }}
-                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm"
-                data-testid={`job-role-select-${department.id}`}
-              >
-                <option value="">Not set</option>
-                {departmentRoles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.displayName} ({JOB_ROLE_TIER_LABEL[role.tier]})
-                  </option>
-                ))}
-              </select>
-            </label>
           </section>
         );
       })}

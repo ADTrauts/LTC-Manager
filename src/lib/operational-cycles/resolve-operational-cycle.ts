@@ -1,12 +1,13 @@
-import type { MealType, UnitType } from "@prisma/client";
+import type { MealType } from "@prisma/client";
 
 import {
   effectiveMealType,
   projectCycleHierarchy,
 } from "./cycle-hierarchy";
-import { effectiveOperationalTypeKeys } from "./cycle-applicability";
 import {
   buildCyclesByStableKey,
+  isCanonicalCycleLocationMode,
+  cycleLocationOwner,
   effectiveCycleSpaceIds,
 } from "./effective-cycle-spaces";
 import {
@@ -58,101 +59,37 @@ function comparePrimaryPreference(
   return compareCycleOrder(a, b);
 }
 
+type LocationParticipation = Pick<
+  OperationalCycleDefinition,
+  "locationMode" | "unitIds" | "spaceIds" | "locationInheritFromParent" |
+  "parentStableKey" | "nodeKind" | "stableKey" | "keyTimeGroups"
+>;
+
 export function cycleAppliesToUnit(
-  cycle: Pick<
-    OperationalCycleDefinition,
-    | "locationMode"
-    | "applicableUnitTypes"
-    | "applicableOperationalTypeKeys"
-    | "unitIds"
-    | "spaceIds"
-    | "roomTypeKey"
-    | "locationInheritFromParent"
-    | "parentStableKey"
-    | "nodeKind"
-    | "stableKey"
-    | "keyTimeGroups"
-  >,
+  cycle: LocationParticipation,
   unit: CycleUnitScope,
   allCyclesByStableKey?: ReadonlyMap<string, OperationalCycleDefinition>,
 ): boolean {
-  // Prefer explicit effective Room membership when the published set is available.
-  if (allCyclesByStableKey) {
-    const effectiveSpaces = effectiveCycleSpaceIds(cycle, allCyclesByStableKey);
-    if (effectiveSpaces.length > 0) {
-      const unitSpaces = unit.spaceIds ?? [];
-      if (unitSpaces.some((id) => effectiveSpaces.includes(id))) return true;
-      if (cycle.unitIds.includes(unit.id)) return true;
-      return false;
-    }
-    if (cycle.locationInheritFromParent || cycle.locationMode === "EXPLICIT_UNITS") {
-      // Explicit/inherited with empty rooms → not applicable to this unit.
-      if (cycle.locationMode === "EXPLICIT_UNITS" || cycle.locationInheritFromParent) {
-        return cycle.unitIds.includes(unit.id);
-      }
-    }
-  }
-
-  switch (cycle.locationMode) {
-    case "ALL_DEPARTMENT_UNITS":
-      return true;
-    case "UNIT_TYPES":
-      return cycle.applicableUnitTypes.includes(unit.unitType);
-    case "EXPLICIT_UNITS": {
-      if (cycle.unitIds.includes(unit.id)) return true;
-      const unitSpaces = unit.spaceIds ?? [];
-      if (unitSpaces.length > 0 && cycle.spaceIds.some((id) => unitSpaces.includes(id))) {
-        return true;
-      }
-      return false;
-    }
-    case "ROOM_TYPE":
-      if (!cycle.roomTypeKey) return false;
-      // Legacy fail-open: missing child room-type keys match every ROOM_TYPE cycle.
-      // Registered for retirement. Location Functions do not use this branch.
-      if (!unit.childRoomTypeKeys) return true;
-      return unit.childRoomTypeKeys.includes(cycle.roomTypeKey);
-    case "OPERATIONAL_TYPES": {
-      const otKeys = allCyclesByStableKey
-        ? effectiveOperationalTypeKeys(cycle, allCyclesByStableKey)
-        : cycle.applicableOperationalTypeKeys ?? [];
-      if (otKeys.length === 0) return false;
-      const childKeys = unit.childOperationalTypeKeys ?? [];
-      return childKeys.some((key) => otKeys.includes(key));
-    }
-    default:
-      return false;
-  }
+  const owner = cycleLocationOwner(cycle, allCyclesByStableKey);
+  if (!owner) return false;
+  if (owner.nodeKind !== "KEY_TIME" && owner.locationMode === "ALL_DEPARTMENT_UNITS") return true;
+  if (owner.locationMode !== "EXPLICIT_UNITS") return false;
+  if (owner.nodeKind !== "KEY_TIME" && owner.unitIds.includes(unit.id)) return true;
+  const assignedSpaces = owner.nodeKind === "KEY_TIME"
+    ? owner.keyTimeGroups.flatMap(group => group.spaceIds)
+    : owner.spaceIds;
+  return unit.spaceIds?.some(id => assignedSpaces.includes(id)) ?? false;
 }
 
-export type CycleSpaceApplicabilityContext = {
-  /** Current Operational Type key for this room. Unassigned rooms do not match OT cycles. */
-  operationalTypeKey?: string | null;
-};
-
-/** Room-level applicability using the canonical PERIOD/KEY_TIME effective Room set. */
+/** A Space follows its Department's Cycle or its own explicit placement. */
 export function cycleAppliesToSpace(
   cycle: OperationalCycleDefinition,
   spaceId: string,
   allCyclesByStableKey: ReadonlyMap<string, OperationalCycleDefinition>,
-  context?: CycleSpaceApplicabilityContext,
 ): boolean {
-  const spaces = effectiveCycleSpaceIds(cycle, allCyclesByStableKey);
-  if (spaces.length > 0) return spaces.includes(spaceId);
-  if (cycle.nodeKind === "KEY_TIME") return false;
-  const otKeys = effectiveOperationalTypeKeys(cycle, allCyclesByStableKey);
-  if (otKeys.length > 0) {
-    const key = context?.operationalTypeKey?.trim() ?? "";
-    return Boolean(key && otKeys.includes(key));
-  }
-  if (cycle.locationMode === "ALL_DEPARTMENT_UNITS") return true;
-  if (cycle.locationInheritFromParent) {
-    const parent = cycle.parentStableKey
-      ? allCyclesByStableKey.get(cycle.parentStableKey)
-      : undefined;
-    if (parent?.locationMode === "ALL_DEPARTMENT_UNITS") return true;
-  }
-  return false;
+  const owner = cycleLocationOwner(cycle, allCyclesByStableKey);
+  if (cycle.nodeKind !== "KEY_TIME" && owner?.locationMode === "ALL_DEPARTMENT_UNITS") return true;
+  return effectiveCycleSpaceIds(cycle, allCyclesByStableKey).includes(spaceId);
 }
 
 function toOccurrence(
@@ -271,8 +208,6 @@ export function resolveOperationalCycle(input: {
   unit?: CycleUnitScope | null;
   /** When set, Room grain is authoritative — parents do not expand the set. */
   spaceId?: string | null;
-  /** Current Operational Type for spaceId — required for OPERATIONAL_TYPES targeting. */
-  operationalTypeKey?: string | null;
   /** When false, department has no cycle applicability (e.g. wrong department). */
   departmentApplicable?: boolean;
   /** UnitMealTime targets — never copied from cycle rows. */
@@ -283,7 +218,8 @@ export function resolveOperationalCycle(input: {
   }
 
   const published = input.cycles.filter(
-    (c) => c.status === "PUBLISHED" || c.status === "RETIRED",
+    (c) => (c.status === "PUBLISHED" || c.status === "RETIRED") &&
+      isCanonicalCycleLocationMode(c.locationMode),
   );
   if (published.length === 0) {
     return { state: "NOT_CONFIGURED", reason: "NO_PUBLISHED_CYCLES" };
@@ -300,9 +236,7 @@ export function resolveOperationalCycle(input: {
 
   if (input.spaceId) {
     scoped = scoped.filter((c) =>
-      cycleAppliesToSpace(c, input.spaceId!, defsByKey, {
-        operationalTypeKey: input.operationalTypeKey,
-      }),
+      cycleAppliesToSpace(c, input.spaceId!, defsByKey),
     );
     if (scoped.length === 0) {
       return { state: "NOT_APPLICABLE" };
@@ -459,10 +393,3 @@ export function describeOperationalCycleContext(context: OperationalCycleContext
       return `All configured cycles for today have passed. Last: ${formatCycleHierarchyLabel(context.last)}.`;
   }
 }
-
-/** Unit types that typically participate in Dietary meal-service cycle runtime. */
-export const DIETARY_CYCLE_UNIT_TYPES: ReadonlySet<UnitType> = new Set([
-  "SERVERY",
-  "KITCHEN",
-  "RETAIL",
-]);

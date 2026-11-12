@@ -163,8 +163,8 @@ async function main() {
 
     if (process.env.OFFLINE_BROWSER_SKIP_BUILD !== "1") {
       run("node", ["scripts/verify/verify-build.mjs"], baseEnv, "production build");
-    } else if (!existsSync(join(ROOT, ".next"))) {
-      fail("OFFLINE_BROWSER_SKIP_BUILD=1 but .next is missing");
+    } else if (!existsSync(join(ROOT, process.env.NEXT_DIST_DIR || ".next", "BUILD_ID"))) {
+      fail("OFFLINE_BROWSER_SKIP_BUILD=1 but the selected production build is missing");
     }
 
     const port = await freePort();
@@ -198,15 +198,18 @@ async function main() {
     const grep =
       process.env.OFFLINE_BROWSER_GREP ||
       (process.env.OFFLINE_BROWSER_CI_GATE === "1" ? "@ci-gate" : undefined);
+    const project = process.env.OFFLINE_BROWSER_PROJECT?.trim();
     const pwArgs = [
       "playwright",
       "test",
       "-c",
       "tests/playwright.offline.config.ts",
       ...(grep ? ["--grep", grep] : []),
+      ...(project ? ["--project", project] : []),
     ];
 
-    const pw = spawnSync("npx", pwArgs, {
+    // Drain Next output while Playwright is running, including long two-project runs.
+    const pw = spawn("npx", pwArgs, {
       cwd: ROOT,
       env: {
         ...baseEnv,
@@ -220,7 +223,10 @@ async function main() {
       stdio: "inherit",
       shell: false,
     });
-    exitCode = pw.status ?? 1;
+    exitCode = await new Promise((resolve, reject) => {
+      pw.once("error", reject);
+      pw.once("close", (code) => resolve(code ?? 1));
+    });
   } catch (err) {
     console.error(`test:offline-browser: ERROR — ${String(err?.message || err)}`);
     exitCode = 1;

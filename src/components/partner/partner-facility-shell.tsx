@@ -91,7 +91,6 @@ export async function PartnerFacilityShell({
       people: headAccess?.isHead === true && headAccess.mode === "MANAGE",
       coverage: setup,
       rhythm: setup,
-      work: setup,
       menus: setup && departmentProductOffersMenus(departmentKey),
     }),
   ];

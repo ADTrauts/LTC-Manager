@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { classifyAttachmentUpdate, type AttachmentHistoricalSnapshot } from "@/lib/canonical-logs/attachment-update-policy";
 import type { LogExpectationHistorySegment } from "@/lib/canonical-logs/expectation-history";
@@ -8,6 +9,7 @@ import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
 
 import { auditOperationalRecords, auditRecordsToCsv, type AuditRecordFact } from "./audit-records";
 import { ASSET_HISTORY_SOURCES } from "./history-boundaries";
+import { loadAuditOperationalRecords } from "./load-audit-records";
 import { resolvePlaceLabel } from "./place-name";
 import { composeOperationalTimingAudit } from "./timing-audit";
 import { waiverCreateDecision } from "./waiver";
@@ -107,6 +109,61 @@ const spaces = [
   { spaceId: "room-a", currentLabel: "Naval Park Dining Pantry" },
   { spaceId: "room-b", currentLabel: "Harbor Kitchen" },
 ];
+
+test("Record audit loads date-effective Cycle windows for an explicit Room attachment", async () => {
+  const facilityId = "facility-1";
+  const departmentId = "dietary";
+  const firstDay = new Date("2026-09-01T00:00:00Z");
+  const secondDay = new Date("2026-09-02T00:00:00Z");
+  const lunch = {
+    stableKey: "lunch",
+    label: "Lunch",
+    endLocal: "13:00",
+    overnight: false,
+    applicableDaysOfWeek: [2, 3],
+  };
+  const db = {
+    facility: { findUnique: async () => ({ timezone: TZ }) },
+    departmentOperationalCycle: {
+      findMany: async ({ where }: Prisma.DepartmentOperationalCycleFindManyArgs) => {
+        assert.equal(where?.facilityId, facilityId);
+        assert.equal(where?.departmentId, departmentId);
+        return [
+          { ...lunch, startLocal: "11:00", effectiveFrom: firstDay, effectiveTo: firstDay },
+          { ...lunch, startLocal: "11:30", effectiveFrom: secondDay, effectiveTo: null },
+        ];
+      },
+    },
+    logAttachment: {
+      findMany: async () => [segment({
+        id: "lunch-record",
+        effectiveFrom: firstDay,
+        timingMode: "OPERATIONAL_CYCLE",
+        dailyWindows: [],
+        cycleSelections: [{ cycleStableKey: "lunch", displaySequence: 10 }],
+      })],
+    },
+    operationalEvidenceRecord: { findMany: async () => [] },
+    operationalRecordWaiver: { findMany: async () => [] },
+    placeNameChange: { findMany: async () => [] },
+    unitSpace: { findMany: async () => [{ id: "room-a", name: "Dining Pantry" }] },
+  } as unknown as PrismaClient;
+
+  const { slots } = await loadAuditOperationalRecords(db, {
+    facilityId,
+    departmentId,
+    fromDateKey: "2026-09-01",
+    toDateKey: "2026-09-02",
+    catalogStableKey: "cooler_temperature",
+    now: new Date("2026-09-03T16:00:00Z"),
+  });
+
+  assert.deepEqual(slots.map(({ serviceDate, spaceId, cycleStableKey, windowStartLocal }) =>
+    [serviceDate, spaceId, cycleStableKey, windowStartLocal]), [
+    ["2026-09-01", "room-a", "lunch", "11:00"],
+    ["2026-09-02", "room-a", "lunch", "11:30"],
+  ]);
+});
 
 function audit(overrides?: Partial<Parameters<typeof auditOperationalRecords>[0]>) {
   return auditOperationalRecords({

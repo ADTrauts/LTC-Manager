@@ -1,0 +1,78 @@
+{
+  "applicationSha": "7a06172e790148c36a05dc20cc2fbe8c78e5febe",
+  "branch": "architecture/prelaunch-canonical-consolidation",
+  "parents": [
+    "ad87a4e308ee3fd3a445c6677b728aa0c728a3b5",
+    "56de3123ae6e5aa99a2979d8a6200469389c3cdb"
+  ],
+  "retained": {
+    "neonOrg": "org-hidden-leaf-35421142",
+    "neonProject": "damp-hill-35484256",
+    "stagingProject": "raspy-mode-86368121",
+    "vercelProject": "prj_O3x1tS8yS1rFQEmd73rofZboIDCK"
+  },
+  "retired": {
+    "neonProject": "delicate-unit-53515438",
+    "neonProjectListAfter": [],
+    "vercelProject": "prj_JeESAC2g6z7NQSAVV6J09469yVJm",
+    "emptyOrganizationStillPresent": "org-quiet-cake-64686025"
+  },
+  "checks": {
+    "productionBuild": "PASS",
+    "focusedCoverageHermetics": {
+      "pass": 62,
+      "fail": 0
+    },
+    "focusedMaintenanceHermetics": {
+      "pass": 58,
+      "fail": 0
+    },
+    "database": {
+      "pass": 10,
+      "fail": 0
+    },
+    "productionBrowser": {
+      "pass": 2,
+      "fail": 0,
+      "durationSeconds": 21.7
+    },
+    "broaderHermeticBaseline": {
+      "tests": 4001,
+      "pass": 3679,
+      "fail": 8,
+      "skip": 314
+    },
+    "migrations": {
+      "activeCount": 189,
+      "integrity": "PASS",
+      "finalBaseline": false
+    },
+    "discovery": {
+      "status": "PASS",
+      "files": 556,
+      "sqlBackedSuites": 64
+    }
+  },
+  "productionMutation": false,
+  "pushOrDeployment": false,
+  "sourceTreeHasPrivateConfig": false,
+  "oneOffDecision": "explicit employee/operational-role/location Workforce Assignments",
+  "screenshots": [
+    {
+      "path": "outputs/prelaunch-evidence/coverage-dashboard-shortfall.png",
+      "sha256": "5fc25867545b8f104286a463a16152dc6b7f90aee242b5badd49b8a3ccab6626"
+    },
+    {
+      "path": "outputs/prelaunch-evidence/team-room-membership.png",
+      "sha256": "6e0f37afd4074a4f667599db4362ca67d7ad73c3de72ec2ffeaa9fbc38aad18b"
+    },
+    {
+      "path": "outputs/prelaunch-evidence/coverage-published.png",
+      "sha256": "7a6665ea8a615e6d3e25974508bac94921407e22268565c8a9fd7676bbda147e"
+    },
+    {
+      "path": "outputs/prelaunch-evidence/team-dashboard-lens.png",
+      "sha256": "f04562e850c150e44e32a21fef88fdeaadafea70c261f03282925f5a03f9edd0"
+    }
+  ]
+}

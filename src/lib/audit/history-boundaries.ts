@@ -12,7 +12,6 @@ export const ASSET_HISTORY_SOURCES = [
 
 export const LOCATION_HISTORY_SOURCES = [
   "OperationalEvidenceRecord",
-  "DepartmentWorkOccurrence",
   "OperationalCycleKeyPointActual",
   "OperationalAssignment",
   "AssetIssue",

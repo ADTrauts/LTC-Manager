@@ -76,7 +76,6 @@ export function planMealServiceDayExpectations(input: {
 
     const candidates = mealTimeNeighborhoodCandidates({
       locationMode: cycle.locationMode,
-      roomTypeKey: cycle.roomTypeKey,
       unitIds: cycle.unitIds,
       spaceIds: cycle.spaceIds,
       locations: input.locations,
@@ -88,13 +87,7 @@ export function planMealServiceDayExpectations(input: {
       configuredByUnit.set(row.unitId, row.configuredTime);
     }
 
-    const instantiateAllCandidates = cycle.locationMode === "ROOM_TYPE";
-
-    const unitIds = instantiateAllCandidates
-      ? candidates.map((row) => row.unitId)
-      : candidates
-          .map((row) => row.unitId)
-          .filter((unitId) => configuredByUnit.has(unitId));
+    const unitIds = candidates.map((row) => row.unitId).filter((unitId) => configuredByUnit.has(unitId));
 
     for (const unitId of unitIds) {
       planned.push({

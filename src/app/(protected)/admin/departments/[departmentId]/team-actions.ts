@@ -28,6 +28,13 @@ function optionalId(raw: FormDataEntryValue | null): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function roomIds(formData: FormData): string[] | undefined {
+  const raw = formData.get("spaceIds");
+  if (raw === null) return undefined;
+  if (typeof raw !== "string") throw new Error("Invalid room selection.");
+  return z.array(z.string().min(1)).max(1000).parse(raw.split(",").map(id => id.trim()).filter(Boolean));
+}
+
 function fail(error: unknown): TeamActionResult {
   const message = error instanceof Error ? error.message : "Could not save Team.";
   return { ok: false, message };
@@ -56,6 +63,7 @@ export async function createDepartmentTeamAction(formData: FormData): Promise<Te
       displayName: parsed.displayName,
       description: parsed.description ?? null,
       managerEmployeeId: parsed.managerEmployeeId,
+      spaceIds: roomIds(formData),
     });
     revalidateTeams(parsed.departmentId);
     return { ok: true, message: "Team created.", teamId: team.id };
@@ -86,6 +94,7 @@ export async function updateDepartmentTeamAction(formData: FormData): Promise<Te
       displayName: parsed.displayName,
       description: parsed.description ?? null,
       managerEmployeeId: parsed.managerEmployeeId,
+      spaceIds: roomIds(formData),
     });
     revalidateTeams(team.departmentId);
     return { ok: true, message: "Team saved.", teamId: team.id };

@@ -104,3 +104,29 @@ test(`write manifest (${WRITE_MANIFEST_MODE} mode)`, (t) => {
     assert.deepEqual(unlisted, [], "every write is classified");
   }
 });
+
+test("Phase 2C R1: qualification action is classified as workforceRecord DEPARTMENT write", () => {
+  const file = "src/app/(protected)/employees/qualification-actions.ts";
+  const name = "setEmployeeOperationalQualificationsAction";
+  const entry = WRITE_MANIFEST[file]?.[name];
+  assert.ok(entry, "qualification action must be registered");
+  assert.equal(entry.class, "DEPARTMENT");
+  assert.ok("owner" in entry);
+  assert.equal(entry.owner, "workforceRecord");
+
+  // Neighboring employee people writes use the same owner.
+  const profile = WRITE_MANIFEST["src/app/(protected)/employees/actions.ts"]?.updateEmployeeProfileAction;
+  assert.ok(profile);
+  assert.equal(profile.class, "DEPARTMENT");
+  assert.ok("owner" in profile);
+  assert.equal(profile.owner, "workforceRecord");
+
+  // Manifest recognition must not replace runtime gates — keep session/people checks in source.
+  const source = readFileSync(join(ROOT, file), "utf8");
+  assert.match(source, /requireFacilitySession/);
+  assert.match(source, /requirePasswordSession/);
+  assert.match(source, /requireAtLeastRole\(session\.role,\s*"MANAGER"\)/);
+  assert.match(source, /assertCanChangeDepartmentPeople/);
+  assert.match(source, /replaceEmployeeOperationalQualifications/);
+  assert.doesNotMatch(source, /WRITE_MANIFEST/);
+});

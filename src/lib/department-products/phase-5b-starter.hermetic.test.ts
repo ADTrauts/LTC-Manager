@@ -177,6 +177,7 @@ test("Getting Started starter step is optional and does not mark unrelated items
   });
   assert.equal(added.find((row) => row.id === "starter")?.status, "ready");
   assert.equal(added.find((row) => row.id === "starter")?.statusLabel, "Added");
+  assert.equal(added.some((row) => row.id === "work"), false);
   assert.equal(added.find((row) => row.id === "pm")?.status, "optional");
   assert.equal(added.find((row) => row.id === "operate")?.status, "ready");
 });
@@ -189,7 +190,7 @@ test("Facility Plant Operations registry is AVAILABLE customer copy without a bi
   assert.equal(plant.status, "AVAILABLE");
   assert.match(plant.shortDescription ?? "", /Work Orders/);
   assert.ok(plant.customerCapabilities?.includes("Preventive Maintenance"));
-  assert.ok(plant.customerCapabilities?.includes("Recurring facility rounds"));
+  assert.equal(plant.customerCapabilities?.includes("Recurring facility rounds"), false);
   assert.equal(isDepartmentProductAvailableForInstall(plant), true);
   assert.equal(
     evaluateCustomerDepartmentOperability({

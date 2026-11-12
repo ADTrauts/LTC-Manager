@@ -13,7 +13,7 @@ import {
   type StandardRoomTypeOption,
 } from "./cycle-scope";
 import { mapCycleRow } from "./load-published-cycles";
-import { loadDepartmentOperationalTypeOptions } from "./load-operational-type-targets";
+import { CANONICAL_CYCLE_LOCATION_MODES } from "./effective-cycle-spaces";
 import {
   describeOperationalCycleContext,
   resolveOperationalCycle,
@@ -38,9 +38,39 @@ export type CycleBuilderCatalog = {
   locations: CycleScopeLocationOption[];
   /** Facility Room Types for Build room-picker filters (id + displayName). */
   roomTypes: StandardRoomTypeOption[];
-  /** Department Operational Types — preferred cycle applicability target. */
-  operationalTypes: Array<{ key: string; name: string }>;
 };
+
+export async function loadCycleScopeCatalog(input: {
+  facilityId: string;
+  departmentId: string;
+}): Promise<CycleBuilderCatalog> {
+  const locationsView = await loadDepartmentLocationsView({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+  });
+  const facilityRoomTypes = await listFacilityRoomTypes(input.facilityId, prisma);
+  const facilityRoomTypeIds = new Set(facilityRoomTypes.map((row) => row.id));
+  return {
+    locations: (locationsView?.locations ?? []).filter((location) => location.isActive).map((location) => ({
+      id: location.id,
+      kind: location.kind,
+      name: location.displayName || location.name,
+      roomTypeKey: location.roomTypeKey,
+      roomTypeLabel: location.roomTypeLabel,
+      facilityRoomTypeId: location.roomTypeKey && facilityRoomTypeIds.has(location.roomTypeKey)
+        ? location.roomTypeKey
+        : null,
+      neighborhoodId: location.parentNeighborhoodId,
+      neighborhoodName: location.parentNeighborhoodName,
+      hierarchyRole: location.hierarchyRole,
+    })),
+    roomTypes: facilityRoomTypes.filter((row) => row.isActive).map((row) => ({
+      key: row.id,
+      label: row.displayName,
+    })),
+  };
+
+}
 
 /**
  * List all cycles for Department Builder (draft / published / retired)
@@ -71,6 +101,7 @@ export async function loadCycleBuilder(input: {
     where: {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
+      locationMode: { in: [...CANONICAL_CYCLE_LOCATION_MODES] },
     },
     include: {
       locations: { select: { unitId: true, spaceId: true } },
@@ -111,62 +142,7 @@ export async function loadCycleBuilder(input: {
     operationalDateKey: input.previewDateKey,
   });
 
-  const locationsView = await loadDepartmentLocationsView({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-  });
-  const roomIds = (locationsView?.locations ?? [])
-    .filter((location) => location.kind === "room")
-    .map((location) => location.id);
-  const spaceTypeRows =
-    roomIds.length > 0
-      ? await prisma.unitSpace.findMany({
-          where: { id: { in: roomIds }, facilityId: input.facilityId },
-          select: {
-            id: true,
-            facilityRoomTypeId: true,
-            facilityRoomType: { select: { displayName: true } },
-          },
-        })
-      : [];
-  const facilityTypeBySpaceId = new Map(
-    spaceTypeRows.map((row) => [
-      row.id,
-      {
-        facilityRoomTypeId: row.facilityRoomTypeId,
-        roomTypeLabel: row.facilityRoomType?.displayName ?? null,
-      },
-    ]),
-  );
-  const facilityRoomTypes = await listFacilityRoomTypes(input.facilityId, prisma);
-  const operationalTypes = await loadDepartmentOperationalTypeOptions({
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-    perspective: "working",
-  });
-
-  const catalog: CycleBuilderCatalog = {
-    locations: (locationsView?.locations ?? []).map((location) => {
-      const facilityType = facilityTypeBySpaceId.get(location.id);
-      return {
-        id: location.id,
-        kind: location.kind,
-        name: location.displayName || location.name,
-        roomTypeKey: location.roomTypeKey,
-        roomTypeLabel:
-          facilityType?.roomTypeLabel ?? location.roomTypeLabel,
-        facilityRoomTypeId: facilityType?.facilityRoomTypeId ?? null,
-        neighborhoodId: location.parentNeighborhoodId,
-        neighborhoodName: location.parentNeighborhoodName,
-        hierarchyRole: location.hierarchyRole,
-      };
-    }),
-    roomTypes: facilityRoomTypes.map((row) => ({
-      key: row.id,
-      label: row.displayName,
-    })),
-    operationalTypes,
-  };
+  const catalog = await loadCycleScopeCatalog(input);
 
   return {
     cycles,

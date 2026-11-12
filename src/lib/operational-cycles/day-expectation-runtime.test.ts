@@ -72,9 +72,7 @@ test(
           effectiveFrom: serviceDate,
           mealType: "BREAKFAST",
           locationMode: "EXPLICIT_UNITS",
-          roomTypeKey: null,
           expectedMilestones: ["READY", "SERVICE_STARTED"],
-          applicableUnitTypes: [],
           publishedAt: new Date(),
           locations: {
             create: { unitId: neighborhood.id },

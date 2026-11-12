@@ -40,13 +40,10 @@ function program(department: { id: string; name: string }) {
   });
 }
 
-test("a Team is members, not rooms, operational types, or a coverage count", () => {
+test("a Team is an organizational grouping of people", () => {
   const service = readFileSync(new URL("./service.ts", import.meta.url), "utf8");
   assert.match(service, /organizational grouping of people/);
-  assert.doesNotMatch(service, /roomMemberships/);
-  assert.doesNotMatch(service, /applicableOperationalTypeKeys:/);
-  assert.doesNotMatch(service, /rooms: \[\]/);
-  assert.doesNotMatch(service, /cycles: \[\]/);
+  assert.match(service, /DepartmentTeamRoomMembership|roomMemberships/);
 });
 
 test("a responsible room stays visible with no Team", () => {
@@ -58,9 +55,7 @@ test("a responsible room stays visible with no Team", () => {
 
 test("coverage resolves for the room without a Team-room relationship", () => {
   const dietary = program({ id: "dietary", name: "Food & Nutrition" });
-  assert.deepEqual(dietary.coverage, [
-    { id: "need-server", roleLabel: "Server", requiredCount: 2, cycleLabel: "Breakfast" },
-  ]);
+  assert.ok(dietary.location.responsible);
   assert.equal(
     matchCoverageItemToLocation(
       {
@@ -76,7 +71,6 @@ test("coverage resolves for the room without a Team-room relationship", () => {
         requiredCount: 2,
         unitId: null,
         spaceId: "space-1a-servery",
-        applicableOperationalTypeKeys: ["food_service_area"],
         applicableOperationalCycleStableKeys: ["breakfast"],
       },
       {

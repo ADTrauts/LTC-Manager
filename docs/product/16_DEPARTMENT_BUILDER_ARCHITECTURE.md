@@ -2,10 +2,11 @@
 
 **Status:** Binding Department Builder architecture decision  
 **Decision date:** November 1, 2026, amended November 2, 2026  
+**Phase 1 note:** November 8, 2026 — [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md) records that the Nov 6 schema restore reintroduced compatibility tables without reversing this contract.  
 **Scope:** Department Builder ownership, Facility composition, People & Coverage ownership, generic Work retirement, and Department-specific extensions.  
 **Product-owner decision:** Accepted. There are no customer installations. Test data, existing code, and bookmarks are not reasons to keep a retired concept.
 
-This document is the binding contract for Department Builder. Where older Department Builder, location-programming, generic Work, Team, Zone, Operational Area, Operational Type, archetype, or Location Function guidance conflicts with this decision, this document wins.
+This document is the binding contract for Department Builder. Where older Department Builder, location-programming, generic Work, Team, Zone, Operational Area, Operational Type, archetype, or Location Function guidance conflicts with this decision, this document wins. Live Work tabs and Location Function bind/publish are **compatibility debt**, not authorized forward behavior (Phase 0 ARR-002, ARR-026).
 
 **November 2, 2026.** Location Function is retired before release. It is indirect grouping, not a business primitive. Department Builder → Facility shows the places Facility Builder already marked responsible for the selected Department. Operating Rhythm, Records, Coverage, and Menus store canonical location ids on their own configuration. The trace is [08 — Location Function elimination audit](../department-administration/visual-audit/08_LOCATION_FUNCTION_ELIMINATION_AUDIT.md). Do not add a Location Function, Operational Type, archetype, or Department room classification.
 
@@ -61,7 +62,7 @@ A new Product does not receive a different Department Builder shell.
 
 **Work is removed from Department Builder.** Generic Work is not a core Platform/Department Builder concept going forward.
 
-Generic Work Plans, Expected Work, Work occurrences, Work presets, and generic Work applicability were dropped in `20261103140000_retire_generic_work_and_profiles`. Do not add them back. A leftover type or redirect that still says Work is deletion debt, not a product surface.
+Generic Work Plans, Expected Work, Work occurrences, Work presets, and generic Work applicability were dropped in `20261103140000_retire_generic_work_and_profiles`, then **recreated empty** by `20261106214500_restore_schema_after_premature_retirement` because the running app still required them. Do not treat that restore as permission to keep or extend Work. Live Work tab / `/staffing/work-plans` / `/partner/work` are deletion debt. Phase 2 completes traced removal.
 
 This does **not** retire:
 

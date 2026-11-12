@@ -74,27 +74,31 @@ test("a new room of the same Facility Room Type does not inherit the requirement
   assert.equal(matchLogAttachmentToLocation(inherited, spaceD), null);
 });
 
-test("UNIT applies to that unit and does not include a room inside it", () => {
+test("a Unit Record does not invent per-room requirements", () => {
   const requirement = row({ id: "unit", targetKind: "UNIT", unitId: "unit-1" });
   assert.equal(
-    matchLogAttachmentToLocation(requirement, ctx({ spaceId: "", unitId: "unit-1" }))?.source,
-    "UNIT",
-  );
-  assert.equal(matchLogAttachmentToLocation(requirement, ctx({ spaceId: "room", unitId: "unit-1" })), null);
-  assert.equal(matchLogAttachmentToLocation(requirement, ctx({ spaceId: "", unitId: "unit-2" })), null);
-});
-
-test("DEPARTMENT is one department requirement and FACILITY is one facility requirement", () => {
-  const department = row({ id: "dept", targetKind: "DEPARTMENT", targetDepartmentId: "dietary" });
-  const facility = row({ id: "fac", targetKind: "FACILITY" });
-  assert.equal(matchLogAttachmentToLocation(department, ctx({ spaceId: "" }))?.source, "DEPARTMENT_WIDE");
-  assert.equal(matchLogAttachmentToLocation(department, ctx({ spaceId: "room" })), null);
-  assert.equal(
-    matchLogAttachmentToLocation(department, ctx({ spaceId: "", departmentId: "evs" })),
+    matchLogAttachmentToLocation(requirement, ctx({ spaceId: "room", unitId: "unit-1" })),
     null,
   );
-  assert.equal(matchLogAttachmentToLocation(facility, ctx({ spaceId: "" }))?.source, "FACILITY");
+  assert.equal(matchLogAttachmentToLocation(requirement, ctx({ spaceId: "room", unitId: "unit-2" })), null);
+});
+
+test("Department and Facility Records stay at their own scope; OT does not expand", () => {
+  const department = row({ id: "dept", targetKind: "DEPARTMENT", targetDepartmentId: "dietary" });
+  const facility = row({ id: "fac", targetKind: "FACILITY" });
+  assert.equal(matchLogAttachmentToLocation(department, ctx({ spaceId: "room" })), null);
+  assert.equal(
+    matchLogAttachmentToLocation(department, ctx({ spaceId: "room", departmentId: "evs" })),
+    null,
+  );
   assert.equal(matchLogAttachmentToLocation(facility, ctx({ spaceId: "room" })), null);
+  assert.equal(
+    matchLogAttachmentToLocation(
+      row({ id: "ot", targetKind: "OPERATIONAL_TYPE", operationalTypeKey: "servery" }),
+      ctx({ spaceId: "room", operationalTypeKey: "servery", operationalTypeName: "Servery" }),
+    ),
+    null,
+  );
 });
 
 test("an asset requirement matches that asset and not the room", () => {
@@ -215,7 +219,7 @@ test("audit reconstructs a past space requirement from the attachment interval",
   assert.equal(august.slots.some((slot) => slot.spaceId === "space-a"), false);
 });
 
-test("location program shows explicit room logs and ignores a Facility Room Type default", () => {
+test("retired Facility-type defaults do not create location Records", () => {
   const program = composeLocationProgram({
     departmentId: "dietary",
     departmentName: "Food & Nutrition",
@@ -233,10 +237,6 @@ test("location program shows explicit room logs and ignores a Facility Room Type
     cyclePlacements: [],
     spaceLogs: [],
     assetLogs: [],
-    typeDefaults: [
-      { id: "def-1", label: "Daily Servery Temperature", facilityRoomTypeId: "servery", typeLabel: "Servery" },
-    ],
-    suppressions: [],
     assets: [],
   });
   assert.deepEqual(program.logs, []);

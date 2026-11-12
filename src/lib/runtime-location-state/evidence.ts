@@ -66,7 +66,6 @@ export function resolveEvidenceRequirementsForSpaces(input: {
       const resolved = resolveLogRequirementsForAttachment({
         attachment: {
           ...attachment,
-          resolvedSpaceId: attachment.targetKind === "SPACE" ? space.spaceId : null,
         },
         operationalDateKey: input.operationalDateKey,
         now: input.now,

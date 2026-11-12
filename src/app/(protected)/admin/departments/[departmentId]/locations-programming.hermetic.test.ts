@@ -4,27 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("Department Locations programming contracts", () => {
-  it("Locations actions use pattern authoring, not the full Profiles flag", () => {
-    const actions = readFileSync(
-      join(process.cwd(), "src/app/(protected)/admin/departments/[departmentId]/actions.ts"),
-      "utf8",
-    );
-    const assignStart = actions.indexOf("export async function assignLocationOperationalTypeAction");
-    const assignEnd = actions.indexOf(
-      "export async function clearLocationOperationalTypeAction",
-    );
-    const assignBlock = actions.slice(assignStart, assignEnd);
-    assert.match(assignBlock, /return retired\(\)/);
-    assert.doesNotMatch(assignBlock, /bindRoomToArchetype/);
-    assert.doesNotMatch(assignBlock, /requireFeature\(/);
-
-    const createStart = actions.indexOf("export async function createLocationOperationalTypeAction");
-    const createBlock = actions.slice(createStart);
-    assert.match(createBlock, /return retired\(\)/);
-    assert.doesNotMatch(createBlock, /bindRoomToArchetype/);
-  });
-
-  it("inspector shows Facility type and overlays without Role or Experiences", () => {
+  it("inspector separates physical, Department note, and engine overlays without Role or Experiences", () => {
     const client = readFileSync(
       join(
         process.cwd(),
@@ -32,8 +12,10 @@ describe("Department Locations programming contracts", () => {
       ),
       "utf8",
     );
+    assert.match(client, /Physical room/);
     assert.match(client, /Facility type/);
     assert.match(client, /is responsible/);
+    assert.match(client, /updateDepartmentSpaceNoteAction/);
     assert.match(client, /GuardedModal/);
     assert.doesNotMatch(client, /Teams that work here/);
     assert.match(client, /Operating Rhythm/);
@@ -42,7 +24,6 @@ describe("Department Locations programming contracts", () => {
     assert.match(client, /Add log/);
     assert.doesNotMatch(client, /Coverage Expectations/);
     assert.doesNotMatch(client, /groupRoomsByFacilityRoomType/);
-    assert.doesNotMatch(client, /How we use this room/);
     assert.doesNotMatch(client, /Create new/);
     assert.doesNotMatch(client, /location-role-create/);
     assert.doesNotMatch(client, /assignLocationOperationalTypeAction/);
@@ -52,6 +33,8 @@ describe("Department Locations programming contracts", () => {
     assert.doesNotMatch(client, /By role/);
     assert.doesNotMatch(client, /Covered/);
     assert.doesNotMatch(client, /Mary assigned/);
+    assert.doesNotMatch(client, /Room Archetype/);
+    assert.doesNotMatch(client, /Operational Profile/);
   });
 
   it("Locations panel still sends responsibility edits to Facility Builder", () => {

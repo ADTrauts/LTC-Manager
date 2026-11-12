@@ -29,7 +29,7 @@ test("a new generic Key Point defaults to NONE and Service Started opts into REQ
     assert.equal(due?.keyPointGrain, "DEPARTMENT");
     assert.equal(ready?.occurrenceTracking, "REQUIRED");
     assert.equal(ready?.keyPointGrain, "LOCATION");
-    assert.deepEqual(ready?.applicableOperationalTypeKeys, ["food_service_area"]);
+    assert.equal(ready?.locationMode, "EXPLICIT_UNITS");
     assert.equal(started?.occurrenceTracking, "REQUIRED");
     assert.equal(started?.keyPointGrain, "LOCATION");
     assert.equal(started?.mealType, null);
@@ -191,11 +191,8 @@ test("shared Cycle resolution does not need MealType or UnitMealTime", () => {
         expectedMilestones: [],
         locationMode: "ALL_DEPARTMENT_UNITS",
         locationInheritFromParent: false,
-        applicableUnitTypes: [],
-        applicableOperationalTypeKeys: [],
         unitIds: [],
         spaceIds: [],
-        roomTypeKey: null,
         milestoneTimes: [],
         keyTimeGroups: [],
       },

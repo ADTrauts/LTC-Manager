@@ -45,6 +45,7 @@ function walk(dir, out) {
 
 /** Files that SQL-backed suites live in (opt-in via env; still discovered hermetically as skipped). */
 export const SQL_BACKED_TEST_FILES = [
+  "src/lib/runtime-location-state/coverage-space-prefetch.db.test.ts",
   "src/lib/offline/space/space.db.test.ts",
   "src/lib/organization-membership/last-admin-concurrency.db.test.ts",
   "src/lib/partner-user-access/partner-membership-end.concurrency.db.test.ts",

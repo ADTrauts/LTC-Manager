@@ -34,7 +34,6 @@ export type BoardAttentionCategory =
   | "Evidence"
   | "Service Milestones"
   | "Service Timing"
-  | "Work"
   | "Equipment / Asset Impact"
   | "Configuration";
 
@@ -96,7 +95,6 @@ export type SupervisorOperationsBoardPresentation = {
     rows: PresentedSyncRow[];
     limitationNote: string | null;
   };
-  evs: SupervisorOperationsViewModel["overlay"]["evs"];
   plant: SupervisorOperationsViewModel["overlay"]["plant"];
   locationsHref: "/units";
   assignmentHref: string;
@@ -212,14 +210,6 @@ export function presentSupervisorOperationsBoardUi(
     actionLabel: item.availableActions[0] ?? "Open SPACE milestones",
   }));
 
-  const workRows = view.needsAttention.work.map((item) => ({
-    category: "Work" as const,
-    title: locationTitle(item),
-    detail: attentionDetail(item),
-    href: item.sourceHref,
-    actionLabel: item.availableActions[0] ?? "Open Work",
-  }));
-
   const assetRows = view.needsAttention.assets.map((item) => ({
     category: "Equipment / Asset Impact" as const,
     title: locationTitle(item),
@@ -249,7 +239,6 @@ export function presentSupervisorOperationsBoardUi(
     "Service Timing",
     milestoneRows.filter((row) => row.category === "Service Timing"),
   );
-  pushSection(sections, "Work", workRows);
   pushSection(sections, "Equipment / Asset Impact", assetRows);
   pushSection(sections, "Configuration", configurationRows);
 
@@ -317,7 +306,6 @@ export function presentSupervisorOperationsBoardUi(
       rows: syncRows,
       limitationNote: showSync ? SHARED_UNIT_SYNC_LIMITATION : null,
     },
-    evs: view.overlay.evs,
     plant: view.overlay.plant,
     locationsHref: "/units",
     assignmentHref: `/staffing/assignments?departmentId=${view.identity.departmentId}`,

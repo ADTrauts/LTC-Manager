@@ -20,25 +20,16 @@ import {
   isDepartmentJobFlowEnabled,
   isDepartmentOperationalCyclesEnabled,
   isDepartmentOperationalEvidenceEnabled,
-  isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
 import { decideCycleAuthority } from "@/lib/operational-cycles/cycle-authority";
 import { resolveOperationalCycle } from "@/lib/operational-cycles/resolve-operational-cycle";
 import type { OperationalCycleDefinition } from "@/lib/operational-cycles/types";
-import { resolveWorkRequirements } from "@/lib/department-work/resolve-requirements";
-import { listWorkPlanPresetSummaries } from "@/lib/department-work/work-presets";
-import type { PublishedWorkPlanForResolve } from "@/lib/department-work/types";
 import { decideJobFlowAuthority } from "@/lib/dietary-job-flow/job-flow-authority";
 import { decideOperationalRequestAuthority } from "@/lib/operational-requests";
-import {
-  listExperiencesByDepartment,
-  listOperationalAreasForDepartment,
-} from "@/lib/experiences";
 import { resolveEvidenceRequirements } from "@/lib/operational-evidence/resolve-requirements";
 import type { PublishedTemplateForResolve } from "@/lib/operational-evidence/types";
 import { resolveProjection } from "@/lib/projection/pipeline";
 import type { ProjectionSource } from "@/lib/projection/source";
-import { EXPERIENCE_REGISTRY_VERSION } from "@/lib/experiences";
 
 /** Test-only key. Must not appear in production constants. */
 const AQUATICS = "AQUATICS";
@@ -75,8 +66,6 @@ function aquaticsOpeningCycle(): OperationalCycleDefinition {
     mealType: null,
     locationMode: "ALL_DEPARTMENT_UNITS",
     locationInheritFromParent: false,
-    applicableUnitTypes: [],
-    roomTypeKey: null,
     expectedMilestones: [],
     status: "PUBLISHED",
     unitIds: [],
@@ -109,7 +98,7 @@ describe("department admission — shared engines vs domain capabilities", () =>
       assert.equal(isDepartmentJobFlowEnabled(key), true);
       assert.equal(isDepartmentOperationalEvidenceEnabled(key), true);
       assert.equal(isDepartmentAssetOperationsEnabled(key), true);
-      assert.equal(isDepartmentWorkPlansEnabled(key), true);
+      assert.equal(isDepartmentJobFlowEnabled(key), true);
       assert.equal(isAnyStaffingOperationalFeatureEnabled("cycles", key), true);
     }
     assert.equal(isDepartmentOperationalCyclesEnabled(null), false);
@@ -120,10 +109,10 @@ describe("department admission — shared engines vs domain capabilities", () =>
     withEnv("DIETARY_WORK_PLANS_ENABLED", "false", () => {
       withEnv("EVS_OPERATIONS_ENABLED", "false", () => {
         withEnv("PLANT_OPERATIONS_ENABLED", "false", () => {
-          assert.equal(isDepartmentWorkPlansEnabled("DIETARY"), true);
-          assert.equal(isDepartmentWorkPlansEnabled("EVS"), true);
-          assert.equal(isDepartmentWorkPlansEnabled("PLANT"), true);
-          assert.equal(isDepartmentWorkPlansEnabled(null), false);
+          assert.equal(isDepartmentJobFlowEnabled("DIETARY"), true);
+          assert.equal(isDepartmentJobFlowEnabled("EVS"), true);
+          assert.equal(isDepartmentJobFlowEnabled("PLANT"), true);
+          assert.equal(isDepartmentJobFlowEnabled(null), false);
         });
       });
     });
@@ -162,15 +151,6 @@ describe("department admission — shared engines vs domain capabilities", () =>
     assert.equal(pathnameAllowedForDepartmentKey("/assets", null), false);
   });
 
-  it("does not grant Dietary / EVS / Plant catalog experiences to AQUATICS", () => {
-    assert.deepEqual(listOperationalAreasForDepartment(AQUATICS), []);
-    assert.deepEqual(listExperiencesByDepartment(AQUATICS), []);
-    assert.ok(listOperationalAreasForDepartment("DIETARY").length > 0);
-    assert.ok(listExperiencesByDepartment("DIETARY").some((e) => e.key === "MEAL_SERVICE"));
-    assert.deepEqual(listWorkPlanPresetSummaries(AQUATICS), []);
-    assert.ok(listWorkPlanPresetSummaries("DIETARY").length > 0);
-  });
-
   it("resolves a generic custom cycle without a compile-time department key", () => {
     const context = resolveOperationalCycle({
       cycles: [aquaticsOpeningCycle()],
@@ -183,72 +163,6 @@ describe("department admission — shared engines vs domain capabilities", () =>
     if (context.state !== "ACTIVE") return;
     assert.equal(context.primary.stableKey, "morning_opening");
     assert.equal(context.primary.mealType, null);
-  });
-
-  it("derives work requirements for a custom department from a published plan", () => {
-    const plan: PublishedWorkPlanForResolve = {
-      id: "plan_aquatics",
-      stableKey: "opening_checks",
-      version: 1,
-      name: "Opening checks",
-      status: "PUBLISHED",
-      effectiveStartDate: null,
-      effectiveEndDate: null,
-      weekdays: [],
-      applicabilities: [
-        {
-          kind: "SPECIFIC_UNIT",
-          unitId: "unit_pool",
-          spaceId: null,
-          spaceType: null,
-          assetId: null,
-          assetType: null,
-        },
-      ],
-      items: [
-        {
-          id: "item_deck",
-          itemKey: "deck_inspection",
-          label: "Deck inspection",
-          instructions: null,
-          displaySequence: 10,
-          priority: "ROUTINE",
-          completionMode: "EXPLICIT_CONFIRMATION",
-          responsibilityMode: "UNIT_SHARED",
-          scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-          cycleStableKeys: [],
-          windowStartLocal: null,
-          windowEndLocal: null,
-          dueOffsetKind: null,
-          dueOffsetMinutes: null,
-          roleKeys: [],
-          unitId: null,
-          spaceId: null,
-          assetId: null,
-          knowledgeArticleId: null,
-          procedureTitleSnapshot: null,
-          linkedTemplateStableKey: null,
-          linkedTemplateId: null,
-          supervisorVisible: true,
-        },
-      ],
-    };
-
-    const requirements = resolveWorkRequirements({
-      facilityId: "fac_1",
-      departmentId: "dept_aquatics",
-      operationalDateKey: "2026-09-27",
-      now: new Date("2026-09-27T11:00:00.000Z"),
-      facilityTimezone: "America/New_York",
-      confirmedAssignments: [{ employeeId: "e1", unitId: "unit_pool", roleKey: null }],
-      publishedPlans: [plan],
-      publishedCycles: [],
-      existingOccurrences: [],
-    });
-
-    assert.equal(requirements.length, 1);
-    assert.equal(requirements[0]?.workItemKey, "deck_inspection");
-    assert.equal(requirements[0]?.unitId, "unit_pool");
   });
 
   it("derives evidence requirements for a custom department template", () => {
@@ -425,7 +339,7 @@ describe("department admission — shared engines vs domain capabilities", () =>
         profileRevision: "p1",
         bindingRevision: "b1",
         policyRevision: "pol1",
-        experienceRegistryVersion: EXPERIENCE_REGISTRY_VERSION,
+        experienceRegistryVersion: "retired",
         accessClassRevision: "ac1",
       },
       resolvedAt: "2026-09-27T12:00:00.000Z",
@@ -501,7 +415,6 @@ describe("department admission — shared engines vs domain capabilities", () =>
       join(process.cwd(), "src/lib/employee-runtime-flow/load-flow.ts"),
       "utf8",
     );
-    assert.match(loadFlow, /departmentKey !== "EVS"/);
     assert.match(loadFlow, /buildPlantWorkOrderAttention/);
 
     const loadSource = readFileSync(
@@ -529,8 +442,6 @@ describe("department admission — shared engines vs domain capabilities", () =>
       "src/lib/department-products/registry.ts",
       "src/lib/department-products/install.ts",
       "src/lib/feature-flags.ts",
-      "src/lib/experiences/operational-area-catalog.ts",
-      "src/lib/experiences/experience-catalog.ts",
     ];
     for (const relative of productionPaths) {
       const source = readFileSync(join(process.cwd(), relative), "utf8");

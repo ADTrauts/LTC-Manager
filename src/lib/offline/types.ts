@@ -12,7 +12,6 @@ export const OFFLINE_COMMAND_TYPES = [
   "RECORD_MEAL_SERVICE_STARTED",
   "SUBMIT_OPERATIONAL_EVIDENCE",
   "REPORT_ASSET_ISSUE",
-  "COMPLETE_OPERATIONAL_TASK",
 ] as const;
 
 export type OfflineCommandType = (typeof OFFLINE_COMMAND_TYPES)[number];
@@ -253,33 +252,6 @@ export type OfflineRuntimeBundle = {
     lastSyncedAt: string;
   } | null;
   /**
-   * Scoped Work requirements for DUE/CURRENT/UPCOMING only — never full catalog.
-   * Unit rebind does not retarget occurrence keys in queued commands.
-   */
-  workContext?: {
-    requirements: Array<{
-      occurrenceKey: string;
-      label: string;
-      state: string;
-      priority: string;
-      completionMode: string;
-      workPlanStableKey: string;
-      workPlanVersion: number;
-      workItemKey: string;
-      workPlanId: string;
-      workItemId: string;
-      instructions: string | null;
-      knowledgeArticleId: string | null;
-      procedureTitle: string | null;
-      dueAt: string | null;
-      cycleStableKey: string | null;
-      windowStartLocal: string | null;
-      windowEndLocal: string | null;
-      assignedEmployeeId: string | null;
-    }>;
-    lastSyncedAt: string;
-  } | null;
-  /**
    * Phase 12A Plant — read-only assigned open Work Orders + assignment coverage.
    * Offline Work Order mutations are NOT implemented in Phase 12A.
    */
@@ -298,6 +270,55 @@ export type OfflineRuntimeBundle = {
     }>;
     lastSyncedAt: string;
   } | null;
+  /**
+   * Phase 2C-2D — additive canonical Job Flow item snapshot.
+   * Optional: older bundles omit this field and keep work/evidence/milestone slices.
+   * Snapshot only — never grants new lifecycle authority offline.
+   */
+  jobFlowItemContext?: OfflineJobFlowItemContext | null;
+};
+
+/** Additive schema for offline Job Flow items (v1). */
+export const OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION = 1 as const;
+
+export type OfflineJobFlowItemAction =
+  | "SUBMIT_OPERATIONAL_EVIDENCE"
+  | "RECORD_SERVERY_READY"
+  | "RECORD_MEAL_SERVICE_STARTED"
+  | null;
+
+export type OfflineJobFlowItemSnapshot = {
+  ownerKind: string;
+  ownerId: string;
+  label: string;
+  ownerState: string;
+  attention: string;
+  place: {
+    unitId: string | null;
+    spaceId: string | null;
+    assetId: string | null;
+  };
+  time: {
+    dueAt: string | null;
+    windowStartLocal: string | null;
+    windowEndLocal: string | null;
+  };
+  href: string | null;
+  /** True when item is notice-only (e.g. call-off). */
+  informational: boolean;
+  /**
+   * Supported offline command type, or null when display-only.
+   * Never inferred solely from href — must match OFFLINE_COMMAND_TYPES.
+   */
+  offlineAction: OfflineJobFlowItemAction;
+};
+
+export type OfflineJobFlowItemContext = {
+  schemaVersion: typeof OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION;
+  lastSyncedAt: string;
+  /** Facility service date captured with the snapshot. */
+  snapshotOperationalDate: string;
+  items: OfflineJobFlowItemSnapshot[];
 };
 
 export type OfflineMilestoneProjection = {
@@ -367,33 +388,6 @@ export type OfflineCommandEnvelope = {
     evidenceRecordId?: string | null;
     comment?: string | null;
     allowDuplicateOpen?: boolean;
-  };
-  /** Phase 11A Work completion payload — present when commandType=COMPLETE_OPERATIONAL_TASK. */
-  workCompletion?: {
-    occurrenceKey: string;
-    workPlanId: string;
-    workPlanStableKey: string;
-    workPlanVersion: number;
-    workItemId: string;
-    workItemKey: string;
-    label: string;
-    instructions?: string | null;
-    priority?: string;
-    completionMode?: string;
-    responsibilityMode?: string;
-    scheduleKind?: string;
-    cycleStableKey?: string | null;
-    windowStartLocal?: string | null;
-    windowEndLocal?: string | null;
-    dueAt?: string | null;
-    spaceId?: string | null;
-    assetId?: string | null;
-    knowledgeArticleId?: string | null;
-    procedureTitle?: string | null;
-    note?: string | null;
-    evidenceRecordId?: string | null;
-    /** Actor who queued — reassignment conflict if occurrence assigned elsewhere. */
-    expectedAssignedEmployeeId?: string | null;
   };
 };
 

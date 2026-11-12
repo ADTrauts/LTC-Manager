@@ -31,7 +31,7 @@ export {
   matchCoverageItemToLocation,
   resolveCoverageExpectationsForLocation,
   validateCoverageCycleStableKeys,
-  validateCoverageOperationalTypeKeys,
+  validateCoverageLocationTarget,
 } from "./match-expectation";
 export {
   assignmentCoversLocation,
@@ -61,4 +61,6 @@ export type {
   CoverageExpectationItemView,
   CoverageExpectationView,
   CoverageRoleOption,
+  CoverageSpaceOption,
+  CoverageUnitOption,
 } from "./views";

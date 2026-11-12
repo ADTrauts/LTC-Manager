@@ -141,6 +141,7 @@ async function main() {
     NEXT_DIST_DIR: DIST_DIR,
     PLANT_BROWSER_DIST_DIR: DIST_DIR,
     PLANT_OPERATIONS_ENABLED: "true",
+    CANONICAL_LOGS_ENABLED: "true",
     DIETARY_JOB_FLOW_ENABLED: "true",
     DIETARY_OPERATIONAL_CYCLES_ENABLED: "true",
     DIETARY_OPERATIONAL_EVIDENCE_ENABLED: "true",
@@ -187,7 +188,7 @@ async function main() {
 
     run(
       "node",
-      ["scripts/verify/plant-browser-fixtures.mjs"],
+      ["--import", "tsx", "scripts/verify/plant-browser-fixtures.mjs"],
       {
         ...baseEnv,
         PLANT_BROWSER_FIXTURE_PATH: FIXTURE_PATH,

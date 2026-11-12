@@ -18,10 +18,7 @@ import { localHhMmFromInstant } from "@/lib/operational-cycles/key-time-day-expe
 import { hasPlatformCapability } from "@/lib/platform-capability";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
-import {
-  dietaryTimingForLegacyControl,
-  FOOD_SERVICE_AREA_FUNCTION_KEY,
-} from "./meal-timing";
+import { dietaryTimingForLegacyControl } from "./meal-timing";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -133,9 +130,9 @@ export async function recordDietaryMealTiming(
   const spaceIds =
     point.keyPointGrain === "DEPARTMENT"
       ? [null]
-      : await foodServiceAreaSpaceIds(client, {
+      : await mealServiceLocationSpaceIds(client, {
           facilityId: input.facilityId,
-          departmentId: department.id,
+          cycleId: point.id,
           unitId: input.unitId,
         });
   if (spaceIds.length === 0) return { ok: false, reason: "NO_PARTICIPATING_PLACE" };
@@ -214,21 +211,25 @@ export async function recordDietaryMealTiming(
   };
 }
 
-async function foodServiceAreaSpaceIds(
+/**
+ * LOCATION-grain meal timing participates only where Key Time groups explicitly
+ * name Spaces. Does not use archetype/profile bindings or Room Type inference.
+ * A cycle covering a room is not enough — the Key Time group membership is.
+ */
+async function mealServiceLocationSpaceIds(
   client: DbClient,
-  input: { facilityId: string; departmentId: string; unitId: string },
+  input: { facilityId: string; cycleId: string; unitId: string },
 ): Promise<string[]> {
-  const bindings = await client.departmentRoomArchetypeBinding.findMany({
+  const rows = await client.departmentOperationalCycleKeyTimeGroupRoom.findMany({
     where: {
-      profile: { departmentId: input.departmentId },
-      archetype: { key: FOOD_SERVICE_AREA_FUNCTION_KEY, isActive: true },
-      unitSpace: {
+      cycleId: input.cycleId,
+      space: {
         facilityId: input.facilityId,
         isActive: true,
         OR: [{ unitId: input.unitId }, { unit: { parentUnitId: input.unitId } }],
       },
     },
-    select: { unitSpaceId: true },
+    select: { spaceId: true },
   });
-  return [...new Set(bindings.map((row) => row.unitSpaceId))];
+  return [...new Set(rows.map((row) => row.spaceId))];
 }

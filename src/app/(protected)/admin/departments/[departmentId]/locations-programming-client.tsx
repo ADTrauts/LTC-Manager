@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { DepartmentAdminActionForm } from "@/app/(protected)/admin/departments/[departmentId]/action-form";
-import { removeRoomLogAction } from "@/app/(protected)/admin/departments/[departmentId]/location-room-actions";
+import { removeRoomLogAction, updateDepartmentSpaceNoteAction } from "@/app/(protected)/admin/departments/[departmentId]/location-room-actions";
 import { DepartmentLocationTree } from "@/components/location-tree";
 import { GuardedModal } from "@/components/guarded-modal";
 import { Button } from "@/components/design-system/Button";
@@ -73,14 +73,61 @@ function LocationRoomInspector({
   return (
     <div className="space-y-5 text-sm" data-testid="location-program-inspector-body">
       <section className="space-y-1" data-testid="location-program-place">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          Physical room
+        </h3>
         <p className="text-xs text-zinc-500" data-testid="location-program-physical-type">
           {place || "Facility hierarchy"}
         </p>
+        <p className="text-[11px] text-zinc-500">
+          Shared Facility identity. Room Type describes the room; it does not by itself create Logs,
+          milestones, or Coverage.
+        </p>
+      </section>
+
+      <section className="space-y-2" data-testid="location-program-department">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          {inspect.departmentName} relationship
+        </h3>
         <p className="text-xs text-zinc-600" data-testid="location-program-responsibility">
           {inspect.responsible
-            ? `${inspect.departmentName} is responsible.`
+            ? `${inspect.departmentName} is responsible for this room.`
             : `${inspect.departmentName} is not marked responsible for this room.`}
         </p>
+        {canManage && inspect.responsible ? (
+          <div data-testid="location-department-note-form">
+            <DepartmentAdminActionForm action={updateDepartmentSpaceNoteAction} className="space-y-2">
+              <input type="hidden" name="departmentId" value={inspect.departmentId} />
+              <input type="hidden" name="spaceId" value={inspect.spaceId} />
+              <label className="block text-xs font-medium text-zinc-700">
+                Department note
+                <textarea
+                  name="notes"
+                  rows={3}
+                  defaultValue={inspect.departmentNote ?? ""}
+                  placeholder="Optional instructions or intended use for this Department only"
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+                  data-testid="location-department-note-input"
+                />
+              </label>
+              <p className="text-[11px] text-zinc-500">
+                Descriptive only for {inspect.departmentName}. Does not create Logs, Coverage, or
+                milestones. Other Departments keep their own notes.
+              </p>
+              <Button type="submit" size="compact" data-testid="location-department-note-save">
+                Save note
+              </Button>
+            </DepartmentAdminActionForm>
+          </div>
+        ) : (
+          <div data-testid="location-department-note-readonly">
+            {inspect.departmentNote ? (
+              <p className="whitespace-pre-wrap text-xs text-zinc-800">{inspect.departmentNote}</p>
+            ) : (
+              <p className="text-xs text-zinc-400">No Department note yet.</p>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="space-y-2" data-testid="location-program-cycles">

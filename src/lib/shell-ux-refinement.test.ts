@@ -38,10 +38,11 @@ test("V1 refinement — the canonical Build Home card set is present for a Facil
     "/employees",
     "/assets/builder",
     "/staffing/templates",
-    "/staffing/work-plans",
   ]) {
     assert.equal(hrefs.includes(href), true, `expected Build Home card for ${href}`);
   }
+  // Phase 2B: generic Work Plan builder removed from Build Home cards.
+  assert.equal(hrefs.includes("/staffing/work-plans"), false);
   // The hub never lists its own home link as a card.
   assert.equal(hrefs.includes("/build"), false);
   assert.equal(hrefs.includes("/admin/knowledge"), false);

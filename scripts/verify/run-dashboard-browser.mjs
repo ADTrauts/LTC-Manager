@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { randomBytes } from "node:crypto";
 /**
  * DSH-02 Dashboard persona check. The flag is on only for this process.
  * Uses the dev server so the check does not replace the app's production build.
@@ -12,10 +13,11 @@ import { fileURLToPath } from "node:url";
 import { assertDisposableDatabaseUrl, redactDatabaseUrl } from "./lib/database-target.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const LABEL = "test:dashboard-browser";
-const ARTIFACT_DIR = join(ROOT, "tmp", "dashboard-browser-artifacts");
+const coverageBuilder = process.argv.includes("--coverage-builder");
+const LABEL = coverageBuilder ? "test:coverage-builder-browser" : "test:dashboard-browser";
+const ARTIFACT_DIR = join(ROOT, "tmp", coverageBuilder ? "people-coverage-browser-artifacts" : "dashboard-browser-artifacts");
 const FIXTURE_PATH = join(ARTIFACT_DIR, "fixtures.json");
-const DIST_DIR = process.env.DASHBOARD_BROWSER_DIST_DIR || ".next-dashboard-browser";
+const DIST_DIR = process.env.DASHBOARD_BROWSER_DIST_DIR || (coverageBuilder ? ".next-coverage-browser" : ".next-dashboard-browser");
 
 function fail(message) {
   console.error(`${LABEL}: FAIL — ${message}`);
@@ -81,6 +83,9 @@ async function main() {
     process.env.SEED_DEMO_PASSWORD = "DashboardBrowserSeed!ChangeMe";
   }
 
+  process.env.OFFLINE_RECOVERY_KEYS ||= JSON.stringify({ verification: randomBytes(32).toString("base64") });
+  process.env.OFFLINE_RECOVERY_ACTIVE_KEY ||= "verification";
+
   mkdirSync(ARTIFACT_DIR, { recursive: true });
   rmSync(FIXTURE_PATH, { force: true });
 
@@ -105,11 +110,12 @@ async function main() {
   let exitCode = 0;
   try {
     run("npx", ["prisma", "migrate", "deploy"], baseEnv, "migrate deploy");
+    if (coverageBuilder) run("node", ["prisma/seed.mjs"], baseEnv, "local demo bootstrap (not the final canonical seed)");
     run(
       "node",
-      ["--import", "tsx", "scripts/verify/dashboard-browser-fixtures.mjs"],
-      { ...baseEnv, DASHBOARD_BROWSER_FIXTURE_PATH: FIXTURE_PATH },
-      "dashboard fixtures",
+      ["--import", "tsx", coverageBuilder ? "scripts/verify/people-coverage-browser-fixtures.mjs" : "scripts/verify/dashboard-browser-fixtures.mjs"],
+      { ...baseEnv, DASHBOARD_BROWSER_FIXTURE_PATH: FIXTURE_PATH, PEOPLE_COVERAGE_BROWSER_FIXTURE_PATH: FIXTURE_PATH },
+      coverageBuilder ? "Coverage fixtures" : "dashboard fixtures",
     );
 
     const port = await freePort();
@@ -118,7 +124,7 @@ async function main() {
     console.log(`${LABEL}: starting next dev on ${baseUrl}`);
     serverChild = spawn(
       process.execPath,
-      ["node_modules/next/dist/bin/next", "dev", "-H", "127.0.0.1", "-p", String(port)],
+      ["node_modules/next/dist/bin/next", "dev", "--webpack", "-H", "127.0.0.1", "-p", String(port)],
       {
         cwd: ROOT,
         env: { ...baseEnv, PORT: String(port) },
@@ -133,13 +139,14 @@ async function main() {
 
     const pw = spawnSync(
       "npx",
-      ["playwright", "test", "-c", "tests/playwright.dashboard.config.ts", "--grep", "@ci-gate"],
+      ["playwright", "test", "-c", "tests/playwright.dashboard.config.ts", "--grep", coverageBuilder ? "@coverage-builder" : "@ci-gate"],
       {
         cwd: ROOT,
         env: {
           ...baseEnv,
           DASHBOARD_BROWSER_BASE_URL: baseUrl,
           DASHBOARD_BROWSER_FIXTURE_PATH: FIXTURE_PATH,
+          PEOPLE_COVERAGE_BROWSER_FIXTURE_PATH: FIXTURE_PATH,
           DASHBOARD_BROWSER_ARTIFACT_DIR: ARTIFACT_DIR,
         },
         stdio: "inherit",

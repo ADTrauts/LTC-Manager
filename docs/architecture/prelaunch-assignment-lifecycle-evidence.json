@@ -1,0 +1,41 @@
+{
+  "applicationSha": "017f573e0fcce5d7bf796ff9f6c2b60d6b47b546",
+  "checks": {
+    "build": "PASS",
+    "hermetic": {
+      "total": 4007,
+      "pass": 3684,
+      "skip": 323,
+      "fail": 0
+    },
+    "assignmentCoverageSql": {
+      "pass": 14,
+      "fail": 0
+    },
+    "browser": {
+      "pass": 3,
+      "fail": 0,
+      "seconds": 31.3
+    },
+    "focusedLint": "PASS",
+    "diffCheck": "PASS",
+    "oldSpaceWorkSql": {
+      "fail": 9,
+      "status": "obsolete Work fixture assumptions; scenarios require canonical rehome"
+    }
+  },
+  "genericWorkRemoved": false,
+  "finalBaseline": false,
+  "productionMutation": false,
+  "pushOrDeployment": false,
+  "screenshots": [
+    {
+      "path": "outputs/prelaunch-evidence/assignment-offline-receipt-panel.png",
+      "sha256": "e0a6c1e7e363d17479b1b8d4a0622eb0c0187bae0b191c82804dd96920781eca"
+    },
+    {
+      "path": "outputs/prelaunch-evidence/assignment-offline-receipt.png",
+      "sha256": "b2c7394dc0851c4b46b6123f1b012ff98d7631c85c22d73548b720fac8357b7f"
+    }
+  ]
+}

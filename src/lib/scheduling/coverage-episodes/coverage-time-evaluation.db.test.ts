@@ -55,15 +55,6 @@ async function buildFacility(
     data: { facilityId: facility.id, unitId: unit.id, name: `Dining ${input.suffix}`, spaceType: "SERVICE_AREA" },
   });
   await db.unitSpaceResponsibility.create({ data: { spaceId: space.id, departmentId: department.id } });
-  const profile = await db.departmentOperationalProfile.create({
-    data: { facilityId: facility.id, departmentId: department.id, name: "Food", version: 1, status: "ACTIVE" },
-  });
-  const archetype = await db.departmentRoomArchetype.create({
-    data: { profileId: profile.id, key: "SERVERY", name: "Servery" },
-  });
-  await db.departmentRoomArchetypeBinding.create({
-    data: { profileId: profile.id, archetypeId: archetype.id, unitSpaceId: space.id },
-  });
   await db.departmentOperationalCycle.create({
     data: {
       facilityId: facility.id,
@@ -189,7 +180,7 @@ async function uncover(db: Db, built: Awaited<ReturnType<typeof buildFacility>>,
 
 async function tick(db: Db, facilityId: string, now: Date) {
   await db.scheduledEvaluationLease.deleteMany({ where: { evaluatorKey: "coverage.time-boundaries" } });
-  const summary = await runScheduledEvaluations(db, { now, facilityIds: [facilityId] });
+  const summary = await runScheduledEvaluations(db, { now, facilityIds: [facilityId], keys: ["coverage.time-boundaries"] });
   const processingFailures = await processScheduledEvaluationOutbox(db, summary.outboxIds);
   assert.equal(processingFailures, 0);
   return summary;
@@ -213,7 +204,6 @@ async function cleanup(db: Db, suffix: string, userIds: string[]) {
   await db.operationalAssignmentPlan.deleteMany({ where: { facilityId: { in: facilityIds } } });
   await db.operationalAssignmentTemplate.deleteMany({ where: { facilityId: { in: facilityIds } } });
   await db.departmentOperationalCycle.deleteMany({ where: { facilityId: { in: facilityIds } } });
-  await db.departmentOperationalProfile.deleteMany({ where: { facilityId: { in: facilityIds } } });
   await db.unitSpace.deleteMany({ where: { facilityId: { in: facilityIds } } });
   await db.unit.deleteMany({ where: { facilityId: { in: facilityIds } } });
   await db.employee.deleteMany({ where: { facilityId: { in: facilityIds } } });
@@ -383,6 +373,7 @@ test("two facilities use their own local service clocks", { skip }, async () => 
     const summary = await runScheduledEvaluations(db, {
       now,
       facilityIds: [ny.facility.id, chicago.facility.id],
+      keys: ["coverage.time-boundaries"],
     });
     assert.equal(await processScheduledEvaluationOutbox(db, summary.outboxIds), 0);
     assert.equal((await db.notification.findUniqueOrThrow({ where: { id: openedNy.id } })).priority, "CRITICAL");
@@ -409,7 +400,10 @@ test("a held lease skips coverage evaluation and an overlap does not double-clos
         lockedBy: "held",
       },
     });
-    const skipped = await runScheduledEvaluations(db, { now: new Date("2026-10-29T15:00:00.000Z") });
+    const skipped = await runScheduledEvaluations(db, {
+      now: new Date("2026-10-29T15:00:00.000Z"),
+      keys: ["coverage.time-boundaries"],
+    });
     assert.equal(skipped.skipped, 1);
     assert.equal(skipped.transitions, 0);
     await db.scheduledEvaluationLease.deleteMany({ where: { evaluatorKey: "coverage.time-boundaries" } });
@@ -423,8 +417,8 @@ test("a held lease skips coverage evaluation and an overlap does not double-clos
     await uncover(db, built, parseFacilityLocalScheduledStartOnDate("08:00", "2026-10-29", zone)!, `overlap-${suffix}`);
     const after = parseFacilityLocalScheduledStartOnDate("11:00", "2026-10-29", zone)!;
     const [first, second] = await Promise.all([
-      runScheduledEvaluations(db, { now: after, facilityIds: [built.facility.id] }),
-      runScheduledEvaluations(db, { now: after, facilityIds: [built.facility.id] }),
+      runScheduledEvaluations(db, { now: after, facilityIds: [built.facility.id], keys: ["coverage.time-boundaries"] }),
+      runScheduledEvaluations(db, { now: after, facilityIds: [built.facility.id], keys: ["coverage.time-boundaries"] }),
     ]);
     await processScheduledEvaluationOutbox(db, [...first.outboxIds, ...second.outboxIds]);
     // Concurrent runners may both observe work before the lease settles; the closed episode is the invariant.

@@ -343,15 +343,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
     notes: "Harbor Department Product detail. Read-only registry metadata and adoption.",
   },
-  {
-    pattern: "/console/catalog/work/[presetKey]",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "HARBOR_STAFF" },
-    module: "harbor-console",
-    requiresDownstreamAuthorization: true,
-    notes: "Harbor Work preset detail. Read-only preset metadata and Facility Work Plan usage.",
-  },
 
   // ── Partner Facility Dashboard (Phase 2D7) ────────────────────────────────
   {
@@ -393,16 +384,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
     notes:
       "Partner operating rhythm (CDA-08). Cycles, phases, and key points for the active Department. The cycle covers the whole Department.",
-  },
-  {
-    pattern: "/partner/work",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "PARTNER_SESSION" },
-    module: "partner-facility-session",
-    requiresDownstreamAuthorization: true,
-    notes:
-      "Partner work plans (CDA-08). A step may link an organization-owned Catalog Record.",
   },
   {
     pattern: "/partner/menus",
@@ -872,27 +853,6 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     featureFlag: "CANONICAL_LOGS",
   },
   {
-    pattern: "/staffing/work-plans",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
-    module: "staffing",
-    featureFlag: "DIETARY_WORK_PLANS",
-    // BUILD · Work — Department Work Plan builder. Owned by Department Builder, not Staffing.
-    nav: { label: "Work", order: 250 },
-    notes:
-      "Department Work Plan Builder. Work Plans come with the Department.",
-  },
-  {
-    pattern: "/staffing/work-plans/[workPlanId]",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
-    module: "staffing",
-    notes:
-      "Work Plan detail. Work Plans come with the Department.",
-  },
-  {
     pattern: "/staffing/log-book",
     match: "EXACT",
     surface: "PAGE",
@@ -1016,16 +976,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
     module: "employees",
     legacyArea: { key: "employees", label: "Employees", navOrder: 30, navVisible: true, critical: false },
-    // BUILD · Employee Builder — workforce configuration (person, employment, department, job role, HR).
+    // BUILD · Employee Builder — workforce configuration (person, employment, Department, qualifications, HR).
     // Today's staffing/attendance/assignments live in RUN Employees (/staffing).
     nav: { label: "Employee Builder", order: 230 },
-  },
-  {
-    pattern: "/employees/job-roles",
-    match: "EXACT",
-    surface: "PAGE",
-    access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("MANAGER") },
-    module: "employees",
   },
   {
     pattern: "/employees/chrc-report",

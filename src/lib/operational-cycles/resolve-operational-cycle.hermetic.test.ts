@@ -24,10 +24,8 @@ function cycle(
     mealType: "BREAKFAST",
     locationMode: "ALL_DEPARTMENT_UNITS",
     locationInheritFromParent: false,
-    applicableUnitTypes: [],
     expectedMilestones: ["READY", "SERVICE_STARTED"],
     status: "PUBLISHED",
-    roomTypeKey: null,
     unitIds: [],
     spaceIds: [],
     milestoneTimes: [],
@@ -68,7 +66,7 @@ test("drafts are ignored for runtime", () => {
   assert.equal(ctx.state, "NOT_CONFIGURED");
 });
 
-test("ROOM_TYPE scope uses child Room Type keys not Unit.unitType", () => {
+test("Unit view includes Cycles placed in an explicit child Space", () => {
   const ctx = resolveOperationalCycle({
     cycles: [
       cycle({
@@ -76,14 +74,14 @@ test("ROOM_TYPE scope uses child Room Type keys not Unit.unitType", () => {
         label: "Breakfast Service",
         startLocal: "07:00",
         endLocal: "09:00",
-        locationMode: "ROOM_TYPE",
-        roomTypeKey: "servery",
+        locationMode: "EXPLICIT_UNITS",
+        spaceIds: ["servery-room"],
       }),
     ],
     now: new Date("2026-08-06T11:30:00.000Z"),
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "u1", unitType: "RESIDENT_AREA", childRoomTypeKeys: ["servery"] },
+    unit: { id: "u1", unitType: "RESIDENT_AREA", spaceIds: ["servery-room"] },
   });
   assert.notEqual(ctx.state, "NOT_APPLICABLE");
 
@@ -94,14 +92,14 @@ test("ROOM_TYPE scope uses child Room Type keys not Unit.unitType", () => {
         label: "Breakfast Service",
         startLocal: "07:00",
         endLocal: "09:00",
-        locationMode: "ROOM_TYPE",
-        roomTypeKey: "servery",
+        locationMode: "EXPLICIT_UNITS",
+        spaceIds: ["servery-room"],
       }),
     ],
     now: new Date("2026-08-06T11:30:00.000Z"),
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "u2", unitType: "SERVERY", childRoomTypeKeys: ["production_area"] },
+    unit: { id: "u2", unitType: "SERVERY", spaceIds: ["kitchen-room"] },
   });
   assert.equal(other.state, "NOT_APPLICABLE");
 });
@@ -114,8 +112,8 @@ test("unit not in location scope yields NOT_APPLICABLE", () => {
         label: "Breakfast",
         startLocal: "07:00",
         endLocal: "09:00",
-        locationMode: "UNIT_TYPES",
-        applicableUnitTypes: ["SERVERY"],
+        locationMode: "EXPLICIT_UNITS",
+        unitIds: ["different-unit"],
       }),
     ],
     now: new Date("2026-08-06T11:30:00.000Z"),
@@ -278,8 +276,8 @@ function breakfastHierarchy(): OperationalCycleDefinition[] {
       displaySequence: 12,
       mealType: null,
       expectedMilestones: ["READY", "SERVICE_STARTED"],
-      locationMode: "ROOM_TYPE",
-      roomTypeKey: "servery",
+      locationMode: "EXPLICIT_UNITS",
+      spaceIds: ["servery-room"],
       parentStableKey: "breakfast",
     }),
     cycle({
@@ -346,7 +344,7 @@ test("location filtering returns only applicable phase for each location", () =>
     now,
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "naval", unitType: "RESIDENT_AREA", childRoomTypeKeys: ["servery"] },
+    unit: { id: "naval", unitType: "RESIDENT_AREA", spaceIds: ["servery-room"] },
   });
   assert.equal(servery.state, "ACTIVE");
   if (servery.state === "ACTIVE") {
@@ -365,7 +363,7 @@ test("location filtering returns only applicable phase for each location", () =>
     now,
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "main-kitchen", unitType: "KITCHEN", childRoomTypeKeys: [] },
+    unit: { id: "main-kitchen", unitType: "KITCHEN" },
   });
   assert.equal(kitchen.state, "ACTIVE");
   if (kitchen.state === "ACTIVE") {
@@ -378,7 +376,7 @@ test("location filtering returns only applicable phase for each location", () =>
     now,
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "retail", unitType: "RETAIL", childRoomTypeKeys: [] },
+    unit: { id: "retail", unitType: "RETAIL" },
   });
   assert.equal(retail.state, "ACTIVE");
   if (retail.state === "ACTIVE") {
@@ -393,7 +391,7 @@ test("parent window does not activate child early", () => {
     now: new Date("2026-08-06T06:00:00.000Z"),
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "naval", unitType: "RESIDENT_AREA", childRoomTypeKeys: ["servery"] },
+    unit: { id: "naval", unitType: "RESIDENT_AREA", spaceIds: ["servery-room"] },
   });
   assert.equal(ctx.state, "ACTIVE");
   if (ctx.state === "ACTIVE") {
@@ -453,8 +451,8 @@ test("historical parentStableKey on governing versions reconstructs path", () =>
       endLocal: "09:00",
       displaySequence: 12,
       expectedMilestones: ["SERVICE_STARTED"],
-      locationMode: "ROOM_TYPE",
-      roomTypeKey: "servery",
+      locationMode: "EXPLICIT_UNITS",
+      spaceIds: ["servery-room"],
       parentStableKey: "breakfast",
     }),
   ];
@@ -463,7 +461,7 @@ test("historical parentStableKey on governing versions reconstructs path", () =>
     now: new Date("2026-08-06T07:30:00.000Z"),
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "u1", unitType: "SERVERY", childRoomTypeKeys: ["servery"] },
+    unit: { id: "u1", unitType: "SERVERY", spaceIds: ["servery-room"] },
   });
   assert.equal(dayACtx.state, "ACTIVE");
   if (dayACtx.state === "ACTIVE") {
@@ -492,8 +490,8 @@ test("historical parentStableKey on governing versions reconstructs path", () =>
       endLocal: "09:00",
       displaySequence: 12,
       expectedMilestones: ["SERVICE_STARTED"],
-      locationMode: "ROOM_TYPE",
-      roomTypeKey: "servery",
+      locationMode: "EXPLICIT_UNITS",
+      spaceIds: ["servery-room"],
       parentStableKey: "morning_meal",
     }),
   ];
@@ -502,7 +500,7 @@ test("historical parentStableKey on governing versions reconstructs path", () =>
     now: new Date("2026-09-01T07:30:00.000Z"),
     facilityTimezone: "UTC",
     operationalDateKey: "2026-09-01",
-    unit: { id: "u1", unitType: "SERVERY", childRoomTypeKeys: ["servery"] },
+    unit: { id: "u1", unitType: "SERVERY", spaceIds: ["servery-room"] },
   });
   assert.equal(dayBCtx.state, "ACTIVE");
   if (dayBCtx.state === "ACTIVE") {
@@ -515,7 +513,7 @@ test("historical parentStableKey on governing versions reconstructs path", () =>
     now: new Date("2026-08-06T07:30:00.000Z"),
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "u1", unitType: "SERVERY", childRoomTypeKeys: ["servery"] },
+    unit: { id: "u1", unitType: "SERVERY", spaceIds: ["servery-room"] },
   });
   assert.equal(replay.state, "ACTIVE");
   if (replay.state === "ACTIVE") {
@@ -536,8 +534,8 @@ test("draft hierarchy rows are ignored by Run resolver", () => {
       displaySequence: 12,
       status: "DRAFT",
       expectedMilestones: ["READY", "SERVICE_STARTED"],
-      locationMode: "ROOM_TYPE",
-      roomTypeKey: "servery",
+      locationMode: "EXPLICIT_UNITS",
+      spaceIds: ["servery-room"],
       parentStableKey: "lunch",
     }),
   ];
@@ -546,7 +544,7 @@ test("draft hierarchy rows are ignored by Run resolver", () => {
     now: new Date("2026-08-06T07:30:00.000Z"),
     facilityTimezone: "UTC",
     operationalDateKey: "2026-08-06",
-    unit: { id: "naval", unitType: "RESIDENT_AREA", childRoomTypeKeys: ["servery"] },
+    unit: { id: "naval", unitType: "RESIDENT_AREA", spaceIds: ["servery-room"] },
   });
   assert.equal(ctx.state, "ACTIVE");
   if (ctx.state === "ACTIVE") {

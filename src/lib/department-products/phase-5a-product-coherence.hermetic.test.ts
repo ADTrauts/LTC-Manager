@@ -102,7 +102,7 @@ test("Unit/Space Report a problem mounts Request intake, not Issue create", () =
   assert.match(form, /RequesterStatusPanel/);
 });
 
-test("Plant Builder exposes Work and Maintenance without Menus", () => {
+test("Plant Builder exposes Maintenance without generic Work or Menus", () => {
   const tabs = departmentAdminTabsForFlags({
     workEnabled: true,
     recordsEnabled: true,
@@ -132,6 +132,7 @@ test("Getting Started is derived guidance and never a persisted score", () => {
   assert.equal(rows.find((row) => row.id === "operate")?.status, "ready");
   const gettingStarted = source("src/lib/department-administration/plant-getting-started.ts");
   assert.doesNotMatch(gettingStarted, /SETUP_COMPLETE/);
+  assert.doesNotMatch(gettingStarted, /Configure recurring Work/);
 });
 
 test("Plant runtime follows install plus Harbor or customer access", () => {

@@ -13,7 +13,6 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import { localHhMmFromInstant } from "./key-time-day-expectation";
-import { loadSpaceOperationalTypeAssignments } from "./load-operational-type-targets";
 import { loadPublishedCyclesWithKeyTimesForDate } from "./load-published-cycles";
 import { materializeKeyTimeDayExpectations } from "./materialize-key-time-day-expectations";
 import {
@@ -238,7 +237,7 @@ export async function loadLocationRunPresentation(input: {
 }): Promise<RunLocationOperationPresentation | null> {
   if (input.session.facilityId !== input.facilityId) return null;
 
-  const [model, location, assignments] = await Promise.all([
+  const [model, location] = await Promise.all([
     loadPublishedRunModel({
       facilityId: input.facilityId,
       departmentId: input.departmentId,
@@ -247,12 +246,6 @@ export async function loadLocationRunPresentation(input: {
     input.location
       ? Promise.resolve(input.location)
       : loadRoomRunIdentity({ facilityId: input.facilityId, spaceId: input.spaceId }),
-    loadSpaceOperationalTypeAssignments({
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      spaceIds: [input.spaceId],
-      perspective: "runtime",
-    }),
   ]);
   if (!location) return null;
 
@@ -264,7 +257,7 @@ export async function loadLocationRunPresentation(input: {
     facilityTimezone: model.timezone,
     operationalDateKey: model.operationalDateKey,
     spaceId: input.spaceId,
-    operationalTypeKey: assignments.get(input.spaceId)?.key ?? null,
+    // Forward Run uses explicit cycle locations / ALL_DEPARTMENT_UNITS — not OT hub.
     location,
     nowLocalHhMm: model.nowLocalHhMm,
     canAdjust: hasAtLeastRole(role, "SUPERVISOR"),
@@ -281,18 +274,11 @@ export async function loadDepartmentRunPresentation(input: {
 }): Promise<RunDepartmentOperationPresentation | null> {
   if (input.session.facilityId !== input.facilityId) return null;
 
-  const [model, assignments] = await Promise.all([
-    loadPublishedRunModel({
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      now: input.now,
-    }),
-    loadSpaceOperationalTypeAssignments({
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      perspective: "runtime",
-    }),
-  ]);
+  const model = await loadPublishedRunModel({
+    facilityId: input.facilityId,
+    departmentId: input.departmentId,
+    now: input.now,
+  });
   return presentDepartmentRunOperation({
     cycles: model.cycles,
     timings: model.timings,
@@ -301,9 +287,6 @@ export async function loadDepartmentRunPresentation(input: {
     operationalDateKey: model.operationalDateKey,
     nowLocalHhMm: model.nowLocalHhMm,
     spaceIdFilter: input.spaceIdFilter,
-    functionSpaces: [...assignments.entries()].map(([id, assignment]) => ({
-      id,
-      operationalTypeKey: assignment.key,
-    })),
+    // OT hub no longer feeds department presentation room counts.
   });
 }

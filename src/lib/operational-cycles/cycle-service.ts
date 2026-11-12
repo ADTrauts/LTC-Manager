@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { DepartmentOperationalCycle, Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { FacilitySession } from "@/lib/auth";
@@ -31,7 +31,6 @@ import type { PublishedCycleOverlapCandidate } from "./validate-cycle";
 import { roomTypeIdentity } from "@/lib/facility-builder/space-type-presets";
 
 import {
-  isStandardRoomTypeKey,
   isValidConfiguredTime,
   normalizeConfiguredTime,
   shouldShowServiceStartTimes,
@@ -47,7 +46,7 @@ import {
   validateDraftsForReviewPublish,
 } from "./review-publish-validation";
 import { mapCycleRow } from "./load-published-cycles";
-import { loadDepartmentOperationalTypeOptions } from "./load-operational-type-targets";
+import { isCanonicalCycleLocationMode } from "./effective-cycle-spaces";
 import type { CycleDraftInput, KeyTimeGroupDefinition } from "./types";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -227,9 +226,9 @@ function resolvedLocationMode(
   nodeKind: "PERIOD" | "KEY_TIME",
   inherit: boolean,
 ): NonNullable<CycleDraftInput["locationMode"]> {
-  if (nodeKind === "KEY_TIME") return "EXPLICIT_UNITS";
-  if (inherit) return "EXPLICIT_UNITS";
-  return draft.locationMode ?? "ALL_DEPARTMENT_UNITS";
+  const mode = draft.locationMode ?? "ALL_DEPARTMENT_UNITS";
+  if (!isCanonicalCycleLocationMode(mode)) throw new Error("Choose the entire Department or explicit locations.");
+  return nodeKind === "KEY_TIME" || inherit ? "EXPLICIT_UNITS" : mode;
 }
 
 function milestoneTimeCreates(input: CycleDraftInput) {
@@ -265,23 +264,6 @@ function milestoneTimeCreates(input: CycleDraftInput) {
   return rows;
 }
 
-function resolvedRoomTypeKey(
-  locationMode: CycleDraftInput["locationMode"],
-  roomTypeKey: string | null | undefined,
-): string | null {
-  if (locationMode !== "ROOM_TYPE") return null;
-  const key = roomTypeKey?.trim() ?? "";
-  return isStandardRoomTypeKey(key) ? key : null;
-}
-
-function resolvedOperationalTypeKeys(
-  locationMode: CycleDraftInput["locationMode"],
-  keys: readonly string[] | undefined,
-): string[] {
-  if (locationMode !== "OPERATIONAL_TYPES") return [];
-  return [...new Set((keys ?? []).map((key) => key.trim()).filter(Boolean))];
-}
-
 export async function loadScopeLocations(
   client: DbClient,
   facilityId: string,
@@ -289,7 +271,7 @@ export async function loadScopeLocations(
 ): Promise<CycleScopeLocationOption[]> {
   const [unitRows, spaceRows] = await Promise.all([
     client.unitDepartmentResponsibility.findMany({
-      where: { departmentId, unit: { facilityId } },
+      where: { departmentId, unit: { facilityId, isActive: true } },
       select: {
         unit: {
           select: {
@@ -302,7 +284,7 @@ export async function loadScopeLocations(
       },
     }),
     client.unitSpaceResponsibility.findMany({
-      where: { departmentId, space: { facilityId } },
+      where: { departmentId, space: { facilityId, isActive: true } },
       select: {
         space: {
           select: {
@@ -375,21 +357,14 @@ async function assertDraftScope(
     locationMode: NonNullable<CycleDraftInput["locationMode"]>;
   },
 ) {
-  const [locations, operationalTypes] = await Promise.all([
-    loadScopeLocations(client, input.facilityId, input.departmentId),
-    loadDepartmentOperationalTypeOptions({
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      perspective: "working",
-    }),
-  ]);
+  const locations = await loadScopeLocations(client, input.facilityId, input.departmentId);
   const errors = validateCycleScopeAgainstCatalog({
     locationMode: input.locationMode,
-    roomTypeKey: input.draft.roomTypeKey,
-    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
-    allowedOperationalTypeKeys: operationalTypes.map((type) => type.key),
     unitIds: input.draft.unitIds,
-    spaceIds: input.draft.spaceIds,
+    spaceIds: [
+      ...(input.draft.spaceIds ?? []),
+      ...(input.draft.keyTimeGroups ?? []).flatMap((group) => group.spaceIds),
+    ],
     milestoneTimes: input.draft.milestoneTimes,
     cycleType: input.draft.cycleType,
     mealType: input.draft.mealType,
@@ -485,7 +460,6 @@ async function loadPublishedOverlapPeers(
     overnight: r.overnight,
     applicableDaysOfWeek: r.applicableDaysOfWeek,
     locationMode: r.locationMode,
-    applicableUnitTypes: r.applicableUnitTypes,
     unitIds: r.locations.map((l) => l.unitId).filter((id): id is string => Boolean(id)),
     effectiveFrom: toServiceDateKey(r.effectiveFrom),
     effectiveTo: r.effectiveTo ? toServiceDateKey(r.effectiveTo) : null,
@@ -529,12 +503,11 @@ export async function createDraft(
     mealType: input.draft.mealType,
     locationMode,
     locationInheritFromParent: locationInherit,
-    applicableUnitTypes: input.draft.applicableUnitTypes,
-    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
+
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     keyTimeGroups: input.draft.keyTimeGroups,
-    roomTypeKey: input.draft.roomTypeKey,
+
     expectedMilestones: input.draft.expectedMilestones,
   });
   if (!validation.valid) {
@@ -597,13 +570,6 @@ export async function createDraft(
       mealType: input.draft.mealType ?? null,
       locationMode,
       locationInheritFromParent: locationInherit,
-      applicableUnitTypes:
-        locationMode === "UNIT_TYPES" ? (input.draft.applicableUnitTypes ?? []) : [],
-      applicableOperationalTypeKeys: resolvedOperationalTypeKeys(
-        locationMode,
-        input.draft.applicableOperationalTypeKeys,
-      ),
-      roomTypeKey: resolvedRoomTypeKey(locationMode, input.draft.roomTypeKey),
       expectedMilestones:
         input.draft.cycleType === "SERVICE" ? (input.draft.expectedMilestones ?? []) : [],
       status: "DRAFT",
@@ -683,12 +649,11 @@ export async function updateDraft(
     mealType: input.draft.mealType,
     locationMode,
     locationInheritFromParent: locationInherit,
-    applicableUnitTypes: input.draft.applicableUnitTypes,
-    applicableOperationalTypeKeys: input.draft.applicableOperationalTypeKeys,
+
     unitIds: input.draft.unitIds,
     spaceIds: input.draft.spaceIds,
     keyTimeGroups: input.draft.keyTimeGroups,
-    roomTypeKey: input.draft.roomTypeKey,
+
     expectedMilestones: input.draft.expectedMilestones,
   });
   if (!validation.valid) {
@@ -721,16 +686,8 @@ export async function updateDraft(
   const timeRows = milestoneTimeCreates(input.draft);
   const groupRows = keyTimeGroupCreates(existing.id, input.draft.keyTimeGroups);
 
-  await client.departmentOperationalCycleLocation.deleteMany({ where: { cycleId: existing.id } });
-  await client.departmentOperationalCycleMilestoneTime.deleteMany({
-    where: { cycleId: existing.id },
-  });
-  await client.departmentOperationalCycleKeyTimeGroup.deleteMany({
-    where: { cycleId: existing.id },
-  });
-
   const updated = await client.departmentOperationalCycle.update({
-    where: { id: existing.id },
+    where: { id: existing.id, status: "DRAFT" },
     data: {
       label: input.draft.label.trim(),
       description: input.draft.description?.trim() || null,
@@ -753,19 +710,12 @@ export async function updateDraft(
       mealType: input.draft.mealType ?? null,
       locationMode,
       locationInheritFromParent: locationInherit,
-      applicableUnitTypes:
-        locationMode === "UNIT_TYPES" ? (input.draft.applicableUnitTypes ?? []) : [],
-      applicableOperationalTypeKeys: resolvedOperationalTypeKeys(
-        locationMode,
-        input.draft.applicableOperationalTypeKeys,
-      ),
-      roomTypeKey: resolvedRoomTypeKey(locationMode, input.draft.roomTypeKey),
       expectedMilestones:
         input.draft.cycleType === "SERVICE" ? (input.draft.expectedMilestones ?? []) : [],
       lastChangedByUserId: input.actor.userId,
-      locations: locationRows.length ? { create: locationRows } : undefined,
-      milestoneTimes: timeRows.length ? { create: timeRows } : undefined,
-      keyTimeGroups: groupRows.length ? { create: groupRows } : undefined,
+      locations: { deleteMany: {}, create: locationRows },
+      milestoneTimes: { deleteMany: {}, create: timeRows },
+      keyTimeGroups: { deleteMany: {}, create: groupRows },
     },
   });
 
@@ -809,7 +759,9 @@ export async function duplicateCycle(
       keyTimeGroups: { include: { rooms: true }, orderBy: { displaySequence: "asc" } },
     },
   });
-  if (!source) throw new Error("Cycle not found.");
+  if (!source || !isCanonicalCycleLocationMode(source.locationMode)) {
+    throw new Error("Cycle not found.");
+  }
 
   const version = await nextVersionForStableKey(client, input.departmentId, source.stableKey);
   const createdId = cuidLike();
@@ -842,9 +794,7 @@ export async function duplicateCycle(
       mealType: source.mealType,
       locationMode: source.locationMode,
       locationInheritFromParent: source.locationInheritFromParent,
-      applicableUnitTypes: source.applicableUnitTypes,
-      applicableOperationalTypeKeys: source.applicableOperationalTypeKeys,
-      roomTypeKey: source.roomTypeKey,
+
       expectedMilestones: source.expectedMilestones,
       status: "DRAFT",
       createdByUserId: input.actor.userId,
@@ -1045,10 +995,27 @@ export async function publishCycle(
     /** Preloaded groups from Review/schedule so publish cannot miss Key Time rooms. */
     keyTimeGroups?: KeyTimeGroupDefinition[];
   },
-) {
+): Promise<DepartmentOperationalCycle> {
   const client = input.client ?? prisma;
+  if ("$transaction" in client) {
+    return client.$transaction((tx) => publishCycle(session, { ...input, client: tx }));
+  }
   const authority = await resolveCycleAuthority(session, input.facilityId, input.departmentId);
   requireCyclePublish(authority);
+
+  await client.$queryRaw`
+    SELECT "id" FROM "Department"
+    WHERE "id" = ${input.departmentId} AND "facilityId" = ${input.facilityId}
+    FOR UPDATE
+  `;
+
+  await client.$queryRaw`
+    SELECT "id" FROM "DepartmentOperationalCycle"
+    WHERE "id" = ${input.cycleId}
+      AND "facilityId" = ${input.facilityId}
+      AND "departmentId" = ${input.departmentId}
+    FOR UPDATE
+  `;
 
   const existing = await client.departmentOperationalCycle.findFirst({
     where: {
@@ -1126,12 +1093,12 @@ export async function publishCycle(
       mealType: mapped.mealType,
       locationMode: mapped.locationMode,
       locationInheritFromParent: mapped.locationInheritFromParent,
-      applicableUnitTypes: mapped.applicableUnitTypes,
-      applicableOperationalTypeKeys: mapped.applicableOperationalTypeKeys,
+
       unitIds: mapped.unitIds,
       spaceIds: mapped.spaceIds,
-      roomTypeKey: mapped.roomTypeKey,
+
       expectedMilestones: mapped.expectedMilestones,
+      keyPointGrain: mapped.keyPointGrain,
       keyTimeGroups:
         input.keyTimeGroups && input.keyTimeGroups.length > 0
           ? input.keyTimeGroups
@@ -1177,7 +1144,7 @@ export async function publishCycle(
   }
 
   const published = await client.departmentOperationalCycle.update({
-    where: { id: existing.id },
+    where: { id: existing.id, status: "DRAFT" },
     data: {
       status: "PUBLISHED",
       publishedAt: new Date(),
@@ -1448,14 +1415,32 @@ export async function scheduleDraftPublications(
     allowImmediate?: boolean;
     client?: DbClient;
   },
-) {
+): Promise<{ publishedIds: string[]; effectiveFrom: string }> {
   const client = input.client ?? prisma;
+  if ("$transaction" in client) {
+    return client.$transaction((tx) => scheduleDraftPublications(session, { ...input, client: tx }), { timeout: 30_000 });
+  }
   const authority = await resolveCycleAuthority(session, input.facilityId, input.departmentId);
   requireCyclePublish(authority);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveFrom)) {
     throw new Error("effectiveFrom must be YYYY-MM-DD.");
   }
+
+  await client.$queryRaw`
+    SELECT "id" FROM "Department"
+    WHERE "id" = ${input.departmentId} AND "facilityId" = ${input.facilityId}
+    FOR UPDATE
+  `;
+
+  await client.$queryRaw`
+    SELECT "id" FROM "DepartmentOperationalCycle"
+    WHERE "facilityId" = ${input.facilityId}
+      AND "departmentId" = ${input.departmentId}
+      AND "status" = 'DRAFT'
+    ORDER BY "id"
+    FOR UPDATE
+  `;
 
   const draftRows = await client.departmentOperationalCycle.findMany({
     where: {
@@ -1503,8 +1488,11 @@ export async function scheduleDraftPublications(
       },
     },
   });
+  const locations = await loadScopeLocations(client, input.facilityId, input.departmentId);
+  const authorizedSpaceIds = new Set(locations.filter(({ kind }) => kind === "room").map(({ id }) => id));
   const reviewValidation = validateDraftsForReviewPublish({
     drafts: definitions,
+    authorizedSpaceIds,
     locationContext: publishedContextRows.map((row) => mapCycleRow(row)),
   });
   if (!reviewValidation.valid) {
@@ -1520,7 +1508,7 @@ export async function scheduleDraftPublications(
   for (const draft of draftRows) {
     if (!latestIds.has(draft.id)) continue;
     await client.departmentOperationalCycle.update({
-      where: { id: draft.id },
+      where: { id: draft.id, status: "DRAFT" },
       data: {
         effectiveFrom: facilityLocalDateToServiceDate(input.effectiveFrom),
         lastChangedByUserId: input.actor.userId,
@@ -1596,12 +1584,11 @@ export async function generateDietaryDefaultsDrafts(
         mealType: plan.mealType,
         locationMode: plan.locationMode,
         locationInheritFromParent: plan.locationInheritFromParent,
-        applicableUnitTypes: plan.applicableUnitTypes,
-        roomTypeKey: plan.roomTypeKey,
+
         expectedMilestones: plan.expectedMilestones,
         occurrenceTracking: plan.occurrenceTracking,
         keyPointGrain: plan.keyPointGrain,
-        applicableOperationalTypeKeys: plan.applicableOperationalTypeKeys,
+
         keyTimeGroups: (plan.dueLocals ?? []).map((dueLocal) => ({
           dueLocal,
           spaceIds: [],
@@ -1695,12 +1682,11 @@ export async function prepareDietaryMealTimingUpgrade(
         mealType: null,
         locationMode: keyPoint.locationMode,
         locationInheritFromParent: keyPoint.locationInheritFromParent,
-        applicableUnitTypes: keyPoint.applicableUnitTypes,
-        roomTypeKey: keyPoint.roomTypeKey,
+
         expectedMilestones: [],
         occurrenceTracking: keyPoint.occurrenceTracking,
         keyPointGrain: keyPoint.keyPointGrain,
-        applicableOperationalTypeKeys: keyPoint.applicableOperationalTypeKeys,
+
         keyTimeGroups: (keyPoint.dueLocals ?? []).map((dueLocal) => ({
           dueLocal,
           spaceIds: [],
@@ -1770,8 +1756,7 @@ export async function generateEvsDefaultsDrafts(
         mealType: null,
         locationMode: plan.locationMode,
         locationInheritFromParent: plan.locationInheritFromParent,
-        applicableUnitTypes: plan.applicableUnitTypes,
-        roomTypeKey: plan.roomTypeKey,
+
         expectedMilestones: [],
       },
     });

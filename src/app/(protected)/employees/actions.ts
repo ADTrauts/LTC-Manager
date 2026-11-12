@@ -427,7 +427,6 @@ export async function createEmployeeAction(formData: FormData) {
         additionalDepartmentIds: organization.additionalDepartmentIds,
         jobTitleId: organization.jobTitleId,
         teamMemberships: organization.teamMemberships,
-        jobRoleByDepartmentId: organization.jobRoleByDepartmentId,
       });
       return onboarded;
     });
@@ -546,15 +545,15 @@ export async function updateEmployeeProfileAction(formData: FormData) {
     await assertCanChangeDepartmentPeople(prisma, session, existing.primaryDepartmentId);
   }
 
-  // Prefer submitted email; otherwise keep the stored address so Job Role / org edits
+  // Prefer submitted email; otherwise keep the stored address so organization edits
   // are not blocked when the email field is blank.
   const normalizedProfileEmail =
     (parsed.email ? parsed.email.toLowerCase() : undefined) ??
     (existing.email?.trim().toLowerCase() || undefined);
 
   // Platform authority (FACILITY_ADMINISTRATOR / GM / MANAGER / SUPERVISOR) is separate from
-  // Department Job Role. If the form asks to promote platform authority without an email,
-  // keep the current platform role and still save Job Role / organization fields.
+  // operational qualifications. If the form asks to promote platform authority without an email,
+  // keep the current platform role and still save the organization fields.
   const requestedPlatformPromotionWithoutEmail =
     requiresEmailPasswordAccount(parsed.roleType) &&
     !requiresEmailPasswordAccount(existing.roleType) &&
@@ -670,7 +669,6 @@ export async function updateEmployeeProfileAction(formData: FormData) {
       additionalDepartmentIds: organization.additionalDepartmentIds,
       jobTitleId: organization.jobTitleId,
       teamMemberships: organization.teamMemberships,
-      jobRoleByDepartmentId: organization.jobRoleByDepartmentId,
     });
 
     await tx.employee.update({

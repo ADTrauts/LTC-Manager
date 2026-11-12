@@ -34,12 +34,6 @@ export {
   type UnitCoverageRow,
 } from "./build-coverage-summary";
 export {
-  buildLocationCoverageSummary,
-  type LocationCoverageState,
-  type LocationCoverageSummary,
-  type LocationCoverageRow,
-} from "./location-coverage";
-export {
   deriveAssignmentScopeKind,
   loadAssignmentLocations,
   resolveAssignmentLocationWrites,
@@ -51,11 +45,6 @@ export {
   type AssignmentScopeKind,
   type ResolvedAssignmentLocation,
 } from "./location-scope";
-export {
-  buildDeterministicLocationSequence,
-  formatAssignedScopeSummary,
-  type DeterministicSequence,
-} from "./location-sequencing";
 export {
   assertNoOverlappingActiveAssignments,
   lockEmployeeAssignmentDay,

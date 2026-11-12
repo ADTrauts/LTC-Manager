@@ -17,7 +17,7 @@ async function setup(page: Page, prepare = true) {
   await page.goto(`${origin}/unit/neighborhood?space=space`);
   await page.evaluate(async prepare => {
     const s = await import(String('/space-offline-store.js'));
-    const bundle = { protocol: 'space/1', issuanceId: 'date-regression', scope: { facilityId: 'facility', departmentId: 'department', unitId: 'neighborhood', spaceId: 'space' }, actorRef: 'user:worker', sessionVersion: 0, operationalDate: '2026-10-19', issuedAt: new Date().toISOString(), expiresAt: '2026-10-20T06:00:00Z', label: 'Private Space label', timezone: 'America/New_York', reviewDigest: 'd'.repeat(64), targets: [{ kind: 'WORK', id: 'work', label: 'Private Work', instructions: 'Private date-bound instructions', baseline: 'b'.repeat(64), available: true, completed: false }] };
+    const bundle = { protocol: 'space/1', issuanceId: 'date-regression', scope: { facilityId: 'facility', departmentId: 'department', unitId: 'neighborhood', spaceId: 'space' }, actorRef: 'user:worker', sessionVersion: 0, operationalDate: '2026-10-19', issuedAt: new Date().toISOString(), expiresAt: '2026-10-20T06:00:00Z', label: 'Private Space label', timezone: 'America/New_York', reviewDigest: 'd'.repeat(64), targets: [{ kind: 'ASSIGNMENT', id: 'work', label: 'Private Work', instructions: 'Private date-bound instructions', baseline: 'b'.repeat(64), available: true, completed: false }] };
     const prepared = { bundle, key: btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))) };
     const root = document.querySelector<HTMLElement>('#probe')!;
     if (prepare) await s.install(prepared);
@@ -33,8 +33,8 @@ async function setup(page: Page, prepare = true) {
   }, prepare);
 }
 async function locked(page: Page) {
-  await expect(page.getByTestId('space-work-instructions')).toHaveCount(0);
-  await expect(page.getByTestId('space-work-complete')).toHaveCount(0);
+  await expect(page.getByTestId('space-assignment-instructions')).toHaveCount(0);
+  await expect(page.getByTestId('space-assignment-complete')).toHaveCount(0);
   await expect(page.getByTestId('space-key-time-actual')).toHaveCount(0);
   await expect(page.getByTestId('space-offline-sync')).toBeHidden();
   await expect(page.locator('h2')).toHaveText('Offline for this Space');
@@ -43,18 +43,18 @@ async function locked(page: Page) {
 
 test('date guard @ci-gate: non-UTC pre-boundary control, idle lock and intact encrypted command', async ({ page }) => {
   await setup(page);
-  await page.getByTestId('space-work-complete').click();
+  await page.getByTestId('space-assignment-complete').click();
   const sealed = await page.evaluate(async () => { const s = await import(String('/space-offline-store.js')); return (await s.envelopes())[0]; });
   expect(sealed.commands).toHaveLength(1);
   expect(JSON.stringify(sealed)).not.toContain('Private');
   await page.clock.runFor(1000);
-  await expect(page.getByTestId('space-work-instructions')).toBeVisible();
+  await expect(page.getByTestId('space-assignment-instructions')).toBeVisible();
   await page.clock.setSystemTime(new Date(after));
   await page.clock.runFor(1000);
   await locked(page);
   const result = await page.evaluate(async () => {
     const s = await import(String('/space-offline-store.js')), row = (await s.envelopes())[0];
-    try { await s.queue(row, { id: 'work', kind: 'WORK' }); return { row, rejected: false }; }
+    try { await s.queue(row, { id: 'work', kind: 'ASSIGNMENT' }); return { row, rejected: false }; }
     catch { return { row, rejected: true }; }
   });
   expect(result.rejected).toBe(true);

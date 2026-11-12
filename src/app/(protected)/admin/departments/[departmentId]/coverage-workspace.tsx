@@ -17,7 +17,6 @@ import { Select, TextArea, TextInput } from "@/components/design-system/Field";
 import { Drawer } from "@/components/drawer";
 import { StatusBadge } from "@/components/design-system";
 import { departmentAdminHref } from "@/lib/department-administration/admin-nav";
-import { groupCoverageRequirements } from "@/lib/department-administration/people-coverage-presentation";
 import type {
   CoverageCatalog,
   CoverageExpectationItemView,
@@ -39,6 +38,16 @@ function statusVariant(status: CoverageExpectationView["status"]): "neutral" | "
   return "neutral";
 }
 
+function formatLocation(item: CoverageExpectationItemView): string {
+  if (item.spaceId) {
+    return item.spaceName ? `Space · ${item.spaceName}` : "Space-specific";
+  }
+  if (item.unitId) {
+    return item.unitName ? `Unit-wide · ${item.unitName}` : "Unit-wide";
+  }
+  return "No location configured";
+}
+
 export function CoverageWorkspace({
   departmentId,
   departmentName,
@@ -50,12 +59,11 @@ export function CoverageWorkspace({
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const selected = expectations.find((row) => row.id === selectedExpectationId) ?? null;
-  const groups = groupCoverageRequirements(expectations, catalog.cycles);
 
   function openExpectation(id: string | null) {
     const href = id
-      ? `${departmentAdminHref(departmentId, "people")}&expectation=${encodeURIComponent(id)}`
-      : departmentAdminHref(departmentId, "people");
+      ? `${departmentAdminHref(departmentId, "coverage")}&expectation=${encodeURIComponent(id)}`
+      : departmentAdminHref(departmentId, "coverage");
     router.push(href);
   }
 
@@ -63,11 +71,10 @@ export function CoverageWorkspace({
     <div className="max-w-5xl space-y-3" data-testid="department-coverage-panel">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-2">
-          <h2 className="text-base font-semibold text-zinc-900">Coverage requirements</h2>
+          <h2 className="text-base font-semibold text-zinc-900">Coverage</h2>
           <p className="text-sm text-zinc-600">
-            Staffing {departmentName} requires at each location. A room with no published
-            requirement is not configured for zero people. Draft edits do not change today’s Run
-            until they are published.
+            Expected operational responsibilities for {departmentName}. Draft edits do not change
+            today’s Run until they are published.
           </p>
         </div>
         {canManage ? (
@@ -89,7 +96,7 @@ export function CoverageWorkspace({
       {expectations.length === 0 && !adding ? (
         <EmptyState
           title="No coverage expectations yet"
-          description="Choose the rooms, the operating period, the role, and how many people are required."
+          description="Define which operational responsibilities are required for a Unit or a specific Space during each Operational Cycle."
           action={
             canManage ? (
               <Button type="button" onClick={() => setAdding(true)} data-testid="add-coverage-empty">
@@ -101,41 +108,30 @@ export function CoverageWorkspace({
         />
       ) : null}
 
-      {groups.length > 0 ? (
-        <div className="space-y-4" data-testid="coverage-requirement-groups">
-          {groups.map((group) => (
-            <section key={group.locationName} className="rounded-lg border border-zinc-200 bg-white">
-              <h3 className="border-b border-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900">
-                {group.locationName}
-              </h3>
-              {group.periods.map((period) => (
-                <div key={period.periodLabel} className="px-3 py-2">
-                  <p className="text-xs font-medium text-zinc-500">{period.periodLabel}</p>
-                  <ul className="mt-1 divide-y divide-zinc-100">
-                    {period.rows.map((row) => (
-                      <li key={`${row.itemId}-${period.periodLabel}`}>
-                        <button
-                          type="button"
-                          onClick={() => openExpectation(row.expectationId)}
-                          className="flex w-full items-center justify-between gap-3 py-2 text-left hover:bg-zinc-50"
-                          data-testid="coverage-expectation-row"
-                        >
-                          <span className="text-sm text-zinc-800">
-                            {row.roleLabel} — Required: {row.requiredCount}
-                            {row.effectiveFrom ? ` · Effective ${row.effectiveFrom}` : ""}
-                          </span>
-                          <StatusBadge variant={statusVariant(row.status)}>
-                            {row.statusLabel}
-                          </StatusBadge>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </section>
+      {expectations.length > 0 ? (
+        <ul className="divide-y divide-zinc-100" data-testid="coverage-expectation-list">
+          {expectations.map((row) => (
+            <li key={row.id}>
+              <button
+                type="button"
+                onClick={() => openExpectation(row.id)}
+                className={`flex w-full items-center gap-3 py-3 text-left transition-colors hover:bg-zinc-50 ${
+                  selectedExpectationId === row.id ? "bg-amber-50/60" : ""
+                }`}
+                data-testid="coverage-expectation-row"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-zinc-900">{row.name}</span>
+                  <span className="block text-xs text-zinc-600">
+                    {row.items.length} {row.items.length === 1 ? "requirement" : "requirements"}
+                    {row.effectiveFrom ? ` · Effective ${row.effectiveFrom}` : ""}
+                  </span>
+                </span>
+                <StatusBadge variant={statusVariant(row.status)}>{row.status}</StatusBadge>
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : null}
 
       <Drawer
@@ -149,7 +145,8 @@ export function CoverageWorkspace({
         data-testid="coverage-expectation-drawer"
       >
         {adding && !selected ? (
-          <DepartmentAdminActionForm action={createCoverageExpectationAction} className="space-y-3">
+          <DepartmentAdminActionForm action={createCoverageExpectationAction} className="space-y-3"
+            expectationRedirect={{ departmentId }} onSuccess={() => setAdding(false)}>
             <input type="hidden" name="departmentId" value={departmentId} />
             <TextInput name="name" label="Name" required maxLength={100} data-testid="coverage-name-input" />
             <TextArea name="description" label="Description" maxLength={500} rows={2} />
@@ -184,7 +181,8 @@ function ExpectationEditor({
   return (
     <div className="space-y-5" data-testid="coverage-expectation-editor">
       {canManage ? (
-        <DepartmentAdminActionForm action={updateCoverageExpectationAction} className="space-y-3">
+        <DepartmentAdminActionForm action={updateCoverageExpectationAction} className="space-y-3"
+          expectationRedirect={{ departmentId }}>
           <input type="hidden" name="departmentId" value={departmentId} />
           <input type="hidden" name="templateId" value={expectation.id} />
           <TextInput
@@ -223,27 +221,12 @@ function ExpectationEditor({
                   {item.roleLabel} × {item.requiredCount}
                 </p>
                 <p className="text-xs text-zinc-500">
-                  {item.spaceName || "No location"}
+                  {formatLocation(item)}
                   {" · "}
-                  {item.applicableOperationalCycleStableKeys
-                    .map((key) => catalog.cycles.find((cycle) => cycle.stableKey === key)?.label ?? key)
-                    .join(", ") || "No cycle"}
+                  {item.applicableOperationalCycleStableKeys.join(", ") || "No cycle"}
                 </p>
                 {canManage ? (
-                  <details className="rounded-md border border-zinc-100 p-2">
-                    <summary className="cursor-pointer text-xs font-medium text-zinc-600">
-                      Edit requirement
-                    </summary>
-                    <RequirementForm
-                      departmentId={departmentId}
-                      templateId={expectation.id}
-                      catalog={catalog}
-                      item={item}
-                    />
-                  </details>
-                ) : null}
-                {canManage ? (
-                  <DepartmentAdminActionForm action={removeCoverageExpectationItemAction}>
+                  <DepartmentAdminActionForm action={removeCoverageExpectationItemAction} expectationRedirect={{ departmentId }}>
                     <input type="hidden" name="departmentId" value={departmentId} />
                     <input type="hidden" name="templateId" value={expectation.id} />
                     <input type="hidden" name="itemId" value={item.id} />
@@ -269,6 +252,7 @@ function ExpectationEditor({
       {canManage && expectation.status === "DRAFT" ? (
         <DepartmentAdminActionForm
           action={publishCoverageExpectationAction}
+          expectationRedirect={{ departmentId }}
           className="space-y-2 border-t border-zinc-200 pt-3"
         >
           <input type="hidden" name="departmentId" value={departmentId} />
@@ -297,131 +281,118 @@ function RequirementForm({
   departmentId,
   templateId,
   catalog,
-  item,
 }: {
   departmentId: string;
   templateId: string;
   catalog: CoverageCatalog;
-  item?: CoverageExpectationItemView;
 }) {
-  const [spaceIds, setSpaceIds] = useState<string[]>(item?.spaceId ? [item.spaceId] : []);
-  const [roomType, setRoomType] = useState("");
-  const [cycleStableKeys, setCycleStableKeys] = useState<string[]>(
-    item ? [...item.applicableOperationalCycleStableKeys] : [],
-  );
+  const [cycleStableKeys, setCycleStableKeys] = useState<string[]>([]);
+  const [locationScope, setLocationScope] = useState<"UNIT" | "SPACE">("SPACE");
 
   return (
     <div data-testid="coverage-requirement-form">
-    <DepartmentAdminActionForm
-      action={upsertCoverageExpectationItemAction}
-      className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3"
-    >
-      <input type="hidden" name="departmentId" value={departmentId} />
-      <input type="hidden" name="templateId" value={templateId} />
-      {item ? <input type="hidden" name="itemId" value={item.id} /> : null}
-      <Select
-        name="roleKey"
-        label="Responsibility"
-        required
-        defaultValue={item?.roleKey ?? ""}
-        data-testid="coverage-role-select"
+      <DepartmentAdminActionForm
+        action={upsertCoverageExpectationItemAction}
+        expectationRedirect={{ departmentId }}
+        className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3"
       >
-        <option value="">Select a responsibility</option>
-        {catalog.roles.map((role) => (
-          <option key={role.key} value={role.key}>
-            {role.label}
-          </option>
-        ))}
-      </Select>
-      <TextInput
-        name="requiredCount"
-        label="Required"
-        type="number"
-        min={1}
-        max={50}
-        defaultValue={String(item?.requiredCount ?? 1)}
-        required
-      />
-      <section className="space-y-1" data-testid="coverage-locations">
-        <p className="text-xs font-medium text-zinc-700">Locations</p>
-        <p className="text-xs text-zinc-500">
-          Room type only filters this list. Saving stores the selected rooms.
-        </p>
-        <select
-          aria-label="Room type"
-          value={roomType}
-          onChange={(event) => setRoomType(event.target.value)}
-          className="min-h-9 rounded-md border border-zinc-300 px-2 text-sm"
-        >
-          <option value="">Room type</option>
-          {[...new Set(catalog.locations.map((row) => row.roomTypeLabel).filter(Boolean))].map(
-            (label) => (
-              <option key={label} value={label!}>
-                {label}
-              </option>
-            ),
+        <input type="hidden" name="departmentId" value={departmentId} />
+        <input type="hidden" name="templateId" value={templateId} />
+        <Select name="roleKey" label="Responsibility" required data-testid="coverage-role-select">
+          <option value="">Select a responsibility</option>
+          {catalog.roles.map((role) => (
+            <option key={role.key} value={role.key}>
+              {role.label}
+            </option>
+          ))}
+        </Select>
+        <TextInput
+          name="requiredCount"
+          label="Required"
+          type="number"
+          min={1}
+          max={50}
+          defaultValue="1"
+          required
+        />
+        <section className="space-y-2" data-testid="coverage-location-scope">
+          <p className="text-xs font-medium text-zinc-700">Location</p>
+          <div className="flex flex-wrap gap-3 text-sm text-zinc-800">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="locationScope"
+                value="SPACE"
+                checked={locationScope === "SPACE"}
+                onChange={() => setLocationScope("SPACE")}
+              />
+              Specific Space
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="locationScope"
+                value="UNIT"
+                checked={locationScope === "UNIT"}
+                onChange={() => setLocationScope("UNIT")}
+              />
+              Unit-wide
+            </label>
+          </div>
+          {locationScope === "SPACE" ? (
+            <Select name="spaceId" label="Space" required data-testid="coverage-space-select">
+              <option value="">Select a Space</option>
+              {catalog.spaces.map((space) => (
+                <option key={space.id} value={space.id}>
+                  {space.name}
+                  {space.unitName ? ` · ${space.unitName}` : ""}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Select name="unitId" label="Unit" required data-testid="coverage-unit-select">
+              <option value="">Select a Unit</option>
+              {catalog.units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.name}
+                </option>
+              ))}
+            </Select>
           )}
-        </select>
-        {catalog.locations.length === 0 ? (
-          <p className="text-xs text-zinc-500">No responsible rooms yet.</p>
-        ) : (
-          catalog.locations
-            .filter((location) => !roomType || location.roomTypeLabel === roomType)
-            .map((location) => (
-            <label key={location.id} className="flex items-center gap-2 text-sm text-zinc-800">
-              <input
-                type="checkbox"
-                name="spaceIds"
-                value={location.id}
-                checked={spaceIds.includes(location.id)}
-                onChange={() =>
-                  setSpaceIds((current) =>
-                    current.includes(location.id)
-                      ? current.filter((id) => id !== location.id)
-                      : [...current, location.id],
-                  )
-                }
-              />
-              {location.name}
-              {location.roomTypeLabel ? ` · ${location.roomTypeLabel}` : ""}
-            </label>
-          ))
-        )}
-      </section>
-      <section className="space-y-1" data-testid="coverage-cycles">
-        <p className="text-xs font-medium text-zinc-700">Operational Cycles</p>
-        {catalog.cycles.length === 0 ? (
-          <p className="text-xs text-zinc-500">No Operational Cycles are configured yet.</p>
-        ) : (
-          catalog.cycles.map((cycle) => (
-            <label key={cycle.stableKey} className="flex items-center gap-2 text-sm text-zinc-800">
-              <input
-                type="checkbox"
-                name="cycleStableKeys"
-                value={cycle.stableKey}
-                checked={cycleStableKeys.includes(cycle.stableKey)}
-                onChange={() =>
-                  setCycleStableKeys((current) =>
-                    current.includes(cycle.stableKey)
-                      ? current.filter((key) => key !== cycle.stableKey)
-                      : [...current, cycle.stableKey],
-                  )
-                }
-              />
-              {cycle.label}
-            </label>
-          ))
-        )}
-      </section>
-      {item ? (
-        <p className="text-xs text-zinc-500">
-          Saving a published requirement starts a new draft. The published row stays as history.
-        </p>
-      ) : null}
-      <Button type="submit" size="compact">
-        {item ? "Save requirement" : "Add requirement"}
-      </Button>
-    </DepartmentAdminActionForm>
+          <p className="text-[11px] text-zinc-500">
+            Unit-wide needs apply to every Department Space in that Unit. Space needs apply only to
+            the selected room. Unconfigured locations do not appear as uncovered.
+          </p>
+        </section>
+        <section className="space-y-1" data-testid="coverage-cycles">
+          <p className="text-xs font-medium text-zinc-700">Operational Cycles</p>
+          {catalog.cycles.length === 0 ? (
+            <p className="text-xs text-zinc-500">No Operational Cycles are configured yet.</p>
+          ) : (
+            catalog.cycles.map((cycle) => (
+              <label key={cycle.stableKey} className="flex items-center gap-2 text-sm text-zinc-800">
+                <input
+                  type="checkbox"
+                  name="cycleStableKeys"
+                  value={cycle.stableKey}
+                  checked={cycleStableKeys.includes(cycle.stableKey)}
+                  onChange={() =>
+                    setCycleStableKeys((current) =>
+                      current.includes(cycle.stableKey)
+                        ? current.filter((key) => key !== cycle.stableKey)
+                        : [...current, cycle.stableKey],
+                    )
+                  }
+                />
+                {cycle.label}
+              </label>
+            ))
+          )}
+        </section>
+        <Button type="submit" size="compact">
+          Add requirement
+        </Button>
+      </DepartmentAdminActionForm>
     </div>
   );
 }

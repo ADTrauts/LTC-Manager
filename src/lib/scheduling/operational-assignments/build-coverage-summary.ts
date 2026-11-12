@@ -76,6 +76,7 @@ export type CoverageSummary = {
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export type DietaryCoverageAssignmentInput = {
+  employeeId?: string | null;
   id?: string;
   unitId: string | null;
   unitName: string | null;
@@ -176,6 +177,7 @@ export async function buildDietaryCoverageSummary(
 
   const actuals: CoverageAssignmentActual[] = input.assignments.map((assignment, index) => ({
     id: assignment.id ?? `oa-${index}-${assignment.roleKey}-${assignment.unitId ?? "none"}`,
+    employeeId: assignment.employeeId,
     roleKey: assignment.roleKey,
     status: assignment.status,
     unitId: assignment.unitId,

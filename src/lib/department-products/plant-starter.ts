@@ -102,6 +102,8 @@ export async function installPlantStarterConfiguration(
     client?: DbClient;
   },
 ): Promise<PlantStarterInstallResult> {
+  void session;
+  void input.actor;
   const catalog = new Map(listPlantStarterCatalog().map((row) => [row.id, row]));
   const selected = input.selectedIds.filter((id): id is PlantStarterItemId =>
     catalog.has(id as PlantStarterItemId),

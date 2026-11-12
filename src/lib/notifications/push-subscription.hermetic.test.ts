@@ -179,7 +179,7 @@ test("manifest and browser notification identity are Vssyl", () => {
 test("the existing service worker stays the only worker and does not decide attention", () => {
   const worker = source("public/sw.js");
   const register = source("src/components/pwa-register.tsx");
-  assert.match(worker, /ltc-offline-shell-v4/);
+  assert.match(worker, /const CACHE_VERSION = "ltc-offline-shell-v\d+"/);
   assert.match(worker, /pathname\.startsWith\("\/api\/"\)/);
   assert.match(worker, /isProtectedHtmlPath/);
   assert.match(worker, /addEventListener\("push"/);

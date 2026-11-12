@@ -15,13 +15,10 @@ export type {
   JobFlowContext,
   JobFlowCurrent,
   JobFlowCycleSnapshot,
-  JobFlowLocationSequence,
-  JobFlowLocationSequenceItem,
   JobFlowMilestoneState,
   JobFlowNext,
   JobFlowPhaseStatus,
   JobFlowProgressPhase,
-  JobFlowScopeSummary,
   JobFlowState,
   JobFlowSyncState,
   JobFlowUnitSnapshot,
@@ -30,9 +27,7 @@ export type {
   SupervisorExceptionGroup,
   SupervisorExceptionItem,
   SupervisorExceptionTemporal,
-  SupervisorLocationCoverageRow,
   SupervisorOperationsBoard,
-  SupervisorOperationsFilters,
 } from "./types";
 
 export { DUE_SOON_MS } from "./types";

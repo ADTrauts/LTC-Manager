@@ -12,7 +12,6 @@ export type DashboardCardId =
   | "departments_glance"
   | "shift_now"
   | "timeline"
-  | "expected_work"
   | "maintenance_open"
   | "pm_due"
   | "request_triage"

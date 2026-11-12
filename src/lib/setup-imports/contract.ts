@@ -11,7 +11,7 @@ export type Operation = {
   locationPlan?: import("@/lib/bulk-import/facility-structure").FacilityStructureImportPlan;
   targetKey: string; employeeId?: string; userId?: string; departmentId?: string; unitId?: string; spaceId?: string;
   firstName?: string; lastName?: string; email?: string; roleType?: string; employmentType?: string; phone?: string;
-  membership?: string; teamId?: string; teamPrimary?: boolean; jobRoleId?: string; jobTitleId?: string;
+  membership?: string; teamId?: string; teamPrimary?: boolean; jobTitleId?: string;
   locationType?: string; locationId?: string; responsibilityKind?: string;
   asset?: { name: string; equipmentType: string; assetCode: string | null; serialNumber: string | null; facilityAssetNumber: string | null; manufacturer: string | null; model: string | null; description: string | null; notes: string | null; criticality: string; status: string };
 };

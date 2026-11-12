@@ -105,7 +105,9 @@ export type DashboardAccessFact = Pick<
   "mode" | "operatingModel" | "operatorName" | "vendorHeadAccepted"
 >;
 
-export type DashboardTeamScopeFact = Pick<ViewerTeamScope, "mode" | "activeTeams" | "roomIds">;
+export type DashboardTeamScopeFact = Pick<ViewerTeamScope, "activeTeams" | "roomIds"> & {
+  mode: ViewerTeamScope["mode"] | "TEAM_SCOPED";
+};
 
 export type DashboardViewerFacts = {
   session: FacilitySession;
@@ -249,6 +251,10 @@ export function deriveDashboardViewer(facts: DashboardViewerFacts): DashboardVie
       if (!department) break;
       available = [departmentScope(department.id)];
       defaultScope = available[0]!;
+      if (facts.teamScope?.activeTeams.length) {
+        available.push({ kind: "TEAM", departmentId: department.id,
+          teamIds: facts.teamScope.activeTeams.map(team => team.id), roomIds: facts.teamScope.roomIds });
+      }
       break;
     }
   }

@@ -25,6 +25,11 @@ const CONTENT_SECURITY_POLICY = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // PDFKit loads its built-in font modules dynamically at runtime.
+  serverExternalPackages: ["pdfkit"],
+  outputFileTracingIncludes: {
+    "/reports/export": ["./node_modules/pdfkit/js/standard-fonts/*.cjs"],
+  },
   // Verification artifacts and test sources are never production function inputs.
   outputFileTracingExcludes: {
     "/*": ["./docs/**", "./tests/**", "./tmp/**", "./src/**/*.test.ts", "./src/**/*.test.tsx"],

@@ -26,7 +26,7 @@ test("generic Work is not a Department Builder primary tab after restore debt", 
   const adminNav = readFileSync(join(root, "src/lib/department-administration/admin-nav.ts"), "utf8");
   assert.doesNotMatch(adminNav, /id:\s*"work"/);
   assert.match(adminNav, /DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT/);
-  assert.equal("work" in DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT, false);
+  assert.equal(DEPARTMENT_ADMIN_RETIRED_TAB_REDIRECT.work, "overview");
 });
 
 test("a responsible room composes without a profile", () => {

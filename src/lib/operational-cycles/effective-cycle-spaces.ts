@@ -1,5 +1,24 @@
 import type { OperationalCycleDefinition } from "./types";
 
+export const CANONICAL_CYCLE_LOCATION_MODES = ["ALL_DEPARTMENT_UNITS", "EXPLICIT_UNITS"] as const;
+
+export function isCanonicalCycleLocationMode(
+  value: string,
+): value is (typeof CANONICAL_CYCLE_LOCATION_MODES)[number] {
+  return value === "ALL_DEPARTMENT_UNITS" || value === "EXPLICIT_UNITS";
+}
+
+export function cycleLocationOwner<T extends Pick<OperationalCycleDefinition, "nodeKind" | "locationInheritFromParent" | "parentStableKey">>(
+  cycle: T,
+  allCyclesByStableKey?: ReadonlyMap<string, T>,
+): T | undefined {
+  if (cycle.nodeKind === "KEY_TIME" || !cycle.locationInheritFromParent) return cycle;
+  const parent = cycle.parentStableKey ? allCyclesByStableKey?.get(cycle.parentStableKey) : undefined;
+  return parent?.nodeKind === "PERIOD" && !parent.parentStableKey && !parent.locationInheritFromParent
+    ? parent
+    : undefined;
+}
+
 type CycleSpaceSource = Pick<
   OperationalCycleDefinition,
   | "stableKey"
@@ -32,18 +51,8 @@ export function effectiveCycleSpaceIds(
     return ids;
   }
 
-  if (cycle.locationInheritFromParent && cycle.parentStableKey) {
-    const parent = allCyclesByStableKey.get(cycle.parentStableKey);
-    if (parent) {
-      return effectiveCycleSpaceIds(parent, allCyclesByStableKey);
-    }
-  }
-
-  if (cycle.locationMode === "EXPLICIT_UNITS") {
-    return [...cycle.spaceIds];
-  }
-
-  return [];
+  const owner = cycleLocationOwner(cycle, allCyclesByStableKey);
+  return owner?.locationMode === "EXPLICIT_UNITS" ? [...owner.spaceIds] : [];
 }
 
 export function buildCyclesByStableKey<T extends { stableKey: string }>(

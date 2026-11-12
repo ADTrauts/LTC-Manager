@@ -12,6 +12,7 @@ import { join } from "node:path";
 
 import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
 import { getDepartmentProduct } from "@/lib/department-products";
+import { ensureInitialDepartmentOperator } from "@/lib/department-operators/service";
 import {
   createKnowledgeArticleWithInitialVersion,
   loadCurrentPublishedVersion,
@@ -92,6 +93,11 @@ async function createFacilityFixture(
   const plant = await prisma.department.create({
     data: { facilityId: facility.id, key: "PLANT", name: "Plant Operations" },
   });
+  await ensureInitialDepartmentOperator(prisma, {
+    facilityId: facility.id,
+    departmentId: plant.id,
+    effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
+  });
   const unit = await prisma.unit.create({
     data: {
       facilityId: facility.id,
@@ -159,6 +165,29 @@ async function createFacilityFixture(
       emailVerifiedAt: new Date(),
     },
   });
+  for (const [person, roleKey] of [
+    [manager, "MANAGER"],
+    [supervisor, "SUPERVISOR"],
+    [staff, "STAFF"],
+  ] as const) {
+    await prisma.userFacilityAccess.create({
+      data: {
+        userId: person.id,
+        facilityId: facility.id,
+        rolePeriods: { create: { roleKey, startsAt: new Date("2026-01-01T00:00:00.000Z") } },
+      },
+    });
+    await prisma.employee.create({
+      data: {
+        userId: person.id,
+        facilityId: facility.id,
+        firstName: "Phase4B",
+        lastName: person.displayName ?? roleKey,
+        roleType: roleKey,
+        primaryDepartmentId: plant.id,
+      },
+    });
+  }
   const employee = await prisma.employee.create({
     data: {
       id: cuidLike(),
@@ -308,19 +337,19 @@ test("Facility Plant Operations is AVAILABLE", () => {
   assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
 });
 
-test("phase 4B migration documents the active Work Order partial unique index", () => {
+test("baseline preserves the active Work Order partial unique index", () => {
   const sql = readFileSync(
     join(
       process.cwd(),
-      "prisma/migrations/20261006140000_pm_active_work_order_unique/migration.sql",
+      "prisma/migrations/20261111120000_canonical_baseline/migration.sql",
     ),
     "utf8",
   );
-  assert.match(sql, /Repair_pmOccurrenceId_active_key/);
-  assert.match(sql, /pmOccurrenceId/);
-  assert.match(sql, /COMPLETED/);
-  assert.match(sql, /CLOSED/);
-  assert.match(sql, /CANCELLED/);
+  const index = sql.match(/CREATE UNIQUE INDEX "Repair_pmOccurrenceId_active_key"[^;]+;/)?.[0];
+  assert.ok(index);
+  assert.match(index, /pmOccurrenceId/);
+  assert.match(index, /COMPLETED/);
+  assert.match(index, /CANCELLED/);
 });
 
 test(
@@ -937,11 +966,26 @@ test(
         procedureVersionId: nyKit.procedure.id,
         templateId: nyKit.template.id,
       });
+      // The cron scans all published PM plans. Limit facility discovery to
+      // these fixtures so it cannot generate work for concurrent SQL suites.
+      const cronFacilityIds = [fx.facility.id, nz.facility.id, nyZone.facility.id];
+      const cronClient = prisma.$extends({
+        query: {
+          facility: {
+            findMany({ args, query }) {
+              return query({
+                ...args,
+                where: { AND: [args.where ?? {}, { id: { in: cronFacilityIds } }] },
+              });
+            },
+          },
+        },
+      }) as unknown as PrismaClient;
       const prevSecretInner = process.env.CRON_SECRET;
       delete process.env.CRON_SECRET;
       const unconfigured = await handlePlantPmCron(
         new Request("https://vssyl.com/api/internal/plant/preventive-maintenance"),
-        prisma,
+        cronClient,
         zoneNow,
       );
       assert.equal(unconfigured.status, 503);
@@ -950,7 +994,7 @@ test(
         new Request("https://vssyl.com/api/internal/plant/preventive-maintenance", {
           headers: { authorization: "Bearer wrong" },
         }),
-        prisma,
+        cronClient,
         zoneNow,
       );
       assert.equal(unauthorized.status, 401);
@@ -958,7 +1002,7 @@ test(
         new Request("https://vssyl.com/api/internal/plant/preventive-maintenance", {
           headers: { authorization: "Bearer phase4b-cron-secret" },
         }),
-        prisma,
+        cronClient,
         zoneNow,
       );
       assert.equal(authorized.status, 200);
@@ -968,7 +1012,7 @@ test(
         configurationErrors: unknown[];
       };
       assert.equal(body.ok, true);
-      assert.ok(body.facilitiesProcessed >= 1);
+      assert.equal(body.facilitiesProcessed, cronFacilityIds.length);
       const nzOcc = await prisma.preventiveMaintenanceOccurrence.findMany({
         where: { plan: { facilityId: nz.facility.id } },
       });
@@ -980,8 +1024,8 @@ test(
       if (prevSecretInner === undefined) process.env.CRON_SECRET = "phase4b-cron-secret";
       else process.env.CRON_SECRET = prevSecretInner;
 
-      const batch = await runPmGeneration(prisma, { now: catchUpNow });
-      assert.ok(batch.facilitiesProcessed >= 1);
+      const batch = await runPmGeneration(cronClient, { now: catchUpNow });
+      assert.equal(batch.facilitiesProcessed, cronFacilityIds.length);
       assert.ok(Array.isArray(batch.configurationErrors));
     } finally {
       if (prevPlant === undefined) delete process.env.PLANT_OPERATIONS_ENABLED;

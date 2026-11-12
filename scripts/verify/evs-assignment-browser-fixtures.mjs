@@ -514,8 +514,7 @@ async function main() {
       effectiveFrom: serviceDateUtc("2026-01-01"),
       effectiveTo: null,
       mealType: null,
-      locationMode: "UNIT_TYPES",
-      applicableUnitTypes: ["RESIDENT_AREA", "COMMON_AREA", "EVS_ZONE"],
+      locationMode: "ALL_DEPARTMENT_UNITS",
       expectedMilestones: [],
       status: "PUBLISHED",
       publishedAt: new Date(),
@@ -552,81 +551,6 @@ async function main() {
         },
         select: { id: true, title: true },
       }));
-
-    // Multiple Work Plans: routine + one-off-oriented second plan
-    const routinePlanId = cuidLike();
-    const routineItemId = cuidLike();
-    const routineItemKey = "surfaces";
-    await db.departmentWorkPlan.create({
-      data: {
-        id: routinePlanId,
-        facilityId: facility.id,
-        departmentId: evs.id,
-        stableKey: `evs_assign_room_clean_${routinePlanId.slice(-6)}`,
-        version: 1,
-        name: "Assign Gate EVS Room Clean",
-        description: "Published EVS Work Plan for assignment browser gate",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-        weekdays: [],
-        applicabilities: {
-          create: [{ id: cuidLike(), kind: "SPACE_TYPE", spaceType: "PATIENT_ROOM" }],
-        },
-        items: {
-          create: [
-            {
-              id: routineItemId,
-              itemKey: routineItemKey,
-              label: "Clean high-touch surfaces",
-              instructions: "Wipe high-touch surfaces per procedure.",
-              displaySequence: 10,
-              priority: "ROUTINE",
-              completionMode: "EXPLICIT_CONFIRMATION",
-              responsibilityMode: "UNIT_SHARED",
-              scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-              knowledgeArticleId: article.id,
-              procedureTitleSnapshot: article.title,
-              supervisorVisible: true,
-            },
-          ],
-        },
-      },
-    });
-
-    const oneOffPlanId = cuidLike();
-    await db.departmentWorkPlan.create({
-      data: {
-        id: oneOffPlanId,
-        facilityId: facility.id,
-        departmentId: evs.id,
-        stableKey: `evs_assign_discharge_${oneOffPlanId.slice(-6)}`,
-        version: 1,
-        name: "Assign Gate Discharge Ready",
-        description: "Second published EVS plan for scale fixture",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-        weekdays: [],
-        applicabilities: {
-          create: [{ id: cuidLike(), kind: "SPACE_TYPE", spaceType: "PATIENT_ROOM" }],
-        },
-        items: {
-          create: [
-            {
-              id: cuidLike(),
-              itemKey: "discharge_wipe",
-              label: "Discharge wipe-down",
-              instructions: "Synthetic discharge clean checklist.",
-              displaySequence: 10,
-              priority: "TIME_SENSITIVE",
-              completionMode: "EXPLICIT_CONFIRMATION",
-              responsibilityMode: "UNIT_SHARED",
-              scheduleKind: "ONCE_PER_OPERATIONAL_DATE",
-              supervisorVisible: true,
-            },
-          ],
-        },
-      },
-    });
 
     // Confirmed plan + multi-room assignment for primary staff (east rooms 1–4)
     let plan = await db.operationalAssignmentPlan.findFirst({
@@ -896,11 +820,6 @@ async function main() {
       scaleEmployeeCount: evsEmployeeCount,
       supervisorCount,
       multiRoomAssignmentId: multiAssign.id,
-      workPlanId: routinePlanId,
-      workPlanItemId: routineItemId,
-      workPlanItemKey: routineItemKey,
-      workPlanName: "Assign Gate EVS Room Clean",
-      secondaryWorkPlanId: oneOffPlanId,
       cycleId: cycle.id,
       cycleLabel: cycle.label,
       procedureArticleId: article.id,
@@ -910,7 +829,6 @@ async function main() {
       assetCode: asset.assetCode,
       assetName: asset.name,
       assignmentsPath: "/staffing/assignments",
-      workPlansPath: "/staffing/work-plans",
       cyclesPath: "/staffing/cycles",
       operationsBoardPath: "/staffing/operations",
       logBookPath: "/staffing/log-book",

@@ -38,6 +38,8 @@ export async function loadFrontlineEmployeeAssignments(input: {
     },
     select: {
       id: true,
+      notes: true,
+      updatedAt: true,
       roleKey: true,
       roleLabel: true,
       unitId: true,
@@ -82,6 +84,9 @@ export async function loadFrontlineEmployeeAssignments(input: {
     locationsByAssignmentId.set(row.id, locations);
     return {
       id: row.id,
+      notes: row.notes,
+      updatedAt: row.updatedAt,
+      planStatus: row.plan?.status ?? null,
       roleKey: row.roleKey,
       roleLabel: row.roleLabel,
       unitId: row.unitId,

@@ -269,6 +269,8 @@ export function attachmentRangesOverlap(
 ): boolean {
   const aEnd = a.toKey ?? "9999-12-31";
   const bEnd = b.toKey ?? "9999-12-31";
+  // A placement cancelled before its first service date covers no days.
+  if (a.fromKey > aEnd || b.fromKey > bEnd) return false;
   return a.fromKey <= bEnd && b.fromKey <= aEnd;
 }
 

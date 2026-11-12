@@ -47,7 +47,7 @@ test("wrong-unit SPACE redirect and query compatibility remain on SPACE page", (
   assert.match(space, /params.set\("space"/);
   assert.match(space, /params.set\("unitTab"/);
   assert.match(space, /params.set\("evidence"/);
-  assert.match(space, /params.set\("work"/);
+  assert.doesNotMatch(space, /params.set\("work"/);
   assert.match(space, /params.set\("reportAsset"/);
 });
 
@@ -140,7 +140,7 @@ test("query-param compatibility remains canonical", () => {
   assert.match(space, /reportAsset/);
   assert.match(neighborhood, /unitTab: firstSearchValue\(input.query\?\.unitTab\)/);
   assert.match(employee, /query\?\.evidence/);
-  assert.match(employee, /query\?\.work/);
+  assert.doesNotMatch(employee, /query\?\.work/);
   assert.match(employee, /query\?\.reportAsset/);
   assert.equal(page.includes("activeInspectId"), false);
   assert.equal(neighborhood.includes("inspect="), false);

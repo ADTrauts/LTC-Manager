@@ -152,54 +152,22 @@ export function EmployeeRuntimeExperience({ view, extras }: Props) {
         </Card>
       ) : null}
 
-      {view.evsSequence ? (
-        <Card title="Work sequence" testId="employee-runtime-evs-sequence">
-          {view.evsSequence.now ? (
-            <p className="text-sm">
-              <span className="font-semibold">Now</span>{" "}
-              <Link href={view.evsSequence.now.href} className="underline underline-offset-2">
-                {view.evsSequence.now.label}
-              </Link>
-            </p>
-          ) : null}
-          {view.evsSequence.next ? (
-            <p className="text-sm">
-              <span className="font-semibold">Next</span>{" "}
-              <Link href={view.evsSequence.next.href} className="underline underline-offset-2">
-                {view.evsSequence.next.label}
-              </Link>
-            </p>
-          ) : null}
-          {view.evsSequence.queue.length > 0 ? (
-            <ul className="space-y-1 text-sm text-zinc-700">
-              {view.evsSequence.queue.map((row) => (
-                <li key={row.href}>
-                  Queue ·{" "}
-                  <Link href={row.href} className="underline underline-offset-2">
-                    {row.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </Card>
-      ) : null}
-
       {view.showExecution ? (
-        <Card title="Work & Evidence" testId="employee-runtime-work-evidence">
-          {view.work.length === 0 && view.evidenceGroups.length === 0 ? (
-            <p className="text-sm text-zinc-600">No work or evidence needs your attention right now.</p>
+        <Card title="What needs you" testId="employee-runtime-work-evidence">
+          {view.workOrders.length === 0 &&
+          view.evidenceGroups.length === 0 ? (
+            <p className="text-sm text-zinc-600">Nothing needs your attention right now.</p>
           ) : (
             <div className="space-y-4">
-              {view.work.length > 0 ? (
+              {view.workOrders.length > 0 ? (
                 <div>
-                  <h3 className="text-sm font-semibold text-zinc-800">Work</h3>
+                  <h3 className="text-sm font-semibold text-zinc-800">Work orders</h3>
                   <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
-                    {view.work.map((item) => (
+                    {view.workOrders.map((item) => (
                       <li
-                        key={item.id}
+                        key={`wo:${item.id}`}
                         className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-                        data-testid="employee-runtime-work-item"
+                        data-testid="employee-runtime-work-order-item"
                       >
                         <div>
                           <p className="text-sm font-semibold text-zinc-900">{item.label}</p>
@@ -222,7 +190,7 @@ export function EmployeeRuntimeExperience({ view, extras }: Props) {
                   <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
                     {group.items.map((item) => (
                       <li
-                        key={item.id}
+                        key={`evidence:${item.id}`}
                         className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                         data-testid="employee-runtime-evidence-item"
                       >
@@ -247,7 +215,7 @@ export function EmployeeRuntimeExperience({ view, extras }: Props) {
       ) : null}
 
       {view.showExecution && view.milestones.length > 0 ? (
-        <Card title="Milestones" testId="employee-runtime-milestones">
+        <Card title="Key points" testId="employee-runtime-milestones">
           <ul className="space-y-2">
             {view.milestones.map((row) => (
               <li key={`${row.spaceId}:${row.kind}:${row.label}`}>
@@ -261,8 +229,19 @@ export function EmployeeRuntimeExperience({ view, extras }: Props) {
         </Card>
       ) : null}
 
-      {view.showExecution && (view.issues.length > 0 || view.plantMessages.length > 0) ? (
-        <Card title="Operational issues" testId="employee-runtime-issues">
+      {view.showExecution &&
+      (view.issues.length > 0 || view.exceptions.length > 0 || view.plantMessages.length > 0) ? (
+        <Card title="Operational notices" testId="employee-runtime-issues">
+          {view.exceptions.length > 0 ? (
+            <ul className="space-y-2" data-testid="employee-runtime-exceptions">
+              {view.exceptions.map((row) => (
+                <li key={row.id}>
+                  <p className="text-sm font-semibold text-zinc-900">{row.label}</p>
+                  <p className="text-sm text-zinc-600">{row.stateLabel}</p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <ul className="space-y-2">
             {view.issues.map((row) => (
               <li key={row.issueId}>

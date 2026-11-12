@@ -15,7 +15,7 @@ export async function generateWorkbook(context:WorkbookContext){
     ["Locations fields","floor is required; neighborhood adds a Unit; locationName + locationType add a Room/place. building, roomNumber, code and description are optional. rowRef enables later references."],
     ["People fields","New people: email, firstName, lastName, roleType, employmentType, primaryDepartment. Existing people: employeeId or exact email plus explicit account-match consent. Other fields are optional assertions; no updates."],
     ["Department Locations fields","department, locationType and locationId are required. UNIT also requires kind; ROOM kind stays blank. Use ref:alias for a Locations row or an exact canonical ID."],
-    ["Membership fields","employeeId or email, department and PRIMARY/ADDITIONAL membership are required. Team/Job Role fields are optional; existing relationships are preserved."],
+    ["Membership fields","employeeId or email, department and PRIMARY/ADDITIONAL membership are required. Team fields are optional; existing relationships are preserved."],
     ["Assets fields","name, equipmentType, floor, neighborhood and at least one stable identifier (assetCode, serialNumber, facilityAssetNumber). Optional space; explicit department or unambiguous Unit default. Existing Asset authority remains required."],
     ["Reference list limit","Reference Values contains up to 800 existing identities/places/organization values. The live canonical references and Builders remain authoritative."],
   ]);

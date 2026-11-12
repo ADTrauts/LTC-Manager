@@ -4,7 +4,6 @@
  */
 
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import type {
   RuntimeLocationSpaceRef,
@@ -12,11 +11,17 @@ import type {
 } from "@/lib/runtime-location-state";
 import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
 
-import { assignmentScopeKind, assignedSpaceIdSet, filterWorkToAssignedSpaces } from "./assigned-spaces";
+import { assignmentScopeKind, assignedSpaceIdSet } from "./assigned-spaces";
 import {
   collectHarborEvidence,
   filterTemplateEvidenceToAssignedSpaces,
 } from "./evidence";
+import {
+  composeJobFlowItems,
+  type JobFlowAssignmentExceptionSource,
+  type JobFlowPreventiveMaintenanceSource,
+  type JobFlowWorkOrderSource,
+} from "./job-flow-item";
 import { resolveEmployeeNextAction } from "./next-action";
 import { aggregateAssignedOperation } from "./operation";
 import type {
@@ -39,7 +44,11 @@ export type ComposeEmployeeRuntimeFlowInput = {
   spaceRefs: readonly RuntimeLocationSpaceRef[];
   states: readonly RuntimeLocationState[];
   templateEvidence: readonly EvidenceRequirement[];
-  workRequirements: readonly WorkRequirement[];
+  /** Fail-closed assigned Work Orders for this employee (Plant). */
+  workOrders?: readonly JobFlowWorkOrderSource[];
+  /** Pre-WO PM rows; omit when WO owns execution. */
+  preventiveMaintenance?: readonly JobFlowPreventiveMaintenanceSource[];
+  assignmentExceptions?: readonly JobFlowAssignmentExceptionSource[];
   deviceBoundUnitId?: string | null;
   offline?: {
     bundleRevision?: string | null;
@@ -75,7 +84,7 @@ function emptyFlow(
     evidenceMode: "none",
     evidence: [],
     templateEvidence: [],
-    work: [],
+    items: [],
     milestones: [],
     issues: [],
     next: { kind: "none", label: "", spaceId: null, sourceId: "" },
@@ -111,8 +120,6 @@ function presentLocations(
       unitName: state?.identity.hierarchy.unitName ?? null,
       floorName: state?.identity.hierarchy.floorName ?? ref.floorName ?? null,
       neighborhoodName: state?.identity.hierarchy.neighborhoodName ?? ref.neighborhoodName ?? null,
-      operationalTypeKey: null,
-      operationalTypeName: null,
       operationLabel:
         state?.operation.state === "ACTIVE"
           ? (state.operation.current?.hierarchyLabel ?? state.operation.current?.label ?? null)
@@ -125,14 +132,25 @@ function presentLocations(
 
 function collectMilestones(states: readonly RuntimeLocationState[]): EmployeeRuntimeMilestone[] {
   const rows: EmployeeRuntimeMilestone[] = [];
+  const seen = new Set<string>();
   for (const state of states) {
+    const spaceId = state.identity.location.spaceId;
     for (const item of state.milestones.items) {
+      const cycleKey = item.cycleStableKey?.trim() || "legacy";
+      const dedupeKey = `${spaceId}:${cycleKey}:${item.kind}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
       rows.push({
-        spaceId: state.identity.location.spaceId,
+        spaceId,
         spaceName: state.identity.displayName,
         kind: item.kind,
         label: item.label,
         statusKey: item.statusKey,
+        cycleStableKey: item.cycleStableKey,
+        expectedLocal: item.timing.expectedToday,
+        adjustedLocal: item.timing.adjusted,
+        actualLocal: item.timing.actual,
+        href: null,
       });
     }
   }
@@ -212,7 +230,11 @@ export function composeEmployeeRuntimeFlow(
         ...signedIn.responsibility,
         unitId: input.deviceBoundUnitId ?? null,
       },
-      work: filterWorkToAssignedSpaces(input.workRequirements, null),
+      items: composeJobFlowItems({
+          workOrders: input.workOrders,
+          preventiveMaintenance: input.preventiveMaintenance,
+          assignmentExceptions: input.assignmentExceptions,
+        }),
     };
   }
 
@@ -232,14 +254,19 @@ export function composeEmployeeRuntimeFlow(
     evidenceMode === "template"
       ? filterTemplateEvidenceToAssignedSpaces(input.templateEvidence, spaceFilter)
       : [];
-  const work = filterWorkToAssignedSpaces(input.workRequirements, spaceFilter);
   const milestones = collectMilestones(states);
   const issues = collectIssues(states);
   const locationNext = earliestLocationNext(states);
+  const items = composeJobFlowItems({
+      harborEvidence,
+      templateEvidence,
+      milestones,
+      workOrders: input.workOrders,
+      preventiveMaintenance: input.preventiveMaintenance,
+      assignmentExceptions: input.assignmentExceptions,
+    });
   const next = resolveEmployeeNextAction({
-    work,
-    evidence: harborEvidence,
-    milestones,
+    items,
     currentAssignment: input.currentAssignment,
     upcomingAssignment: input.upcomingAssignment,
     locationNext,
@@ -264,7 +291,7 @@ export function composeEmployeeRuntimeFlow(
     evidenceMode,
     evidence: harborEvidence,
     templateEvidence,
-    work,
+    items,
     milestones,
     issues,
     next,

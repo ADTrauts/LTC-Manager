@@ -7,7 +7,7 @@ import {
   resolveCoverageExpectationsForLocation,
   selectHistoricalCoverageTemplates,
   selectRuntimeCoverageTemplates,
-  validateCoverageOperationalTypeKeys,
+  validateCoverageLocationTarget,
   type CoverageAssignmentActual,
   type CoverageExpectationItemInput,
   type CoverageLocationContext,
@@ -309,14 +309,19 @@ describe("explicit space coverage", () => {
     assert.equal(slots[0]?.state, "AT_RISK");
   });
 
-  it("does not let a unit or department-wide row cover a room", () => {
+  it("applies Unit-wide requirements only to Spaces in that Unit; rejects place-less rows", () => {
     const items = [
-      need({ id: "unit", spaceId: null, unitId: "unit-1", roleKey: "SERVER" }),
+      need({
+        id: "unit",
+        spaceId: null,
+        unitId: "unit-1",
+        roleKey: "SERVER",
+      }),
       need({
         id: "dept",
         spaceId: null,
         unitId: null,
-        roleKey: "COOK",
+        roleKey: "PREP",
         applicableOperationalCycleStableKeys: ["breakfast"],
       }),
     ];
@@ -326,25 +331,40 @@ describe("explicit space coverage", () => {
       cycles,
       cycleStableKey: "breakfast",
     });
-    const onUnit = resolveCoverageExpectationsForLocation({
+    assert.equal(onRoom.length, 1);
+    assert.equal(onRoom[0]?.roleKey, "SERVER");
+    assert.equal(onRoom[0]?.provenance, "EXPLICIT_LOCATION");
+
+    const otherUnit = resolveCoverageExpectationsForLocation({
       items,
-      context: { ...room(""), spaceId: "", unitId: "unit-1" },
+      context: { ...room("space-z"), unitId: "unit-other" },
       cycles,
       cycleStableKey: "breakfast",
     });
-    assert.deepEqual(onRoom, []);
-    assert.equal(onUnit.length, 1);
-    assert.equal(onUnit[0]?.roleKey, "SERVER");
+    assert.deepEqual(otherUnit, []);
   });
 
-  it("refuses a Location Function key as a coverage target", () => {
+  it("requires exactly one explicit Unit or Space target", () => {
     assert.throws(
       () =>
-        validateCoverageOperationalTypeKeys({
-          submittedKeys: ["servery"],
-          allowedKeys: new Set(["servery"]),
-        }),
-      /rooms this coverage need applies to/,
+        validateCoverageLocationTarget({}),
+      /Choose a Unit or a specific Space/,
     );
+    assert.throws(() => validateCoverageLocationTarget({ unitId: "unit", spaceId: "room" }), /not both/);
+    assert.deepEqual(validateCoverageLocationTarget({ unitId: "unit" }), { unitId: "unit", spaceId: null });
   });
+});
+
+
+it("counts one employee once across multiple matching Assignments and retains their provenance", () => {
+  const expectations = resolveCoverageExpectationsForLocation({ items: [need({ id: "people", spaceId: "space-a", roleKey: "SERVER", requiredCount: 2 })],
+    context: room("space-a"), cycles, cycleStableKey: "breakfast" });
+  const evaluate = (assignments: CoverageAssignmentActual[]) => evaluateCoverageSlots({ expectations, assignments,
+    spaceId: "space-a", unitId: "unit-1", plan: "RUNTIME_VISIBLE", cycleWindows: new Map([["breakfast", window]]) });
+  const samePerson = [assignment({ id: "first", employeeId: "worker-a" }), assignment({ id: "second", employeeId: "worker-a" })];
+  const one = evaluate(samePerson)[0];
+  assert.equal(one.filledCount, 1); assert.equal(one.state, "AT_RISK");
+  assert.deepEqual(one.fillingAssignmentIds, ["first", "second"]);
+  const two = evaluate([...samePerson, assignment({ id: "third", employeeId: "worker-b" })])[0];
+  assert.equal(two.filledCount, 2); assert.equal(two.state, "COVERED");
 });

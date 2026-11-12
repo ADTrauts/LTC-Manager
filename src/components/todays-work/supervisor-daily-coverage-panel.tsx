@@ -90,7 +90,7 @@ export function SupervisorDailyCoveragePanel({ coverage, canManage }: Props) {
                       {row.employeeFirstName} {row.employeeLastName}
                     </p>
                     <p className="text-xs text-zinc-600">
-                      {[row.teamDisplayName, row.jobRoleDisplayName ?? "No Job Role"]
+                      {[row.teamDisplayName, row.jobTitleName]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
@@ -246,7 +246,7 @@ export function SupervisorDailyCoveragePanel({ coverage, canManage }: Props) {
                       {row.employeeFirstName} {row.employeeLastName}
                     </p>
                     <p className="text-xs text-zinc-600">
-                      {[row.teamDisplayName, row.jobRoleDisplayName ?? "No Job Role"]
+                      {[row.teamDisplayName, row.jobTitleName]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>

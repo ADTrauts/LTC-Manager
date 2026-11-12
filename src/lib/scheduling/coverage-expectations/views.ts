@@ -10,6 +10,18 @@ export type CoverageCycleOption = {
   label: string;
 };
 
+export type CoverageUnitOption = {
+  id: string;
+  name: string;
+};
+
+export type CoverageSpaceOption = {
+  id: string;
+  name: string;
+  unitId: string | null;
+  unitName: string | null;
+};
+
 export type CoverageExpectationItemView = {
   id: string;
   roleKey: string;
@@ -35,14 +47,9 @@ export type CoverageExpectationView = {
   items: CoverageExpectationItemView[];
 };
 
-export type CoverageLocationOption = {
-  id: string;
-  name: string;
-  roomTypeLabel: string | null;
-};
-
 export type CoverageCatalog = {
   roles: CoverageRoleOption[];
-  locations: CoverageLocationOption[];
   cycles: CoverageCycleOption[];
+  units: CoverageUnitOption[];
+  spaces: CoverageSpaceOption[];
 };

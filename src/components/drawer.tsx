@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -38,6 +39,10 @@ const SIZE_CLASS: Record<DrawerSize, string> = {
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+const subscribeToHydration = () => () => {};
+const clientHydrated = () => true;
+const serverHydrated = () => false;
+
 /**
  * Shared overlay drawer — forms (right) and shell navigation (left).
  * Focus trap + Escape + backdrop + body scroll lock + return focus.
@@ -57,6 +62,7 @@ export function Drawer({
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const backdropLive = useRef(false);
+  const hydrated = useSyncExternalStore(subscribeToHydration, clientHydrated, serverHydrated);
 
   const trapFocus = useCallback((event: KeyboardEvent) => {
     if (event.key !== "Tab" || !panelRef.current) return;
@@ -76,7 +82,7 @@ export function Drawer({
   }, []);
 
   useEffect(() => {
-    if (!open) {
+    if (!open || !hydrated) {
       backdropLive.current = false;
       return;
     }
@@ -117,10 +123,9 @@ export function Drawer({
       document.body.style.overflow = prevOverflow;
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose, trapFocus]);
+  }, [open, hydrated, onClose, trapFocus]);
 
-  if (!open) return null;
-  if (typeof document === "undefined") return null;
+  if (!open || !hydrated) return null;
 
   const sideClass =
     side === "left"

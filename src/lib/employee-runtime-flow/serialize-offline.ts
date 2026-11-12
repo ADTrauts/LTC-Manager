@@ -1,10 +1,20 @@
 /**
  * Serialize EmployeeRuntimeFlow into existing offline bundle slices.
  * Reshapes only. Does not recompute due state, operation, or next.
+ *
+ * Phase 2C-2D adds optional jobFlowItemContext (additive). Legacy
+ * evidenceContext / milestones remain for command execution.
  */
 
-import type { OfflineRuntimeBundle } from "@/lib/offline/types";
+import type {
+  OfflineJobFlowItemAction,
+  OfflineJobFlowItemContext,
+  OfflineJobFlowItemSnapshot,
+  OfflineRuntimeBundle,
+} from "@/lib/offline/types";
+import { OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION } from "@/lib/offline/types";
 
+import type { JobFlowItem } from "./job-flow-item";
 import { operationSummaryLabel } from "./operation";
 import type { EmployeeRuntimeFlow } from "./types";
 
@@ -141,37 +151,81 @@ export function serializeEmployeeRuntimeEvidenceContext(
   return null;
 }
 
-export function serializeEmployeeRuntimeWorkContext(
-  flow: EmployeeRuntimeFlow,
-  lastSyncedAt: string,
-): NonNullable<OfflineRuntimeBundle["workContext"]> | null {
-  if (flow.device.mismatch) return null;
-  const scoped = flow.work.filter((row) =>
-    ["DUE", "CURRENT", "UPCOMING", "PAST_DUE_NOT_CONFIRMED", "SAVED_ON_THIS_TABLET"].includes(
-      row.state,
-    ),
-  );
+/**
+ * Map a canonical JobFlowItem to the offline command it may queue, if any.
+ * Display alone never implies execution — WO / exceptions / KEY_TIME stay null.
+ */
+export function offlineActionForJobFlowItem(item: JobFlowItem): OfflineJobFlowItemAction {
+  if (
+    item.attention === "completed" ||
+    item.attention === "not_applicable" ||
+    item.attention === "informational"
+  ) {
+    return null;
+  }
+  switch (item.ownerKind) {
+    case "RECORD_REQUIREMENT":
+      return "SUBMIT_OPERATIONAL_EVIDENCE";
+    case "OPERATING_RHYTHM_KEY_POINT":
+      if (item.ownerId.endsWith(":SERVERY_READY")) return "RECORD_SERVERY_READY";
+      if (item.ownerId.endsWith(":MEAL_SERVICE_STARTED")) return "RECORD_MEAL_SERVICE_STARTED";
+      return null;
+    case "WORK_ORDER":
+    case "PREVENTIVE_MAINTENANCE":
+    case "ASSIGNMENT_EXCEPTION":
+    default:
+      return null;
+  }
+}
+
+export function serializeOfflineJobFlowItem(item: JobFlowItem): OfflineJobFlowItemSnapshot {
+  const offlineAction = offlineActionForJobFlowItem(item);
   return {
-    requirements: scoped.map((row) => ({
-      occurrenceKey: row.occurrenceKey,
-      label: row.label,
-      state: row.state,
-      priority: row.priority,
-      completionMode: row.completionMode,
-      workPlanStableKey: row.workPlanStableKey,
-      workPlanVersion: row.workPlanVersion,
-      workItemKey: row.workItemKey,
-      workPlanId: row.workPlanId,
-      workItemId: row.workItemId,
-      instructions: row.instructions,
-      knowledgeArticleId: row.knowledgeArticleId,
-      procedureTitle: row.procedureTitle,
-      dueAt: row.dueAt?.toISOString() ?? null,
-      cycleStableKey: row.cycleStableKey,
-      windowStartLocal: row.windowStartLocal,
-      windowEndLocal: row.windowEndLocal,
-      assignedEmployeeId: row.assignedEmployeeId,
-    })),
-    lastSyncedAt,
+    ownerKind: item.ownerKind,
+    ownerId: item.ownerId,
+    label: item.label,
+    ownerState: item.ownerState,
+    attention: item.attention,
+    place: {
+      unitId: item.place.unitId,
+      spaceId: item.place.spaceId,
+      assetId: item.place.assetId,
+    },
+    time: {
+      dueAt: item.time.dueAt?.toISOString() ?? null,
+      windowStartLocal: item.time.windowStartLocal,
+      windowEndLocal: item.time.windowEndLocal,
+    },
+    href: item.href,
+    informational: item.ownerKind === "ASSIGNMENT_EXCEPTION" || item.attention === "informational",
+    offlineAction,
   };
+}
+
+/**
+ * Additive canonical item snapshot for offline presentation.
+ * Does not replace Record command payloads.
+ */
+export function serializeEmployeeRuntimeJobFlowItemContext(
+  flow: EmployeeRuntimeFlow,
+  input: { lastSyncedAt: string; snapshotOperationalDate: string },
+): OfflineJobFlowItemContext | null {
+  if (flow.device.mismatch) return null;
+  const items = flow.items.map(serializeOfflineJobFlowItem);
+  return {
+    schemaVersion: OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION,
+    lastSyncedAt: input.lastSyncedAt,
+    snapshotOperationalDate: input.snapshotOperationalDate,
+    items,
+  };
+}
+
+/** Prefer jobFlowItemContext when present; otherwise empty (legacy bundles). */
+export function readOfflineJobFlowItems(
+  bundle: Pick<OfflineRuntimeBundle, "jobFlowItemContext">,
+): OfflineJobFlowItemSnapshot[] {
+  const ctx = bundle.jobFlowItemContext;
+  if (!ctx) return [];
+  if (ctx.schemaVersion !== OFFLINE_JOB_FLOW_ITEM_SCHEMA_VERSION) return [];
+  return ctx.items;
 }

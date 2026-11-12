@@ -9,7 +9,6 @@ import { join } from "node:path";
 import test from "node:test";
 
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
-import type { WorkRequirement } from "@/lib/department-work/types";
 import type { EvidenceRequirement } from "@/lib/operational-evidence/types";
 import { emptyLocationProgram } from "@/lib/department-administration/location-program";
 import {
@@ -201,48 +200,6 @@ function state(partial: {
   });
 }
 
-function work(partial: Partial<WorkRequirement> & { occurrenceKey: string; label: string; state: WorkRequirement["state"] }): WorkRequirement {
-  return {
-    occurrenceKey: partial.occurrenceKey,
-    workPlanId: "wp",
-    workPlanStableKey: "wp",
-    workPlanVersion: 1,
-    workPlanName: "Plan",
-    workItemId: "item",
-    workItemKey: "item",
-    label: partial.label,
-    instructions: null,
-    priority: "ROUTINE",
-    completionMode: "EXPLICIT_CONFIRMATION",
-    responsibilityMode: "UNIT_SHARED",
-    scheduleKind: "OPERATIONAL_CYCLE",
-    cycleStableKey: null,
-    windowStartLocal: null,
-    windowEndLocal: null,
-    dueAt: null,
-    windowStartsAt: null,
-    windowEndsAt: null,
-    unitId: "unit-a",
-    unitName: "3A",
-    spaceId: partial.spaceId ?? "servery-a",
-    assetId: null,
-    roleKeys: [],
-    knowledgeArticleId: null,
-    procedureTitle: null,
-    linkedTemplateStableKey: partial.linkedTemplateStableKey ?? null,
-    linkedTemplateId: null,
-    state: partial.state,
-    occurrenceId: null,
-    occurrenceStatus: null,
-    assignedEmployeeId: null,
-    completedByLabel: null,
-    completedAt: null,
-    evidenceRecordId: null,
-    sourceKind: "WORK_PLAN",
-    sourceHref: "/staffing/work-plans",
-  };
-}
-
 function templateReq(key: string, spaceId: string | null = "servery-a"): EvidenceRequirement {
   return {
     requirementKey: key,
@@ -301,7 +258,6 @@ function compose(partial: Parameters<typeof composeEmployeeRuntimeFlow>[0] exten
       }),
     ],
     templateEvidence: [],
-    workRequirements: [],
     ...partial,
   });
 }
@@ -366,7 +322,6 @@ test("multi SPACE: only assigned spaces; 3C evidence excluded; online/offline se
     spaceRefs: refs,
     states,
     templateEvidence: [],
-    workRequirements: [],
   };
   const online = composeEmployeeRuntimeFlow(input);
   const offline = composeEmployeeRuntimeFlow(input);
@@ -401,7 +356,6 @@ test("UNIT scope uses child SPACE refs, never a unit-level RLS row", () => {
     spaceRefs: refs,
     states: refs.map((ref) => state({ spaceId: ref.spaceId, name: ref.displayName, cycle: "breakfast", cycleLabel: "Breakfast" })),
     templateEvidence: [],
-    workRequirements: [],
   });
   assert.equal(flow.responsibility.scopeKind, "UNIT");
   assert.deepEqual(flow.responsibility.assignedSpaceIds.sort(), ["s1", "s2", "s3"]);
@@ -419,12 +373,10 @@ test("OA disabled / no assignment: Assignment unavailable, no schedule fallback,
     spaceRefs: [{ spaceId: "servery-a", departmentId: "dept-1" }],
     states: [state({ spaceId: "servery-a", cycle: "breakfast", evidenceItems: [evidenceItem("H1", "Food Temperature", "DUE")] })],
     templateEvidence: [templateReq("tpl-key")],
-    workRequirements: [work({ occurrenceKey: "w1", label: "Wipe", state: "DUE" })],
   });
   assert.equal(flow.assignmentAvailability, "unavailable");
   assert.equal(flow.currentAssignment, null);
   assert.equal(flow.evidence.length, 0);
-  assert.equal(flow.work.length, 0);
   assert.equal(flow.next.kind, "none");
   const adapted = adaptEmployeeRuntimeFlowToJobFlow({
     flow,
@@ -435,25 +387,6 @@ test("OA disabled / no assignment: Assignment unavailable, no schedule fallback,
   });
   assert.equal(adapted.state, "NO_CONFIRMED_ASSIGNMENT");
   assert.match(adapted.current.expectation, /Assignment unavailable/);
-});
-
-test("no assignment keeps Work for the signed-in place", () => {
-  const flow = composeEmployeeRuntimeFlow({
-    operationalAssignmentsEnabled: true,
-    canonicalLogsEnabled: true,
-    currentAssignment: null,
-    upcomingAssignment: null,
-    deviceBoundUnitId: "unit-a",
-    assignmentLocations: [],
-    spaceRefs: [],
-    states: [],
-    templateEvidence: [],
-    workRequirements: [work({ occurrenceKey: "w1", label: "Wipe", state: "DUE" })],
-  });
-  assert.equal(flow.assignmentAvailability, "no_confirmed_assignment");
-  assert.equal(flow.responsibility.unitId, "unit-a");
-  assert.equal(flow.work.length, 1);
-  assert.equal(flow.work[0]?.label, "Wipe");
 });
 
 test("upcoming assignment transition is represented without inventing current responsibility", () => {
@@ -606,96 +539,6 @@ test("employee filter hides coverage management facts and keeps evidence + asset
   );
 });
 
-test("employee next-action priority is deterministic", () => {
-  const overdueWork = work({ occurrenceKey: "w-late", label: "Wipe tables", state: "PAST_DUE_NOT_CONFIRMED" });
-  const dueWork = work({ occurrenceKey: "w-due", label: "Sweep", state: "DUE" });
-  const dueEvidence: import("./types").EmployeeRuntimeEvidenceItem = {
-    ...evidenceItem("H1", "Food Temperature", "DUE"),
-    category: "due_now",
-    spaceId: "servery-a",
-    catalogStableKey: null,
-  };
-  const overdueEvidence: import("./types").EmployeeRuntimeEvidenceItem = {
-    ...evidenceItem("H0", "Cooler", "OVERDUE"),
-    category: "needs_attention",
-    spaceId: "servery-a",
-    catalogStableKey: null,
-  };
-  const upcomingWork = work({ occurrenceKey: "w-up", label: "Close", state: "UPCOMING" });
-  const base = {
-    work: [] as WorkRequirement[],
-    evidence: [] as import("./types").EmployeeRuntimeEvidenceItem[],
-    milestones: [] as Parameters<typeof resolveEmployeeNextAction>[0]["milestones"],
-    currentAssignment: assignment({ id: "oa-1" }),
-    upcomingAssignment: null,
-    locationNext: { spaceId: "servery-a", label: "Lunch begins", at: NEXT_AT },
-  };
-  assert.equal(
-    resolveEmployeeNextAction({
-      ...base,
-      work: [dueWork, overdueWork],
-      evidence: [
-        { ...dueEvidence, category: "due_now", spaceId: "servery-a" },
-        { ...overdueEvidence, category: "needs_attention", spaceId: "servery-a" },
-      ],
-    }).kind,
-    "overdue_work",
-  );
-  assert.equal(
-    resolveEmployeeNextAction({
-      ...base,
-      evidence: [{ ...overdueEvidence, category: "needs_attention", spaceId: "servery-a" }],
-    }).kind,
-    "overdue_evidence",
-  );
-  assert.equal(
-    resolveEmployeeNextAction({
-      ...base,
-      work: [dueWork],
-      evidence: [{ ...dueEvidence, category: "due_now", spaceId: "servery-a" }],
-    }).kind,
-    "due_work",
-  );
-  assert.equal(
-    resolveEmployeeNextAction({
-      ...base,
-      evidence: [{ ...dueEvidence, category: "due_now", spaceId: "servery-a" }],
-    }).kind,
-    "due_evidence",
-  );
-  assert.equal(
-    resolveEmployeeNextAction({
-      ...base,
-      milestones: [
-        {
-          spaceId: "servery-a",
-          spaceName: "3A Servery",
-          kind: "SERVERY_READY",
-          label: "Servery Ready",
-          statusKey: "not_recorded",
-        },
-      ],
-    }).kind,
-    "milestone",
-  );
-  assert.equal(
-    resolveEmployeeNextAction({
-      ...base,
-      currentAssignment: null,
-      upcomingAssignment: assignment({ id: "oa-next" }),
-    }).kind,
-    "assignment_transition",
-  );
-  assert.equal(
-    resolveEmployeeNextAction({
-      ...base,
-      work: [upcomingWork],
-    }).kind,
-    "upcoming_work",
-  );
-  assert.equal(resolveEmployeeNextAction(base).kind, "location_next");
-});
-
 test("offline Harbor serialization keeps attachment, requirement, and space identity", () => {
   const flow = compose({});
   const evidence = serializeEmployeeRuntimeEvidenceContext(flow, "sync");
@@ -730,22 +573,6 @@ test("serialized bundle is a snapshot: later input changes do not mutate it", ()
   const first = serializeEmployeeRuntimeEvidenceContext(flow, "a");
   flow.evidence[0]!.displayName = "Changed later";
   assert.equal(first?.requirements[0]?.templateName, "Food Temperature");
-});
-
-test("Work Plans stay distinct from evidence and keep linkedTemplateStableKey", () => {
-  const flow = compose({
-    workRequirements: [
-      work({
-        occurrenceKey: "w1",
-        label: "Check cooler",
-        state: "DUE",
-        linkedTemplateStableKey: "cooler_temperature_log",
-      }),
-    ],
-  });
-  assert.equal(flow.work[0]?.linkedTemplateStableKey, "cooler_temperature_log");
-  assert.equal(flow.evidence[0]?.requirementKey, "H1");
-  assert.notEqual(flow.work[0]?.occurrenceKey, flow.evidence[0]?.requirementKey);
 });
 
 test("loader/composer/adapter source contract: shared composer, no ScheduleEntry", () => {
@@ -792,4 +619,12 @@ test("Phase 6E/6F/operations board files are not modified by this module", () =>
   assert.equal(spacePage.includes("composeEmployeeRuntimeFlow"), false);
   assert.equal(neighborhood.includes("composeEmployeeRuntimeFlow"), false);
   assert.equal(board.includes("composeEmployeeRuntimeFlow"), false);
+});
+
+test("employee next-action priority uses canonical Records before upcoming Assignment and location", () => {
+  const base = { items: [], currentAssignment: null, upcomingAssignment: null, locationNext: { spaceId: "servery-a", label: "Lunch begins", at: NEXT_AT } };
+  const flow = compose({});
+  assert.equal(resolveEmployeeNextAction({ ...base, items: flow.items }).kind, "due_evidence");
+  assert.equal(resolveEmployeeNextAction({ ...base, upcomingAssignment: assignment({ id: "next" }) }).kind, "assignment_transition");
+  assert.equal(resolveEmployeeNextAction(base).kind, "location_next");
 });

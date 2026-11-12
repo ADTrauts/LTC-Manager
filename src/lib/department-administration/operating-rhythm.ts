@@ -9,6 +9,7 @@ import {
   partitionCyclesForLifecycle,
   type CycleLifecycleRow,
 } from "@/lib/operational-cycles/cycle-lifecycle";
+import { isCanonicalCycleLocationMode } from "@/lib/operational-cycles/effective-cycle-spaces";
 import { toServiceDateKey } from "@/lib/operational-time";
 
 export type OperatingRhythmKeyTimeGroupView = {
@@ -32,7 +33,13 @@ export type OperatingRhythmChildView = {
   endLocal: string | null;
   mealType: string | null;
   locationInheritFromParent: boolean;
+  locationMode: CycleLifecycleRow["locationMode"];
+  unitIds: string[];
+  spaceIds: string[];
+  overnight: boolean;
+  effectiveTo: string | null;
   /** Explicit room groups. Empty space ids are not a saved location. */
+  keyPointGrain: "DEPARTMENT" | "LOCATION";
   keyTimeGroups: OperatingRhythmKeyTimeGroupView[];
 };
 
@@ -46,7 +53,12 @@ export type OperatingRhythmRootView = {
   draftCycleId: string | null;
   draftEffectiveFrom: string | null;
   draftDays: number[];
-  draftLocationMode: "ALL_DEPARTMENT_UNITS" | "UNIT_TYPES" | "EXPLICIT_UNITS" | "ROOM_TYPE" | "OPERATIONAL_TYPES";
+  draftLocationMode: CycleLifecycleRow["locationMode"];
+  draftDescription: string | null;
+  draftCycleType: string;
+  draftOvernight: boolean;
+  draftEffectiveTo: string | null;
+  draftUnitIds: string[];
   draftSpaceIds: string[];
   mealType: string | null;
   scheduledEffectiveFrom: string | null;
@@ -57,7 +69,8 @@ export function presentOperatingRhythmRoots(
   rows: readonly CycleLifecycleRow[],
   todayKey: string,
 ): OperatingRhythmRootView[] {
-  const { current, drafts, scheduled } = partitionCyclesForLifecycle(rows, todayKey);
+  const canonicalRows = rows.filter((row) => isCanonicalCycleLocationMode(row.locationMode));
+  const { current, drafts, scheduled } = partitionCyclesForLifecycle(canonicalRows, todayKey);
   const rootDrafts = drafts.filter((row) => row.parentStableKey == null && row.nodeKind === "PERIOD");
   const rootCurrent = current.filter((row) => row.parentStableKey == null && row.nodeKind === "PERIOD");
   const rootScheduled = scheduled.filter(
@@ -74,7 +87,7 @@ export function presentOperatingRhythmRoots(
     const draft = rootDrafts.find((row) => row.stableKey === stableKey) ?? null;
     const live = rootCurrent.find((row) => row.stableKey === stableKey) ?? null;
     const upcoming = rootScheduled.find((row) => row.stableKey === stableKey) ?? null;
-    const childCandidates = rows.filter(
+    const childCandidates = canonicalRows.filter(
       (row) =>
         row.parentStableKey === stableKey &&
         (row.status === "DRAFT" ||
@@ -115,6 +128,12 @@ export function presentOperatingRhythmRoots(
         endLocal: row.endLocal,
         mealType: row.mealType,
         locationInheritFromParent: row.locationInheritFromParent,
+        locationMode: row.locationMode,
+        unitIds: row.unitIds,
+        spaceIds: row.spaceIds,
+        overnight: row.overnight,
+        effectiveTo: row.effectiveTo ? toServiceDateKey(row.effectiveTo) : null,
+        keyPointGrain: row.keyPointGrain ?? "LOCATION",
         keyTimeGroups: (row.keyTimeGroups ?? []).map((group) => ({
           dueLocal: group.dueLocal,
           spaceIds: [...group.spaceIds],
@@ -132,6 +151,11 @@ export function presentOperatingRhythmRoots(
       draftEffectiveFrom: draft ? toServiceDateKey(draft.effectiveFrom) : null,
       draftDays: draft?.applicableDaysOfWeek ?? [],
       draftLocationMode: draft?.locationMode ?? "ALL_DEPARTMENT_UNITS",
+      draftDescription: draft?.description ?? null,
+      draftCycleType: draft?.cycleType ?? "CUSTOM",
+      draftOvernight: draft?.overnight ?? false,
+      draftEffectiveTo: draft?.effectiveTo ? toServiceDateKey(draft.effectiveTo) : null,
+      draftUnitIds: draft?.unitIds ?? [],
       draftSpaceIds: draft?.spaceIds ?? [],
       mealType: draft?.mealType ?? live?.mealType ?? null,
       scheduledEffectiveFrom: upcoming ? toServiceDateKey(upcoming.effectiveFrom) : null,

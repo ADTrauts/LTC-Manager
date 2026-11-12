@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { computeCycleTreeMove } from "./cycle-tree-move";
-import { mealTimeNeighborhoodCandidates, scopeGroupLabel } from "./cycle-scope";
+import { mealTimeNeighborhoodCandidates } from "./cycle-scope";
 
 const rows = [
   {
@@ -132,10 +132,10 @@ test("reject self-drop and descendant loop", () => {
   );
 });
 
-test("service-time candidates appear from Room Type Servery without Neighborhood catalog rows", () => {
+test("Explicit rooms supply parent Neighborhoods for configured meal times", () => {
   const candidates = mealTimeNeighborhoodCandidates({
-    locationMode: "ROOM_TYPE",
-    roomTypeKey: "servery",
+    locationMode: "EXPLICIT_UNITS",
+    spaceIds: ["s1", "s2"],
     locations: [
       {
         id: "s1",
@@ -244,12 +244,4 @@ test("allow moving KEY_TIME between PERIOD parents", () => {
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.updates.find((u) => u.id === "due")?.parentStableKey, "lunch");
-});
-
-test("legacy UNIT_TYPES label is not user-facing database jargon", () => {
-  assert.equal(
-    scopeGroupLabel({ locationMode: "UNIT_TYPES" }),
-    "Legacy scope — edit to update",
-  );
-  assert.doesNotMatch(scopeGroupLabel({ locationMode: "UNIT_TYPES" }), /Legacy unit types/);
 });

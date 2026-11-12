@@ -75,36 +75,16 @@ import {
 } from "@/lib/operational-cycles/cycle-scope";
 
 function rowScopeLabel(
-  row: Pick<
-    CycleRowData,
-    | "locationMode"
-    | "roomTypeKey"
-    | "unitIds"
-    | "spaceIds"
-    | "applicableOperationalTypeKeys"
-  >,
+  row: Pick<CycleRowData, "locationMode" | "unitIds" | "spaceIds">,
   catalog?: CycleEditorCatalog,
-  opts?: { includeLegacy?: boolean },
 ): string | null {
-  if (row.locationMode === "UNIT_TYPES" && !opts?.includeLegacy) {
+  if (row.locationMode !== "ALL_DEPARTMENT_UNITS" && row.locationMode !== "EXPLICIT_UNITS") {
     return null;
   }
   const names: Record<string, string> = {};
   for (const location of catalog?.locations ?? []) names[location.id] = location.name;
-  const operationalTypeNames: Record<string, string> = {};
-  for (const type of catalog?.operationalTypes ?? []) {
-    operationalTypeNames[type.key] = type.name;
-  }
   return scopeGroupLabel({
-    locationMode: row.locationMode as
-      | "ALL_DEPARTMENT_UNITS"
-      | "UNIT_TYPES"
-      | "EXPLICIT_UNITS"
-      | "ROOM_TYPE"
-      | "OPERATIONAL_TYPES",
-    roomTypeKey: row.roomTypeKey,
-    applicableOperationalTypeKeys: row.applicableOperationalTypeKeys,
-    operationalTypeNames,
+    locationMode: row.locationMode,
     unitIds: row.unitIds,
     spaceIds: row.spaceIds,
     locationNames: names,
@@ -131,7 +111,6 @@ function rowSecondary(
   row: CycleRowData,
   showMeal: boolean,
   catalog?: CycleEditorCatalog,
-  opts?: { includeLegacy?: boolean },
 ): string {
   if (row.nodeKind === "KEY_TIME") {
     const summary = keyTimeSummary(row);
@@ -147,7 +126,7 @@ function rowSecondary(
       daysSummary: formatDaysSummary(row.applicableDaysOfWeek),
       scopeLabel: row.locationInheritFromParent
         ? "Uses parent locations"
-        : rowScopeLabel(row, catalog, opts),
+        : rowScopeLabel(row, catalog),
       serviceTimeCount: shouldShowServiceStartTimes({
         cycleType: row.cycleType,
         mealType: row.mealType,
@@ -903,9 +882,6 @@ export function CompactDraftList({
                   Back to review
                 </button>
               ) : null}
-              {editingRow.locationMode === "UNIT_TYPES" ? (
-                <p className="text-xs text-amber-800">Scope needs review</p>
-              ) : null}
               {!editingRow.parentStableKey &&
               editingRow.nodeKind === "PERIOD" &&
               editingRow.locationInheritFromParent ? (
@@ -1180,9 +1156,6 @@ export function CompactCycleReadonlyList({
         {selected ? (
           <div className="border-t border-zinc-100 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
             {parentLabel} → {row.label}
-            {row.locationMode === "UNIT_TYPES" ? (
-              <span className="mt-1 block text-amber-800">Scope needs review</span>
-            ) : null}
           </div>
         ) : null}
         {!isCollapsed
@@ -1262,9 +1235,6 @@ export function CompactCycleReadonlyList({
         {selected ? (
           <div className="border-b border-zinc-100 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
             Top-level operating period
-            {row.locationMode === "UNIT_TYPES" ? (
-              <span className="mt-1 block text-amber-800">Scope needs review</span>
-            ) : null}
           </div>
         ) : null}
         {!isCollapsed ? (

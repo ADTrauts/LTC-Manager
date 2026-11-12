@@ -8,7 +8,6 @@ import {
   type DepartmentAdminTabId,
 } from "@/lib/department-administration";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
-import { getDepartmentProduct } from "@/lib/department-products";
 import { hasDietaryDomainCapabilities } from "@/lib/department-admission";
 
 export function plantMaintenanceTabs(input: {

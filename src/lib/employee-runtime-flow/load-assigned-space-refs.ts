@@ -1,20 +1,12 @@
-/**
- * Resolve assigned SPACE refs for Employee Runtime Flow.
- * SPACES: OA location rows. UNIT: Projection children, else facility UnitSpace children.
- * Does not infer rooms from Operational Type or UnitType.
- */
-
+/** Assigned rooms are explicit Assignment scope intersected with current Department responsibility. */
+import type { Prisma, PrismaClient } from "@prisma/client";
 import type { FacilitySession } from "@/lib/auth";
 import type { JobFlowAssignmentSnapshot } from "@/lib/dietary-job-flow/types";
 import { formatRoomDisplayName } from "@/lib/facility-builder/load-facility-hierarchy";
-import { collectNeighborhoodActionableSpaces } from "@/lib/unit-workspace/neighborhood/collect-spaces";
-import { loadLocationsView } from "@/lib/locations";
 import { prisma } from "@/lib/prisma";
 import type { ResolvedAssignmentLocation } from "@/lib/scheduling/operational-assignments/location-scope";
 import type { RuntimeLocationSpaceRef } from "@/lib/runtime-location-state";
-import type { PrismaClient } from "@prisma/client";
-
-import { assignmentScopeKind, spaceRefsFromAssignmentLocations } from "./assigned-spaces";
+import { assignmentScopeKind } from "./assigned-spaces";
 
 export async function loadAssignedEmployeeSpaceRefs(input: {
   session: FacilitySession;
@@ -23,61 +15,26 @@ export async function loadAssignedEmployeeSpaceRefs(input: {
   departmentLabel?: string | null;
   assignment: JobFlowAssignmentSnapshot | null;
   locations: readonly ResolvedAssignmentLocation[];
-  client?: PrismaClient;
+  client?: PrismaClient | Prisma.TransactionClient;
 }): Promise<RuntimeLocationSpaceRef[]> {
   const assignment = input.assignment;
-  if (!assignment) return [];
-
-  const scope = assignmentScopeKind(assignment, input.locations.length);
-  if (scope === "SPACES") {
-    return spaceRefsFromAssignmentLocations(
-      input.locations,
-      input.departmentId,
-      input.departmentLabel,
-    );
-  }
-
-  if (!assignment.unitId) return [];
-
-  const locations = await loadLocationsView(input.session);
-  if (locations.view) {
-    const collected = collectNeighborhoodActionableSpaces(locations.view, assignment.unitId);
-    const forDepartment = collected.refs.filter(
-      (row) => row.departmentId === input.departmentId || row.unitId === assignment.unitId,
-    );
-    if (forDepartment.length > 0) {
-      return forDepartment.map((row) => ({
-        ...row,
-        departmentId: input.departmentId,
-        departmentLabel: input.departmentLabel ?? row.departmentLabel,
-      }));
-    }
-  }
-
+  if (!assignment || input.session.facilityId !== input.facilityId) return [];
+  const explicit = assignmentScopeKind(assignment, input.locations.length) === "SPACES";
+  if (explicit ? !input.locations.length : !assignment.unitId) return [];
   const client = input.client ?? prisma;
   const rooms = await client.unitSpace.findMany({
-    where: {
-      unitId: assignment.unitId,
-      isActive: true,
-      unit: { facilityId: input.facilityId, isActive: true },
+    where: { facilityId: input.facilityId, isActive: true,
+      ...(explicit ? { id: { in: input.locations.map(row => row.unitSpaceId) } } : { unitId: assignment.unitId }),
+      responsibilities: { some: { departmentId: input.departmentId, department: { facilityId: input.facilityId, isActive: true } } },
+      OR: [{ unitId: null }, { unit: { facilityId: input.facilityId, isActive: true } }],
     },
-    select: {
-      id: true,
-      name: true,
-      roomNumber: true,
-      unitId: true,
-      unit: { select: { name: true } },
-    },
-    orderBy: [{ roomNumber: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, roomNumber: true, unitId: true,
+      unit: { select: { name: true, parentUnit: { select: { name: true } } } } },
+    orderBy: [{ sortOrder: "asc" }, { roomNumber: "asc" }, { name: "asc" }],
   });
-
-  return rooms.map((room) => ({
-    spaceId: room.id,
-    departmentId: input.departmentId,
-    departmentLabel: input.departmentLabel ?? null,
-    unitId: room.unitId,
-    displayName: formatRoomDisplayName(room),
-    floorName: null,
-    neighborhoodName: room.unit?.name ?? assignment.unitName ?? null,
-  }));
+  const order = new Map(input.locations.map((row, index) => [row.unitSpaceId, index]));
+  if (explicit) rooms.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return rooms.map(room => ({ spaceId: room.id, departmentId: input.departmentId,
+    departmentLabel: input.departmentLabel ?? null, unitId: room.unitId, displayName: formatRoomDisplayName(room),
+    floorName: room.unit?.parentUnit?.name ?? null, neighborhoodName: room.unit?.name ?? null }));
 }

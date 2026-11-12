@@ -61,18 +61,6 @@ test("a call-off opens Coverage attention and a replacement closes the same epis
     });
     await db.unitSpaceResponsibility.create({ data: { spaceId: space.id, departmentId: dietary.id } });
     await db.unitSpaceResponsibility.create({ data: { spaceId: otherSpace.id, departmentId: dietary.id } });
-    const profile = await db.departmentOperationalProfile.create({
-      data: { facilityId: facility.id, departmentId: dietary.id, name: "Food", version: 1, status: "ACTIVE" },
-    });
-    const archetype = await db.departmentRoomArchetype.create({
-      data: { profileId: profile.id, key: "SERVERY", name: "Servery" },
-    });
-    await db.departmentRoomArchetypeBinding.create({
-      data: { profileId: profile.id, archetypeId: archetype.id, unitSpaceId: space.id },
-    });
-    await db.departmentRoomArchetypeBinding.create({
-      data: { profileId: profile.id, archetypeId: archetype.id, unitSpaceId: otherSpace.id },
-    });
     await db.departmentOperationalCycle.create({
       data: {
         facilityId: facility.id,
@@ -434,7 +422,6 @@ test("a call-off opens Coverage attention and a replacement closes the same epis
     await db.operationalAssignmentPlan.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.operationalAssignmentTemplate.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.departmentOperationalCycle.deleteMany({ where: { facilityId: { in: facilityIds } } });
-    await db.departmentOperationalProfile.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.unitSpace.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.unit.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await db.employee.deleteMany({ where: { facilityId: { in: facilityIds } } });

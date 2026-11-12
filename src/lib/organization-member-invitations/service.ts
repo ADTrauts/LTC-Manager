@@ -584,7 +584,7 @@ export async function changeOrganizationMemberRole(
     userId: input.targetUserId,
     organizationId: input.organizationId,
     role: input.role,
-    at: now,
+    at: input.now,
     actorUserId: input.actorUserId,
     revokeSessions: true,
   });
@@ -608,7 +608,7 @@ export async function endOrganizationMember(
   return endOrganizationMembership(db, {
     userId: input.targetUserId,
     organizationId: input.organizationId,
-    endsAt: now,
+    endsAt: input.now,
     actorUserId: input.actorUserId,
     revokeSessions: true,
   });

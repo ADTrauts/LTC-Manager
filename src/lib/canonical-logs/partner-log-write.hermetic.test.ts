@@ -423,11 +423,11 @@ test("acting context stays on the action that created it", async () => {
   assert.equal(internal?.actingEffectivePartnerRole, undefined);
 
   const migration = readFileSync(
-    join(process.cwd(), "prisma/migrations/20261008200000_canonical_log_acting_context/migration.sql"),
+    join(process.cwd(), "prisma/migrations/20261111120000_canonical_baseline/migration.sql"),
     "utf8",
   );
-  assert.equal(migration.includes("REFERENCES"), false);
-  assert.equal(migration.includes("ON DELETE"), false);
+  assert.match(migration, /OperationalEvidenceRecord_acting_context_chk/);
+  assert.doesNotMatch(migration, /FOREIGN KEY \("actingPartnerOrganizationId"\)/);
   assert.equal(submitted.actingPartnerOrganizationId, "metz");
 });
 

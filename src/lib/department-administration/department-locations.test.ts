@@ -88,7 +88,6 @@ describe("Department Builder actionable location projection", () => {
     assert.equal(locations.length, 1);
     assert.equal(locations[0]!.id, "1a");
     assert.equal(locations[0]!.kind, "neighborhood");
-    assert.equal(locations[0]!.status, "assigned");
     assert.equal(locations[0]!.roomTypeKey, null);
     assert.equal(locations[0]!.floorName, "Floor 1");
   });
@@ -115,7 +114,6 @@ describe("Department Builder actionable location projection", () => {
     assert.equal(locations.length, 2);
     for (const location of locations) {
       assert.equal(location.kind, "neighborhood");
-      assert.equal(location.status, "assigned");
       assert.equal(location.roomTypeKey, null);
       assert.equal(location.roomTypeLabel, null);
     }
@@ -180,6 +178,7 @@ describe("Department Builder actionable location projection", () => {
             {
               id: "central",
               name: "Central Kitchen",
+              facilityRoomTypeId: "facility-production",
               isActive: true,
               responsibilities: [{ department: { id: "dietary" } }],
             },
@@ -203,15 +202,7 @@ describe("Department Builder actionable location projection", () => {
     const locations = collectDepartmentActionableLocations({
       departmentId: "dietary",
       units: [floor],
-      roomPatternBySpaceId: new Map([
-        [
-          "central",
-          {
-            spaceTypeLabel: "Production",
-            displayName: "Central Kitchen",
-          },
-        ],
-      ]),
+      roomTypes: [{ id: "facility-production", displayName: "Production" }],
     });
 
     assert.equal(locations.some((l) => l.id === "kitchen-nbhd"), true);
@@ -223,12 +214,10 @@ describe("Department Builder actionable location projection", () => {
     assert.equal(central.kind, "room");
     assert.equal(central.displayName, "Central Kitchen");
     assert.equal(central.roomTypeLabel, "Production");
-    assert.equal(central.status, "assigned");
     assert.equal(central.parentNeighborhoodId, "kitchen-nbhd");
 
     const unbound = locations.find((l) => l.id === "unbound")!;
     assert.equal(unbound.roomTypeKey, null);
-    assert.equal(unbound.status, "assigned");
 
     const hierarchy = groupLocationsByPhysicalHierarchy(locations);
     assert.equal(hierarchy[0]!.neighborhoods[0]!.rooms.length, 2);
@@ -493,6 +482,7 @@ describe("Department Builder actionable location projection", () => {
     const sharedSpace = {
       id: "albright-servery",
       name: "Albright Servery",
+      facilityRoomTypeId: "facility-servery",
       isActive: true,
       spaceType: "SERVICE_AREA" as const,
       customTypeLabel: "Servery",
@@ -519,27 +509,20 @@ describe("Department Builder actionable location projection", () => {
     const dietary = collectDepartmentActionableLocations({
       departmentId: "dietary",
       units: [floor],
-      roomPatternBySpaceId: new Map([
-        [
-          "albright-servery",
-          {
-            spaceTypeLabel: "Servery",
-            displayName: "Albright Servery",
-          },
-        ],
-      ]),
+      roomTypes: [{ id: "facility-servery", displayName: "Servery" }],
     });
     const evs = collectDepartmentActionableLocations({
       departmentId: "evs",
       units: [floor],
+      roomTypes: [{ id: "facility-servery", displayName: "Servery" }],
     });
 
     const dietaryRoom = dietary.find((l) => l.id === "albright-servery")!;
     const evsRoom = evs.find((l) => l.id === "albright-servery")!;
     assert.equal(dietaryRoom.roomTypeLabel, "Servery");
     assert.equal(evsRoom.roomTypeLabel, "Servery");
-    assert.equal(dietaryRoom.roomTypeKey, "servery");
-    assert.equal(evsRoom.roomTypeKey, "servery");
+    assert.equal(dietaryRoom.roomTypeKey, "facility-servery");
+    assert.equal(evsRoom.roomTypeKey, "facility-servery");
   });
 
   it("updates Room Type when Facility Builder stored type changes", () => {
@@ -604,10 +587,7 @@ describe("Department Builder actionable location projection", () => {
 describe("Department Builder Locations source contracts", () => {
   it("does not write SpaceType or Unit.unitType from Locations UI", () => {
     const root = process.cwd();
-    const actions = readFileSync(
-      join(root, "src/app/(protected)/admin/departments/[departmentId]/actions.ts"),
-      "utf8",
-    );
+    assert.equal(existsSync(join(root, "src/app/(protected)/admin/departments/[departmentId]/actions.ts")), false);
     const panel = readFileSync(
       join(root, "src/app/(protected)/admin/departments/[departmentId]/locations-panel.tsx"),
       "utf8",
@@ -621,10 +601,7 @@ describe("Department Builder Locations source contracts", () => {
       "src/app/(protected)/admin/departments/[departmentId]/room-types-panel.tsx",
     );
     assert.equal(existsSync(typesPanel), false);
-    assert.equal(/spaceType\s*:/.test(actions), false);
-    assert.equal(/unitType\s*:/.test(actions), false);
     assert.equal(/prisma\.unitSpace\.update/.test(panel), false);
-    assert.equal(/prisma\.unit\.update/.test(actions), false);
     assert.match(panel, /LocationsProgrammingClient/);
     assert.match(panel, /Facility Builder owns the place/);
     assert.match(tree, /parentNeighborhoodName/);

@@ -1,133 +1,86 @@
 import { prisma } from "@/lib/prisma";
+import { facilityLocalDateToServiceDate, loadFacilityTimezone } from "@/lib/operational-time";
 import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/assignment-roles";
-
-import { recordAssignmentEvent } from "./assignment-events";
+import { isCoverageTemplateEffectiveOnDate } from "@/lib/scheduling/coverage-expectations/publication";
+import { requireAssignmentEligibility } from "@/lib/employee-operational-qualifications/assignment-eligibility";
+import { writeAssignmentChangeAttention } from "./assignment-change";
+import { loadCoverageSlotSnapshot } from "../coverage-episodes/observe";
+import { processNotificationOutboxAfterCommit } from "@/lib/notifications/live-publishers";
+import { ensureAssignmentPlan } from "./assignment-plan";
+import { lockEmployeeAssignmentDay, assertNoOverlappingActiveAssignments } from "./enforce-overlap";
+import { resolveAssignmentLocationWrites, replaceAssignmentLocations, requireAssignmentLocationScope } from "./location-scope";
+import { parseAssignmentWindowInstant, assertValidResponsibilityWindow } from "./responsibility-window";
 import type { ApplyTemplateResult, TemplatePreviewPosition } from "./template-types";
 
 export type ApplyTemplateInput = {
-  facilityId: string;
-  departmentId: string;
-  departmentKey: string;
-  serviceDate: string;
-  positions: TemplatePreviewPosition[];
-  createdByUserId: string | null;
+  facilityId: string; departmentId: string; departmentKey: string; serviceDate: string;
+  positions: TemplatePreviewPosition[]; createdByUserId: string | null;
 };
 
-/**
- * Batch-create OperationalAssignment rows from confirmed template positions.
- * Skips positions that are already filled or have no employee assigned.
- * Idempotent: existing assignments matching role+unit+employee are not duplicated.
- * Sets templateItemId for traceability back to the originating template position.
- */
-export async function applyAssignmentTemplate(
-  input: ApplyTemplateInput,
-): Promise<ApplyTemplateResult> {
-  const serviceDate = new Date(`${input.serviceDate}T00:00:00`);
-  let created = 0;
-  let skipped = 0;
-  const warnings: string[] = [];
-
-  const existingAssignments = await prisma.operationalAssignment.findMany({
-    where: {
-      facilityId: input.facilityId,
-      departmentId: input.departmentId,
-      serviceDate,
-      status: { in: ["PLANNED", "ACTIVE"] },
-    },
-    select: { id: true, employeeId: true, roleKey: true, unitId: true },
-  });
-
-  const existingKey = (a: { employeeId: string; roleKey: string; unitId: string | null }) =>
-    `${a.employeeId}:${a.roleKey}:${a.unitId ?? ""}`;
-  const existingKeys = new Set(existingAssignments.map(existingKey));
-
-  const employeesToCreate = [
-    ...new Set(
-      input.positions
-        .map((pos) => pos.suggestedEmployeeId ?? pos.assignedEmployeeId ?? null)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ];
-  const jobRoleLabelByEmployeeId = new Map<string, string>();
-  if (employeesToCreate.length > 0) {
-    const jobRoles = await prisma.employeeDepartmentJobRole.findMany({
-      where: {
-        employeeId: { in: employeesToCreate },
-        departmentId: input.departmentId,
-        jobRole: { status: "ACTIVE" },
-      },
-      select: {
-        employeeId: true,
-        jobRole: { select: { displayName: true } },
-      },
-    });
-    for (const row of jobRoles) {
-      jobRoleLabelByEmployeeId.set(row.employeeId, row.jobRole.displayName);
+/** Apply effective published Coverage. Canonical persisted items supply the role and place. */
+export async function applyAssignmentTemplate(input: ApplyTemplateInput): Promise<ApplyTemplateResult> {
+  const result: ApplyTemplateResult = { created: 0, skipped: 0, warnings: [] };
+  const serviceDate = facilityLocalDateToServiceDate(input.serviceDate);
+  const timezone = await loadFacilityTimezone(prisma, input.facilityId);
+  for (const position of input.positions) {
+    const employeeId = position.suggestedEmployeeId ?? position.assignedEmployeeId;
+    if (!employeeId || position.existingAssignmentId) { result.skipped++; continue; }
+    try {
+      let outboxIds: string[] = [];
+      const created = await prisma.$transaction(async tx => {
+        await lockEmployeeAssignmentDay(tx, employeeId, input.serviceDate);
+        const item = await tx.operationalAssignmentTemplateItem.findFirst({
+          where: { id: position.itemId, template: { facilityId: input.facilityId, departmentId: input.departmentId } },
+          include: { template: true, space: { select: { unitId: true } } },
+        });
+        if (!item || !isCoverageTemplateEffectiveOnDate(item.template, input.serviceDate)) {
+          throw new Error("Only effective published Coverage requirements can be applied.");
+        }
+        if ((item.spaceId && item.unitId) || (!item.spaceId && !item.unitId)) throw new Error("Coverage requires exactly one Unit or Space.");
+        const role = getRoleDefinition(item.roleKey);
+        if (!role || !isRoleValidForDepartment(item.roleKey, input.departmentKey)) throw new Error("Coverage role does not belong to this Department.");
+        await requireAssignmentEligibility(tx, { facilityId: input.facilityId, departmentId: input.departmentId,
+          employeeId, roleKey: item.roleKey, canOverride: false });
+        const existing = await tx.operationalAssignment.findMany({ where: { facilityId: input.facilityId,
+          departmentId: input.departmentId, employeeId, serviceDate, roleKey: item.roleKey,
+          status: { in: ["PLANNED", "ACTIVE"] } }, include: { locations: true } });
+        if (existing.some(row => item.spaceId
+          ? row.locations.some(location => location.unitSpaceId === item.spaceId) || (row.locations.length === 0 && item.space?.unitId != null && row.unitId === item.space.unitId)
+          : row.locations.length === 0 && row.unitId === item.unitId)) return false;
+        const locations = await resolveAssignmentLocationWrites(tx, { facilityId: input.facilityId,
+          departmentId: input.departmentId, unitId: item.unitId, unitSpaceIds: item.spaceId ? [item.spaceId] : [] });
+        await requireAssignmentLocationScope(tx, { facilityId: input.facilityId, departmentId: input.departmentId,
+          unitId: item.unitId, spaceIds: locations.map(row => row.unitSpaceId) });
+        const startsAt = parseAssignmentWindowInstant(input.serviceDate, item.startsAtLocal, timezone);
+        const endsAt = parseAssignmentWindowInstant(input.serviceDate, item.endsAtLocal, timezone);
+        assertValidResponsibilityWindow(startsAt, endsAt);
+        await assertNoOverlappingActiveAssignments(tx, { facilityId: input.facilityId, employeeId, serviceDate, startsAt, endsAt });
+        const plan = await ensureAssignmentPlan(tx, { facilityId: input.facilityId, departmentId: input.departmentId,
+          serviceDateKey: input.serviceDate, actorUserId: input.createdByUserId });
+        if (plan.status === "CLOSED") throw new Error("Reopen the closed Assignment plan before applying Coverage.");
+        const coverageBefore = await loadCoverageSlotSnapshot(tx, { facilityId: input.facilityId,
+          departmentId: input.departmentId, serviceDateKey: input.serviceDate });
+        const assignment = await tx.operationalAssignment.create({ data: { facilityId: input.facilityId,
+          departmentId: input.departmentId, employeeId, planId: plan.id, serviceDate, roleKey: item.roleKey,
+          roleLabel: role.label, unitId: item.spaceId ? item.space?.unitId ?? null : item.unitId, templateItemId: item.id, startsAt, endsAt,
+          source: "COVERAGE", notes: item.notes, createdByUserId: input.createdByUserId } });
+        await replaceAssignmentLocations(tx, assignment.id, locations);
+        const attention = await writeAssignmentChangeAttention(tx, { assignmentId: assignment.id,
+          facilityId: input.facilityId, departmentId: input.departmentId, employeeId,
+          serviceDate, subjectLabel: role.label, unitId: assignment.unitId, spaceId: item.spaceId, coverageBefore,
+          event: { assignmentId: assignment.id, planId: plan.id, facilityId: input.facilityId,
+            departmentId: input.departmentId, employeeId, eventType: "CREATED", actorUserId: input.createdByUserId,
+            toStatus: "PLANNED", summary: `Published Coverage applied: ${role.label}`,
+            newValuesJson: JSON.stringify({ templateItemId: item.id, spaceId: item.spaceId, unitId: item.unitId, roleKey: item.roleKey }) } });
+        outboxIds = [attention.assignmentOutboxId, ...attention.coverageOutboxIds];
+        return true;
+      });
+      if (created) result.created++; else result.skipped++;
+      for (const id of outboxIds) await processNotificationOutboxAfterCommit(id);
+    } catch (error) {
+      result.skipped++;
+      result.warnings.push(error instanceof Error ? error.message : "Assignment could not be created.");
     }
   }
-
-  for (const pos of input.positions) {
-    const employeeId = pos.suggestedEmployeeId ?? pos.assignedEmployeeId;
-    if (!employeeId) {
-      skipped++;
-      continue;
-    }
-
-    if (pos.existingAssignmentId) {
-      skipped++;
-      continue;
-    }
-
-    const key = `${employeeId}:${pos.roleKey}:${pos.unitId ?? ""}`;
-    if (existingKeys.has(key)) {
-      skipped++;
-      continue;
-    }
-
-    const roleDef = getRoleDefinition(pos.roleKey);
-    if (!roleDef || !isRoleValidForDepartment(pos.roleKey, input.departmentKey)) {
-      warnings.push(`Skipped invalid role "${pos.roleKey}" for department.`);
-      skipped++;
-      continue;
-    }
-
-    const assignment = await prisma.operationalAssignment.create({
-      data: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        employeeId,
-        serviceDate,
-        roleKey: pos.roleKey,
-        roleLabel: jobRoleLabelByEmployeeId.get(employeeId) ?? roleDef.label,
-        unitId: pos.unitId ?? null,
-        templateItemId: pos.itemId ?? null,
-        startsAt: pos.startsAtLocal ? parseLocalTime(input.serviceDate, pos.startsAtLocal) : null,
-        endsAt: pos.endsAtLocal ? parseLocalTime(input.serviceDate, pos.endsAtLocal) : null,
-        source: "TEMPLATE",
-        notes: pos.notes ?? null,
-        createdByUserId: input.createdByUserId,
-      },
-    });
-
-    await recordAssignmentEvent({
-      assignmentId: assignment.id,
-      facilityId: input.facilityId,
-      eventType: "CREATED",
-      actorUserId: input.createdByUserId,
-      toStatus: "PLANNED",
-      summary: `Template assignment created: ${roleDef.label}`,
-    });
-
-    existingKeys.add(key);
-    created++;
-  }
-
-  return { created, skipped, warnings };
-}
-
-function parseLocalTime(dateIso: string, timeLocal: string): Date | null {
-  const match = timeLocal.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const [, h, m] = match;
-  return new Date(`${dateIso}T${h!.padStart(2, "0")}:${m}:00`);
+  return result;
 }

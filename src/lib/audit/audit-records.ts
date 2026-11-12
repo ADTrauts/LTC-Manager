@@ -40,6 +40,7 @@ export type AuditRecordFact = {
   status: string;
   inspection?: AuditRecordSlot["inspection"];
   repeatResponses?: AuditRecordSlot["repeatResponses"];
+  scalarResponses?: AuditRecordSlot["scalarResponses"];
   corrections: Array<{
     previousValue: string | null;
     reason: string;
@@ -122,6 +123,12 @@ export type AuditRecordSlot = {
       percentage: number | null;
     }>;
   } | null;
+  scalarResponses?: Array<{
+    column: string;
+    value: string;
+    unit: string;
+    outOfStandard: boolean;
+  }>;
   repeatResponses?: Array<{
     group: string;
     row: string;
@@ -216,7 +223,6 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
       for (const target of targets) {
         const attachment = {
           ...segment,
-          resolvedSpaceId: target.spaceId,
         };
         const requirements = resolveLogRequirementsForAttachment({
           attachment,
@@ -314,6 +320,7 @@ export function auditOperationalRecords(input: AuditOperationalRecordsInput): Au
             waiverAllowed: waiverBySegment.get(segment.id) === true,
             source: "CANONICAL_RECORD",
             inspection: record?.inspection ?? null,
+            scalarResponses: record?.scalarResponses ?? [],
             repeatResponses: record?.repeatResponses ?? [],
           });
         }

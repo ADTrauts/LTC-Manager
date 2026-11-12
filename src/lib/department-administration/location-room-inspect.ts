@@ -41,6 +41,8 @@ export type LocationRoomInspectView = {
   departmentId: string;
   departmentName: string;
   responsible: boolean;
+  /** This Department's optional descriptive note only. */
+  departmentNote: string | null;
   teams: LocationRoomTeamInspect[];
   cycles: LocationRoomCycleInspect[];
   coverage: LocationProgram["coverage"];
@@ -84,6 +86,7 @@ export function toLocationRoomInspect(
     departmentId: program.department.id,
     departmentName: program.department.name,
     responsible: program.location.responsible,
+    departmentNote: program.location.departmentNote,
     teams: program.teams,
     cycles: program.cycles,
     coverage: program.coverage,

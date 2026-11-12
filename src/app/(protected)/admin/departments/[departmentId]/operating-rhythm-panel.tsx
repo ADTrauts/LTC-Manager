@@ -16,7 +16,7 @@ import type {
   OperatingRhythmRootView,
 } from "@/lib/department-administration/operating-rhythm";
 import type { ResolvedCycleStarter } from "@/lib/department-products/cycle-starter";
-import type { TeamCatalog } from "@/lib/department-teams";
+import type { CycleBuilderCatalog } from "@/lib/operational-cycles/load-cycle-builder";
 import { formatCycleClock } from "@/lib/operational-cycles/cycle-display";
 
 type Props = {
@@ -24,7 +24,7 @@ type Props = {
   starter: ResolvedCycleStarter | null;
   starterWouldCreate: number;
   roots: OperatingRhythmRootView[];
-  catalog: TeamCatalog;
+  catalog: CycleBuilderCatalog;
   canManage: boolean;
   canPublish: boolean;
   showMeal: boolean;
@@ -211,8 +211,12 @@ export function OperatingRhythmPanel({
                       endLocal: root.draftEndLocal,
                       applicableDaysOfWeek: root.draftDays,
                       effectiveFrom: root.draftEffectiveFrom ?? nextDayKey,
-                      cycleType: "CUSTOM",
+                      effectiveTo: root.draftEffectiveTo,
+                      description: root.draftDescription,
+                      overnight: root.draftOvernight,
+                      cycleType: root.draftCycleType,
                       locationMode: root.draftLocationMode,
+                      unitIds: root.draftUnitIds,
                       spaceIds: root.draftSpaceIds,
                       parentStableKey: null,
                       mealType: showMeal ? root.mealType : null,
@@ -254,7 +258,7 @@ export function OperatingRhythmPanel({
   );
 }
 
-function locationName(catalog: TeamCatalog, spaceId: string): string {
+function locationName(catalog: CycleBuilderCatalog, spaceId: string): string {
   return catalog.locations.find((location) => location.id === spaceId)?.name ?? "Saved location";
 }
 
@@ -293,7 +297,11 @@ function ServicePhaseMeal({
       />
       <input type="hidden" name="effectiveFrom" value={child.effectiveFrom ?? nextDayKey} />
       <input type="hidden" name="parentStableKey" value={child.parentStableKey ?? ""} />
-      <input type="hidden" name="locationMode" value="EXPLICIT_UNITS" />
+      <input type="hidden" name="locationMode" value={child.locationMode} />
+      <input type="hidden" name="unitIds" value={child.unitIds.join(",")} />
+      <input type="hidden" name="spaceIds" value={child.spaceIds.join(",")} />
+      <input type="hidden" name="overnight" value={String(child.overnight)} />
+      <input type="hidden" name="effectiveTo" value={child.effectiveTo ?? ""} />
       <input
         type="hidden"
         name="locationInheritFromParent"
@@ -317,8 +325,7 @@ function ServicePhaseMeal({
         </select>
       </label>
       <p className="text-[11px] text-zinc-500">
-        Review cannot schedule this Service phase until it names its meal. The phase still uses
-        the parent Cycle&apos;s locations.
+        Choose the meal before publishing this Service phase.
       </p>
       <Button type="submit" size="compact" data-testid="save-service-phase-meal">
         Save meal
@@ -341,7 +348,7 @@ function KeyPointLocations({
   rootLabel: string;
   child: OperatingRhythmChildView;
   departmentId: string;
-  catalog: TeamCatalog;
+  catalog: CycleBuilderCatalog;
   canManage: boolean;
   nextDayKey: string;
   open: boolean;
@@ -351,7 +358,8 @@ function KeyPointLocations({
   const [groups, setGroups] = useState(child.keyTimeGroups);
   const editable = canManage && child.status === "DRAFT";
   const shown = open ? groups : child.keyTimeGroups;
-  const missingRooms = shown.some((group) => group.spaceIds.length === 0);
+  const locationScoped = child.keyPointGrain === "LOCATION";
+  const missingRooms = locationScoped && shown.some((group) => group.spaceIds.length === 0);
 
   return (
     <div className="rounded-md bg-zinc-50 px-2 py-2">
@@ -367,10 +375,11 @@ function KeyPointLocations({
               {shown.map((group) => (
                 <li key={`${child.stableKey}-${group.dueLocal}`}>
                   {formatCycleClock(group.dueLocal) || group.dueLocal || "Due time"}
-                  {": "}
-                  {group.spaceIds.length === 0
-                    ? "No locations yet"
-                    : group.spaceIds.map((spaceId) => locationName(catalog, spaceId)).join(", ")}
+                  {locationScoped ? (
+                    group.spaceIds.length === 0
+                      ? " · No locations yet"
+                      : ` · ${group.spaceIds.map((spaceId) => locationName(catalog, spaceId)).join(", ")}`
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -392,7 +401,7 @@ function KeyPointLocations({
             }}
             data-testid="edit-key-point-locations"
           >
-            {open ? "Close locations" : "Edit locations"}
+            {open ? "Close editor" : locationScoped ? "Edit locations" : "Edit time"}
           </Button>
         ) : null}
       </div>
@@ -421,9 +430,10 @@ function KeyPointLocations({
             groups={groups}
             onChange={setGroups}
             roomTypes={catalog.roomTypes}
+            locationScoped={locationScoped}
           />
           <Button type="submit" size="compact" data-testid="save-key-point-locations">
-            Save locations
+            {locationScoped ? "Save locations" : "Save time"}
           </Button>
         </DepartmentAdminActionForm>
       ) : null}

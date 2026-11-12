@@ -2,6 +2,7 @@ import { EmployeeTeamsPanel } from "@/components/employee-teams-panel";
 import type { FacilitySession } from "@/lib/auth";
 import {
   loadTeamEmployeeOptions,
+  loadTeamCatalog,
   loadTeamsForDepartment,
   resolveTeamAuthority,
 } from "@/lib/department-teams";
@@ -20,10 +21,11 @@ export async function DepartmentTeamsSection({
   departmentId,
   departmentName,
 }: Props) {
-  const [authority, teams, employees] = await Promise.all([
+  const [authority, teams, employees, catalog] = await Promise.all([
     resolveTeamAuthority(session, facilityId, departmentId),
     loadTeamsForDepartment(prisma, { facilityId, departmentId }),
     loadTeamEmployeeOptions(prisma, { facilityId, departmentId }),
+    loadTeamCatalog({ facilityId, departmentId }),
   ]);
   if (!authority.canView) return null;
 
@@ -34,6 +36,7 @@ export async function DepartmentTeamsSection({
       teams={teams}
       employees={employees}
       canManage={authority.canManage}
+      catalog={catalog}
     />
   );
 }

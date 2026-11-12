@@ -78,6 +78,18 @@ export function departmentMembershipEquals(
   return a.additionalDepartmentIds.every((id) => bSet.has(id));
 }
 
+/** Serialize membership and operational qualification writes for this employee. */
+export async function lockEmployeeMembership(
+  tx: Prisma.TransactionClient,
+  facilityId: string,
+  employeeId: string,
+): Promise<void> {
+  const rows = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM "Employee" WHERE "facilityId" = ${facilityId} AND "id" = ${employeeId} FOR UPDATE
+  `;
+  if (rows.length === 0) throw new Error("Employee not found.");
+}
+
 export async function syncEmployeeDepartmentMembership(
   tx: DbClient,
   input: {
@@ -91,6 +103,11 @@ export async function syncEmployeeDepartmentMembership(
   removedDepartmentIds: string[];
   previous: NormalizedDepartmentMembership;
 }> {
+  if ("$transaction" in tx) {
+    return tx.$transaction((transaction) => syncEmployeeDepartmentMembership(transaction, input));
+  }
+
+  await lockEmployeeMembership(tx, input.facilityId, input.employeeId);
   const membership = normalizeDepartmentMembership(input);
   const referenced = [
     ...(membership.primaryDepartmentId ? [membership.primaryDepartmentId] : []),
@@ -135,8 +152,8 @@ export async function syncEmployeeDepartmentMembership(
     primaryDepartmentId: existing.primaryDepartmentId,
     additionalDepartmentIds: existing.employeeDepartments.map((row) => row.departmentId),
   });
-  const nextIds = new Set(resolveDepartmentMembershipIds(membership));
-  const previousIds = resolveDepartmentMembershipIds(previous);
+  const nextIds = new Set(referenced);
+  const previousIds = resolveDepartmentMembershipIds(existing);
   const removedDepartmentIds = previousIds.filter((id) => !nextIds.has(id));
 
   await tx.employee.update({
@@ -160,6 +177,18 @@ export async function syncEmployeeDepartmentMembership(
         departmentId,
       })),
       skipDuplicates: true,
+    });
+  }
+
+  if (removedDepartmentIds.length > 0) {
+    await tx.employeeOperationalRoleQualification.updateMany({
+      where: {
+        facilityId: input.facilityId,
+        employeeId: input.employeeId,
+        departmentId: { in: removedDepartmentIds },
+        status: "ACTIVE",
+      },
+      data: { status: "REVOKED", revokedAt: new Date() },
     });
   }
 

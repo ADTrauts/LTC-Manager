@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { isCoverageTemplateEffectiveOnDate } from "@/lib/scheduling/coverage-expectations/publication";
 
 import { suggestEmployeeForPosition } from "./build-assignment-suggestions";
+import { assignmentMatchesCoverageItem } from "./build-assignment-fulfillment";
 import type { AssignmentBoardEmployee, AssignmentBoardEntry } from "./types";
 import type { TemplatePreview, TemplatePreviewPosition, TemplateItemView } from "./template-types";
 
@@ -18,7 +19,7 @@ export async function loadAssignmentTemplatePreview(
   boardAssignments: AssignmentBoardEntry[],
 ): Promise<TemplatePreview> {
   const template = await prisma.operationalAssignmentTemplate.findFirst({
-    where: { id: input.templateId, facilityId: input.facilityId, isActive: true },
+    where: { id: input.templateId, facilityId: input.facilityId, departmentId: input.departmentId, isActive: true },
     select: {
       id: true,
       name: true,
@@ -32,6 +33,8 @@ export async function loadAssignmentTemplatePreview(
           id: true,
           roleKey: true,
           roleLabel: true,
+          spaceId: true,
+          space: { select: { name: true, unitId: true } },
           unitId: true,
           unit: { select: { name: true } },
           startsAtLocal: true,
@@ -70,6 +73,12 @@ export async function loadAssignmentTemplatePreview(
     (a) => a.status === "PLANNED" || a.status === "ACTIVE",
   );
 
+  const qualifications = await prisma.employeeOperationalRoleQualification.findMany({
+    where: { facilityId: input.facilityId, departmentId: input.departmentId, status: "ACTIVE",
+      employeeId: { in: boardEmployees.map(employee => employee.id) } }, select: { employeeId: true, roleKey: true },
+  });
+  const qualified = new Set(qualifications.map(row => `${row.employeeId}:${row.roleKey}`));
+
   const positions: TemplatePreviewPosition[] = [];
   const warnings: string[] = [];
   const alreadySuggestedIds = new Set<string>();
@@ -82,6 +91,7 @@ export async function loadAssignmentTemplatePreview(
       roleLabel: rawItem.roleLabel,
       unitId: rawItem.unitId,
       unitName: rawItem.unit?.name ?? null,
+      spaceId: rawItem.spaceId, spaceName: rawItem.space?.name ?? null, spaceUnitId: rawItem.space?.unitId ?? null,
       startsAtLocal: rawItem.startsAtLocal,
       endsAtLocal: rawItem.endsAtLocal,
       requiredCount: rawItem.requiredCount,
@@ -90,14 +100,14 @@ export async function loadAssignmentTemplatePreview(
     };
 
     for (let i = 0; i < item.requiredCount; i++) {
-      const existing = findExistingMatch(activeAssignments, item, i, positions);
+      const existing = findExistingMatch(activeAssignments, item, positions);
 
       const suggestion = existing
         ? null
         : suggestEmployeeForPosition({
             roleKey: item.roleKey,
             unitId: item.unitId,
-            scheduledEmployees: boardEmployees,
+            scheduledEmployees: boardEmployees.filter(employee => qualified.has(`${employee.id}:${item.roleKey}`)),
             existingAssignments: activeAssignments,
             alreadySuggestedIds,
           });
@@ -113,6 +123,7 @@ export async function loadAssignmentTemplatePreview(
         roleLabel: item.roleLabel,
         unitId: item.unitId,
         unitName: item.unitName,
+        spaceId: item.spaceId, spaceName: item.spaceName, spaceUnitId: item.spaceUnitId,
         startsAtLocal: item.startsAtLocal,
         endsAtLocal: item.endsAtLocal,
         notes: item.notes,
@@ -147,7 +158,6 @@ export async function loadAssignmentTemplatePreview(
 function findExistingMatch(
   assignments: AssignmentBoardEntry[],
   item: TemplateItemView,
-  positionIndex: number,
   alreadyMatchedPositions: TemplatePreviewPosition[],
 ): { employeeId: string; employeeName: string; assignmentId: string } | null {
   const alreadyUsedIds = new Set(
@@ -156,11 +166,11 @@ function findExistingMatch(
       .map((p) => p.existingAssignmentId!),
   );
 
+  const usedEmployeeIds = new Set(alreadyMatchedPositions.filter(row => row.itemId === item.id).map(row => row.assignedEmployeeId));
   const match = assignments.find(
     (a) =>
-      a.roleKey === item.roleKey &&
-      (item.unitId ? a.unitId === item.unitId : true) &&
-      !alreadyUsedIds.has(a.id),
+      assignmentMatchesCoverageItem(a, item) &&
+      !alreadyUsedIds.has(a.id) && !usedEmployeeIds.has(a.employeeId),
   );
 
   if (!match) return null;

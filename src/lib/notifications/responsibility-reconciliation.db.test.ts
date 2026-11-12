@@ -459,15 +459,6 @@ test("intervention, coverage, key points, and excluded threads follow the same d
       data: { facilityId: facility.id, unitId: unit.id, name: `Dining ${suffix}`, spaceType: "SERVICE_AREA" },
     });
     await db.unitSpaceResponsibility.create({ data: { spaceId: space.id, departmentId: dietary.id } });
-    const profile = await db.departmentOperationalProfile.create({
-      data: { facilityId: facility.id, departmentId: dietary.id, name: "Food", version: 1, status: "ACTIVE" },
-    });
-    const archetype = await db.departmentRoomArchetype.create({
-      data: { profileId: profile.id, key: "SERVERY", name: "Servery" },
-    });
-    await db.departmentRoomArchetypeBinding.create({
-      data: { profileId: profile.id, archetypeId: archetype.id, unitSpaceId: space.id },
-    });
     await db.departmentOperationalCycle.create({
       data: {
         facilityId: facility.id,
@@ -926,7 +917,6 @@ test("intervention, coverage, key points, and excluded threads follow the same d
     await db.operationalAssignmentPlan.deleteMany({ where: { facility: { displayName: { contains: suffix } } } });
     await db.operationalAssignmentTemplate.deleteMany({ where: { facility: { displayName: { contains: suffix } } } });
     await db.departmentOperationalCycle.deleteMany({ where: { facility: { displayName: { contains: suffix } } } });
-    await db.departmentOperationalProfile.deleteMany({ where: { facility: { displayName: { contains: suffix } } } });
     await db.unitSpace.deleteMany({ where: { facility: { displayName: { contains: suffix } } } });
     await db.unit.deleteMany({ where: { facility: { displayName: { contains: suffix } } } });
     await db.employee.deleteMany({ where: { facility: { displayName: { contains: suffix } } } });

@@ -3,10 +3,10 @@
  * Does not invent meal-service copy. Legacy meal banners stay on the legacy path.
  */
 
-import { resolveWorkCycleRoomParticipation } from "./cycle-applicability";
 import { formatCycleWindow } from "./cycle-display";
 import {
   buildCyclesByStableKey,
+  cycleLocationOwner,
   effectiveCycleSpaceIds,
 } from "./effective-cycle-spaces";
 import {
@@ -369,16 +369,9 @@ function cycleHasParticipatingLocations(
   cycle: OperationalCycleDefinition,
   allByKey: ReadonlyMap<string, OperationalCycleDefinition>,
 ): boolean {
-  if (cycle.locationMode === "ALL_DEPARTMENT_UNITS") return true;
-  if (cycle.locationMode === "UNIT_TYPES" && cycle.applicableUnitTypes.length > 0) return true;
-  if (
-    cycle.locationMode === "OPERATIONAL_TYPES" &&
-    (cycle.applicableOperationalTypeKeys?.length ?? 0) > 0
-  ) {
-    return true;
-  }
-  if (cycle.locationMode === "ROOM_TYPE" && Boolean(cycle.roomTypeKey?.trim())) return true;
-  if (cycle.unitIds.length > 0) return true;
+  const owner = cycleLocationOwner(cycle, allByKey);
+  if (owner?.locationMode === "ALL_DEPARTMENT_UNITS") return true;
+  if (owner?.locationMode === "EXPLICIT_UNITS" && owner.unitIds.length > 0) return true;
   return effectiveCycleSpaceIds(cycle, allByKey).length > 0;
 }
 
@@ -508,8 +501,6 @@ export function presentLocationRunOperation(input: {
   nowLocalHhMm: string;
   canAdjust?: boolean;
   canComplete?: boolean;
-  /** Current Operational Type key — required for OPERATIONAL_TYPES targeting. */
-  operationalTypeKey?: string | null;
 }): RunLocationOperationPresentation {
   const scopedTimings = timingsForPublishedKeyTimeCycles(input.timings, input.cycles).filter(
     (row) => row.spaceId === input.spaceId,
@@ -521,7 +512,6 @@ export function presentLocationRunOperation(input: {
     facilityTimezone: input.facilityTimezone,
     operationalDateKey: input.operationalDateKey,
     spaceId: input.spaceId,
-    operationalTypeKey: input.operationalTypeKey,
   });
 
   let currentOperation: RunLocationCurrentOperation = {
@@ -581,12 +571,8 @@ export function presentLocationRunOperation(input: {
 function roomCountSpaceIds(
   cycle: OperationalCycleDefinition | undefined,
   allByKey: ReadonlyMap<string, OperationalCycleDefinition>,
-  functionSpaces?: readonly { id: string; operationalTypeKey?: string | null }[],
 ): string[] {
   if (!cycle) return [];
-  if (functionSpaces) {
-    return resolveWorkCycleRoomParticipation(cycle, allByKey, functionSpaces).spaceIds;
-  }
   return effectiveCycleSpaceIds(cycle, allByKey);
 }
 
@@ -598,8 +584,6 @@ export function presentDepartmentRunOperation(input: {
   operationalDateKey: string;
   nowLocalHhMm: string;
   spaceIdFilter?: ReadonlySet<string>;
-  /** Rooms and their adopted Location Function keys. Same binding set Work uses. */
-  functionSpaces?: readonly { id: string; operationalTypeKey?: string | null }[];
 }): RunDepartmentOperationPresentation {
   const provenance = detectRunModelProvenance(input.cycles, input.timings);
   const defsByKey = buildCyclesByStableKey(
@@ -630,7 +614,7 @@ export function presentDepartmentRunOperation(input: {
           label: occ.label,
           windowLabel: formatCycleWindow(occ.startLocal, occ.endLocal),
           roomCount: filterSpaceIds(
-            roomCountSpaceIds(defsByKey.get(occ.stableKey), defsByKey, input.functionSpaces),
+            roomCountSpaceIds(defsByKey.get(occ.stableKey), defsByKey),
             input.spaceIdFilter,
           ).length,
         }))
@@ -671,7 +655,7 @@ export function presentDepartmentRunOperation(input: {
     const next = context.next;
     if (next) {
       const roomCount = filterSpaceIds(
-        roomCountSpaceIds(defsByKey.get(next.stableKey), defsByKey, input.functionSpaces),
+        roomCountSpaceIds(defsByKey.get(next.stableKey), defsByKey),
         input.spaceIdFilter,
       ).length;
       if (!input.spaceIdFilter || roomCount > 0) {

@@ -23,7 +23,10 @@ import { getRoleDefinition, isRoleValidForDepartment } from "@/lib/scheduling/as
 
 import { requireCoverageManage, resolveCoverageAuthority } from "./authority";
 import { toCoverageExpectationView } from "./load-coverage";
-import { validateCoverageCycleStableKeys } from "./match-expectation";
+import {
+  validateCoverageCycleStableKeys,
+  validateCoverageLocationTarget,
+} from "./match-expectation";
 import { dayBefore, resolveCoveragePublishEffectiveFromKey } from "./publication";
 import type { CoverageExpectationView } from "./views";
 
@@ -44,12 +47,18 @@ async function requireManage(
 const TEMPLATE_INCLUDE = {
   items: {
     orderBy: { sortOrder: "asc" as const },
-    include: { unit: { select: { name: true } }, space: { select: { name: true } } },
+    include: {
+      unit: { select: { name: true } },
+      space: { select: { name: true } },
+    },
   },
 } as const;
 
-async function loadAllowedKeys(input: { facilityId: string; departmentId: string }) {
-  const cycles = await prisma.departmentOperationalCycle.findMany({
+async function loadAllowedCycleKeys(
+  client: DbClient,
+  input: { facilityId: string; departmentId: string },
+) {
+  const cycles = await client.departmentOperationalCycle.findMany({
     where: {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
@@ -58,9 +67,47 @@ async function loadAllowedKeys(input: { facilityId: string; departmentId: string
     },
     select: { stableKey: true },
   });
-  return {
-    cycleKeys: new Set(cycles.map((row) => row.stableKey)),
-  };
+  return new Set(cycles.map((row) => row.stableKey));
+}
+
+async function assertCoveragePlaceAllowed(
+  client: DbClient,
+  input: {
+    facilityId: string;
+    departmentId: string;
+    spaceId: string | null;
+    unitId: string | null;
+  },
+) {
+  if (input.spaceId) {
+    const space = await client.unitSpace.findFirst({
+      where: {
+        id: input.spaceId,
+        facilityId: input.facilityId,
+        isActive: true,
+        responsibilities: { some: { departmentId: input.departmentId } },
+      },
+      select: { id: true },
+    });
+    if (!space) {
+      throw new Error("Selected Space is not assigned to this Department.");
+    }
+    return;
+  }
+  if (input.unitId) {
+    const spaceInUnit = await client.unitSpace.findFirst({
+      where: {
+        unitId: input.unitId,
+        facilityId: input.facilityId,
+        isActive: true,
+        responsibilities: { some: { departmentId: input.departmentId } },
+      },
+      select: { id: true },
+    });
+    if (!spaceInUnit) {
+      throw new Error("Selected Unit has no Spaces assigned to this Department.");
+    }
+  }
 }
 
 async function loadTemplateOrThrow(
@@ -208,7 +255,8 @@ export async function upsertCoverageExpectationItem(
     itemId?: string | null;
     roleKey: string;
     requiredCount: number;
-    spaceIds: readonly string[];
+    spaceId?: string | null;
+    unitId?: string | null;
     cycleStableKeys: readonly string[];
   },
 ): Promise<CoverageExpectationView> {
@@ -231,28 +279,24 @@ export async function upsertCoverageExpectationItem(
     throw new Error("Required count must be an integer of at least 1.");
   }
 
-  const allowed = await loadAllowedKeys({
+  const place = validateCoverageLocationTarget({
+    spaceId: input.spaceId,
+    unitId: input.unitId,
+  });
+  await assertCoveragePlaceAllowed(prisma, {
+    facilityId: input.facilityId,
+    departmentId: current.departmentId,
+    spaceId: place.spaceId,
+    unitId: place.unitId,
+  });
+
+  const allowedCycleKeys = await loadAllowedCycleKeys(prisma, {
     facilityId: input.facilityId,
     departmentId: current.departmentId,
   });
-  const spaceIds = [...new Set(input.spaceIds.map((id) => id.trim()).filter(Boolean))];
-  if (spaceIds.length === 0) {
-    throw new Error("Select at least one location.");
-  }
-  const spaces = await prisma.unitSpace.findMany({
-    where: {
-      id: { in: spaceIds },
-      facilityId: input.facilityId,
-      responsibilities: { some: { departmentId: current.departmentId } },
-    },
-    select: { id: true },
-  });
-  if (spaces.length !== spaceIds.length) {
-    throw new Error("Choose locations this department is responsible for.");
-  }
   const cycleStableKeys = validateCoverageCycleStableKeys({
     submittedKeys: input.cycleStableKeys,
-    allowedKeys: allowed.cycleKeys,
+    allowedKeys: allowedCycleKeys,
   });
   if (cycleStableKeys.length === 0) {
     throw new Error("Select at least one Operational Cycle.");
@@ -262,6 +306,15 @@ export async function upsertCoverageExpectationItem(
     templateId: current.id,
     facilityId: input.facilityId,
   });
+
+  const itemData = {
+    roleKey: input.roleKey,
+    roleLabel: role.label,
+    requiredCount: input.requiredCount,
+    applicableOperationalCycleStableKeys: cycleStableKeys,
+    unitId: place.unitId,
+    spaceId: place.spaceId,
+  };
 
   if (input.itemId) {
     const existing = draft.items.find((item) => item.id === input.itemId);
@@ -277,41 +330,23 @@ export async function upsertCoverageExpectationItem(
       if (match) {
         await prisma.operationalAssignmentTemplateItem.update({
           where: { id: match.id },
-          data: {
-            roleKey: input.roleKey,
-            roleLabel: role.label,
-            requiredCount: input.requiredCount,
-            applicableOperationalCycleStableKeys: cycleStableKeys,
-            spaceId: spaceIds[0] ?? null,
-            unitId: null,
-          },
+          data: itemData,
         });
       }
     } else {
       await prisma.operationalAssignmentTemplateItem.update({
         where: { id: existing.id },
-        data: {
-          roleKey: input.roleKey,
-          roleLabel: role.label,
-          requiredCount: input.requiredCount,
-          applicableOperationalCycleStableKeys: cycleStableKeys,
-          spaceId: spaceIds[0] ?? null,
-          unitId: null,
-        },
+        data: itemData,
       });
     }
   } else {
     const maxSort = draft.items.reduce((max, item) => Math.max(max, item.sortOrder), 0);
-    await prisma.operationalAssignmentTemplateItem.createMany({
-      data: spaceIds.map((spaceId, index) => ({
+    await prisma.operationalAssignmentTemplateItem.create({
+      data: {
         templateId: draft.id,
-        roleKey: input.roleKey,
-        roleLabel: role.label,
-        requiredCount: input.requiredCount,
-        applicableOperationalCycleStableKeys: cycleStableKeys,
-        spaceId,
-        sortOrder: maxSort + (index + 1) * 10,
-      })),
+        ...itemData,
+        sortOrder: maxSort + 10,
+      },
     });
   }
 
