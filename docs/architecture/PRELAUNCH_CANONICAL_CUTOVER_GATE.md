@@ -93,3 +93,9 @@ The two database variables are sensitive. The feature flags were verified false.
 For rollback after restoring public traffic and cron to the old deployment, remove the four new Production rows by ID, restore Production on the original direct row by editing its scope, and reconnect the old store to Production, Preview and Development. Preserve the old store and both databases. Check the restored variable scopes and the old deployment's public readiness before lifting the build hold.
 
 GitHub `main` still contains the previous source. The Vercel ignored build step is `exit 0` and automatic domain assignment is disabled. Keep those settings until a normal PR aligns GitHub with the canonical source and the next production build has been verified. The previous ignored build step was `node scripts/vercel-ignore-build.mjs`. The certification account is outside this operation.
+
+## Post-cutover alignment
+
+Vercel Git Preview uses separate Preview-only pooled and direct credentials for the canonical staging database. The legacy Marketplace store remains available for rollback and its project connection has been removed. The original direct secret row `WWTqeYnl5s0Yla7f` remains in Development for rollback. Daily development uses loopback PostgreSQL with the local template.
+
+For a rollback now, follow step 5 to restore the former immutable deployment and cron target. For future Production builds on that rollback, remove the four cutover Production rows by ID, restore Production scope on the original direct row while retaining its Development scope, and reconnect the old store to **Production only**. The canonical Preview scopes stay separate. See the [local development and release guide](../engineering/LOCAL_DEVELOPMENT_AND_RELEASE.md).

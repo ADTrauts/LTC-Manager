@@ -24,6 +24,8 @@ Run `npm run typecheck`, `npm run test:hermetic` and `npm run verify:build` befo
 | Vercel Production | `ltc-manager` tracks GitHub `main` and uses only the canonical Production database variables. Its database is `damp-hill-35484256` / `br-jolly-math-avwiz3dt` / `vssyl_canonical_20261111`. Production schedules follow the promoted deployment. |
 | Rollback | Keep the former immutable deployment and its `neondb` database together. The recovery snapshot and exact rollback steps are recorded in the [cutover report](../architecture/PRELAUNCH_CANONICAL_CUTOVER_GATE.md). |
 
+The original direct credential remains stored in the production project's Vercel Development scope for rollback. Use the loopback values from the local template instead of pulling that project's Development environment.
+
 During alignment, Vercel's ignored build step is `exit 0` and automatic production domain assignment is disabled. GitHub still runs its PR checks. A manual hosted production verification uses an exact Git archive, the Production-scoped settings, and `vercel deploy --prod --skip-domain`. Verify that the resulting deployment is protected and has no public aliases, then check readiness and confirm that public traffic and cron still belong to the current deployment.
 
 After the canonical PR is reviewed and integrated, confirm that the tracked Production branch contains the reviewed application, the database scopes are correct, and a staged build succeeds. Restore the normal Git build step only through the release decision. Keep automatic domain assignment disabled for reviewed promotions. Promote a verified staged production deployment as a separate release step.
