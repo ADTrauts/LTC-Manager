@@ -1,6 +1,6 @@
 # Vssyl pre-launch canonical cutover gate
 
-**Status: BLOCKED pending the real owner's hosted sign-in.** The protected production candidate is Ready. The old app and database still serve both public domains. This record does not authorize the public switch.
+**Status: PASS WITH GAPS — ready for the owner's coordinated cutover authorization.** The protected production candidate is Ready and the real owner's hosted sign-in is verified. The empty certification account remains open and does not block the release. The old app and database still serve both public domains. This record does not authorize the public switch.
 
 ## Release identities
 
@@ -49,7 +49,7 @@ The owner confirmed the actual account and the rehearsed starting setup. The ope
 | Physical setup | Floor 1 → 1A - Naval Park → Naval Park Servery. `kitchen`, labeled **Servery**; Food and Nutrition responsibility. | 23 hierarchy nodes and 21 Rooms. Only the explicitly chosen path was recreated; no other sites or rooms copied. |
 | Operational data | Published system Record catalog definitions; no operational requirements, Coverage, Assignments, Menu, Assets, Work Orders or PM Plans seeded. | One Menu and two Assets. Zero Records, Assignments, Work Orders and PM Plans in the checked tables. No historical operational rows copied. |
 
-Hosted owner sign-in remains pending. Confirm the owner enters Terrace View in the protected staged production app and opens Facility Builder. Then corroborate the sign-in timestamp on the canonical Neon account without reading credentials.
+Hosted owner sign-in passed on November 11, 2026 at 8:46 p.m. EST. The owner confirmed Facility Builder opened and showed Floor 1 and Naval Park Servery on the protected staged production deployment. A read-only query of the canonical Neon database corroborated the owner's sign-in timestamp (`2026-11-12T01:46:48.958Z`), both current administrator roles, the full approved room hierarchy, and no Prisma schema drift. After sign-in, Vercel still reported both public domains and the production cron target on the old deployment, and the candidate Ready with no aliases.
 
 ## Vercel bindings and cutover sequence
 
