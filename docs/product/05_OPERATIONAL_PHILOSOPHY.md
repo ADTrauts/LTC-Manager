@@ -1,6 +1,6 @@
 # 05 — Operational Philosophy
 
-**Status:** How day-of operations should work in Vssyl  
+**Status — CURRENT.** This describes the operating loop and its design principles.
 
 ---
 
@@ -9,7 +9,7 @@
 ```text
 Operational Cycle   Which recurring window is active?
         ↓
-Work and Records    What does that window require, at which Location Functions?
+Owner configuration What applies at this place and time?
         ↓
 Execution           Do it at the place
         ↓
@@ -20,9 +20,9 @@ This loop is **time-bound** (facility timezone, service date) and **place-bound*
 
 An **Operational Cycle** is the Department’s recurring window. A **Phase** is one interval inside it. A **Key Point** is an instant on it, with occurrence tracking NONE, OPTIONAL, or REQUIRED. Current cycles are derived. Cycles may overlap and may cross midnight. Phases may overlap and may leave gaps. Key Points are not Work.
 
-Build reads the working profile. Run reads the ACTIVE profile. Audit reads the profile effective on the requested service date. Department responsibility is not cycle participation and is not a Location Function binding.
+Build authors configuration through each owner. Run reads what is effective now. Audit reads the configuration effective on the requested service date. Each engine explicitly determines participation within canonical Department responsibility.
 
-Dietary timing actuals are `OperationalCycleKeyPointActual`. Meal Due tracks NONE. Ready and Service Started track REQUIRED at LOCATION grain. Facility Plant Operations has zero required starter Operational Cycles and is not forced through a meal rhythm. Preventive Maintenance is not an Operational Cycle. Work may bind to a Cycle or Phase. An empty Cycle binding means the Work is not configured to a rhythm. See [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md).
+Dietary timing actuals are `OperationalCycleKeyPointActual`. Meal Due tracks NONE. Ready and Service Started track REQUIRED at LOCATION grain. Facility Plant Operations has zero required starter Operational Cycles and is not forced through a meal rhythm. Preventive Maintenance is not an Operational Cycle. A missing published Cycle supplies no current window. See [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md).
 
 ---
 
@@ -32,15 +32,15 @@ Dietary timing actuals are `OperationalCycleKeyPointActual`. Meal Due tracks NON
 
 The current window is a published Operational Cycle, not a separate meal-milestone engine. Surfaces that need “now” read that published rhythm.
 
-### Work
+### Execution
 
-Expected Work is derived from a published Work Plan. Assignment is optional and does not create the requirement. Sparse WorkOccurrences record that someone acted.
+Workforce Assignments own daily employee placement and instructions. Records own evidence requirements and submitted facts. Maintenance uses Work Orders and PM. Job Flow composes the applicable authorized facts.
 
 ### Readiness
 
 Answers: **Can this location support the current commitment?**  
 States: **Ready / In Progress / Needs Attention** (internal code may still say `blocked`).  
-Department profiles change *which* signals matter (Dietary vs EVS vs Plant). Incomplete *future* logs must not paint today red.
+The effective Cycle, Record requirements, Coverage and other owners supply the relevant signals. An incomplete future requirement creates no current exception.
 
 ### Issues, repairs, and Records
 
@@ -52,19 +52,19 @@ Department profiles change *which* signals matter (Dietary vs EVS vs Plant). Inc
 
 | Surface | Question it answers |
 |---------|---------------------|
-| Business Workspace | What should **I** personally do next? |
-| Today's Work | What is happening today, and what expected Work does the operation need? |
+| Dashboard | What needs attention now in my authorized scope? |
+| Job Flow | What should I do in my current assignment or place? |
 | Unit Workspace | What do I do **standing here**? |
 | Audit / Reports | What was expected, and what was recorded, for this service date? |
 
 If a design makes two homes answer the same question the same way, **one home is wrong**.
 
-### AI Moments
+### AI design principle
 
-Compress the same loop into **read-only or assistive summaries**:
+For future assistive summaries, compose the owner of the relevant moment:
 
 - Morning Brief → Dashboard peek when cached  
-- Shift Transition → Today's Work  
+- Shift transition → the authorized Dashboard or shift context
 - Recovery Assistant → Issue detail  
 
 AI must not become the operational system of record and must not invent due times.
@@ -79,5 +79,5 @@ Closes the improvement loop by putting SOPs at submission, unit, and issue conte
 
 1. New features attach to a stage in the loop (or they are out of bounds).  
 2. Summaries always deep-link to Execution or Verification owners.  
-3. Preference and AI never invent Work.  
+3. Preferences and AI create no operational facts or obligations.
 4. Multi-facility means **restarting the loop** for the destination facility — never blending loops.

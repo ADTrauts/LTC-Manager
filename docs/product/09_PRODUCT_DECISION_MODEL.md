@@ -1,117 +1,30 @@
 # 09 — Product Decision Model
 
-**Status:** Where new features should live  
-
----
+**Status — CURRENT.** Use the [Constitution](01_PRODUCT_CONSTITUTION.md) for governing principles and the [engine registry](15_PLATFORM_PRIMITIVES_AND_ENGINES_REGISTRY.md) to find an owner.
 
 ## First filters
 
-Before designing UI, answer:
+1. Name the operational question, the person who acts, and the place and time involved.
+2. Check the [Product boundaries](07_PRODUCT_BOUNDARIES.md) and existing owner before proposing storage or a new surface.
+3. Identify whether this is shared platform behavior, a Product capability, a Facility configuration fact, a Run read, an Audit question, or governance.
 
-1. **Which stage of the operating loop** does this serve? (Operations → Work → Execution → Verification → Knowledge → Improvement)  
-2. **Which persona** owns the decision?  
-3. **Would this violate Product Boundaries?** If yes — integrate, don’t own.  
-4. **Can an existing home compose it** without a new zone?
+## Surface and owner
 
----
+| Question | Home or owner |
+| --- | --- |
+| What operating configuration applies? | Build and the owning engine. Physical places go through Facility Builder. Department configuration goes through [Department Builder](16_DEPARTMENT_BUILDER_ARCHITECTURE.md). |
+| What needs attention in my authorized scope? | Dashboard composes the existing owners under the [Department contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md). |
+| What do I do in this assignment or place? | Employee Job Flow and the place workspace. Use the existing Assignment, Cycle, Records and maintenance services. |
+| What was expected and recorded for a service date? | Audit / Reports, using effective domain configuration and evidence. |
+| Who can enter, administer or operate? | Platform governance and Department authority. |
+| Can we support a new domain behavior? | Name the existing owner first. A genuinely missing lifecycle requires a product decision. Use the [Product guide](NEW_DEPARTMENT_PRODUCT_IMPLEMENTATION_GUIDE.md) to test whether existing engines suffice. |
 
-## Decision tree — placement
+A readiness or timing change belongs to the domain that owns the signal. Reuse Operational Time and applicable published Rhythm. Put daily instructions and placement in Assignments, evidence in Records, and repair work in the Work Order lifecycle.
 
-```text
-Is it facility setup / permissions / org structure?
-  YES → Administration
-  NO ↓
+## Assistive summaries
 
-Is it a grounded AI compression of existing state?
-  YES → Intelligence moment on the home that owns the context
-        (OC brief, Today shift, Issue recovery, Workspace cached peek only)
-  NO ↓
+Use an existing authorized surface and grounded domain facts. Treat AI summaries as assistive, respect Facility and Department scope, and preserve underlying due times, priorities and authoritative records. Product capability and approval govern whether any proposed assistive feature ships.
 
-Is it “what should I personally do next?” for Manager+?
-  YES → Business Workspace (Focus / Agenda / Quick Action) — compose only
-  NO ↓
+## Consolidation
 
-Is it site-wide “what is wrong right now?”
-  YES → Operations Center
-  NO ↓
-
-Is it multi-location supervisor motion (walk/cover/handoff)?
-  YES → Today's Work
-  NO ↓
-
-Is it do-the-work-here at a location?
-  YES → Unit Workspace (+ logs/issues/inspections deep links)
-  NO ↓
-
-Is it historical review / export?
-  YES → Review zone
-  NO ↓
-
-Is it domain record management (assets, employees, knowledge library)?
-  YES → Existing module under Resources / People / Knowledge / Admin
-  NO ↓
-
-STOP — likely out of bounds or needs an ADR.
-```
-
----
-
-## Decision tree — engines vs homes
-
-```text
-Need a new rule about Ready / Needs Attention?
-  → Extend Readiness profiles — do not hardcode in Workspace
-
-Need a new time window for meals/service?
-  → Operations Engine — do not invent clocks in UI
-
-Need a new assignable work type?
-  → Work Engine / Issue / Inspection / Log adapters — not a new inbox skin first
-
-Need a summary of existing signals?
-  → Prefer composing homes (Workspace/OC/Today) over new engines
-```
-
----
-
-## Decision tree — AI
-
-```text
-Would the AI create or refresh state from Workspace?
-  → Forbidden (Workspace is cache-peek only)
-
-Would the AI invent due times or urgency?
-  → Forbidden
-
-Does a READY cached brief already exist for facility+department+day?
-  → Optional peek on Workspace; full surface stays OC
-
-Is the moment tied to shift handoff?
-  → Today's Work
-
-Is the moment tied to issue recovery?
-  → Issue detail
-```
-
----
-
-## Preference for consolidation
-
-When two UIs answer the same persona question:
-
-1. Keep the stronger home.  
-2. Demote the other to a link or remove.  
-3. Document the change in the constitution/roadmap.  
-
-Example already resolved: Manager home = Workspace; OC remains glance.
-
----
-
-## Required citations for new waves
-
-Every future wave README or kickoff should cite:
-
-- Constitution principles served  
-- Capability touched  
-- Home placement from this decision model  
-- Explicit boundary: what was **not** chosen
+When two surfaces answer the same question for the same persona, choose the existing canonical home and link to its owner. Record the decision and the affected contract in the feature proposal.

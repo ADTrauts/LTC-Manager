@@ -1,6 +1,6 @@
 # 07 — Product Boundaries
 
-**Status:** Explicit non-ownership list  
+**Status — CURRENT.** Product scope and integration boundaries.
 
 ---
 
@@ -14,7 +14,7 @@
 | **Accounting / ERP GL** | G/L, AP/AR, procurement accounting | Export invoices later; never post books |
 | **Warehouse / inventory accounting** | SKU costing, perpetual inventory | Ops PAR / shortage **signals** only |
 | **Messaging-first platform** | Chat, channels, presence as core UX | Notifications/alerts later — not Slack clone |
-| **Generic project / ticket SaaS** | Untethered task boards for any industry | Tasks exist to serve **operations**, not consulting firms |
+| **Generic project / ticket SaaS** | Untethered task boards for any industry | Operational responsibilities use Workforce Assignments and their domain owners |
 | **BI / analytics home** | Warehouse-first dashboards | Review zone exports ok; Workspace ≠ looker |
 | **Industry-only LTC package** | Locked forever to one care setting | LTC is beachhead; dining/healthcare/education expansion via configuration |
 
@@ -49,7 +49,7 @@ Integrations enter through **Administration** and facility-scoped credentials �
 Reject or redirect a feature if:
 
 1. It requires a clinical, financial, or legal **system of record** we do not own.  
-2. It invents a **fourth home** answering the same question as Workspace/OC/Today/Unit.  
+2. It duplicates a question already answered by Dashboard, Job Flow, a place workspace, or Audit.
 3. It needs **org-wide averages** without explicit product research.  
 4. It is “just a chatbot.”  
 5. It duplicates readiness/issue rules in a new module “for convenience.”
