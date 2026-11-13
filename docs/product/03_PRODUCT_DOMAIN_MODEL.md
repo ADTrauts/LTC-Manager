@@ -174,8 +174,8 @@ Disruption path
 | Whether a Record was required | Derived expected slot from the requirement segment effective that day |
 | Does this Department have a capability? | Its installed Department Product, plus a valid license when enforcement is on. Not a deployment switch ([Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026)). |
 | Which Marketplace items does this Department use? | Its added items. Today: `FacilityCatalogInstall` plus `LogAttachment` for Records forms. |
-| What generic Work is expected? | **None in forward architecture.** Residual Work Plans are compatibility-only until Phase 2 removal. Do not invent Task/Activity replacements. |
-| What is **my** work? | **Job Flow** composition: Assignment context (or signed-in place when none), current Cycle/Phase window, Records due, assigned work orders and preventive maintenance. Each source keeps its own store. Live code may still also read Work Plans (gap). |
+| What generic Work is expected? | **None in forward architecture.** The canonical baseline excludes generic Work. Do not invent Task/Activity replacements. |
+| What is **my** work? | **Job Flow** composition: Assignment context (or signed-in place when none), current Cycle/Phase window, Records due, assigned work orders and preventive maintenance. Each source keeps its own store. |
 | Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks that whole shift absent. `calledOffAt` is when the absence was recorded. It does not start a partial shift. |
 | Who covers this location or Work right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. A called-off shift in the same Department stops that Employee's overlapping Assignment from counting toward Coverage. The Assignment row stays. |
 | Who is supervising this Department and location right now? | The Assignment whose role is that Department's supervisor-rounding responsibility, for the service window that contains now, at the most specific covering location. A call-off on the shift removes that Employee. The Supervisor role and the Department head do not answer it |
@@ -230,7 +230,7 @@ Constitution prefers **product terms** in UI and docs; schema renames are option
 3. **Operation engine** — retired September 25, 2026. Its tables were dropped in LEG-06. "What's happening now" is the published Cycle and Phase.
 4. **Task** — removed. Do not recreate Task or generic Work. The Task table was dropped in LEG-06.
 5. **Unit vs Location** — UI prefers "Location"; model is `Unit`. UnitSpace is the room. See `docs/location-architecture/`.
-6. **Location Function / Operational Type / archetype** — **retired.** Residual schema and Locations bind/publish remain after the Nov 6 restore (Phase 0 ARR-001/004/026). Phase 2 removes them.
+6. **Location Function / Operational Type / archetype** — **retired.** The November 6 restore records a historical dependency. The canonical baseline excludes these models.
 7. **Capability switches** — retired in LEG-05 (LEG-D20). Shared engines come with the installed Department. `CANONICAL_LOGS_ENABLED` remains a code flag. The record-engine rollout table was dropped in LEG-06.
-8. **Generic Work Plans** — retired as architecture; still present in schema and Job Flow until Phase 2.
+8. **Generic Work Plans** — retired in the canonical baseline. Explicit Assignments carry supported ONE_OFF behavior.
 9. **Department Job Role** — retired as architecture; still present beside operational qualifications until Phase 2.

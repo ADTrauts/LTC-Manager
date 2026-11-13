@@ -12,7 +12,7 @@
 **Notifications & Attention:** [16 — Notifications & Attention](./16_NOTIFICATIONS_AND_ATTENTION.md)  
 **Department Builder contract:** [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md)  
 **Compatibility systems:** [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md)  
-**Plug-in contract:** [Current foundation — October 26, 2026](#current-foundation--october-26-2026), including the [October 29, 2026 amendment](#foundation-amendment--october-29-2026), [November 1 Department Builder amendment](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md), and [November 8 Phase 1 contracts amendment](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md)
+**Plug-in contract:** [Current foundation — October 26, 2026](#current-foundation--october-26-2026), including the [October 29, 2026 amendment](#foundation-amendment--october-29-2026), [November 1 Department Builder amendment](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md), [November 8 Phase 1 contracts amendment](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md), and [November 10 canonical consolidation amendment](./01C_PRELAUNCH_CANONICAL_RESET_AMENDMENT_2026-11-10.md)
 
 This document is the one current map. Deeper documents explain a layer. Dated `LTC_MANAGER_*.md` files, wave roadmaps, and domain guidebooks are historical or operational references. They do not override this constitution. Where an older paragraph disagrees with the current foundation or a later accepted amendment, **the later amendment wins**. Phase 1 ([01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md)) reconciles long-form text that still named generic Work or Location Function after those concepts were retired.
 
@@ -56,9 +56,9 @@ Use the [Phase 1 four-state vocabulary](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AME
 | State | Meaning here |
 |-------|----------------|
 | **Implemented and verified** | Food and Nutrition and Facility Plant Operations V1 as customer-visible AVAILABLE Products; Facility tree + responsibility; Operational Cycles; Records Catalog chain (when Canonical Logs are on); shared Assets and repairs; Shift / Assignment / Coverage core paths |
-| **Implemented with gaps** | Notifications & Attention (evaluators live; production Scheduled Evaluation cron not in `vercel.json`; Web Push off); Job Flow composition still reads generic Work Plans; progressive configuration uneven across surfaces |
-| **Approved target** | Full retirement of generic Work / Location Function / Department Job Role from code; unified operational timeline projection; optional Role Job Flows; Marketplace kinds beyond Records forms (without Work presets) |
-| **Retired or compatibility-only** | Generic Work Plans and related UI; Location Function / profile / archetype tables and bind/publish; Department Job Role; systems in the [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md) |
+| **Implemented with gaps** | Notifications & Attention (evaluators live; production Scheduled Evaluation cron not in `vercel.json`; Web Push off); Job Flow composes canonical contributors; progressive configuration and historical detail vary by surface |
+| **Approved target** | Unified operational timeline projection; optional Role Job Flows; Marketplace kinds beyond Records forms (without Work presets) |
+| **Retired** | Generic Work, Location Function / profile / archetype and Department Job Role. Historical systems are listed in the [documentation status register](../DOCUMENTATION_STATUS.md) |
 | **In development** | Environmental Services exists in the registry, tests, and internal tooling. It is not customer-visible until marked AVAILABLE. |
 
 Status reconciliation (October 17, 2026): Facility Plant Operations V1 became AVAILABLE on October 7, 2026; see the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07) and [14](./14_FACILITY_PLANT_OPERATIONS.md). This corrects stale implementation-status prose; it does not change Product release policy or billing behavior.
@@ -107,9 +107,9 @@ Vssyl Platform                 every facility
   - With one, they see the Work for their assigned places.
   - An empty Assignment plan never hides Work.
 - **One "my work" view (Job Flow).**
-  - **Approved target sources:** Assignment context, current Cycle/Phase window, Records due at the person's places, and work orders / preventive maintenance assigned to them (`Repair.assignedEmployeeId`), side by side.
+  - **Canonical contributors:** Assignment context, current Cycle/Phase window, Records due at the person's places, and work orders / preventive maintenance assigned to them (`Repair.assignedEmployeeId`), side by side.
   - Each keeps its own store and lifecycle. Plant work orders never become generic Work.
-  - **Implemented with gaps:** live Job Flow still also reads generic Work Plans (Phase 0 ARR-003). That dependency is compatibility debt, not permission to extend Work.
+  - **Canonical implementation:** Job Flow composes the owning services. The prior Work Plan dependency is recorded in Phase 0 evidence.
 - **"What's happening now" is the published Cycle and Phase.**
   - The shift and Assignment answer "am I on, and where".
   - No published Cycle means no window (`NOT_CONFIGURED`). The system never guesses.
@@ -212,7 +212,7 @@ The product owner authorized Phase 1 documentation reconciliation on November 8,
 Summary:
 
 - The November 6 schema restore is **temporary compatibility**, not a reversal of Nov 1–2 retirements.
-- Generic Work, Location Function / Department profile / archetype, and Department Job Role remain **retired** as forward architecture while residual code may still run.
+- Generic Work, Location Function / Department profile / archetype, and Department Job Role remain **retired**. The Phase 1 compatibility restore is a historical checkpoint.
 - Progressive configuration is a formal platform principle.
 - Operational Time + Scheduled Evaluation remain the only shared temporal foundations; production Scheduled Evaluation host cron is not registered in `vercel.json` at audited HEAD.
 - Department Builder core sections are Overview, Facility, Operating Rhythm, People & Coverage, Records, plus approved Product extensions.
@@ -222,11 +222,11 @@ Summary:
 
 **Physical world.** One Facility tree: Facility → structural Units → neighborhoods / operational Units → Rooms / Spaces. Departments do not clone the building. Facility Builder owns physical hierarchy, physical room type, physical names, and Department responsibility. Engines that need places store canonical Unit / UnitSpace ids (or department-wide responsibility), not a Department room-classification key.
 
-**Location Function / Department profile (retired).** Product `functionKey`, `DepartmentRoomArchetype`, `DepartmentOperationalProfile`, and Locations bind/publish are **retired or compatibility-only**. Do not extend them. Nov 3–4 removal was followed by the Nov 6 restore while consumers still depended on them ([01B Amendment B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md#amendment-b--november-6-restore-is-temporary-compatibility)).
+**Location Function / Department profile (retired).** Product `functionKey`, `DepartmentRoomArchetype`, `DepartmentOperationalProfile`, and Locations bind/publish are **retired**. Do not extend them. Nov 3–4 removal was followed by the Nov 6 restore while consumers still depended on them ([01B Amendment B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md#amendment-b--november-6-restore-is-temporary-compatibility)).
 
 **Operational Rhythm.** An Operational Cycle is a root recurring window. A Phase is one interval inside that Cycle. A Key Point is an instant on the Cycle. Occurrence tracking is NONE, OPTIONAL, or REQUIRED. Current cycles are derived. Cycles may overlap and may cross midnight. Phases may overlap and may leave gaps. Key Points are not Work and not Records. No published applicable Cycle means `NOT_CONFIGURED` — not overdue.
 
-**Generic Work (retired).** Department Work Plans, Expected Work, Work occurrences, and Work presets are **retired or compatibility-only**. Do not replace them with Task / Activity / Duty / Routine. Valid needs belong to Records, Operating Rhythm, Shift/Assignment/Coverage, or Plant Work Orders / PM. Live modules under `src/lib/department-work` and Work Builder tabs remain until Phase 2.
+**Generic Work (retired).** Department Work Plans, Expected Work, Work occurrences, and Work presets are **retired**. Do not replace them with Task / Activity / Duty / Routine. Valid needs belong to Records, Operating Rhythm, Shift/Assignment/Coverage, or Plant Work Orders / PM. Explicit employee/role/location Assignments carry supported ONE_OFF behavior.
 
 **Records.** One engine. Manager forms are Reading, Checklist, Inspection, Acknowledgement, and On-demand Record. The forward chain is:
 
@@ -256,7 +256,7 @@ Log Book is a projection over `OperationalEvidenceRecord`. Audit / Reports (Revi
 
 ### Product workspaces
 
-**Build / Department Builder:** Overview, Facility (tab may still say Locations), Operating Rhythm, People & Coverage, Records. Notification policy is published with other Build configuration where present. It configures the shared Notifications engine; it does not deliver notifications. **Work is not a forward core section** — residual Work tabs are compatibility-only. Food and Nutrition also has Menus. Facility Plant Operations also has Preventive Maintenance. Menus are first-class Department-owned records listed at `/menus` and edited at `/menus/[menuId]`. A Menu is identity plus content. Applicability is separate configuration: explicit Department locations and canonical Operational Cycle identities, each mapped to an existing Menu period. Menu rotation is not Operational Cycle timing. They are not a facility singleton. Runtime Menu resolution is `resolveApplicableMenus`: exact location + date-effective root Operational Cycle occurrence + ACTIVE applicability + stored cycle→period mapping + Menu rotation. The first Run consumer is a read-only Today's Menu block on the Space workspace when an ACTIVE current Operational Cycle exists. Temperature/log integration and historical Menu snapshots are not implemented. Assets and Procedures appear only where a real configurable capability exists.
+**Build / Department Builder:** Overview, Facility (tab ID `locations`), Operating Rhythm, People & Coverage, Records. Notification policy is published with other Build configuration where present. It configures the shared Notifications engine; it does not deliver notifications. Generic Work is retired. Food and Nutrition also has Menus. Facility Plant Operations also has Preventive Maintenance. Menus are first-class Department-owned records listed at `/menus` and edited at `/menus/[menuId]`. A Menu is identity plus content. Applicability is separate configuration: explicit Department locations and canonical Operational Cycle identities, each mapped to an existing Menu period. Menu rotation is not Operational Cycle timing. They are not a facility singleton. Runtime Menu resolution is `resolveApplicableMenus`: exact location + date-effective root Operational Cycle occurrence + ACTIVE applicability + stored cycle→period mapping + Menu rotation. The first Run consumer is a read-only Today's Menu block on the Space workspace when an ACTIVE current Operational Cycle exists. Temperature/log integration and historical Menu snapshots are not implemented. Assets and Procedures appear only where a real configurable capability exists.
 
 **Facility Builder:** physical structure only.
 

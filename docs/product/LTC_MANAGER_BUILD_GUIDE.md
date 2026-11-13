@@ -1,5 +1,7 @@
 # LTC Manager — BUILD Guide
 
+> **SUPERSEDED.** For current implementation use the [canonical reference](16_DEPARTMENT_BUILDER_ARCHITECTURE.md). The following material records its original checkpoint.
+
 **Mode:** BUILD — *Configure how the operation works.*
 **Companion docs:** `LTC_MANAGER_BUILD_RUN_INFORMATION_ARCHITECTURE_2026-08-08.md`, `LTC_MANAGER_RUN_GUIDE.md`, `LTC_MANAGER_ADMIN_BOUNDARY.md`
 

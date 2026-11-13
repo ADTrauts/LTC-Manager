@@ -1,5 +1,7 @@
 # 14 — Run surface reference freeze
 
+> **HISTORICAL.** For current implementation use the [canonical reference](../README.md). The following material records its original checkpoint.
+
 **Status:** Frozen reference (2026-09-25)  
 **Implements:** step 17 of [`13_LOCATION_PROGRAMMING_REALIGNMENT.md`](13_LOCATION_PROGRAMMING_REALIGNMENT.md)
 

@@ -1,5 +1,7 @@
 # 00 — Experience Runtime Index
 
+> **SUPERSEDED.** For current implementation use the [canonical reference](../README.md). The following material records its original checkpoint.
+
 **Wave:** 15AA — Experience Runtime Architecture  
 **Status:** Architecture only — no production code  
 **Depends on:** Waves 14A–14C (Registry, Profiles, Admin), Wave 15A (Operational Projection architecture)  

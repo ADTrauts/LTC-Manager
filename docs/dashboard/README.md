@@ -1,5 +1,7 @@
 # Vssyl Dashboard program
 
+> **HISTORICAL program record.** For current implementation use the [canonical reference](DEPARTMENT_DASHBOARD_CONTRACT.md). The following material records its original checkpoint.
+
 Accepted October 20, 2026. This program replaces the current `/workspace` "Business Workspace" page and retires the Today's Work hub. The result is one **Dashboard** that changes with the person looking at it. It applies the [Product Constitution](../product/01_PRODUCT_CONSTITUTION.md); it does not replace it.
 
 The program uses `DSH-` identifiers. They do not renumber historical waves or the [onboarding program](../onboarding/README.md) (`ONB-`).

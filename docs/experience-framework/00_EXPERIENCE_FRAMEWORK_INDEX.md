@@ -1,5 +1,7 @@
 # 00 — Experience Framework Index
 
+> **SUPERSEDED.** For current implementation use the [canonical reference](../README.md). The following material records its original checkpoint.
+
 **Wave:** 15AB — Experience Composition Framework  
 **Status:** Architecture only — no production code  
 **Depends on:** Wave 15AA (Experience Runtime), Wave 15A (Operational Projection)  

@@ -1,5 +1,7 @@
 # Legacy Surface Register
 
+> **HISTORICAL.** For current implementation use the [canonical reference](../DOCUMENTATION_STATUS.md). The following material records its original checkpoint.
+
 **Status:** Compatibility register. Current architecture is [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md).  
 **Date:** 2026-08-08, compatibility systems certified 2026-10-02  
 **Purpose:** Name the systems that remain readable and are not the forward architecture.  
