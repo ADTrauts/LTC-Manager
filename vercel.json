@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "fix/harbor-console-phase-0": false
+    }
+  },
   "regions": ["iad1"],
   "crons": [
     {
