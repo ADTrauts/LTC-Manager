@@ -267,6 +267,7 @@ export default async function AssetProfilePage({ params }: Props) {
   const logsCtx =
     showCanonicalLogs && canConfigureLogs
       ? await loadTargetLogsBuildContext({
+          session,
           facilityId: session.facilityId,
           targetKind: "ASSET",
           targetId: assetId,

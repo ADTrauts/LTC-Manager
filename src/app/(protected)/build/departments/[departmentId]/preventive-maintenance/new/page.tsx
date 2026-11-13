@@ -71,6 +71,7 @@ export default async function NewPreventiveMaintenancePlanPage({ params }: PageP
   });
   const facilityToday = facilityCivilToday(facility?.timezone);
   const options = await loadPmBuilderOptions({
+    session,
     facilityId: session.facilityId,
     departmentId: view.department.id,
   });

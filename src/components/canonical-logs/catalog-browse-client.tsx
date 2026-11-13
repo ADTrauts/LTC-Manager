@@ -243,7 +243,7 @@ export function CatalogBrowseClient({
                   </p>
                 ) : null}
                 <p className="text-[11px] text-zinc-400">
-                  Version {card.version} · Vssyl catalog
+                  Version {card.version} · {card.maintainedByLtcCorp ? "Vssyl catalog" : "Private form"}
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap gap-2">

@@ -22,6 +22,7 @@ export default async function AssetLogsTargetPage({ params }: Props) {
   const { assetId } = await params;
   const ctx = await loadTargetLogsBuildContext({
     facilityId: session.facilityId,
+    session,
     targetKind: "ASSET",
     targetId: assetId,
   });

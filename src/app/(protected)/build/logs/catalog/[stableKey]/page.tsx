@@ -1,3 +1,4 @@
+import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
@@ -23,13 +24,15 @@ export default async function CatalogDetailPage({ params }: Props) {
   if (!hasAtLeastRole(session.role, "MANAGER")) redirect("/build");
 
   const { stableKey } = await params;
-  const detail = await loadPublishedCatalogDetail(prisma, stableKey);
+  const ownerWhere = await catalogFormsWhereForViewer(prisma, session, session.facilityId);
+  const detail = await loadPublishedCatalogDetail(prisma, stableKey, ownerWhere);
   if (!detail) notFound();
 
   const [assignView, installed] = await Promise.all([
     loadCatalogAssignView({
       client: prisma,
       facilityId: session.facilityId,
+      session,
       catalogStableKey: stableKey,
     }),
     isCatalogInstalled(prisma, session.facilityId, stableKey),
@@ -43,7 +46,7 @@ export default async function CatalogDetailPage({ params }: Props) {
         subtitle={`${detail.categoryLabel} · ${detail.purposeLabel}`}
       />
       <p className="text-sm text-zinc-700">{detail.description}</p>
-      <p className="text-xs text-zinc-500">Vssyl catalog · Catalog version {detail.version}</p>
+      <p className="text-xs text-zinc-500">{detail.maintainedByLtcCorp ? "Vssyl catalog" : "Private form"} · Catalog version {detail.version}</p>
 
       <dl className="grid gap-3 sm:grid-cols-2">
         <div>

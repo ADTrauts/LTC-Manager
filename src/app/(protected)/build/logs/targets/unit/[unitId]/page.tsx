@@ -20,6 +20,7 @@ export default async function UnitLogsTargetPage({ params }: Props) {
   const { unitId } = await params;
   const ctx = await loadTargetLogsBuildContext({
     facilityId: session.facilityId,
+    session,
     targetKind: "UNIT",
     targetId: unitId,
   });
