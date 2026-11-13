@@ -1,5 +1,7 @@
 # Product Constitution Amendment — Pre-launch canonical consolidation
 
+> **Reading this amendment.** The canonical policy and ONE_OFF decision apply. The original consolidation branch, infrastructure observations and migration counts describe the November 10 checkpoint. Follow the [current development workflow](../engineering/LOCAL_DEVELOPMENT_AND_RELEASE.md).
+
 **Status:** Accepted product-owner direction, November 10, 2026. Applies to all Codex development and release work.
 
 Vssyl is pre-launch. There is one actual user, the product owner, no paid subscribers, and no external customer facilities relying on the current deployment. Canonical architectural correctness takes precedence over historical development compatibility. This amendment supersedes older instructions to retain retired functionality, readers, tables, or operational test data merely to support previous application versions.

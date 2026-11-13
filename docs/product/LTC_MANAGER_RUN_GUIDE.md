@@ -1,5 +1,7 @@
 # LTC Manager — RUN Guide
 
+> **SUPERSEDED.** For current implementation use the [canonical reference](../README.md). The following material records its original checkpoint.
+
 **Mode:** RUN — *Operate today.*
 **Companion docs:** `LTC_MANAGER_BUILD_RUN_INFORMATION_ARCHITECTURE_2026-08-08.md`, `LTC_MANAGER_BUILD_GUIDE.md`, `LTC_MANAGER_ADMIN_BOUNDARY.md`
 

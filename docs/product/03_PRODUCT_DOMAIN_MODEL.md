@@ -17,14 +17,14 @@
 | **Partner Department Scope** | Departments the Facility has explicitly authorized under a partnership (`FacilityPartnerDepartmentScope`, timestamp periods). |
 | **Facility** | Operational site with timezone, users, units, departments. Primary tenancy boundary for day-to-day data. |
 | **UserFacilityAccess** | Explicit grant for a user to enter a facility (internal / same-parent-Organization path). |
-| **User authorization (partner)** | Not implemented in Phase 2A. Partner relationship + Department scope do **not** grant any user Facility access. |
-| **Department Product** | Vssyl-owned operational product (Food and Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. Customer-visible only when release status is AVAILABLE. |
+| **User authorization (partner)** | Authorized through current partner and Department access. A partner relationship or scope row alone grants no user Facility access. |
+| **Department Product** | Vssyl-owned operational product (Food and Nutrition, EVS, Facility Plant Operations). Code registry, not a customer-editable row. AVAILABLE enables new customer selection. Eligible RETIRED installs can continue to operate. |
 | **Department entitlement** | Commercial authorization that this facility purchased a Department Product. Not the install. |
 | **Marketplace item** | Vssyl-published ready-made content added inside a Department: a Records form, Operating Rhythm starter, or Menu template. Included or Paid. Runs on Platform engines. Today only Records forms exist as Catalog items (`CatalogLogDefinition`). Work presets are not a forward Marketplace kind. |
 | **Department** | Facility-installed instance of a Department Product (or a non-product local department). Lens + ownership — not a second app. Operational records stay facility/department-scoped even when the operator differs from the parent Organization. |
 | **Unit (Location)** | Physical section/wing where work is executed (kitchen, servery, EVS zone, plant area…). |
 | **UnitSpace** | Room or area within a Unit (patient room, servery, soil hold, mechanical room). See `docs/location-architecture/`. |
-| **Location Function** | **Retired / compatibility-only.** Historical Product `functionKey` bound on a Department profile (`DepartmentRoomArchetype.key`). Not forward architecture. Engines use canonical place ids and Department responsibility instead ([01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md)). |
+| **Location Function** | **Retired.** Historical Product `functionKey` bound on a Department profile (`DepartmentRoomArchetype.key`). Not forward architecture. Engines use canonical place ids and Department responsibility instead ([01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md)). |
 | **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). Email/password authenticates the global `User`. Workspace eligibility is available contexts, not a facility-native vs organization-only identity class. |
 | **User home Facility** | Optional `User.facilityId` presentation marker. Not login authority and not the active Facility. |
 | **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
@@ -34,15 +34,15 @@
 | **Readiness** | Computed location state: Ready / In Progress / Needs Attention. Location answers come from Runtime Location State. |
 | **Task** | **Legacy.** Written only by Task Sync and legacy inspection work. Not Work. Removed in LEG-05, and the table drops at LEG-06 ([LEG-D12](../legacy-retirement/DECISIONS.md#leg-d12--dormant-systems-are-removed-not-kept-dormant--accepted-program-default-october-20-2026)). |
 | **Request** | Intake asking for maintenance attention. Persistence today is `OperationalRequest`. |
-| **Issue** | A known undesirable condition. Persistence today is `AssetIssue` (still Asset-required — see [14](./14_FACILITY_PLANT_OPERATIONS.md)). Not a façade over Repair. |
-| **Work Order** | Accepted Facility Plant Operations maintenance work. Persistence today is `Repair`. Distinct from shared Work. |
+| **Issue** | A known undesirable condition. Persistence is `AssetIssue`. It can refer to an Asset or a location. A Work Order has its own lifecycle. |
+| **Work Order** | Accepted Facility Plant Operations maintenance work. Persistence today is `Repair`. Use the Work Order lifecycle for its assigned technician and closeout. |
 | **Repair** | Persistence name for the Work Order row. Legacy `/issues` still redirects here. |
 | **Inspection** | Scheduled or ad-hoc verification with occurrences, submissions, findings/follow-ups. |
 | **Record** | One engine. Facility requirement segment, derived expected slot, `OperationalEvidenceRecord`, permitted waiver, correction, and follow-up. Legacy log and inspection stores are compatibility. |
 | **Asset** | Equipment / plant object that can fail or need PM. |
 | **Knowledge article** | Facility-scoped SOP/reference publishable into work context. |
 | **Shift** | Who works, for which Department, and when (`ScheduleEntry`, from a `WorkShift` pattern). Not a place. A call-off marks that whole shift absent. |
-| **Assignment** | Where a person works today and what they cover (`OperationalAssignment`). A move changes the Assignment. A called-off shift in the same Department stops the overlapping Assignment from counting toward Coverage. The Assignment row stays. Optional: without one, a person sees the Work for the place they are signed into. |
+| **Assignment** | Where a person works today and what they cover (`OperationalAssignment`). A move changes the Assignment. A called-off shift in the same Department stops the overlapping Assignment from counting toward Coverage. The Assignment row stays. Without an Assignment, Job Flow can still show authorized place-scoped Records and maintenance. |
 | **Schedule / Override / Call-down** | Older umbrella for the two rows above. `AssignmentOverride` is legacy unit movement and retires (LEG-Q04). |
 | **WorkspacePreference** | Per-user, per-facility Workspace layout prefs. |
 
@@ -174,10 +174,10 @@ Disruption path
 | Whether a Record was required | Derived expected slot from the requirement segment effective that day |
 | Does this Department have a capability? | Its installed Department Product, plus a valid license when enforcement is on. Not a deployment switch ([Foundation amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026)). |
 | Which Marketplace items does this Department use? | Its added items. Today: `FacilityCatalogInstall` plus `LogAttachment` for Records forms. |
-| What generic Work is expected? | **None in forward architecture.** Residual Work Plans are compatibility-only until Phase 2 removal. Do not invent Task/Activity replacements. |
-| What is **my** work? | **Job Flow** composition: Assignment context (or signed-in place when none), current Cycle/Phase window, Records due, assigned work orders and preventive maintenance. Each source keeps its own store. Live code may still also read Work Plans (gap). |
+| What generic Work is expected? | **None in forward architecture.** The canonical baseline excludes generic Work. Do not invent Task/Activity replacements. |
+| What is **my** work? | **Job Flow** composition: Assignment context (or signed-in place when none), current Cycle/Phase window, Records due, assigned work orders and preventive maintenance. Each source keeps its own store. |
 | Who is scheduled to work, for which Department, and when? | The shift: `ScheduleEntry`, from a `WorkShift` pattern. A call-off marks that whole shift absent. `calledOffAt` is when the absence was recorded. It does not start a partial shift. |
-| Who covers this location or Work right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. A called-off shift in the same Department stops that Employee's overlapping Assignment from counting toward Coverage. The Assignment row stays. |
+| Who covers this location right now? | The daily Assignment (`OperationalAssignment`). A move changes the Assignment. Shift and Assignment never create each other. A called-off shift in the same Department stops that Employee's overlapping Assignment from counting toward Coverage. The Assignment row stays. |
 | Who is supervising this Department and location right now? | The Assignment whose role is that Department's supervisor-rounding responsibility, for the service window that contains now, at the most specific covering location. A call-off on the shift removes that Employee. The Supervisor role and the Department head do not answer it |
 | Who must respond to an operational incident right now? | The On-Call Coverage Assignment for that Department. The role is `DIETARY_ON_CALL_COVERAGE`, `EVS_ON_CALL_COVERAGE`, or Plant `ON_CALL_COVERAGE`. A location-specific Assignment beats a Department-wide one. An Assignment that starts one service date and ends the next morning still covers that later instant. A call-off removes the Employee only while the call-off covers the instant. The Supervisor role, the Department head, and the Work Order assignee do not answer it |
 | When did this coverage deficiency start, worsen, or end? | Coverage. The current answer stays derived. A Coverage episode is the history of one continuous deficiency for one slot. A later deficiency is a new episode. Notifications do not invent the episode. Scheduled Evaluation may ask Coverage to look again because time passed. Coverage still decides the answer |
@@ -230,7 +230,7 @@ Constitution prefers **product terms** in UI and docs; schema renames are option
 3. **Operation engine** — retired September 25, 2026. Its tables were dropped in LEG-06. "What's happening now" is the published Cycle and Phase.
 4. **Task** — removed. Do not recreate Task or generic Work. The Task table was dropped in LEG-06.
 5. **Unit vs Location** — UI prefers "Location"; model is `Unit`. UnitSpace is the room. See `docs/location-architecture/`.
-6. **Location Function / Operational Type / archetype** — **retired.** Residual schema and Locations bind/publish remain after the Nov 6 restore (Phase 0 ARR-001/004/026). Phase 2 removes them.
+6. **Location Function / Operational Type / archetype** — **retired.** The November 6 restore records a historical dependency. The canonical baseline excludes these models.
 7. **Capability switches** — retired in LEG-05 (LEG-D20). Shared engines come with the installed Department. `CANONICAL_LOGS_ENABLED` remains a code flag. The record-engine rollout table was dropped in LEG-06.
-8. **Generic Work Plans** — retired as architecture; still present in schema and Job Flow until Phase 2.
+8. **Generic Work Plans** — retired in the canonical baseline. Explicit Assignments carry supported ONE_OFF behavior.
 9. **Department Job Role** — retired as architecture; still present beside operational qualifications until Phase 2.

@@ -1,5 +1,7 @@
 # Product Constitution Amendment — Phase 1 Architecture Contracts
 
+> **Reading this amendment.** The accepted decisions apply. Implementation, rollout and infrastructure observations below describe their dated checkpoint. Use the [canonical documentation index](../README.md) for current implementation and [01C](01C_PRELAUNCH_CANONICAL_RESET_AMENDMENT_2026-11-10.md) for later decisions.
+
 **Status:** Accepted product-owner architecture amendment (documentation reconciliation)  
 **Decision date:** November 8, 2026  
 **Audited HEAD:** `e179c0d52dcc3a71d83c8b0a42a1eb00945de6f8`  

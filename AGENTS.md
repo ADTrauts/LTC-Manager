@@ -22,6 +22,8 @@ This is the current **Vssyl — Current Operations** application and VSSYL Conso
 
 Start new work from GitHub `main` on a feature branch. Use local or disposable PostgreSQL, run tests appropriate to the change, and open a PR with the required Verify checks and a protected Vercel Preview. Merging to `main` builds a staged Production deployment. Review that deployment and apply any approved forward migrations in release order before separately authorizing promotion. Follow the [local development and release guide](docs/engineering/LOCAL_DEVELOPMENT_AND_RELEASE.md).
 
+Start with the [canonical documentation index](docs/README.md). For a new Department Product follow the [implementation guide](docs/product/NEW_DEPARTMENT_PRODUCT_IMPLEMENTATION_GUIDE.md), then verify the owning services, schema and relevant tests. The [status register](docs/DOCUMENTATION_STATUS.md) identifies approved targets and historical or superseded material.
+
 The accepted onboarding program lives in [docs/onboarding](docs/onboarding/README.md). Its phase tracker records authorized scope; ONB identifiers do not replace historical wave numbers.
 
 The accepted Dashboard program lives in [docs/dashboard](docs/dashboard/README.md). It replaces Business Workspace (`/workspace`) and retires Today's Work (`/today*`) phase by phase; its phase tracker records authorized scope (`DSH-` identifiers). Do not extend Business Workspace or Today's Work. Department Products contribute Dashboard capabilities, never dashboard UI ([contract](docs/dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md)).

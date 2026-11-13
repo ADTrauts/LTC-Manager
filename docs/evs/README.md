@@ -1,0 +1,9 @@
+# Environmental Services
+
+**Status — DEVELOPMENT** in the [Product registry](../../src/lib/department-products/registry.ts). Customer browse, purchase, install and operation remain gated.
+
+Implemented building blocks include [EVS Rhythm starter drafts](../../src/lib/operational-cycles/evs-starter.ts), explicit EVS qualifications through the [operational role registry](../../src/lib/scheduling/assignment-roles/index.ts), and shared Workforce Assignment, Zones, employee Job Flow, Records and Assets. The [EVS browser spec](../../tests/evs-browser/ci-gate.spec.ts) covers internal Records, Asset Issues and role/Department boundaries. The [Assignment spec](../../tests/evs-assignment-browser/ci-gate.spec.ts) covers explicit multi-room placement, offline scope, cross-Facility rejection and stable snapshots after zone edits. Those specs establish test scope. A synthetic release override is not customer availability.
+
+Before AVAILABLE, complete an EVS Product blueprint, certify the intended Records and staffing starter/configuration package and its full protected staging workflow, verify entitlement and operator/vendor boundaries, and complete the [Dashboard contribution declaration and release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate). Record which evidence, Audit and runtime workflows are included. These are release requirements from the [Product contract](../product/13_DEPARTMENT_PRODUCT.md).
+
+Room turnover, isolation workflows and bed readiness appeared in earlier material as proposals or examples. The role labels `DISCHARGE_CLEAN` and `ISOLATION_CLEAN` express assignment eligibility. They do not establish a bed-readiness or turnover lifecycle. Any such extension requires a separately accepted Product scope and owner. Generic Work instructions in the older EVS guidebooks are superseded. The [status register](../DOCUMENTATION_STATUS.md) identifies the older files.

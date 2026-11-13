@@ -2,11 +2,11 @@
 
 **Current pre-launch policy:** [01C — canonical consolidation, November 10, 2026](./01C_PRELAUNCH_CANONICAL_RESET_AMENDMENT_2026-11-10.md) overrides older instructions to retain retired development compatibility.
 
-**Status:** Architecture companion and reuse registry. Not the architecture authority.  
+**Status — CURRENT ownership registry.** Follow the [Constitution and amendments](README.md) for accepted decisions and the [implementation guide](NEW_DEPARTMENT_PRODUCT_IMPLEMENTATION_GUIDE.md#3-reuse-the-owning-engines) for current source paths.
 **Date:** October 29, 2026; Phase 1 reconciliation November 8, 2026  
 **Consult this before** adding a model, a source-of-truth table, a service, a resolver, an engine, a major reusable workflow, a major UI subsystem, a catalog or store, or a people, location, or work mechanism.
 
-[01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md) remains the architecture authority. Its [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), [01A](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md), [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md), and [15A](./15A_DEPARTMENT_BUILDER_REGISTRY_AMENDMENT_2026-11-01.md) win when an older paragraph in this file disagrees — especially rows that still describe Location Function or generic Work as reusable owners.
+[01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md) remains the architecture authority. Its [current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), [01A](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md), [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md), and [15A](./15A_DEPARTMENT_BUILDER_REGISTRY_AMENDMENT_2026-11-01.md) win when an older paragraph in this file disagrees.
 
 This registry answers a narrower question: **what Vssyl already owns, and how new work must reuse or extend that owner.** If this registry conflicts with the Constitution, the Constitution wins.
 
@@ -158,8 +158,8 @@ A Platform Domain is not a new engine, module, navigation destination, database 
         │                       │                        │
  CONTEXT / CONFIG         OPERATING MECHANISMS       GOVERNANCE
  Facility                 Cycles                    Identity
- Locations                Work                      Access
- Location Functions       Records                   Authority
+ Locations                Assignments               Access
+ Responsibility           Records                   Authority
  Department install       People / Coverage         Entitlement
  Catalog                  Assets / Maintenance      Publication
                           Readiness / Recovery      History rules
@@ -214,7 +214,7 @@ Facility
   → Rooms / Spaces (UnitSpace)
 ```
 
-A Department never receives a second copy of rooms. `DepartmentLocation`, `PlantLocation`, and any other physical identity created to simplify a filter are forbidden. **Location Function is retired.** Department meaning for places is Department responsibility plus each engine’s own canonical place ids. Residual profile/archetype tables after the Nov 6 restore are compatibility-only ([01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md)).
+A Department never receives a second copy of rooms. `DepartmentLocation`, `PlantLocation`, and any other physical identity created to simplify a filter are forbidden. **Location Function is retired.** Department meaning for places is Department responsibility plus each engine’s own canonical place ids. The canonical baseline excludes profile, archetype and binding models. The November 6 restore is historical evidence.
 
 Department responsibility does not imply Cycle participation.
 
@@ -319,7 +319,7 @@ A **Request** (`OperationalRequest`) is intake: someone is asking for maintenanc
 
 An **Asset Issue** (`AssetIssue`) is the current store for a known undesirable condition in this maintenance loop. The schema treats the Asset as optional and the location as required; a location-only condition is allowed. The [Domain Model](./03_PRODUCT_DOMAIN_MODEL.md) still says the row is asset-required. That sentence is stale against the schema. The row is still maintenance-shaped: it carries maintenance priority, equipment impact, and the relationship to Work Orders. It is not a Request and not a Work Order. See [Domain F](#platform-domain-f--issues-readiness--recovery) before using it for a problem that is not this condition.
 
-A **Work Order** is accepted Facility Plant Operations maintenance work. Persistence is `Repair`. Kinds in the Product architecture are corrective and preventive. A Work Order may target an Asset, a location, or both. Asset is not required on the Work Order. Shared recurring rounds stay on the Work Plan. A Work Order does not become a Work Plan item because Job Flow shows both.
+A **Work Order** is accepted Facility Plant Operations maintenance work. Persistence is `Repair`. Kinds in the Product architecture are corrective and preventive. A Work Order may target an Asset, a location, or both. Asset is not required on the Work Order. Use explicit Workforce Assignments for employee rounds and Records for required evidence.
 
 Work Order priority, reported urgency, and Asset criticality are three facts. A critical Asset does not make every Work Order an emergency.
 
@@ -388,7 +388,7 @@ These states answer different questions. They stay distinct.
 | Installed | Does a `Department` row exist? |
 | Enabled | Is `Department.isActive` true, so the Department is admitted to shared operations? |
 | Configured | Have the facility's rooms, rhythm, plans, people, and Records been set? Derived. Not a status column on Department. |
-| Published | Has the facility made a draft the ACTIVE profile, Cycle, or Work Plan? |
+| Published | Which version of the Cycle, Records requirement, Coverage template or PM Plan is effective? |
 | Ready | Is the place operationally Ready right now? A Readiness answer. |
 | Authorized | May this principal do this in the current context? Server authority. |
 
@@ -412,6 +412,8 @@ Some maintenance rows store capture metadata (`recordedOnline`, `synchronizedAt`
 
 ## Detailed registry
 
+[Source owner map and supported extensions](NEW_DEPARTMENT_PRODUCT_IMPLEMENTATION_GUIDE.md#3-reuse-the-owning-engines). Team room membership is explicitly supported by 01C. It is a Team configuration fact.
+
 Each row is an owner or a composition. **Type** is one of: Primitive, Engine, Resolver, Catalog, Projection, Composition, Governance, Domain.
 
 Domain in the first column is wayfinding only.
@@ -422,7 +424,6 @@ Domain in the first column is wayfinding only.
 |-----------------|-------------------|------|------|-------------------------|-------------------|--------------|------------------------|-------------------|
 | A | Facility | Primitive | The operational site: timezone, tenancy boundary, physical tree root | Departments, people, Assets, what is happening now | Every engine, Console provisioning, onboarding | Yes | Extend Facility. Do not add a Site aggregate or a second tenancy root. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [03](./03_PRODUCT_DOMAIN_MODEL.md) |
 | A | Physical location tree | Primitive | Facility → Unit → UnitSpace identity, physical names, physical room type, Department responsibility | Cycle participation, readiness, Department room classification | Facility Builder, Run locations, Assets, Department Builder Facility lens | Partially. UI says Location for the section and Room / Space for `UnitSpace`. | Store canonical ids on engines. Never copy a room per Department. | [01](./01_PRODUCT_CONSTITUTION.md#shared-mechanisms), [08](./08_PRODUCT_LANGUAGE_GUIDE.md), [16](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md) |
-| A | Location Function | **Retired / compatibility-only** | Historical `functionKey` / archetype / profile binding. Not a reusable forward owner. | — | Residual Locations bind/publish, legacy matchers | No (must not be taught) | Do not extend. Phase 2 removes after traced dependency elimination. | [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md), [15A](./15A_DEPARTMENT_BUILDER_REGISTRY_AMENDMENT_2026-11-01.md) |
 | A | Department Product registry | Catalog | Vssyl-authored Product identity, release status, industry and facility-type applicability, starter declarations | Entitlement, installation, local names, customer-editable rows | Marketplace, install, Dashboard capability derivation | Yes, as the Product name | Add a DEVELOPMENT registry entry and fill the blueprint. Do not add a second product catalog. | [13](./13_DEPARTMENT_PRODUCT.md) |
 | A | Department installation | Primitive | The facility's installed instance (`Department`), including local name and `Department.key` | Product identity, license, readiness, configuration-complete | Build, Run lens, authority | Yes | Install idempotently through the Product path. Do not mint a second Food and Nutrition Department. | [13](./13_DEPARTMENT_PRODUCT.md#sources-of-truth) |
 | A | Department operator relationship | Governance | Who runs one Department for a date-effective period (`DepartmentOperatorRelationship`) | Parent Organization, partnership, repair vendor, a stored self-operated switch | Vendor-run authority, data ownership, Asset title rules | Yes, as vendor-run or the operating company | Record an operator that already exists. Derive self-operated vs vendor-run. | [01](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), [03](./03_PRODUCT_DOMAIN_MODEL.md) |
@@ -431,7 +432,7 @@ Domain in the first column is wayfinding only.
 | A | Operational scope | Resolver | A read-only request view of places already in the facility tree. It persists nothing. | Which rooms exist, live Cycle / Records, authorization, an Experience catalog | Locations, sidebar, loaders that must not invent eligibility | No | Filter through the existing scope path. Place membership stays on the tree and Department responsibility. Do not add `DepartmentLocation`. Do not revive Experience keys or Location Function. | [LEG-D10](../legacy-retirement/DECISIONS.md#leg-d10--projection-fallbacks-are-removed--accepted-program-default-october-20-2026), [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md) |
 | A | Service date and facility context | Resolver | Facility-local service date and timezone for Run and Audit | The Cycle window, entitlement, the User's home facility | Dashboard, Records occurrence, Audit selectors | Partially. People see "today" in facility time. | Consume operational time. Do not store a page-specific today. | [Dashboard architecture](../dashboard/ARCHITECTURE.md) |
 
-### B — Operating Rhythm & Work
+### B — Operating Rhythm & frontline composition
 
 | Platform Domain | Primitive / Engine | Type | Owns | Explicitly does not own | Primary consumers | User-facing? | Reuse / extension rule | Canonical sources |
 |-----------------|-------------------|------|------|-------------------------|-------------------|--------------|------------------------|-------------------|
@@ -453,7 +454,8 @@ Domain in the first column is wayfinding only.
 | C | Shift | Primitive | Who works, for which Department, when (`ScheduleEntry`) | Where they work today, Work, the current Cycle, Department eligibility, payroll hours | Call-off, coverage derivation, "am I on" | Yes | Mark call-off on this row. Do not write placement here. Ignore legacy `unitId` as Assignment. | [01](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-20-2026) |
 | C | Call-off | Primitive | The mark that this person is not working that Shift | The day's Assignment, a replacement placement, coverage as a stored status | Coverage, Dashboard call-offs | Yes | Set `calledOffAt` on the Shift. A move is a separate Assignment change. | [08](./08_PRODUCT_LANGUAGE_GUIDE.md) |
 | C | Assignment | Primitive | Where a person works today and what they cover (`OperationalAssignment` and its plan) | Whether they were scheduled, the current Cycle, Work Order technician assignment, client-assignment access | Job Flow personal scope, coverage derivation | Yes | Change the Assignment when the person moves. Absence of an Assignment must not hide place-scoped Records or assigned maintenance. | [03](./03_PRODUCT_DOMAIN_MODEL.md#ownership-of-truth) |
-| C | Coverage | Resolver + episode history | Derived coverage answer from configured need plus Shifts, call-offs, and Assignments; `CoverageEpisode*` for deficiency history | Shift rows, Assignment rows, a staffing-record table that replaces those facts | Dashboard coverage, Runtime Location State, People & Coverage, Notifications | Yes | Extend the derivation. Episodes are history, not a second staffing engine. Missing need ≠ uncovered. | [08](./08_PRODUCT_LANGUAGE_GUIDE.md), [Dashboard card catalog](../dashboard/CARD_CATALOG.md) |
+| C | Team | Organization | Department Team, people and explicit normal-room membership | Permissions, qualifications, staffing need or daily placement | Employee Builder, People & Coverage, authorized Dashboard lens | Yes | Use the existing Team service. | [Employee Builder](../employee-builder/README.md) |
+| C | Coverage | Resolver + episode history | Derived coverage answer from configured need plus Shifts, call-offs, and Assignments; `CoverageEpisode*` for deficiency history | Shift rows, Assignment rows, a staffing-record table that replaces those facts | Dashboard coverage, Runtime Location State, People & Coverage, Notifications | Yes | Extend the derivation. Episodes are history, not a second staffing engine. Missing need ≠ uncovered. | [08](./08_PRODUCT_LANGUAGE_GUIDE.md), [Dashboard contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md) |
 | C | Operational eligibility | Primitive | Which registry roles an Employee may perform (`EmployeeOperationalRoleQualification`) | RoleKey authority, Job Title, Team, Department Job Role | Assignment validation | Yes | Extend qualifications. Do not revive Department Job Role capabilities. | [OPERATIONAL_ELIGIBILITY](../employee-builder/OPERATIONAL_ELIGIBILITY.md), [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md) |
 | C | Department Job Role | **Retired** | Source and database tables retained in Git history | — | — | No | Use registry roles and Employee qualifications. | [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md) |
 | C | PIN | Governance | Workplace sign-in for one Employee at a unit (`Employee.sessionVersion`) | A separate person, User session version, facility authority | Unit kiosk, floor sign-in | Yes | Extend Employee PIN. Sign-out of the User does not sign out the PIN. | [01](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026) |
@@ -567,7 +569,7 @@ Older documents name mechanisms this registry does not carry forward. Where they
 | Evidence as the manager noun | Records | Keep `OperationalEvidenceRecord` internal. |
 | Review as a workspace or fact store | Audit / Reports, a derived expected-versus-actual layer | Do not create a Review source-of-truth store. The route may remain `/reports`. |
 | Business Workspace, Operations Center, Today's Work | Dashboard for Supervisors and above. Job Flow for "my work." Unit workspace for the place. | Do not rebuild peer homes that answer the same persona question. `/workspace` and `/today` open the Dashboard. |
-| `OperationalTemplate` | Catalog, install, attachment, and Records | Do not make OperationalTemplate the layer after Catalog. The template tables were dropped in LEG-06. Leftover template-link columns on a Work item are not a Record path. |
+| `OperationalTemplate` | Catalog, install, attachment, and Records | Do not make OperationalTemplate the layer after Catalog. The template tables were dropped in LEG-06. Use the attachment and evidence services. |
 | Department capability switches | Capabilities come with the installed Department Product | Do not add a capability-toggle architecture. `CANONICAL_LOGS_ENABLED` is only the Records-path code flag. |
 | Experience product tree | Platform, Department Product, Marketplace item, facility configuration, Run, History / Audit, Governance | Keep the experience *principle*. Do not reintroduce Experiences, Operational Areas, or an Experience catalog as the product structure. |
 | Industry packs | A Department Product plus Marketplace items | Do not revive `applyIndustryPack()`. |
@@ -585,27 +587,13 @@ Older documents name mechanisms this registry does not carry forward. Where they
 - One engine serves many surfaces.
 - One surface may compose several engines.
 
-The current Constitution does not organize the product as an Experience tree. Temperature Monitoring, Meal Service, and similar Experience keys are not installable modules. Location Functions, Marketplace items, and Department Products express that variety instead. The boundary document's Operations Engine, Task dual-write, LogTemplate, and "Breakfast is active because OperationInstance says so" are superseded by the rows above.
+The current Constitution does not organize the product as an Experience tree. Temperature Monitoring, Meal Service, and similar Experience keys are not installable modules. Marketplace content, canonical place participation, and Department Product capabilities express that variety. The boundary document's Operations Engine, Task dual-write, LogTemplate, and "Breakfast is active because OperationInstance says so" are superseded by the rows above.
 
 The same limit applies to [the Operational Projection Constitution](../operational-projection/01_OPERATIONAL_PROJECTION_CONSTITUTION.md). Its useful rule remains: scope is a read-only derivation that keeps physical identity and does not write engine records. Its Experience catalog, Operations Engine, and Today's Work / Operations Center ownership rules do not.
 
-### Documents that still teach an older shape
+### Historical designs
 
-These files contain useful history or a useful principle. Where they disagree with the current foundation, follow the foundation and this registry. This task does not rewrite them.
-
-| Document | What is still useful | What is superseded |
-|----------|----------------------|--------------------|
-| [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md) | Domain words for Facility, Location Function, Records, Work Order, People & Coverage | The **Operation** row still defines a live service commitment. The **Task** row still calls Task a Work Engine projection. Both are retired. |
-| [03 — Domain Model](./03_PRODUCT_DOMAIN_MODEL.md) | Ownership table, organization relationships | The entity row for Inspection still reads like a separate engine. The Issue row says `AssetIssue` is asset-required; the schema allows a location-only Issue. The relationship diagram is marked historical. |
-| [09 — Decision Model](./09_PRODUCT_DECISION_MODEL.md) | "Can an existing home compose this?" and the AI limits | Placement still sends work to Business Workspace, Operations Center, Today's Work, the Operations Engine, and a Review zone. |
-| [07 — Product Boundaries](./07_PRODUCT_BOUNDARIES.md) | What Vssyl does not become | The smell test still lists Workspace / OC / Today / Unit as the homes to avoid duplicating. Current homes are Dashboard, Job Flow, and the unit workspace. |
-| [Dashboard architecture](../dashboard/ARCHITECTURE.md) and [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md) | Cards are platform-owned. Layout stores no operational facts. Attention is mapped from owners. | Capability prose still mentions `isDepartmentEngineEnabledForFacility` and `RecordEngineRollout`. Those switches and that table were retired. Derive capabilities from install, license when enforcement is on, and real configuration. |
-| [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md) starter pack | Shared Work presets and the rule that starters are optional and unpublished | One paragraph still calls Record starters compatibility `OperationalTemplate` drafts. Forward forms are Catalog definitions. |
-| [Location programming realignment](../department-administration/13_LOCATION_PROGRAMMING_REALIGNMENT.md) | Runtime Location State as one composed place answer | It still describes an Experience registry and a Builder of Overview, Locations, and Teams. Current Department Builder is Overview, Locations, Operating Rhythm, Work, People & Coverage, Records, and Notifications & Attention. |
-| [Reference capabilities index](../reference-capabilities/00_REFERENCE_CAPABILITIES_INDEX.md) | The business ability to run, cover, recover, and learn | The stack runs through a platform-vision constitution and an Experience layer. It is not the current product tree. |
-| [04 — Persona Model](./04_PERSONA_MODEL.md) | Who starts at the Dashboard | Some workflows still name Operations Center and Workspace Focus. |
-
----
+The [documentation status register](../DOCUMENTATION_STATUS.md) identifies older references and their replacements. For current Department Builder tabs and Team rooms see [16](16_DEPARTMENT_BUILDER_ARCHITECTURE.md). For active Dashboard eligibility and contribution rules see the [Dashboard contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md).
 
 ## New feature decision gate
 
@@ -710,18 +698,18 @@ These are concrete ways to duplicate ownership. Do not introduce them.
 
 ## Practical reuse examples
 
-### EVS recurring cleaning workflow
+### EVS recurring cleaning workflow example — DEVELOPMENT
 
-Environmental Services is a Department Product. It does not bring its own engines.
+Environmental Services reuses shared engines. See [EVS status](../evs/README.md) for implemented building blocks and release gaps.
 
 ```text
 Environmental Services Department Product
     ↓
-Location Functions on existing rooms
+Department responsibility on canonical spaces
     ↓
 Operational Cycle / Phase where the facility publishes them
     ↓
-Work Plan for expected cleaning work
+Explicit qualified Assignment for daily placement and instructions
     ↓
 Records for required documentation / inspection
     ↓

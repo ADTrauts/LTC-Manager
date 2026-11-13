@@ -4,7 +4,7 @@
 **Rule:** Prefer one term. Avoid synonym drift.  
 **Plug-in contract:** [Current foundation](./01_PRODUCT_CONSTITUTION.md#current-foundation--october-26-2026), including the [October 29, 2026 amendment](./01_PRODUCT_CONSTITUTION.md#foundation-amendment--october-29-2026), [01A](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md), and [01B Phase 1](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md). Words that must stay apart are defined there and repeated in the domain table below.
 
-**Retired terms (do not teach as forward product language):** Location Function, Operational Type (as Department room classification), Work Plan / Expected Work / Recurring shared Work (generic), Department Job Role capabilities. Residual UI copy may still say these until Phase 2; treat them as compatibility debt.
+**Retired terms (do not teach as forward product language):** Location Function, Operational Type (as Department room classification), Work Plan / Expected Work / Recurring shared Work (generic), Department Job Role capabilities. The canonical baseline removes the retired owners. Historical materials can still use these terms.
 
 ---
 
@@ -121,7 +121,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Location / Unit** | Place of work — UI “Location”, model often `Unit` | Room *(unless truly a resident room entity)* |
 | **Operation** | Time-bound service commitment | Shift *(shifts are coverage; operations are service windows)* |
 | **Expected Work** | **Retired** as a generic platform concept. Prefer Records due, Work Orders, PM, or Rhythm timing. | Tasks due, inbox, job list, catch-all work |
-| **Work Plan** | **Retired / compatibility-only.** Residual `DepartmentWorkPlan` configuration until Phase 2. | Job, checklist catalog, forward shared Work |
+| **Work Plan** | **Retired.** Historical generic Work configuration. | Job, checklist catalog, forward shared Work |
 | **Recurring Work** | Do not use as a platform noun. Say Records rounds, Operating Rhythm, or Preventive Maintenance as appropriate. | Treating rounds as Preventive Maintenance; treating Work Orders as shared Work |
 | **Job Flow / My Work** | Person-scoped **composition** of Assignment, Cycle window, Records due, and assigned maintenance — stores nothing | Today's Work as a peer home; a MyWorkItem table; requiring generic Work Plans |
 | **Task** | **Retired.** Not a forward projection. | Ticket *(unless issue context)*; recreating generic Work |

@@ -1,5 +1,7 @@
 # Dashboard card catalog
 
+> **HISTORICAL planning catalog.** For current implementation use the [canonical reference](DEPARTMENT_DASHBOARD_CONTRACT.md). The following material records its original checkpoint.
+
 Every planned card, the question it answers and where it drills. Cards are platform-owned (DSH-D10). A card shows for a Department only when the Department has the required capabilities ([contract](./DEPARTMENT_DASHBOARD_CONTRACT.md#capability-vocabulary)). Data sources are existing functions unless marked **new**.
 
 ## Conventions

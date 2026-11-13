@@ -1,5 +1,7 @@
 # 13 — Location Programming realignment
 
+> **SUPERSEDED.** For current implementation use the [canonical reference](../product/16_DEPARTMENT_BUILDER_ARCHITECTURE.md). The following material records its original checkpoint.
+
 **Status:** Locked product plan (2026-09-24)  
 **Supersedes, for Department Builder programming:** peer tabs for Coverage and Operational Cycles; Locations as a Role / Experience inspector; a second Department “how we use this room” catalog.
 

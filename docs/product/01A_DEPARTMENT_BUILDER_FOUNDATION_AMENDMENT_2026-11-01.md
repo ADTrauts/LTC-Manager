@@ -1,5 +1,7 @@
 # Product Constitution Amendment — Department Builder Foundation
 
+> **Reading this amendment.** The accepted decisions apply. Implementation, rollout and infrastructure observations below describe their dated checkpoint. Use the [canonical documentation index](../README.md) for current implementation and [01C](01C_PRELAUNCH_CANONICAL_RESET_AMENDMENT_2026-11-10.md) for later decisions.
+
 **Status:** Accepted product-owner architecture amendment  
 **Decision date:** November 1, 2026  
 **Amends:** [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md)  

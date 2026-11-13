@@ -1,5 +1,7 @@
 # Dashboard architecture
 
+> **HISTORICAL design snapshot.** For current implementation use the [canonical reference](DEPARTMENT_DASHBOARD_CONTRACT.md). The following material records its original checkpoint.
+
 The technical contract for the Dashboard program. Product decisions are in [DECISIONS.md](./DECISIONS.md). The cards themselves are in the [card catalog](./CARD_CATALOG.md). The rules for Departments are in the [Department Dashboard Contract](./DEPARTMENT_DASHBOARD_CONTRACT.md).
 
 Code sketches are illustrative types, not final code. Each phase confirms names against source and the Next.js 16 guide in `node_modules/next/dist/docs/` before writing code.

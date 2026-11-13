@@ -1,5 +1,7 @@
 # Vssyl pre-launch consolidation — first execution report
 
+> **HISTORICAL checkpoint.** For current implementation use the [canonical reference](../README.md). The following material records its original checkpoint.
+
 **Checkpoint:** infrastructure retirement, source reconciliation, PF-2D-002 and explicit Team room workflow. This is a local implementation checkpoint. Final legacy removal, clean baseline and public cutover are still required.
 
 **Authoritative branch:** `architecture/prelaunch-canonical-consolidation` in `work/vssyl-canonical` under the Codex task workspace. Application commit: `7a06172e790148c36a05dc20cc2fbe8c78e5febe`.

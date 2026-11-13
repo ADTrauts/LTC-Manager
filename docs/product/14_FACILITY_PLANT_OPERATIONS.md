@@ -92,9 +92,7 @@ Facility
 
 Do not propose `PlantLocation`, `MaintenanceLocation`, duplicate Plant rooms, or copied facility structures.
 
-The Product may define Product-owned Location Functions only if Facility Plant Operations behavior genuinely needs them. Empty is allowed. Do not infer behavior from room names.
-
-**MVP Location Functions:** none required. Optional later if published Work presets need a `functionKey`. Legacy Plant archetypes (`serviceable_space`, `mechanical_room`, and similar) are not Product Location Functions.
+Use canonical Unit/Space references and Department responsibility. Physical names and types aid selection.
 
 ### Assets
 
@@ -108,18 +106,9 @@ Asset identity belongs to Platform. Potential shared Asset concepts include name
 
 Technicians are Platform People (`Employee` / `User`). Do not create Technician identity records that duplicate People. The Product may later add Department-specific technician context such as skills/trades. That is NEXT, not MVP.
 
-### Work
+### Routine operational responsibilities
 
-Use shared Work for recurring operational responsibilities such as:
-
-- mechanical-room round
-- exterior inspection
-- daily generator observation
-- maintenance-shop cleanup
-- building walkthrough
-- recurring operational rounds
-
-Do **not** force maintenance Work Orders into generic Work if doing so corrupts the shared Work engine.
+Use an explicit Workforce Assignment for a qualified employee's round or walkthrough and a Record for required evidence. Use Work Orders and PM for maintenance execution and recurrence.
 
 ### Records
 
@@ -131,7 +120,7 @@ Do not propose `PlantInspection`, `PlantReading`, `PlantLog`, or `MaintenanceChe
 
 ### Procedures
 
-Procedures are shared Vssyl knowledge. A Procedure explains **how work should be performed**. A Record is evidence of **what happened**. A Work Order or Work requirement represents **responsibility to perform something**. These remain distinct.
+Procedures are shared Vssyl knowledge. A Procedure explains **how work should be performed**. A Record is evidence of **what happened**. A Work Order or explicit Assignment represents **responsibility to perform something**. These remain distinct.
 
 ### History
 
@@ -197,8 +186,6 @@ Person ─────────┼─────────────┼�
                 │             │               │
 Procedure ──────┼─────────────┼──────┐        │
                 │             │      │        │
-Shared Work ────┤                    │        │
-                │                    │        │
 Shared Record ──┴────────────────────┼────────┤
                                      │        │
 Request ──────────────┐              │        │
@@ -238,7 +225,7 @@ Locked distinctions:
 ```text
 Request ≠ Issue
 Issue ≠ Work Order
-Work Order ≠ generic Work
+Work Order → maintenance lifecycle
 Record ≠ Work Order
 Procedure ≠ Record
 Asset status ≠ Work Order status
@@ -246,25 +233,9 @@ Asset status ≠ Work Order status
 
 ---
 
-## Shared Work vs Work Order
+## Workforce placement and Work Orders
 
-### Shared Work
-
-Use when the main question is: **was this recurring operational responsibility performed?**
-
-Examples: mechanical-room round; inspect exterior doors; daily generator observation; maintenance-shop cleanup; general building walkthrough.
-
-### Facility Plant Operations Work Order
-
-Use when maintenance requires a richer persistent lifecycle.
-
-Examples: repair leaking faucet; replace motor; restore dishwasher; investigate electrical failure; replace belt; perform scheduled preventive service.
-
-A Work Order may need source, maintenance kind, priority, category, Issue relationship, Asset/Location context, assignment, Procedure, required Records, persistent state across days, diagnosis, parts used, labor duration, vendor/external cost, resolution, and PM relationship.
-
-Do not expand shared Work into a CMMS engine merely to avoid a Work Order domain capability.
-
----
+Workforce Assignments own daily placement. Work Orders own accepted corrective and preventive maintenance, including technician assignment, closeout, cost, and links to Issues and PM occurrences.
 
 ## Work Order target
 
@@ -274,7 +245,7 @@ Work Order number/id, title, description, CORRECTIVE or PREVENTIVE, maintenance 
 
 ### Source
 
-Potentially: Request, Issue, PM Plan occurrence, technician, manager, failed Record, shared Work escalation.
+Typical sources include a Request, an Issue, a PM occurrence, or authorized manual intake. Evidence links use the shared Records owner.
 
 ### Target
 
@@ -434,18 +405,17 @@ This Product fills the contract in [13 — Department Product](./13_DEPARTMENT_P
 | Contract item | Facility Plant Operations |
 |---------------|---------------------------|
 | **Purpose** | Maintain the built facility environment: intake of maintenance attention, known undesirable conditions, corrective and preventive Work Orders, and calendar PM against specific Assets |
-| **Location Functions** | None required. Empty is allowed. Optional later if Work presets need a `functionKey` |
+| **Place participation** | Existing Unit/Space, responsibility and asset targets |
 | **Operating Rhythm** | Zero required starter Operational Cycles. Optional facility-configured windows are allowed. PM is not a Cycle |
-| **Work presets** | Optional generic recurring-Work starter pack. Never required. Never auto-published. Facility-owned after install |
 | **People / coverage needs** | Shared People, Department membership, and operational assignment roles. Technician is a Person, not a second identity |
 | **Record definitions** | Shared Record forms: Reading, Checklist, Inspection, Acknowledgement, On-demand Record. No Plant-owned Record engine |
 | **Assets used** | Shared Platform Asset registry. The Product maintains those Assets; it does not copy them |
 | **Issues / exception rules** | Canonical Issue is the known undesirable condition. Request is intake. Work Order is accepted maintenance response. Completing work does not auto-resolve the Issue or restore Asset condition |
 | **Domain-specific capabilities** | Work Order, Preventive Maintenance Plan, maintenance category, maintenance triage, maintenance closeout, maintenance-specific cost/parts/labor facts |
-| **Run requirements** | Plant Manager view, technician view, requester-safe status, repair/request queues, Asset condition, due/overdue PM once implemented |
+| **Run requirements** | Plant Manager view, technician view, requester-safe status, repair/request queues, Asset condition, due/overdue PM |
 | **Historical / Audit questions** | Asset maintenance chronology, Location maintenance chronology, Issue history, Work Order history, PM history — projected from source facts, not a Plant ledger |
 | **Starter content** | Optional **Plant Operations starter configuration**. Select-before-install. Facility-owned copies. Nothing auto-publishes. Nothing claims regulatory compliance. No fake Assets. No generic safety Procedures. PM cadence presets use real Assets |
-| **Facility-configurable values** | Room bindings, people, local labels, optional cycles, published Work Plans, PM plans, Vendor contacts |
+| **Facility-configurable values** | Canonical place targets, people, local labels, optional Cycles, PM plans and vendor contacts |
 | **Platform-gap test** | See below. Missing reusable Asset/Issue/Request/Procedure/history behavior is Platform. Work Order and PM Plan are Product |
 
 ### Platform-gap test
@@ -474,15 +444,15 @@ Rules that remain binding:
 - No generic Lockout/Tagout, safety, or regulatory Procedures
 - No persisted Preventive Maintenance Plans from starter install
 
-**Recurring Work presets** (shared Work Plan drafts): Mechanical Room Round; Building Walkthrough; Exterior / Grounds Walkthrough; Generator Visual Check.
-
-**Record templates** (compatibility `OperationalTemplate` drafts, not CatalogLogDefinition): Equipment Condition Inspection; Mechanical Room Inspection; Generator Inspection; Basic Equipment Reading; Post-Work Order Verification. Forward Records remain Catalog → install → `LogAttachment`. These drafts are facility-private / PM-WO pin compatibility, not Marketplace definitions.
+**Records starters** install selected published Catalog definitions through the [Plant starter service](../../src/lib/department-products/plant-starter.ts). The Facility configures attachments explicitly in Records.
 
 **PM cadence presets** are UI-only in the existing PM Plan editor: Monthly (1), Quarterly (3), Semiannual (6), Annual (12), with `generationLeadDays = 7` and Routine priority. The user must select a real Facility Asset and review the Plan before save/publish. Presets are not manufacturer recommendations.
 
 ---
 
-## MVP / NEXT / LATER
+## Release scope and future concepts
+
+MVP records the original release scope. NEXT and LATER are planning material. Verify each capability against source before advertising or extending it.
 
 ### MVP
 
@@ -498,7 +468,6 @@ Rules that remain binding:
 - Plant Manager view
 - Technician view
 - Requester-safe status
-- Shared Work integration
 - Shared Record integration
 - Shared Procedures
 - Assignments
