@@ -13,7 +13,7 @@
 
 A product existing in the Vssyl registry does not make it customer-visible.
 
-Customer visibility requires release status **AVAILABLE**.
+New customer Marketplace selection requires **AVAILABLE**. Existing eligible RETIRED installations can retain operation.
 
 | Status | Meaning |
 |--------|---------|
@@ -164,7 +164,7 @@ Facility Plant Operations V1 became AVAILABLE on October 7, 2026 after whole-Pro
 
 Checkout and add-departments accept **AVAILABLE Department Product registry keys**, not pre-existing Department rows. DEVELOPMENT keys are rejected.
 
-After Stripe sync writes an ACTIVE (or PAST_DUE) entitlement, `installDepartmentsForActiveEntitlements` calls `installDepartmentProduct`. Installation is idempotent and reuses an existing row. It never mints `DIETARY_2` or a second Food and Nutrition Department.
+After Stripe sync, reconciliation rechecks ACTIVE billing and ACTIVE entitlements under the Facility lock, then calls `installDepartmentsForActiveEntitlements` and `installDepartmentProduct`. PAST_DUE grace can retain access to an installed, licensed Product. New installation requires ACTIVE billing. Installation reuses an existing row and preserves one Food and Nutrition lineage.
 
 Incomplete / abandoned payment does not install. If payment succeeds and installation fails, a later webhook or billing sync retries the same reconcile.
 

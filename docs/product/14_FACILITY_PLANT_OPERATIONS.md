@@ -186,8 +186,6 @@ Person ─────────┼─────────────┼�
                 │             │               │
 Procedure ──────┼─────────────┼──────┐        │
                 │             │      │        │
-Shared Work ────┤                    │        │
-                │                    │        │
 Shared Record ──┴────────────────────┼────────┤
                                      │        │
 Request ──────────────┐              │        │
@@ -247,7 +245,7 @@ Work Order number/id, title, description, CORRECTIVE or PREVENTIVE, maintenance 
 
 ### Source
 
-Potentially: Request, Issue, PM Plan occurrence, technician, manager, failed Record, shared Work escalation.
+Typical sources include a Request, an Issue, a PM occurrence, or authorized manual intake. Evidence links use the shared Records owner.
 
 ### Target
 
