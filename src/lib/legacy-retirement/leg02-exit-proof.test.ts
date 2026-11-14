@@ -20,10 +20,19 @@ import {
   waiveWorkOrderRecordRequirement,
 } from "@/lib/asset-operations";
 import type { FacilitySession } from "@/lib/auth";
+import { loadPublishedCatalogDetail, listPublishedCatalogBrowseCards } from "@/lib/canonical-logs/catalog-browse";
+import {
+  createCatalogDraftSuccessor, deleteCatalogDraft, HARBOR_CATALOG_WRITE,
+  publishCatalogDefinition, retireCatalogDefinition, updateCatalogDraft,
+} from "@/lib/canonical-logs/catalog-service";
+import { ensureFacilityCatalogInstall, installPublishedCatalog } from "@/lib/canonical-logs/facility-catalog-install";
+import { loadHarborCatalogDetail } from "@/lib/harbor-console/catalog";
+import { listConsoleCatalogItems } from "@/lib/harbor-console/console-catalog";
 import { createLogAttachment } from "@/lib/canonical-logs/attachment-service";
 import { resolveLogRequirementsForAttachment } from "@/lib/canonical-logs/resolve-log-requirements";
 import { performCanonicalLogSubmission } from "@/lib/canonical-logs/submit-canonical-log";
 import {
+  catalogFormsWhereForViewer,
   createFacilityCatalogForm,
   publishFacilityCatalogForm,
   publishedCatalogFormsAtFacility,
@@ -178,6 +187,44 @@ test(
       assert.equal(form.ownerKind, "FACILITY");
       assert.equal(form.ownerFacilityId, home.id);
 
+      const foreignViewer = session({
+        uid: supervisorUser.id, facilityId: other.id, role: "MANAGER",
+      });
+      assert.equal(await loadHarborCatalogDetail(prisma, form.stableKey), null);
+      assert.equal((await listConsoleCatalogItems(prisma)).some((row) => row.stableKey === form.stableKey), false);
+      await assert.rejects(() => retireCatalogDefinition(prisma, form.id, HARBOR_CATALOG_WRITE), /not found/i);
+      await assert.rejects(() => createCatalogDraftSuccessor(prisma, form.id, HARBOR_CATALOG_WRITE), /not found/i);
+
+      const ownScope = await catalogFormsWhereForViewer(prisma, supervisor, home.id);
+      const otherScope = await catalogFormsWhereForViewer(prisma, foreignViewer, other.id);
+      assert.equal((await loadPublishedCatalogDetail(prisma, form.stableKey, ownScope))?.stableKey, form.stableKey);
+      assert.equal(await loadPublishedCatalogDetail(prisma, form.stableKey, otherScope), null);
+      assert.equal((await listPublishedCatalogBrowseCards(prisma, otherScope)).some((row) => row.stableKey === form.stableKey), false);
+      await assert.rejects(() => installPublishedCatalog(prisma, {
+        facilityId: other.id, catalogStableKey: form.stableKey, session: foreignViewer,
+      }), /not found/i);
+      await assert.rejects(() => ensureFacilityCatalogInstall(prisma, {
+        facilityId: other.id, catalogDefinitionId: form.id, catalogStableKey: form.stableKey, catalogVersion: form.version,
+      }), /not found/i);
+      assert.equal((await installPublishedCatalog(prisma, {
+        facilityId: home.id, catalogStableKey: form.stableKey, session: supervisor,
+      })).created, false);
+
+      const ownerOptions = {
+        requireFeatureFlag: false,
+        owner: { ownerKind: "FACILITY" as const, ownerFacilityId: home.id, operatorPeriodId: form.operatorPeriodId },
+      };
+      const successor = await createCatalogDraftSuccessor(prisma, form.id, ownerOptions);
+      assert.equal(successor.ownerKind, form.ownerKind);
+      assert.equal(successor.ownerFacilityId, form.ownerFacilityId);
+      assert.equal(successor.operatorPeriodId, form.operatorPeriodId);
+      await assert.rejects(() => publishCatalogDefinition(prisma, successor.id, undefined, HARBOR_CATALOG_WRITE), /not found/i);
+      await assert.rejects(() => updateCatalogDraft(prisma, successor.id, {
+        name: "Invalid platform edit", purposeType: "CHECKLIST", category: "OTHER", fields: [],
+      }, HARBOR_CATALOG_WRITE), /not found/i);
+      await assert.rejects(() => deleteCatalogDraft(prisma, successor.id, HARBOR_CATALOG_WRITE), /not found/i);
+      assert.equal((await prisma.catalogLogDefinition.findUniqueOrThrow({ where: { id: form.id } })).status, "PUBLISHED");
+
       const visibleAtHome = await publishedCatalogFormsAtFacility(prisma, {
         facilityId: home.id,
         departmentId: plant.id,
@@ -207,6 +254,7 @@ test(
       const operationalDateKey = "2026-10-23";
       const attachment = await createLogAttachment(prisma, {
         facilityId: home.id,
+        session: supervisor,
         departmentId: plant.id,
         catalogDefinitionId: form.id,
         target: { kind: "ASSET", assetId: asset.id },

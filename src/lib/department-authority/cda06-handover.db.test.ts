@@ -10,13 +10,16 @@ import test from "node:test";
 
 import { PrismaClient } from "@prisma/client";
 
-import type { FacilitySession } from "@/lib/auth";
+import type { FacilitySession, PartnerFacilitySession } from "@/lib/auth";
 import { loadPublishedCyclesForLogsOnDate } from "@/lib/canonical-logs/load-published-cycles-for-logs";
 import {
   assignDepartmentOperator,
   ensureInitialDepartmentOperator,
 } from "@/lib/department-operators/service";
-import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
+import { loadPublishedCatalogDetail } from "@/lib/canonical-logs/catalog-browse";
+import { installPublishedCatalog } from "@/lib/canonical-logs/facility-catalog-install";
+import { loadHarborCatalogDetail } from "@/lib/harbor-console/catalog";
+import { catalogFormsWhereForViewer, createVendorCatalogForm, publishVendorCatalogForm } from "@/lib/department-authority/catalog-forms";
 import {
   facilityWorkforcePeriodWhere,
   listVendorArchive,
@@ -197,9 +200,10 @@ test("a vendor handover hides the previous period and keeps compliance Records",
       });
     };
     const metzEvidence = await record("Metz cooler", metzPeriodId);
-    await prisma.catalogLogDefinition.create({
+    const metzForm = await prisma.catalogLogDefinition.create({
       data: {
         stableKey: `metz-form-${suffix}`,
+        status: "PUBLISHED",
         name: "Metz cooler form",
         purposeType: "LOG",
         ownerKind: "ORGANIZATION",
@@ -287,9 +291,10 @@ test("a vendor handover hides the previous period and keeps compliance Records",
         operatorPeriodId: sodexoPeriodId,
       },
     });
-    await prisma.catalogLogDefinition.create({
+    const sodexoForm = await prisma.catalogLogDefinition.create({
       data: {
         stableKey: `sodexo-form-${suffix}`,
+        status: "PUBLISHED",
         name: "Sodexo cooler form",
         purposeType: "LOG",
         ownerKind: "ORGANIZATION",
@@ -360,6 +365,22 @@ test("a vendor handover hides the previous period and keeps compliance Records",
     assert.ok(formNames.includes("Sodexo cooler form"));
     assert.equal(formNames.includes("Metz cooler form"), false);
 
+    const scope = await catalogFormsWhereForViewer(prisma, manager, facility.id, department.id);
+    assert.equal(await loadPublishedCatalogDetail(prisma, metzForm.stableKey, scope), null);
+    assert.equal((await loadPublishedCatalogDetail(prisma, sodexoForm.stableKey, scope))?.stableKey, sodexoForm.stableKey);
+    assert.equal(await loadHarborCatalogDetail(prisma, sodexoForm.stableKey), null);
+    await assert.rejects(() => installPublishedCatalog(prisma, {
+      facilityId: facility.id, catalogStableKey: metzForm.stableKey, session: manager,
+    }), /not found/i);
+    assert.equal((await installPublishedCatalog(prisma, {
+      facilityId: facility.id, catalogStableKey: sodexoForm.stableKey, session: manager,
+    })).created, true);
+    await assert.rejects(() => publishVendorCatalogForm(prisma, {
+      facilityId: facility.id, departmentId: department.id, definitionId: sodexoForm.id,
+      session: manager, effectiveRole: "PARTNER_MANAGER",
+    }), /vendor session/i);
+
+
     const sodexoAdmin = await createOrganizationOnlyUserAccount(prisma, {
       email: `cda06-sodexo-admin-${suffix}@example.com`,
       displayName: "Sodexo Admin",
@@ -387,6 +408,27 @@ test("a vendor handover hides the previous period and keeps compliance Records",
       assigneeUserId: sodexoHead.id,
     });
     await acceptVendorHead(prisma, { actorUserId: sodexoHead.id, assignmentId: sodexoAssignment.id });
+
+    const vendor: PartnerFacilitySession = {
+      authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", accessKind: "partner",
+      uid: sodexoHead.id, name: "Sodexo GM", email: sodexoHead.email, sessionVersion: 1,
+      facilityId: facility.id, partnerOrganizationId: sodexo.id,
+      facilityPartnerOrganizationId: "accepted-head-fixture",
+    };
+    const vendorScope = { session: vendor, facilityId: facility.id, departmentId: department.id, effectiveRole: "PARTNER_VIEWER" as const };
+    await assert.rejects(() => publishVendorCatalogForm(prisma, {
+      ...vendorScope, definitionId: metzForm.id,
+    }), /another organization/i);
+    const privateDraft = await createVendorCatalogForm(prisma, {
+      ...vendorScope, name: `Vendor private form ${suffix}`, fieldLabel: "Check",
+    });
+    assert.equal((await prisma.catalogLogDefinition.findUniqueOrThrow({
+      where: { id: privateDraft.definitionId },
+    })).ownerOrganizationId, sodexo.id);
+    await publishVendorCatalogForm(prisma, { ...vendorScope, definitionId: privateDraft.definitionId });
+    assert.equal(await prisma.facilityCatalogInstall.count({
+      where: { facilityId: facility.id, catalogDefinitionId: privateDraft.definitionId },
+    }), 1);
 
     assert.deepEqual((await evidenceIds(fa)).sort(), [metzEvidence.id, sodexoEvidence.id].sort());
     assert.deepEqual(await evidenceIds(manager), [sodexoEvidence.id]);
@@ -429,6 +471,8 @@ test("a vendor handover hides the previous period and keeps compliance Records",
     assert.equal(await prisma.menu.count({ where: { departmentId: department.id } }), 3);
 
     process.env[FLAG] = "false";
+    const flagOffScope = await catalogFormsWhereForViewer(prisma, manager, facility.id);
+    assert.equal(await loadPublishedCatalogDetail(prisma, sodexoForm.stableKey, flagOffScope), null);
     assert.deepEqual((await menusFor()).sort(), ["House menu", "Metz menu", "Sodexo menu"]);
     assert.deepEqual(await listVendorArchive(prisma, metz.id), []);
   } finally {

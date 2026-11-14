@@ -106,6 +106,25 @@ async function seed() {
       });
     }
 
+    const facilityUser = await prisma.user.findUniqueOrThrow({
+      where: { email: facilityEmail }, select: { facilityId: true },
+    });
+    if (!facilityUser.facilityId) throw new Error("Missing synthetic Facility.");
+    await prisma.catalogLogDefinition.upsert({
+      where: { stableKey_version: { stableKey: "phase6c_private_record", version: 1 } },
+      update: {},
+      create: {
+        stableKey: "phase6c_private_record",
+        version: 1,
+        status: "PUBLISHED",
+        name: "Synthetic Facility Record",
+        purposeType: "CHECKLIST",
+        category: "OTHER",
+        ownerKind: "FACILITY",
+        ownerFacilityId: facilityUser.facilityId,
+      },
+    });
+
     await ensureCatalog(prisma, {
       stableKey: "cooler_temperature_log",
       name: "Cooler Temperature Log",
@@ -221,6 +240,14 @@ test.describe("Harbor Marketplace", () => {
     await expect(round.locator("a")).toHaveAttribute("href", "/console/catalog/work/MECHANICAL_ROOM_ROUND");
     await expect(page.getByLabel("Status")).toHaveCount(0);
     await expect(page.getByTestId("marketplace-create")).toHaveCount(0);
+  });
+
+  test("Marketplace excludes private Facility definitions from browse and detail", async ({ page }) => {
+    await page.goto("/console/catalog?family=records");
+    await expect(row(page, "opening_checklist")).toBeVisible();
+    await expect(row(page, "phase6c_private_record")).toHaveCount(0);
+    const detail = await page.goto("/console/catalog/phase6c_private_record");
+    expect(detail?.status()).toBe(404);
   });
 
   test("record subtypes, detail, and create", async ({ page }) => {

@@ -1,6 +1,8 @@
 import type { CatalogFormOwnerKind, OrganizationPartnerRole, Prisma, PrismaClient } from "@prisma/client";
 
+import { isPartnerFacilitySession } from "@/lib/auth";
 import type { DepartmentAccessSession } from "@/lib/department-authority/resolve";
+import { PLATFORM_CATALOG_OWNER } from "@/lib/canonical-logs/catalog-ownership";
 import { createCatalogDefinition, publishCatalogDefinition } from "@/lib/canonical-logs/catalog-service";
 import { ensureFacilityCatalogInstall } from "@/lib/canonical-logs/facility-catalog-install";
 import { loadCurrentOperatorsForFacilityDepartments } from "@/lib/department-operators/service";
@@ -32,38 +34,18 @@ export function catalogFormIsVisible(input: {
 /** Published forms a facility, or one of its Departments, may link and require. */
 export async function publishedCatalogFormsAtFacility(
   db: Db,
-  input: { facilityId: string; departmentId?: string | null },
+  input: { facilityId: string; departmentId?: string | null; session?: DepartmentAccessSession },
 ) {
-  const departments = input.departmentId
-    ? [{ id: input.departmentId }]
-    : await db.department.findMany({
-        where: { facilityId: input.facilityId, isActive: true },
-        select: { id: true },
-      });
-  const operators = await loadCurrentOperatorsForFacilityDepartments(db, {
-    facilityId: input.facilityId,
-    departmentIds: departments.map((department) => department.id),
-  });
-  const current = input.departmentId ? operators.get(input.departmentId) : null;
-  const contractedOrganizationId =
-    current?.operatingModel === "CONTRACTED" ? current.relationship.organizationId : null;
-  const allowedOrganizationIds = input.departmentId
-    ? contractedOrganizationId
-      ? [contractedOrganizationId]
-      : []
-    : [
-        ...new Set(
-          [...operators.values()]
-            .filter((operator) => operator.operatingModel === "CONTRACTED")
-            .map((operator) => operator.relationship.organizationId),
-        ),
-      ];
+  const ownerWhere = input.session
+    ? await catalogFormsWhereForViewer(db, input.session, input.facilityId, input.departmentId)
+    : { OR: [PLATFORM_CATALOG_OWNER, { ownerKind: "FACILITY" as const, ownerFacilityId: input.facilityId }] };
   const rows = await db.catalogLogDefinition.findMany({
-    where: { status: "PUBLISHED" },
+    where: { status: "PUBLISHED", AND: ownerWhere },
     orderBy: [{ version: "desc" }],
     select: {
       id: true,
       name: true,
+      purposeType: true,
       stableKey: true,
       version: true,
       ownerKind: true,
@@ -75,17 +57,6 @@ export async function publishedCatalogFormsAtFacility(
   const latest = [];
   for (const row of rows) {
     if (seen.has(row.stableKey)) continue;
-    const visible = input.departmentId && contractedOrganizationId
-      ? row.ownerKind === "VSSYL" ||
-        (row.ownerKind === "ORGANIZATION" && row.ownerOrganizationId === contractedOrganizationId)
-      : catalogFormIsVisible({
-          ownerKind: row.ownerKind,
-          ownerFacilityId: row.ownerFacilityId,
-          ownerOrganizationId: row.ownerOrganizationId,
-          facilityId: input.facilityId,
-          allowedOrganizationIds,
-        });
-    if (!visible) continue;
     seen.add(row.stableKey);
     latest.push(row);
   }
@@ -93,15 +64,21 @@ export async function publishedCatalogFormsAtFacility(
   return latest;
 }
 
-/** Forms this person may use at a facility. Empty when enforcement is off. */
+/** Forms this person may use at a facility. Private ownership applies independently of the CDA rollout flag. */
 export async function catalogFormsWhereForViewer(
   db: Db,
   session: DepartmentAccessSession,
   facilityId: string,
+  departmentId?: string | null,
 ): Promise<Prisma.CatalogLogDefinitionWhereInput> {
-  if (!isContractedDepartmentAuthorityEnabled()) return {};
+  if (session.facilityId !== facilityId) return { id: { in: [] } };
+  const facilityOwner = { ownerKind: "FACILITY" as const, ownerFacilityId: facilityId };
+  const partner = isPartnerFacilitySession(session);
+  if (!isContractedDepartmentAuthorityEnabled()) {
+    return partner ? PLATFORM_CATALOG_OWNER : { OR: [PLATFORM_CATALOG_OWNER, facilityOwner] };
+  }
   const departments = await db.department.findMany({
-    where: { facilityId, isActive: true },
+    where: { facilityId, isActive: true, id: departmentId ?? undefined },
     select: { id: true },
   });
   const [access, operators] = await Promise.all([
@@ -121,10 +98,12 @@ export async function catalogFormsWhereForViewer(
     if (!item || item.mode !== "MANAGE" || (!item.isHead && !item.isMember)) continue;
     if (current?.operatingModel === "CONTRACTED") organizationIds.add(current.relationship.organizationId);
   }
+  const targetOperator = departmentId ? operators.get(departmentId) : null;
+  const includeFacilityForms = !partner && targetOperator?.operatingModel !== "CONTRACTED";
   return {
     OR: [
-      { ownerKind: "VSSYL" },
-      { ownerKind: "FACILITY", ownerFacilityId: facilityId },
+      PLATFORM_CATALOG_OWNER,
+      ...(includeFacilityForms ? [facilityOwner] : []),
       ...(organizationIds.size > 0
         ? [{ ownerKind: "ORGANIZATION" as const, ownerOrganizationId: { in: [...organizationIds] } }]
         : []),
@@ -145,6 +124,9 @@ export async function createVendorCatalogForm(
 ): Promise<{ definitionId: string }> {
   if (!isContractedDepartmentAuthorityEnabled()) {
     throw new VendorHeadError("NOT_ENABLED", "Vendor forms are not in effect.");
+  }
+  if (!isPartnerFacilitySession(input.session) || input.session.facilityId !== input.facilityId) {
+    throw new VendorHeadError("NOT_HEAD", "A scoped vendor session is required.");
   }
   const access = await resolveDepartmentAccessMap(db, input.session, {
     facilityId: input.facilityId,
@@ -171,7 +153,9 @@ export async function createVendorCatalogForm(
     departmentIds: [input.departmentId],
   });
   const organizationId = operators.get(input.departmentId)?.relationship.organizationId;
-  if (!organizationId) throw new VendorHeadError("NOT_VENDOR_DEPARTMENT", "This Department has no vendor operator.");
+  if (!organizationId || organizationId !== input.session.partnerOrganizationId) {
+    throw new VendorHeadError("NOT_VENDOR_DEPARTMENT", "This Department is outside the vendor's scope.");
+  }
   const name = input.name.trim();
   const fieldLabel = input.fieldLabel.trim();
   if (!name || !fieldLabel) throw new VendorHeadError("NOT_FOUND", "Enter a form name and a field.");
@@ -183,19 +167,18 @@ export async function createVendorCatalogForm(
       category: "OTHER",
       fields: [{ label: fieldLabel, fieldType: "SHORT_TEXT", isRequired: true }],
     },
-    { requireFeatureFlag: false },
-  );
-  await db.catalogLogDefinition.update({
-    where: { id: created.id },
-    data: {
-      ownerKind: "ORGANIZATION",
-      ownerOrganizationId: organizationId,
-      operatorPeriodId: await operatorPeriodIdForCreate(db, {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-      }),
+    {
+      requireFeatureFlag: false,
+      owner: {
+        ownerKind: "ORGANIZATION",
+        ownerOrganizationId: organizationId,
+        operatorPeriodId: await operatorPeriodIdForCreate(db, {
+          facilityId: input.facilityId,
+          departmentId: input.departmentId,
+        }),
+      },
     },
-  });
+  );
   return { definitionId: created.id };
 }
 
@@ -228,6 +211,9 @@ async function assertFacilityFormAuthor(
   db: Db,
   input: { session: DepartmentAccessSession; facilityId: string; departmentId: string },
 ) {
+  if (input.session.facilityId !== input.facilityId || isPartnerFacilitySession(input.session)) {
+    throw new VendorHeadError("NOT_HEAD", "A scoped Facility session is required.");
+  }
   const access = await resolveDepartmentAccessMap(db, input.session, {
     facilityId: input.facilityId,
     departmentIds: [input.departmentId],
@@ -277,19 +263,18 @@ export async function createFacilityCatalogForm(
       category: "OTHER",
       fields: [{ label: fieldLabel, fieldType: "SHORT_TEXT", isRequired: true }],
     },
-    { requireFeatureFlag: false },
-  );
-  await db.catalogLogDefinition.update({
-    where: { id: created.id },
-    data: {
-      ownerKind: "FACILITY",
-      ownerFacilityId: input.facilityId,
-      operatorPeriodId: await operatorPeriodIdForCreate(db, {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-      }),
+    {
+      requireFeatureFlag: false,
+      owner: {
+        ownerKind: "FACILITY",
+        ownerFacilityId: input.facilityId,
+        operatorPeriodId: await operatorPeriodIdForCreate(db, {
+          facilityId: input.facilityId,
+          departmentId: input.departmentId,
+        }),
+      },
     },
-  });
+  );
   return { definitionId: created.id };
 }
 
@@ -308,13 +293,16 @@ export async function publishFacilityCatalogForm(
     select: { id: true, stableKey: true, version: true },
   });
   if (!row) throw new VendorHeadError("NOT_FOUND", "That form belongs to another facility.");
-  const published = await publishCatalogDefinition(db, row.id, undefined, { requireFeatureFlag: false });
+  const published = await publishCatalogDefinition(db, row.id, undefined, {
+    requireFeatureFlag: false,
+    owner: { ownerKind: "FACILITY", ownerFacilityId: input.facilityId, operatorPeriodId: author.operatorPeriodId },
+  });
   await ensureFacilityCatalogInstall(db, {
     facilityId: input.facilityId,
     catalogDefinitionId: published.id,
     catalogStableKey: published.stableKey,
     catalogVersion: published.version,
-  });
+  }, { ownerKind: "FACILITY", ownerFacilityId: input.facilityId });
 }
 
 export async function publishVendorCatalogForm(
@@ -329,6 +317,9 @@ export async function publishVendorCatalogForm(
 ): Promise<void> {
   if (!isContractedDepartmentAuthorityEnabled()) {
     throw new VendorHeadError("NOT_ENABLED", "Vendor forms are not in effect.");
+  }
+  if (!isPartnerFacilitySession(input.session) || input.session.facilityId !== input.facilityId) {
+    throw new VendorHeadError("NOT_HEAD", "A scoped vendor session is required.");
   }
   const access = await resolveDepartmentAccessMap(db, input.session, {
     facilityId: input.facilityId,
@@ -351,16 +342,23 @@ export async function publishVendorCatalogForm(
   }
   const row = await db.catalogLogDefinition.findFirst({
     where: { id: input.definitionId, ownerKind: "ORGANIZATION" },
-    select: { id: true, ownerOrganizationId: true, stableKey: true, version: true },
+    select: { id: true, ownerOrganizationId: true, operatorPeriodId: true },
   });
   const operators = await loadCurrentOperatorsForFacilityDepartments(db, {
     facilityId: input.facilityId,
     departmentIds: [input.departmentId],
   });
-  if (!row || row.ownerOrganizationId !== operators.get(input.departmentId)?.relationship.organizationId) {
+  if (
+    !row?.ownerOrganizationId ||
+    row.ownerOrganizationId !== input.session.partnerOrganizationId ||
+    row.ownerOrganizationId !== operators.get(input.departmentId)?.relationship.organizationId
+  ) {
     throw new VendorHeadError("NOT_FOUND", "That form belongs to another organization.");
   }
-  const published = await publishCatalogDefinition(db, row.id, undefined, { requireFeatureFlag: false });
+  const published = await publishCatalogDefinition(db, row.id, undefined, {
+    requireFeatureFlag: false,
+    owner: { ownerKind: "ORGANIZATION", ownerOrganizationId: row.ownerOrganizationId, operatorPeriodId: row.operatorPeriodId },
+  });
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const relationships = await db.departmentOperatorRelationship.findMany({
@@ -378,6 +376,6 @@ export async function publishVendorCatalogForm(
       catalogDefinitionId: published.id,
       catalogStableKey: published.stableKey,
       catalogVersion: published.version,
-    });
+    }, { ownerKind: "ORGANIZATION", ownerOrganizationId: row.ownerOrganizationId });
   }
 }

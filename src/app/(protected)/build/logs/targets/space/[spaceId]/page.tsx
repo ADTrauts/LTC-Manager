@@ -20,6 +20,7 @@ export default async function SpaceLogsTargetPage({ params }: Props) {
   const { spaceId } = await params;
   const ctx = await loadTargetLogsBuildContext({
     facilityId: session.facilityId,
+    session,
     targetKind: "SPACE",
     targetId: spaceId,
   });

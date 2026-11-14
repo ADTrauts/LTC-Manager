@@ -11,6 +11,7 @@ import { Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
+import { PLATFORM_CATALOG_OWNER } from "./catalog-ownership";
 
 import {
   normalizeCatalogRulesForPersist,
@@ -34,7 +35,13 @@ export type CatalogActor = {
   userId?: string | null;
 };
 
+type CatalogOwner =
+  | typeof PLATFORM_CATALOG_OWNER
+  | { ownerKind: "FACILITY"; ownerFacilityId: string; operatorPeriodId: string | null }
+  | { ownerKind: "ORGANIZATION"; ownerOrganizationId: string; operatorPeriodId: string | null };
+
 export type CatalogWriteOptions = {
+  owner?: CatalogOwner;
   /**
    * Facility BUILD mutations stay behind CANONICAL_LOGS_ENABLED.
    * Harbor Catalog is platform authoring and passes `false`.
@@ -159,14 +166,18 @@ async function allocateStableKey(client: Db, name: string): Promise<string> {
 
 export async function loadCatalogDefinitionById(client: Db, id: string) {
   return client.catalogLogDefinition.findUnique({
-    where: { id },
+    where: { id, ...PLATFORM_CATALOG_OWNER },
     include: { fields: { orderBy: { displaySequence: "asc" } } },
   });
 }
 
-export async function loadPublishedCatalogByStableKey(client: Db, stableKey: string) {
+export async function loadPublishedCatalogByStableKey(
+  client: Db,
+  stableKey: string,
+  ownerWhere: Prisma.CatalogLogDefinitionWhereInput = PLATFORM_CATALOG_OWNER,
+) {
   return client.catalogLogDefinition.findFirst({
-    where: { stableKey, status: "PUBLISHED" },
+    where: { stableKey, status: "PUBLISHED", AND: ownerWhere },
     orderBy: { version: "desc" },
     include: { fields: { orderBy: { displaySequence: "asc" } } },
   });
@@ -190,7 +201,7 @@ export async function publishCatalogDefinition(
 ) {
   maybeRequireFlag(options);
   const row = await client.catalogLogDefinition.findUnique({
-    where: { id: definitionId },
+    where: { id: definitionId, ...(options?.owner ?? PLATFORM_CATALOG_OWNER) },
     include: { fields: true },
   });
   if (!row) throw new Error("Catalog definition not found.");
@@ -216,7 +227,7 @@ export async function publishCatalogDefinition(
   }
 
   return client.catalogLogDefinition.update({
-    where: { id: definitionId },
+    where: { id: definitionId, ...(options?.owner ?? PLATFORM_CATALOG_OWNER) },
     data: {
       status: "PUBLISHED",
       publishedAt: new Date(),
@@ -232,13 +243,13 @@ export async function retireCatalogDefinition(
   options?: CatalogWriteOptions,
 ) {
   maybeRequireFlag(options);
-  const row = await client.catalogLogDefinition.findUnique({ where: { id: definitionId } });
+  const row = await client.catalogLogDefinition.findUnique({ where: { id: definitionId, ...(options?.owner ?? PLATFORM_CATALOG_OWNER) } });
   if (!row) throw new Error("Catalog definition not found.");
   if (row.status === "DRAFT") {
     throw new Error("Retire applies to published Catalog versions. Delete draft instead if unused.");
   }
   return client.catalogLogDefinition.update({
-    where: { id: definitionId },
+    where: { id: definitionId, ...(options?.owner ?? PLATFORM_CATALOG_OWNER) },
     data: { status: "RETIRED", retiredAt: new Date() },
     include: { fields: { orderBy: { displaySequence: "asc" } } },
   });
@@ -254,7 +265,7 @@ export async function createCatalogDraftSuccessor(
 ) {
   maybeRequireFlag(options);
   const source = await client.catalogLogDefinition.findUnique({
-    where: { id: fromDefinitionId },
+    where: { id: fromDefinitionId, ...(options?.owner ?? PLATFORM_CATALOG_OWNER) },
     include: { fields: { orderBy: { displaySequence: "asc" } } },
   });
   if (!source) throw new Error("Catalog definition not found.");
@@ -280,6 +291,10 @@ export async function createCatalogDraftSuccessor(
     data: {
       id: cuidLike(),
       stableKey: source.stableKey,
+      ownerKind: source.ownerKind,
+      ownerFacilityId: source.ownerFacilityId,
+      ownerOrganizationId: source.ownerOrganizationId,
+      operatorPeriodId: source.operatorPeriodId,
       version: nextVersion,
       status: "DRAFT",
       name: source.name,
@@ -338,6 +353,7 @@ export async function createCatalogDefinition(
     data: {
       id: cuidLike(),
       stableKey,
+      ...(options?.owner ?? PLATFORM_CATALOG_OWNER),
       version: 1,
       status: "DRAFT",
       name,
@@ -359,7 +375,7 @@ export async function updateCatalogDraft(
   options?: CatalogWriteOptions,
 ) {
   maybeRequireFlag(options);
-  const row = await client.catalogLogDefinition.findUnique({ where: { id: definitionId } });
+  const row = await client.catalogLogDefinition.findUnique({ where: { id: definitionId, ...(options?.owner ?? PLATFORM_CATALOG_OWNER) } });
   if (!row) throw new Error("Catalog definition not found.");
   assertCatalogPublishedImmutable(row.status);
   if (row.status !== "DRAFT") {
@@ -369,9 +385,8 @@ export async function updateCatalogDraft(
   if (!name) throw new Error("Name is required.");
   const fields = input.fields.filter((field) => field.label.trim().length > 0);
 
-  await client.catalogLogField.deleteMany({ where: { definitionId } });
   return client.catalogLogDefinition.update({
-    where: { id: definitionId },
+    where: { id: definitionId, status: "DRAFT", ...(options?.owner ?? PLATFORM_CATALOG_OWNER) },
     data: {
       name,
       description: input.description?.trim() || null,
@@ -379,7 +394,7 @@ export async function updateCatalogDraft(
       purposeType: input.purposeType,
       category: input.category,
       ...recommendationData(input),
-      fields: { create: fieldCreates(fields) },
+      fields: { deleteMany: {}, create: fieldCreates(fields) },
     },
     include: { fields: { orderBy: { displaySequence: "asc" } } },
   });
@@ -391,12 +406,12 @@ export async function deleteCatalogDraft(
   options?: CatalogWriteOptions,
 ) {
   maybeRequireFlag(options);
-  const row = await client.catalogLogDefinition.findUnique({ where: { id: definitionId } });
+  const row = await client.catalogLogDefinition.findUnique({ where: { id: definitionId, ...(options?.owner ?? PLATFORM_CATALOG_OWNER) } });
   if (!row) throw new Error("Catalog definition not found.");
   if (row.status !== "DRAFT") {
     throw new Error("Only unused drafts can be deleted.");
   }
-  await client.catalogLogDefinition.delete({ where: { id: definitionId } });
+  await client.catalogLogDefinition.delete({ where: { id: definitionId, status: "DRAFT", ...(options?.owner ?? PLATFORM_CATALOG_OWNER) } });
   return row;
 }
 

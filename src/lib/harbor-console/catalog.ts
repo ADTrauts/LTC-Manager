@@ -1,3 +1,4 @@
+import { PLATFORM_CATALOG_OWNER } from "@/lib/canonical-logs/catalog-ownership";
 import type {
   CatalogLogCategory,
   CatalogLogPurposeType,
@@ -214,6 +215,7 @@ function toVersion(
 export async function listHarborCatalogLines(client: Db): Promise<HarborCatalogLine[]> {
   const [rows, installCounts] = await Promise.all([
     client.catalogLogDefinition.findMany({
+      where: PLATFORM_CATALOG_OWNER,
       select: {
         stableKey: true,
         version: true,
@@ -255,7 +257,7 @@ export async function loadHarborCatalogDetail(
   stableKey: string,
 ): Promise<HarborCatalogDetail | null> {
   const rows = await client.catalogLogDefinition.findMany({
-    where: { stableKey },
+    where: { stableKey, ...PLATFORM_CATALOG_OWNER },
     select: versionSelect,
     orderBy: { version: "desc" },
   });

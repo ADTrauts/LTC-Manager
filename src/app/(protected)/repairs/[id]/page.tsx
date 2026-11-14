@@ -273,6 +273,7 @@ export default async function RepairDetailPage({ params }: RepairDetailPageProps
     ? await Promise.all([
         publishedCatalogFormsAtFacility(prisma, {
           facilityId: session.facilityId,
+          session,
           departmentId: repair.responsibleDepartmentId,
         }),
         prisma.vendor.findMany({

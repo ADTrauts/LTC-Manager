@@ -6,7 +6,7 @@ import { KnowledgeArticleStatus } from "@prisma/client";
 
 import { requireAtLeastRole } from "@/lib/access";
 import { publishedCatalogFormsAtFacility } from "@/lib/department-authority/catalog-forms";
-import { requireFacilitySession } from "@/lib/facility-context";
+import { requireFacilitySession, type FacilitySession } from "@/lib/facility-context";
 import {
   knowledgeArticleFormSchema,
   parseIdListJson,
@@ -57,7 +57,7 @@ async function assertScopedDepartment(facilityId: string, departmentId: string |
 }
 
 async function validateAndLoadObjectLinks(
-  facilityId: string,
+  session: FacilitySession,
   articleDepartmentId: string | null,
   articleDepartmentName: string | null,
   unitIds: string[],
@@ -66,6 +66,7 @@ async function validateAndLoadObjectLinks(
   inspectionDefinitionIds: string[],
   catalogDefinitionIds: string[],
 ) {
+  const { facilityId } = session;
   const units = unitIds.length
     ? await prisma.unit.findMany({
         where: { id: { in: unitIds }, facilityId, isActive: true },
@@ -117,6 +118,7 @@ async function validateAndLoadObjectLinks(
   if (catalogDefinitionIds.length) {
     const forms = await publishedCatalogFormsAtFacility(prisma, {
       facilityId,
+      session,
       departmentId: articleDepartmentId,
     });
     const allowed = new Set(forms.map((form) => form.id));
@@ -203,7 +205,7 @@ export async function upsertKnowledgeArticleAction(
 
   try {
     await validateAndLoadObjectLinks(
-      session.facilityId,
+      session,
       articleDepartmentId,
       articleDepartmentName,
       parsed.unitIds,

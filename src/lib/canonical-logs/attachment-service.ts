@@ -7,6 +7,9 @@ import type {
 } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
+import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
+import type { DepartmentAccessSession } from "@/lib/department-authority/resolve";
+import { PLATFORM_CATALOG_OWNER } from "./catalog-ownership";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { daypartWindowsForCadence } from "@/lib/logs-architecture/timing";
 import { parseRecommendedFixedWindows } from "./catalog-authoring";
@@ -53,6 +56,7 @@ const attachmentInclude = {
 
 export type CreateLogAttachmentInput = {
   facilityId: string;
+  session?: DepartmentAccessSession;
   departmentId: string;
   catalogDefinitionId: string;
   target: AttachmentTargetInput;
@@ -78,9 +82,10 @@ export async function loadLogAttachmentForFacility(
   client: Db,
   facilityId: string,
   attachmentId: string,
+  ownerWhere?: Prisma.CatalogLogDefinitionWhereInput,
 ) {
   return client.logAttachment.findFirst({
-    where: { id: attachmentId, facilityId },
+    where: { id: attachmentId, facilityId, catalogDefinition: ownerWhere },
     include: attachmentInclude,
   });
 }
@@ -88,8 +93,11 @@ export async function loadLogAttachmentForFacility(
 export async function createLogAttachment(client: Db, input: CreateLogAttachmentInput) {
   requireFlag();
 
+  const ownerWhere = input.session
+    ? await catalogFormsWhereForViewer(client, input.session, input.facilityId, input.departmentId)
+    : PLATFORM_CATALOG_OWNER;
   const catalog = await client.catalogLogDefinition.findUnique({
-    where: { id: input.catalogDefinitionId },
+    where: { id: input.catalogDefinitionId, AND: ownerWhere },
     include: { fields: { orderBy: { displaySequence: "asc" } } },
   });
   if (!catalog) throw new Error("Catalog definition not found.");
@@ -102,7 +110,7 @@ export async function createLogAttachment(client: Db, input: CreateLogAttachment
     catalogDefinitionId: catalog.id,
     catalogStableKey: catalog.stableKey,
     catalogVersion: catalog.version,
-  });
+  }, ownerWhere);
 
   const target = await validateAttachmentTarget({
     client,
@@ -339,6 +347,7 @@ export async function setLogAttachmentStatus(
   client: Db,
   input: {
     facilityId: string;
+    session?: DepartmentAccessSession;
     attachmentId: string;
     status: LogAttachmentStatus;
     todayKey?: string;
@@ -349,6 +358,7 @@ export async function setLogAttachmentStatus(
   return updateLogAttachment(client, {
     facilityId: input.facilityId,
     attachmentId: input.attachmentId,
+    session: input.session,
     status: input.status,
     todayKey: input.todayKey,
     now: input.now,
@@ -357,6 +367,7 @@ export async function setLogAttachmentStatus(
 
 export type UpdateLogAttachmentInput = {
   facilityId: string;
+  session?: DepartmentAccessSession;
   attachmentId: string;
   timingMode?: LogAttachmentTimingMode;
   dailyWindows?: Array<{ label: string; startLocal: string; endLocal: string }>;
@@ -400,6 +411,15 @@ export async function updateLogAttachment(
   });
   if (!existing) throw new Error("Attachment not found.");
 
+  const ownerWhere = input.session
+    ? await catalogFormsWhereForViewer(client, input.session, input.facilityId, existing.departmentId)
+    : PLATFORM_CATALOG_OWNER;
+  const visible = await client.logAttachment.findFirst({
+    where: { id: existing.id, facilityId: input.facilityId, catalogDefinition: ownerWhere },
+    select: { id: true },
+  });
+  if (!visible) throw new Error("Attachment not found.");
+
   const todayKey = await resolveTodayKey(client, input.facilityId, input.todayKey, input.now);
   if (input.effectiveFromKey && input.effectiveFromKey < todayKey) {
     throw new Error("A Log cannot start before the current service date.");
@@ -417,9 +437,16 @@ export async function updateLogAttachment(
   let catalogDefinitionId = existing.catalogDefinitionId;
   let catalogVersion = existing.catalogVersion;
   let catalogStableKey = existing.catalogStableKey;
-  if (input.catalogDefinitionId && input.catalogDefinitionId !== existing.catalogDefinitionId) {
+  const departmentId = input.departmentId ?? existing.departmentId;
+  if (
+    (input.catalogDefinitionId && input.catalogDefinitionId !== existing.catalogDefinitionId) ||
+    departmentId !== existing.departmentId
+  ) {
+    const nextOwnerWhere = input.session && departmentId !== existing.departmentId
+      ? await catalogFormsWhereForViewer(client, input.session, input.facilityId, departmentId)
+      : ownerWhere;
     const catalog = await client.catalogLogDefinition.findUnique({
-      where: { id: input.catalogDefinitionId },
+      where: { id: input.catalogDefinitionId ?? existing.catalogDefinitionId, AND: nextOwnerWhere },
     });
     if (!catalog) throw new Error("Catalog definition not found.");
     if (catalog.status !== "PUBLISHED") {
@@ -433,7 +460,6 @@ export async function updateLogAttachment(
     catalogStableKey = catalog.stableKey;
   }
 
-  const departmentId = input.departmentId ?? existing.departmentId;
   let targetKind = existing.targetKind;
   let assetId = existing.assetId;
   let spaceId = existing.spaceId;
@@ -561,6 +587,7 @@ export async function updateLogAttachment(
 
       return createLogAttachment(tx, {
         facilityId: input.facilityId,
+        session: input.session,
         departmentId,
         catalogDefinitionId,
         target: {
@@ -712,6 +739,7 @@ export async function adoptLogAttachmentCatalogVersion(
   client: Db,
   input: {
     facilityId: string;
+    session?: DepartmentAccessSession;
     attachmentId: string;
     catalogDefinitionId?: string;
     todayKey?: string;
@@ -721,15 +749,18 @@ export async function adoptLogAttachmentCatalogVersion(
   requireFlag();
   const existing = await client.logAttachment.findFirst({
     where: { id: input.attachmentId, facilityId: input.facilityId },
-    select: { catalogStableKey: true, catalogVersion: true, catalogDefinitionId: true },
+    select: { catalogStableKey: true, catalogVersion: true, catalogDefinitionId: true, departmentId: true },
   });
   if (!existing) throw new Error("Attachment not found.");
 
+  const ownerWhere = input.session
+    ? await catalogFormsWhereForViewer(client, input.session, input.facilityId, existing.departmentId)
+    : PLATFORM_CATALOG_OWNER;
   const latest =
     input.catalogDefinitionId
-      ? await client.catalogLogDefinition.findUnique({ where: { id: input.catalogDefinitionId } })
+      ? await client.catalogLogDefinition.findUnique({ where: { id: input.catalogDefinitionId, AND: ownerWhere } })
       : await client.catalogLogDefinition.findFirst({
-          where: { stableKey: existing.catalogStableKey, status: "PUBLISHED" },
+          where: { stableKey: existing.catalogStableKey, status: "PUBLISHED", AND: ownerWhere },
           orderBy: { version: "desc" },
         });
   if (!latest || latest.status !== "PUBLISHED") {
@@ -745,6 +776,7 @@ export async function adoptLogAttachmentCatalogVersion(
   return updateLogAttachment(client, {
     facilityId: input.facilityId,
     attachmentId: input.attachmentId,
+    session: input.session,
     catalogDefinitionId: latest.id,
     todayKey: input.todayKey,
     now: input.now,

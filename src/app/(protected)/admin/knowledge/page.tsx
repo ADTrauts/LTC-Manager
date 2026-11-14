@@ -127,6 +127,7 @@ export default async function AdminKnowledgePage({ searchParams }: AdminKnowledg
 
   const catalogForms = await publishedCatalogFormsAtFacility(prisma, {
     facilityId: session.facilityId,
+    session,
     departmentId: editing?.article.departmentId,
   });
   const catalogOptions = catalogForms.map((form) => ({ id: form.id, label: form.name }));

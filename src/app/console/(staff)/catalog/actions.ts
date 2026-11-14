@@ -12,6 +12,7 @@ import type {
 } from "@prisma/client";
 import { z } from "zod";
 
+import { PLATFORM_CATALOG_OWNER } from "@/lib/canonical-logs/catalog-ownership";
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import {
   createCatalogDefinition,
@@ -360,11 +361,10 @@ export async function successorHarborCatalogAction(formData: FormData): Promise<
 export async function deleteHarborCatalogDraftAction(formData: FormData): Promise<CatalogActionResult> {
   await requireHarborStaff();
   const definitionId = String(formData.get("definitionId") ?? "");
-  const stableKey = String(formData.get("stableKey") ?? "");
   try {
     const deleted = await deleteCatalogDraft(prisma, definitionId, HARBOR_CATALOG_WRITE);
     revalidatePath("/console/catalog");
-    const remaining = await prisma.catalogLogDefinition.count({ where: { stableKey } });
+    const remaining = await prisma.catalogLogDefinition.count({ where: { stableKey: deleted.stableKey, ...PLATFORM_CATALOG_OWNER } });
     if (remaining === 0) {
       redirect("/console/catalog");
     }

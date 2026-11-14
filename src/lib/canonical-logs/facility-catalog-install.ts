@@ -5,6 +5,9 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
+import type { DepartmentAccessSession } from "@/lib/department-authority/resolve";
+import { PLATFORM_CATALOG_OWNER } from "./catalog-ownership";
 import { loadPublishedCatalogByStableKey } from "./catalog-service";
 import { recordPurposeRejection } from "./record-engine";
 
@@ -71,7 +74,20 @@ export async function ensureFacilityCatalogInstall(
     catalogStableKey: string;
     catalogVersion: number;
   },
+  ownerWhere: Prisma.CatalogLogDefinitionWhereInput = PLATFORM_CATALOG_OWNER,
 ): Promise<{ created: boolean; id: string }> {
+  const visible = await client.catalogLogDefinition.findUnique({
+    where: {
+      id: input.catalogDefinitionId,
+      stableKey: input.catalogStableKey,
+      version: input.catalogVersion,
+      status: "PUBLISHED",
+      AND: ownerWhere,
+    },
+    select: { id: true },
+  });
+  if (!visible) throw new Error("Catalog log not found.");
+
   const existing = await client.facilityCatalogInstall.findUnique({
     where: {
       facilityId_catalogStableKey: {
@@ -113,9 +129,12 @@ export async function ensureFacilityCatalogInstall(
 
 export async function installPublishedCatalog(
   client: Db,
-  input: { facilityId: string; catalogStableKey: string },
+  input: { facilityId: string; catalogStableKey: string; session?: DepartmentAccessSession },
 ): Promise<{ created: boolean; id: string; catalogStableKey: string }> {
-  const catalog = await loadPublishedCatalogByStableKey(client, input.catalogStableKey);
+  const ownerWhere = input.session
+    ? await catalogFormsWhereForViewer(client, input.session, input.facilityId)
+    : undefined;
+  const catalog = await loadPublishedCatalogByStableKey(client, input.catalogStableKey, ownerWhere);
   if (!catalog) throw new Error("Catalog log not found.");
   const purposeRejection = recordPurposeRejection(catalog.purposeType);
   if (purposeRejection && catalog.purposeType === "PROCEDURE") {
@@ -133,6 +152,6 @@ export async function installPublishedCatalog(
     catalogDefinitionId: catalog.id,
     catalogStableKey: catalog.stableKey,
     catalogVersion: catalog.version,
-  });
+  }, ownerWhere);
   return { ...result, catalogStableKey: catalog.stableKey };
 }

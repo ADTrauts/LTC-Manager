@@ -1,5 +1,7 @@
 "use server";
 
+import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
+
 import { revalidatePath } from "next/cache";
 import type {
   LogAttachmentCalendarCadence,
@@ -85,6 +87,7 @@ export async function installCatalogAction(
   try {
     await installPublishedCatalog(prisma, {
       facilityId: session.facilityId,
+      session,
       catalogStableKey,
     });
     revalidatePath("/build/logs");
@@ -125,7 +128,8 @@ export async function createCanonicalLogAttachmentAction(input: {
     return { ok: false, error: "Manager access required to attach Logs." };
   }
 
-  const catalog = await loadPublishedCatalogByStableKey(prisma, input.catalogStableKey);
+  const ownerWhere = await catalogFormsWhereForViewer(prisma, session, session.facilityId, input.departmentId);
+  const catalog = await loadPublishedCatalogByStableKey(prisma, input.catalogStableKey, ownerWhere);
   if (!catalog) {
     return { ok: false, error: "Published Catalog Log not found." };
   }
@@ -150,6 +154,7 @@ export async function createCanonicalLogAttachmentAction(input: {
   try {
     const row = await createLogAttachment(prisma, {
       facilityId: session.facilityId,
+      session,
       departmentId: department.id,
       catalogDefinitionId: catalog.id,
       target,
@@ -203,6 +208,7 @@ export async function updateCanonicalLogAttachmentAction(input: {
   try {
     const row = await updateLogAttachment(prisma, {
       facilityId: session.facilityId,
+      session,
       attachmentId: input.attachmentId,
       timingMode: input.timingMode,
       dailyWindows: input.dailyWindows,
@@ -245,6 +251,7 @@ export async function adoptCanonicalLogAttachmentAction(input: {
   try {
     const row = await adoptLogAttachmentCatalogVersion(prisma, {
       facilityId: session.facilityId,
+      session,
       attachmentId: input.attachmentId,
     });
     const targetId =
@@ -275,6 +282,7 @@ export async function setCanonicalLogAttachmentStatusAction(input: {
   try {
     const row = await setLogAttachmentStatus(prisma, {
       facilityId: session.facilityId,
+      session,
       attachmentId: input.attachmentId,
       status: input.status,
     });
@@ -315,6 +323,7 @@ export async function assignCanonicalLogToTargetsAction(input: {
     const result = await applyCatalogAssignSelection({
       client: prisma,
       facilityId: session.facilityId,
+      session,
       catalogStableKey: input.catalogStableKey,
       selectedKeys: input.selectedKeys,
     });

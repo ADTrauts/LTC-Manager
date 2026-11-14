@@ -1,3 +1,4 @@
+import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
 import { unstable_noStore as noStore } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -16,7 +17,6 @@ import {
   listInstalledCatalogStableKeys,
   listPublishedCatalogBrowseCards,
   loadCycleOptionsForDepartment,
-  cycleLabelMap,
 } from "@/lib/canonical-logs";
 import { hasAtLeastRole } from "@/lib/access";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
@@ -52,8 +52,9 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
       name: row.name,
     }));
 
+  const ownerWhere = await catalogFormsWhereForViewer(prisma, session, facilityId, query.departmentId);
   const [catalogCards, installedStableKeys] = await Promise.all([
-    listPublishedCatalogBrowseCards(prisma),
+    listPublishedCatalogBrowseCards(prisma, ownerWhere),
     listInstalledCatalogStableKeys(prisma, facilityId),
   ]);
   const libraryCards = filterCatalogCardsToInstalled(catalogCards, installedStableKeys);
@@ -72,6 +73,7 @@ export default async function BuildLogsPage({ searchParams }: { searchParams: Se
     }
     attachments = await listFacilityAttachments(prisma, {
       facilityId,
+      ownerWhere,
       departmentId: query.departmentId || null,
       cycleLabelByKey,
       publishedCycleStableKeysByDepartment: publishedByDept,

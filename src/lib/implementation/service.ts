@@ -9,6 +9,8 @@ import { loadCustomerOperableDepartments } from "@/lib/department-products/load-
 import type { PlanRow } from "@/lib/setup-imports/contract";
 import { appendEvent, authorize, lockEngagement, requireParticipant, type Actor, type Db, type Tx } from "./authority";
 import { deliveryEvidence, digest, ImplementationError, parseScope, quoteScope, STAGES } from "./contract";
+export const IMPLEMENTATION_SOURCE_SUBMISSION_PREFIX = "implementation:";
+
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 const transaction = <T>(db: PrismaClient, fn: (tx: Tx) => Promise<T>) => db.$transaction(fn,{ timeout: 30000, maxWait: 30000 });
 function customer(actor: Actor) { if (actor.kind !== "customer") throw new ImplementationError("Customer Facility Administrator approval is required."); return actor.session; }
@@ -115,7 +117,7 @@ export async function receiveSource(db: PrismaClient, actor: Actor, engagementId
     const row = await lockEngagement(tx,actor,engagementId); editable(row);
     const ticket = await tx.supportTicket.findUniqueOrThrow({ where: { id: row.supportTicketId } });
     if (ticket.facilityId !== row.facilityId || ticket.status === "CLOSED") throw new ImplementationError("The source support conversation is unavailable. Ask responsible staff to reopen it.");
-    const key = `implementation:${input.submissionId}`;
+    const key = `${IMPLEMENTATION_SOURCE_SUBMISSION_PREFIX}${input.submissionId}`;
     const prior = await tx.supportTicketMessage.findUnique({ where: { clientSubmissionId: key } });
     if (prior) {
       const event = await tx.implementationEvent.findFirst({ where: { engagementId, kind: "SOURCE_RECEIVED", data: { path: ["messageId"], equals: prior.id } } });
@@ -203,19 +205,61 @@ export async function getEngagement(db: PrismaClient, actor: Actor, engagementId
   return { ...row, attachments, review: await reviewHandoff(db,actor,engagementId) };
 }
 
-/** Narrow private-source read path, independent of general support access and import ownership. */
-export async function readImplementationSource(db: PrismaClient, actor: Actor, engagementId: string, attachmentId: string, store?: SupportAttachmentStore | null) {
+function findSourceReceipt(db: Db, engagementId: string, messageId: string) {
+  return db.implementationEvent.findFirst({
+    where: { engagementId, kind: "SOURCE_RECEIVED", data: { path: ["messageId"], equals: messageId } },
+    select: { data: true },
+  });
+}
+
+/** Resolve the original's engagement from its existing custody and receipt records. */
+export async function implementationAttachmentScope(
+  db: Db,
+  message: { id: string; clientSubmissionId: string | null; ticket: { implementationEngagement: { id: string } | null } },
+) {
+  const engagementId = message.ticket.implementationEngagement?.id;
+  const markedSource = message.clientSubmissionId?.startsWith(IMPLEMENTATION_SOURCE_SUBMISSION_PREFIX);
+  if (!engagementId) return markedSource ? { kind: "unavailable" } as const : { kind: "support" } as const;
+
+  const receipt = await findSourceReceipt(db, engagementId, message.id);
+  if (receipt) return { kind: "implementation", engagementId } as const;
+  return markedSource ? { kind: "unavailable" } as const : { kind: "support" } as const;
+}
+
+/** Private-source authorization for every Console download entry point. */
+export async function readImplementationSource(
+  db: PrismaClient,
+  actor: Actor,
+  engagementId: string,
+  attachmentId: string,
+  store?: SupportAttachmentStore | null,
+) {
   staff(actor);
-  const row = await db.implementationEngagement.findUniqueOrThrow({ where: { id: engagementId } });
-  await authorize(db,actor,row.facilityId); await requireParticipant(db,actor,engagementId);
-  const attachment = await db.supportTicketAttachment.findUniqueOrThrow({ where: { id: attachmentId }, include: { message: { select: { ticketId: true, ticket: { select: { facilityId: true } } } } } });
-  const source = await db.implementationEvent.findFirst({ where: { engagementId, kind: "SOURCE_RECEIVED", data: { path: ["messageId"], equals: attachment.messageId } } });
-  if (!source || (source.data as { checksum?: string }).checksum !== attachment.checksumSha256 || attachment.message.ticketId !== row.supportTicketId || attachment.message.ticket.facilityId !== row.facilityId || attachment.scanStatus !== "CLEAN" || !attachment.storageKey) throw new ImplementationError("Source is unavailable or quarantined.");
+  const engagement = await db.implementationEngagement.findUniqueOrThrow({ where: { id: engagementId } });
+  await authorize(db, actor, engagement.facilityId);
+  await requireParticipant(db, actor, engagement.id);
+
+  const attachment = await db.supportTicketAttachment.findUniqueOrThrow({
+    where: { id: attachmentId },
+    include: { message: { select: { ticketId: true, ticket: { select: { facilityId: true } } } } },
+  });
+  const source = await findSourceReceipt(db, engagement.id, attachment.messageId);
+  if (
+    !source ||
+    (source.data as { checksum?: string }).checksum !== attachment.checksumSha256 ||
+    attachment.message.ticketId !== engagement.supportTicketId ||
+    attachment.message.ticket.facilityId !== engagement.facilityId ||
+    attachment.scanStatus !== "CLEAN" ||
+    !attachment.storageKey
+  ) {
+    throw new ImplementationError("Source is unavailable or quarantined.");
+  }
+
   const { getSupportAttachmentStore } = await import("@/lib/support/attachment-store");
-  const selectedStore = store === undefined ? getSupportAttachmentStore() : store;
   const { readVerifiedSupportAttachment } = await import("@/lib/support/scan-pending-attachments");
-  const bytes = await readVerifiedSupportAttachment(selectedStore,attachment);
+  const bytes = await readVerifiedSupportAttachment(store === undefined ? getSupportAttachmentStore() : store, attachment);
   if (!bytes) throw new ImplementationError("Private source file is unavailable.");
-  await authorize(db,actor,row.facilityId); await requireParticipant(db,actor,engagementId);
+  await authorize(db, actor, engagement.facilityId);
+  await requireParticipant(db, actor, engagement.id);
   return { bytes, filename: attachment.filename, contentType: attachment.contentType };
 }

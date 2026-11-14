@@ -7,7 +7,7 @@ import {
   listInstalledCatalogStableKeys,
   listPublishedCatalogBrowseCards,
 } from "@/lib/canonical-logs";
-import { isCanonicalLogsEnabled, isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
+import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import {
   getFacilityServiceDate,
   loadFacilityTimezone,
@@ -307,10 +307,7 @@ export async function loadLocationPrograms(input: {
       rooms,
     }),
     logsEnabled
-      ? listPublishedCatalogBrowseCards(
-          prisma,
-          isContractedDepartmentAuthorityEnabled() ? { ownerKind: "VSSYL" } : {},
-        )
+      ? listPublishedCatalogBrowseCards(prisma)
       : Promise.resolve([]),
     logsEnabled ? listInstalledCatalogStableKeys(prisma, input.facilityId) : Promise.resolve([]),
   ]);

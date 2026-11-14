@@ -117,13 +117,14 @@ export async function loadPmBuilderOptions(
   input: {
     facilityId: string;
     departmentId: string;
+    session?: FacilitySession;
     currentAssetId?: string | null;
     currentCategoryId?: string | null;
     currentProcedureVersionId?: string | null;
   },
   client: DbClient = prisma,
 ) {
-  const [assets, categories, procedures, templates, employees] = await Promise.all([
+  const [assets, categories, procedures, catalogForms, employees] = await Promise.all([
     client.asset.findMany({
       where: {
         unit: { facilityId: input.facilityId },
@@ -155,10 +156,10 @@ export async function loadPmBuilderOptions(
       },
       orderBy: [{ article: { title: "asc" } }, { version: "desc" }],
     }),
-    client.catalogLogDefinition.findMany({
-      where: { status: "PUBLISHED" },
-      select: { id: true, name: true, purposeType: true, version: true },
-      orderBy: [{ name: "asc" }, { version: "desc" }],
+    publishedCatalogFormsAtFacility(client, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      session: input.session,
     }),
     client.employee.findMany({
       where: {
@@ -233,7 +234,7 @@ export async function loadPmBuilderOptions(
     }
   }
 
-  const templateOptions: PmBuilderTemplateOption[] = templates.map((row) => ({
+  const templateOptions: PmBuilderTemplateOption[] = catalogForms.map((row) => ({
     id: row.id,
     name: row.name,
     purposeType: row.purposeType,
@@ -245,10 +246,6 @@ export async function loadPmBuilderOptions(
     name: `${row.firstName} ${row.lastName}`.trim(),
   }));
 
-  const catalogForms = await publishedCatalogFormsAtFacility(client, {
-    facilityId: input.facilityId,
-    departmentId: input.departmentId,
-  });
   const catalogOptions: PmBuilderTemplateOption[] = catalogForms.map((row) => ({
     id: row.id,
     name: row.name,
@@ -442,6 +439,7 @@ export async function loadPmPlanEditor(
     {
       facilityId: input.facilityId,
       departmentId: input.departmentId,
+      session,
       currentAssetId: plan.assetId,
       currentCategoryId: editing.maintenanceCategoryId,
       currentProcedureVersionId: editing.procedureVersionId,

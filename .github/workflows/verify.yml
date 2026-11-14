@@ -52,6 +52,9 @@ jobs:
         run: npm run test:hermetic
 
       - name: Typecheck
+        env:
+          # The full TypeScript program exceeds the runner's default V8 heap.
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run typecheck
 
       - name: Lint
@@ -65,6 +68,8 @@ jobs:
         run: npx prisma validate
 
       - name: Production build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run verify:build
 
   database-integration:
@@ -175,6 +180,8 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Offline browser certification (CI gate subset)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run test:offline-browser
 
       - name: Upload browser failure artifacts
@@ -226,6 +233,8 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Assignment browser certification (CI gate)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run test:assignment-browser
 
       - name: Upload assignment browser failure artifacts
@@ -278,6 +287,8 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Dietary integrated pilot certification (CI gate)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run test:dietary-pilot
 
       - name: Upload dietary pilot failure artifacts

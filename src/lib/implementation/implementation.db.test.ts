@@ -177,6 +177,45 @@ test("SQL private source: explicit staff participants can read only linked CLEAN
  await db.platformStaff.update({where:{id:f.owner.id},data:{sessionVersion:1}});await assert.rejects(()=>readImplementationSource(db,f.s,f.id,attachment.id,store),/authority/);
 }));
 
+test("SQL Console downloads enforce the same source authority and preserve ordinary Support downloads", { skip }, () => run(async (db) => {
+  const { readConsoleSupportAttachment } = await import("@/lib/support/download");
+  const { readImplementationSource } = await import("./service");
+  const engagement = await setup(db);
+  const unrelated = await setup(db);
+  const store = createMemorySupportAttachmentStore();
+  const bytes = Buffer.from("synthetic implementation source");
+  const source = await receiveSource(db, engagement.c, engagement.id, {
+    submissionId: randomUUID(), filename: "source.csv", contentType: "text/csv", bytes,
+  }, store);
+  const original = source.attachments[0]!;
+  const verified = await db.supportTicketAttachment.update({ where: { id: original.id }, data: { scanStatus: "CLEAN" } });
+
+  assert.equal((await readConsoleSupportAttachment(db, unrelated.s, original.id, store)).outcome, "forbidden");
+  assert.equal((await readConsoleSupportAttachment(db, { ...engagement.s, workFacilityId: engagement.facility.id }, original.id, store)).outcome, "forbidden");
+  await assert.rejects(() => readImplementationSource(db, unrelated.s, unrelated.id, original.id, store), /quarantined/);
+  await assert.rejects(() => readImplementationSource(db, engagement.c, engagement.id, original.id, store), /Console staff/);
+  const authorized = await readConsoleSupportAttachment(db, engagement.s, original.id, store);
+  assert.equal(authorized.outcome, "ok");
+  if (authorized.outcome === "ok") assert.deepEqual(Buffer.from(authorized.file.bytes), bytes);
+
+  const note = await db.supportTicketMessage.create({
+    data: { ticketId: source.ticketId, kind: "NOTE", authorStaffId: engagement.owner.id, bodyText: "Ordinary support material" },
+  });
+  await store.put({ key: "fixture-ordinary-support", bytes, contentType: original.contentType });
+  const ordinary = await db.supportTicketAttachment.create({
+    data: {
+      messageId: note.id, position: 0, filename: original.filename, contentType: original.contentType,
+      sizeBytes: original.sizeBytes, scanStatus: "CLEAN",
+      storageKey: "fixture-ordinary-support", checksumSha256: verified.checksumSha256,
+    },
+  });
+  assert.equal((await readConsoleSupportAttachment(db, unrelated.s, ordinary.id, store)).outcome, "ok");
+  await assert.rejects(() => readImplementationSource(db, engagement.s, engagement.id, ordinary.id, store), /quarantined/);
+
+  await db.implementationParticipant.deleteMany({ where: { engagementId: engagement.id, staffId: engagement.owner.id } });
+  assert.equal((await readConsoleSupportAttachment(db, engagement.s, original.id, store)).outcome, "forbidden");
+}));
+
 test("SQL service: reviewer source attribution uses the uploading person's actual support contact",{skip},()=>run(async db=>{
  const f=await setup(db);const second=await db.user.create({data:{facilityId:f.facility.id,primaryDepartmentId:f.plant.id,roleId:f.user.roleId,email:`reviewer-${randomUUID()}@example.com`,displayName:"Actual Reviewer",passwordHash:"fixture",emailVerifiedAt:new Date()}});const secondAccess=await db.userFacilityAccess.create({data:{facilityId:f.facility.id,userId:second.id}});await db.employee.create({data:{facilityId:f.facility.id,userId:second.id,email:second.email,firstName:"Actual",lastName:"Reviewer",roleType:"FACILITY_ADMINISTRATOR",employmentType:"FULL_TIME",primaryDepartmentId:f.plant.id}});await addParticipant(db,f.c,f.id,second.id);
  // A facility has one Facility Administrator (CDA-02): the role moves to the reviewer before they upload.

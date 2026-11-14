@@ -82,6 +82,7 @@ export async function removeRoomLogAction(formData: FormData): Promise<LocationR
     if (!row) throw new Error("Log not found on this room.");
     await setLogAttachmentStatus(prisma, {
       facilityId: session.facilityId,
+      session,
       attachmentId: row.id,
       status: "RETIRED",
     });
