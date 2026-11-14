@@ -1,6 +1,6 @@
 # Harbor Console Phase 0 certification
 
-**November 13, 2026 · PASS WITH GAPS · NOT READY TO MERGE**
+**November 13, 2026 · PASS WITH GAPS · NOT READY TO MERGE OR DEPLOY**
 
 The two Phase 0 controls passed targeted authorization and regression checks. PR #11 remains a draft. The architecture review accepted the approach and requested closure of the verification gaps before promotion.
 
@@ -15,6 +15,8 @@ Implementation commits:
 
 - `53b682c0ebeec2bd33fd1da304d7ba3b1fd0483e` · Implementation attachment access.
 - `ff0fde4a8f008b34dd2c64524bcfa4b9ba2acc2b` · Records ownership enforcement.
+
+Phase 0 uses the existing Catalog, Support attachment store and scanner, Implementation participant checks, and CDA ownership rules. The final review recovered a clean branch that matched GitHub. The inventory SQL was already committed in `8843fc8b` and matched the local copy byte for byte.
 
 ## Executed verification
 
@@ -41,6 +43,18 @@ Commit `56acb369e1bdb4d520f53976318036fbdc5d3ad6` sets `NODE_OPTIONS=--max-old-s
 
 [Verify run 43550435735](https://github.com/ADTrauts/LTC-Manager/actions/runs/43550435735) confirmed that Next's TypeScript subprocess can reach the same default heap limit. The Offline and Assignment browser jobs both built the code successfully and then exhausted approximately 2 GB of V8 heap during the build's TypeScript phase. The follow-up sets the same 4 GiB limit on the production build and all three browser steps that invoke that build. Database, discovery, lint, and the standalone hermetic step retain their existing resource settings. See [PR #11 checks](https://github.com/ADTrauts/LTC-Manager/pull/11/checks) for the exact current head.
 
+[Verify run 43550859282](https://github.com/ADTrauts/LTC-Manager/actions/runs/43550859282) completed successfully on its first attempt. GitHub reports PR head `3ef3a830d4aafa9986057f280ec11ba0608ecfde` for the run and for each of its five jobs.
+
+| Required job | GitHub conclusion |
+| --- | --- |
+| Static and hermetic | Success |
+| Database integration | Success |
+| Offline browser gate | Success |
+| Assignment browser gate | Success |
+| Dietary pilot gate | Success |
+
+The final release review updates this report only. The protected Preview and required Verify checks apply to the eventual merge candidate.
+
 ### Closure regression results
 
 | Check | Result |
@@ -56,7 +70,11 @@ The Marketplace fixture collision remains a nonblocking baseline issue. Reproduc
 
 Before Phase 0, Facility and vendor creation wrote a default platform draft and then stamped its owner in a second write. A failure between writes could leave no private ownership metadata. The historical CDA owner migration defaulted preexisting definitions to VSSYL. The period backfill used an existing vendor owner, and the canonical baseline retains the ownership columns. The Harbor Catalog audit stores the action, actor, and timestamp without a Catalog definition ID.
 
-The [read-only inventory](harbor-phase-0-catalog-inventory.sql) ran on a fresh disposable database populated by the SQL tests. It returned 21 platform versions requiring provenance and five structurally consistent private versions. No structural conflicts or mixed lineages appeared before injecting four synthetic cases. Those cases confirmed detection of a platform owner conflict, a mixed lineage, a private owner conflict, and an untraceable platform-default draft. This verified the procedure against synthetic data. Historical ownership in a production-grade dataset remains unverified.
+The [inventory SQL](harbor-phase-0-catalog-inventory.sql) queries a repeatable-read, read-only transaction and returns counts by owner kind, status, and finding. Its final projection omits record IDs, keys, names, and owner identifiers. Direct owner-field conflicts and mixed platform/private lineages flag potential inconsistencies. Platform rows with no conflicting fields still require provenance, and structurally consistent private rows still rely on the accuracy of their recorded owner.
+
+- **Synthetic verification.** The initial disposable fixture database had 21 platform versions requiring provenance and five structurally consistent private versions. The committed query reran successfully and identified all four deliberately added synthetic cases: a platform owner conflict, a mixed lineage, a private owner conflict, and a platform-default draft needing provenance.
+- **Verified historical customer data.** No historical customer dataset was examined and no historical misclassification was confirmed.
+- **Unverified historical data.** The target Catalog's historical ownership remains unverified. No authorized production-grade snapshot was available for this review. An aggregate result with no structural flags would still leave apparently platform-owned drafts that lack provenance.
 
 1. Identify the authorized canonical database snapshot or read replica and record its capture time, schema and migration ledger. Use a SELECT-only role and run `psql -X -f docs/console/harbor-phase-0-catalog-inventory.sql` with the approved connection supplied outside shell history. The script uses a read-only transaction and returns grouped counts.
 2. In a restricted review session, rerun the same CTE with its aggregate SELECT replaced by a projection of IDs, stable keys, versions, owner tuple, timestamps and status for `platform_owner_conflict`, `mixed_platform_private_lineage`, `platform_owner_needs_provenance`, and `private_owner_conflict`. Review published and draft versions. Compare exact trusted seed provenance, authoritative authoring receipts or historical backups that tie the specific definition ID or lineage to the owner, and the operator-period relationship.
@@ -66,12 +84,14 @@ The [read-only inventory](harbor-phase-0-catalog-inventory.sql) ran on a fresh d
 
 Support stores originals through the existing private Blob adapter and initializes accepted files in quarantine. The scan processor binds results to the attempt, hash, and length. Downloads require CLEAN and verify the stored bytes again before returning them. Implementation also checks the receipt, engagement and live staff participation through its existing service. The focused SQL checks exercised both download readers with memory storage, including legitimate Support, authorized participants, denial for unrelated staff and cross-engagement reads, changed bytes, failed scans, and retry behavior.
 
-A separate test with the scanner and Blob credentials absent confirmed zero scan claims, unchanged PENDING state, and no readable bytes. Both authenticated HTTP download handlers returned 503 for a synthetic historical CLEAN row under that configuration. A previously verified CLEAN file still requires its private object and valid content integrity. An approved live scanner and private Blob test target were unavailable. Before enabling live downloads, upload a synthetic file in an approved protected nonproduction environment, verify it stays unreadable before an authenticated scan, then verify CLEAN success for the permitted staff participant through both routes, denials for unauthorized staff and other Facilities, checksum mismatch denial, and an ordinary Support download. Verify the Blob remains private throughout. No real customer files were accessed.
+A separate test with the scanner and Blob credentials absent confirmed zero scan claims, unchanged PENDING state, and no readable bytes. Both authenticated HTTP download handlers returned 503 for a synthetic historical CLEAN row under that configuration. The final review reran ten focused Support and scanner-configuration tests successfully. Missing or unreadable private storage prevents a download, including for a CLEAN row. A configured scanner that becomes unreachable cannot produce a new CLEAN verdict. The download handlers check configuration, while an existing CLEAN row relies on its prior scan and the current private-object integrity check.
+
+The live scanner and private Blob integration remains unverified. Before enabling live downloads, upload a synthetic file in an approved protected nonproduction environment. Verify quarantine before scan, successful CLEAN downloads for the permitted participant through both routes, denials for unrelated staff and other Facilities, checksum mismatch denial, and an ordinary Support download. Verify private storage access and the expected behavior during scanner and Blob outages. No real customer files were accessed.
 
 ### Release disposition
 
-- **Merge blockers.** The required hosted Verify result must be green for the proposed merge head. Remove the temporary branch-specific Vercel rule before merge, then complete the repository's protected Preview review at the approved checkpoint.
-- **Production enablement blockers.** Complete the historical ownership inventory before exposing Catalog data under the new controls. Exercise the approved private Blob and scanner together before enabling live original downloads.
+- **Merge blockers.** Obtain release-owner authorization to remove the `git.deploymentEnabled["fix/harbor-console-phase-0"]` entry and push a commit that can trigger a Preview. Before that push, verify Vercel Authentication and the canonical staging database binding under the existing Preview policy. Review the protected Preview and required Verify checks on the resulting candidate, then obtain merge approval through the existing review process.
+- **Production enablement blockers.** Obtain approval to read an identified canonical snapshot or read replica with a SELECT-only role. Complete the inventory and disposition any confirmed historical misclassification before exposing Catalog data under the new controls. Obtain approval for the protected nonproduction scanner and Blob target and complete the synthetic integration test before enabling live original downloads. Production promotion requires separate release approval under the existing release policy.
 - **Nonblocking follow-ups.** Track the Marketplace and placement-history fixture collision separately. Investigate the workbook and membership-end tests if the hosted failures recur.
 
-The branch-specific `vercel.json` entry stays on the draft branch during certification to suppress automatic Preview deployments. Remove it before merge and use the repository's protected Preview policy at architecture review. No project settings changed. No deployment or merge was initiated.
+The branch-specific `vercel.json` entry stays on the draft branch pending approval. Removing it restores Vercel's default automatic branch deployments and can queue a Preview. The exception must be removed before merge. No project settings changed. No deployment or merge was initiated.
