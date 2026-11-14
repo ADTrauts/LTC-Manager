@@ -315,6 +315,7 @@ export async function listAttachmentsForTarget(
   client: Db,
   input: {
     facilityId: string;
+    ownerWhere?: Prisma.CatalogLogDefinitionWhereInput;
     targetKind: LogAttachment["targetKind"];
     assetId?: string | null;
     spaceId?: string | null;
@@ -328,6 +329,7 @@ export async function listAttachmentsForTarget(
   const rows = await client.logAttachment.findMany({
     where: {
       facilityId: input.facilityId,
+      catalogDefinition: input.ownerWhere,
       targetKind: input.targetKind,
       assetId: input.assetId ?? undefined,
       spaceId: input.spaceId ?? undefined,
@@ -341,6 +343,7 @@ export async function listAttachmentsForTarget(
   const latestByKey = await loadLatestPublishedVersions(
     client,
     rows.map((r) => r.catalogStableKey),
+    input.ownerWhere,
   );
   const groups = logicalAttachmentsForBuildList(
     groupLogicalLogAttachments(rows, latestByKey),
@@ -366,6 +369,7 @@ export async function listFacilityAttachments(
   client: Db,
   input: {
     facilityId: string;
+    ownerWhere?: Prisma.CatalogLogDefinitionWhereInput;
     departmentId?: string | null;
     cycleLabelByKey: ReadonlyMap<string, string>;
     publishedCycleStableKeysByDepartment: ReadonlyMap<string, readonly string[]>;
@@ -375,6 +379,7 @@ export async function listFacilityAttachments(
   const rows = await client.logAttachment.findMany({
     where: {
       facilityId: input.facilityId,
+      catalogDefinition: input.ownerWhere,
       ...(input.departmentId ? { departmentId: input.departmentId } : {}),
     },
     orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
@@ -396,6 +401,7 @@ export async function listFacilityAttachments(
   const latestByKey = await loadLatestPublishedVersions(
     client,
     rows.map((r) => r.catalogStableKey),
+    input.ownerWhere,
   );
   const groups = logicalAttachmentsForBuildList(
     groupLogicalLogAttachments(rows, latestByKey),
@@ -455,11 +461,12 @@ function facilityAttachmentWhereLabel(row: {
 async function loadLatestPublishedVersions(
   client: Db,
   stableKeys: readonly string[],
+  ownerWhere?: Prisma.CatalogLogDefinitionWhereInput,
 ): Promise<Map<string, number>> {
   const keys = [...new Set(stableKeys.filter(Boolean))];
   if (keys.length === 0) return new Map();
   const published = await client.catalogLogDefinition.findMany({
-    where: { stableKey: { in: keys }, status: "PUBLISHED" },
+    where: { stableKey: { in: keys }, status: "PUBLISHED", AND: ownerWhere },
     select: { stableKey: true, version: true },
     orderBy: { version: "desc" },
   });

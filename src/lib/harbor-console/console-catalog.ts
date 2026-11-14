@@ -1,3 +1,4 @@
+import { PLATFORM_CATALOG_OWNER } from "@/lib/canonical-logs/catalog-ownership";
 /**
  * Harbor-only unified Console catalog projection.
  *
@@ -470,7 +471,7 @@ async function loadDepartmentProductItems(client: Db): Promise<ConsoleCatalogIte
 async function loadCatalogRecordItems(client: Db): Promise<ConsoleCatalogItem[]> {
   const [definitions, installCounts, placements] = await Promise.all([
     client.catalogLogDefinition.findMany({
-      where: { purposeType: { in: [...CONSOLE_CATALOG_RECORD_SUBTYPES] } },
+      where: { ...PLATFORM_CATALOG_OWNER, purposeType: { in: [...CONSOLE_CATALOG_RECORD_SUBTYPES] } },
       select: {
         id: true,
         stableKey: true,

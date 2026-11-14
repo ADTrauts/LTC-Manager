@@ -6,7 +6,7 @@ import type { LogAttachmentTargetKind } from "@prisma/client";
 
 import type { DepartmentAccessSession } from "@/lib/department-authority/resolve";
 import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
-import { isContractedDepartmentAuthorityEnabled } from "@/lib/feature-flags";
+import { PLATFORM_CATALOG_OWNER } from "./catalog-ownership";
 import {
   catalogMatchesTarget,
   cycleLabelMap,
@@ -52,10 +52,8 @@ export async function loadTargetLogsBuildContext(input: {
 
   const departmentId = input.departmentId ?? label.departmentId;
   const ownerWhere = input.session
-    ? await catalogFormsWhereForViewer(prisma, input.session, input.facilityId)
-    : isContractedDepartmentAuthorityEnabled()
-      ? { ownerKind: "VSSYL" as const }
-      : {};
+    ? await catalogFormsWhereForViewer(prisma, input.session, input.facilityId, departmentId)
+    : PLATFORM_CATALOG_OWNER;
   const [publishedCards, installedStableKeys] = await Promise.all([
     listPublishedCatalogBrowseCards(prisma, ownerWhere),
     listInstalledCatalogStableKeys(prisma, input.facilityId),
@@ -105,6 +103,7 @@ export async function loadTargetLogsBuildContext(input: {
 
   const attachments = await listAttachmentsForTarget(prisma, {
     facilityId: input.facilityId,
+    ownerWhere,
     targetKind: input.targetKind,
     assetId: input.targetKind === "ASSET" ? input.targetId : null,
     spaceId: input.targetKind === "SPACE" ? input.targetId : null,
@@ -122,6 +121,7 @@ export async function loadTargetLogsBuildContext(input: {
   const catalogRows = await prisma.catalogLogDefinition.findMany({
     where: {
       status: "PUBLISHED",
+      AND: ownerWhere,
       stableKey: { in: catalogCards.map((c) => c.stableKey) },
     },
     orderBy: { version: "desc" },

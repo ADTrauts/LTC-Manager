@@ -12,6 +12,7 @@ import type {
 
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 
+import { PLATFORM_CATALOG_OWNER } from "./catalog-ownership";
 import { catalogRecommendedScheduleLabel } from "./timing-display";
 import { parseCatalogSuggestions, type CatalogSuggestions } from "./suggestions";
 
@@ -70,7 +71,7 @@ export type CatalogBrowseCard = {
   fieldSummary: string;
   suggestedForLabels: string[];
   suggestions: CatalogSuggestions;
-  maintainedByLtcCorp: true;
+  maintainedByLtcCorp: boolean;
 };
 
 export type CatalogFieldPreview = {
@@ -140,6 +141,7 @@ function toBrowseCard(row: {
   name: string;
   description: string | null;
   category: CatalogLogCategory;
+  ownerKind: "VSSYL" | "FACILITY" | "ORGANIZATION";
   purposeType: CatalogLogPurposeType;
   recommendedCadence: CatalogRecommendedCadence | null;
   recommendedDaypartLabels?: string[];
@@ -165,19 +167,19 @@ function toBrowseCard(row: {
     fieldSummary: fieldSummaryFromFields(row.fields ?? []),
     suggestedForLabels: suggestedForLabels(suggestions),
     suggestions,
-    maintainedByLtcCorp: true,
+    maintainedByLtcCorp: row.ownerKind === "VSSYL",
   };
 }
 
 /** Latest published Catalog definition per stableKey (drafts/retired excluded). */
 export async function listPublishedCatalogBrowseCards(
   client: Db,
-  ownerWhere: Prisma.CatalogLogDefinitionWhereInput = {},
+  ownerWhere: Prisma.CatalogLogDefinitionWhereInput = PLATFORM_CATALOG_OWNER,
 ): Promise<CatalogBrowseCard[]> {
   if (!isCanonicalLogsEnabled()) return [];
 
   const rows = await client.catalogLogDefinition.findMany({
-    where: { status: "PUBLISHED", ...ownerWhere },
+    where: { status: "PUBLISHED", AND: ownerWhere },
     orderBy: [{ category: "asc" }, { name: "asc" }, { version: "desc" }],
     select: {
       id: true,
@@ -186,6 +188,7 @@ export async function listPublishedCatalogBrowseCards(
       name: true,
       description: true,
       category: true,
+      ownerKind: true,
       purposeType: true,
       recommendedCadence: true,
       recommendedDaypartLabels: true,
@@ -210,11 +213,12 @@ export async function listPublishedCatalogBrowseCards(
 export async function loadPublishedCatalogDetail(
   client: Db,
   stableKey: string,
+  ownerWhere: Prisma.CatalogLogDefinitionWhereInput = PLATFORM_CATALOG_OWNER,
 ): Promise<CatalogDetailView | null> {
   if (!isCanonicalLogsEnabled()) return null;
 
   const row = await client.catalogLogDefinition.findFirst({
-    where: { stableKey, status: "PUBLISHED" },
+    where: { stableKey, status: "PUBLISHED", AND: ownerWhere },
     orderBy: { version: "desc" },
     include: { fields: { orderBy: { displaySequence: "asc" } } },
   });

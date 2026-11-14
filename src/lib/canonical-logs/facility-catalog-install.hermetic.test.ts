@@ -26,6 +26,7 @@ test("filterCatalogCardsToInstalled keeps only adopted stable keys", () => {
 test("ensureFacilityCatalogInstall is idempotent for the same facility + key", async () => {
   const store = new Map<string, { id: string }>();
   const client = {
+    catalogLogDefinition: { findUnique: async () => ({ id: "cat_1" }) },
     facilityCatalogInstall: {
       findUnique: async ({
         where,

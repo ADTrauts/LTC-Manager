@@ -123,7 +123,7 @@ test("support attachments — download headers force attachment and never use th
 test("support attachments — download route requires Harbor staff and never labels files CLEAN here", () => {
   const route = source("src/app/api/console/support-attachments/[attachmentId]/route.ts");
   assert.match(route, /getHarborSession/);
-  assert.match(route, /decideSupportAttachmentDownload/);
+  assert.match(route, /readConsoleSupportAttachment/);
   assert.match(route, /actorKind/);
   assert.doesNotMatch(route, /scanStatus = "CLEAN"/);
   assert.doesNotMatch(route, /requireFacilitySession/);

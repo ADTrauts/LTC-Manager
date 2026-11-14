@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
-import { getHarborSession } from "@/lib/harbor-console/auth";
+import { getHarborSession, peekHarborWorkFacilityId } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  decideSupportAttachmentDownload,
-  supportAttachmentDownloadHeaders,
-} from "@/lib/support/attachments";
-import { readVerifiedSupportAttachment } from "@/lib/support/scan-pending-attachments";
+import { supportAttachmentDownloadHeaders } from "@/lib/support/attachments";
 import { supportAttachmentDownloadsConfigured } from "@/lib/support/attachment-scanner";
-import { getSupportAttachmentStore } from "@/lib/support/attachment-store";
+import { readConsoleSupportAttachment } from "@/lib/support/download";
 
 type Props = {
   params: Promise<{ attachmentId: string }>;
@@ -29,7 +25,7 @@ export async function GET(_request: Request, { params }: Props) {
     facilitySession: Boolean(facility?.facilityId),
   });
 
-  if (actor !== "harbor_staff") {
+  if (!harbor) {
     console.warn("support.attachment.download_denied", { attachmentId, reason: actor });
     return NextResponse.json(
       { error: actor === "anonymous" ? "Unauthorized." : "Forbidden." },
@@ -41,47 +37,26 @@ export async function GET(_request: Request, { params }: Props) {
     return NextResponse.json({ error: "Private original downloads are unavailable until the approved scanner is configured." }, { status: 503 });
   }
 
-  const attachment = await prisma.supportTicketAttachment.findUnique({
-    where: { id: attachmentId },
-    select: {
-      filename: true,
-      contentType: true,
-      storageKey: true,
-      scanStatus: true,
-      checksumSha256: true,
-      sizeBytes: true,
-    },
-  });
-  const decision = decideSupportAttachmentDownload({
-    actor,
-    attachment: attachment
-      ? { scanStatus: attachment.scanStatus, storageKey: attachment.storageKey }
-      : null,
-  });
+  const result = await readConsoleSupportAttachment(prisma, {
+    kind: "staff",
+    session: harbor,
+    workFacilityId: await peekHarborWorkFacilityId(),
+  }, attachmentId);
 
-  if (decision.outcome === "not_found") {
+  if (result.outcome === "not_found") {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
-  if (decision.outcome !== "ok" || !attachment?.storageKey) {
-    console.warn("support.attachment.download_denied", {
-      attachmentId,
-      reason: decision.outcome,
-      scanStatus: attachment?.scanStatus ?? null,
-    });
+  if (result.outcome !== "ok") {
+    console.warn("support.attachment.download_denied", { attachmentId, reason: result.outcome });
     return NextResponse.json({ error: "Attachment is not available for download." }, { status: 403 });
-  }
-
-  const store = getSupportAttachmentStore();
-  const bytes = await readVerifiedSupportAttachment(store,attachment);
-  if (!bytes) {
-    return NextResponse.json({ error: "Private file unavailable or changed since its security scan." }, { status: 404 });
   }
 
   const currentStaff = await getHarborSession();
   if (!currentStaff || currentStaff.uid !== harbor?.uid) return NextResponse.json({ error: "Forbidden." },{ status: 403 });
 
+  const { bytes, filename, contentType } = result.file;
   return new NextResponse(Buffer.from(bytes), {
     status: 200,
-    headers: supportAttachmentDownloadHeaders(attachment.filename, attachment.contentType),
+    headers: supportAttachmentDownloadHeaders(filename, contentType),
   });
 }

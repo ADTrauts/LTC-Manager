@@ -1,3 +1,4 @@
+import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
 import { notFound, redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 
@@ -25,7 +26,13 @@ export default async function AttachmentEditPage({ params }: Props) {
   if (!hasAtLeastRole(session.role, "MANAGER")) redirect("/build");
 
   const { attachmentId } = await params;
-  const row = await loadLogAttachmentForFacility(prisma, session.facilityId, attachmentId);
+  const placement = await prisma.logAttachment.findFirst({
+    where: { id: attachmentId, facilityId: session.facilityId },
+    select: { departmentId: true },
+  });
+  if (!placement) notFound();
+  const ownerWhere = await catalogFormsWhereForViewer(prisma, session, session.facilityId, placement.departmentId);
+  const row = await loadLogAttachmentForFacility(prisma, session.facilityId, attachmentId, ownerWhere);
   if (!row) notFound();
 
   const cycleOptions = await loadCycleOptionsForDepartment(
@@ -71,7 +78,7 @@ export default async function AttachmentEditPage({ params }: Props) {
 
   const effectiveFromKey = presented.effectiveFromKey;
   const latest = await prisma.catalogLogDefinition.findFirst({
-    where: { stableKey: row.catalogStableKey, status: "PUBLISHED" },
+    where: { stableKey: row.catalogStableKey, status: "PUBLISHED", AND: ownerWhere },
     orderBy: { version: "desc" },
     select: { version: true },
   });

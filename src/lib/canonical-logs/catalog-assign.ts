@@ -5,6 +5,9 @@
 
 import type { PrismaClient, UnitHierarchyRole } from "@prisma/client";
 
+import { catalogFormsWhereForViewer } from "@/lib/department-authority/catalog-forms";
+import type { DepartmentAccessSession } from "@/lib/department-authority/resolve";
+import { PLATFORM_CATALOG_OWNER } from "./catalog-ownership";
 import { isActionableDepartmentUnit } from "@/lib/department-administration/department-locations";
 import { loadFacilityTimezone } from "@/lib/operational-time";
 
@@ -20,7 +23,6 @@ import { resolveDefaultAttachmentEffectiveFromKey } from "./effective-from";
 import { createLogAttachment, setLogAttachmentStatus } from "./attachment-service";
 import {
   computeCatalogAssignDiff,
-  parseTargetAssignKey,
   targetAssignKey,
   type CatalogAssignKind,
   type CatalogAssignTargetRow,
@@ -132,11 +134,15 @@ function resolveUnitDepartment(
 export async function loadCatalogAssignView(input: {
   client: PrismaClient;
   facilityId: string;
+  session?: DepartmentAccessSession;
   catalogStableKey: string;
   now?: Date;
 }): Promise<CatalogAssignView | null> {
+  const ownerWhere = input.session
+    ? await catalogFormsWhereForViewer(input.client, input.session, input.facilityId)
+    : PLATFORM_CATALOG_OWNER;
   const catalog = await input.client.catalogLogDefinition.findFirst({
-    where: { stableKey: input.catalogStableKey, status: "PUBLISHED" },
+    where: { stableKey: input.catalogStableKey, status: "PUBLISHED", AND: ownerWhere },
     orderBy: { version: "desc" },
     select: {
       id: true,
@@ -222,7 +228,7 @@ export async function loadCatalogAssignView(input: {
       select: { id: true, name: true, key: true },
     }),
     input.client.logAttachment.findMany({
-      where: { facilityId: input.facilityId, catalogStableKey: catalog.stableKey },
+      where: { facilityId: input.facilityId, catalogStableKey: catalog.stableKey, catalogDefinition: ownerWhere },
       select: {
         id: true,
         stableKey: true,
@@ -525,6 +531,7 @@ export async function loadCatalogAssignView(input: {
 export async function applyCatalogAssignSelection(input: {
   client: PrismaClient;
   facilityId: string;
+  session?: DepartmentAccessSession;
   catalogStableKey: string;
   selectedKeys: readonly string[];
   now?: Date;
@@ -584,6 +591,7 @@ export async function applyCatalogAssignSelection(input: {
     for (const { attachmentId } of diff.remove) {
       await setLogAttachmentStatus(db, {
         facilityId: input.facilityId,
+        session: input.session,
         attachmentId,
         status: "RETIRED",
         now: input.now,
@@ -604,6 +612,7 @@ export async function applyCatalogAssignSelection(input: {
               : { kind: "DEPARTMENT" as const, targetDepartmentId: row.id };
       await createLogAttachment(db, {
         facilityId: input.facilityId,
+        session: input.session,
         departmentId: row.departmentId,
         catalogDefinitionId: view.catalogDefinitionId,
         target,
