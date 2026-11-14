@@ -1,6 +1,6 @@
 # Harbor Console Phase 0 certification
 
-**November 13, 2026 · PASS WITH GAPS · NOT READY TO MERGE OR DEPLOY**
+**November 14, 2026 · PASS WITH GAPS · READY TO MERGE AFTER PRODUCT-OWNER APPROVAL · PRODUCTION ENABLEMENT BLOCKED**
 
 The two Phase 0 controls passed targeted authorization and regression checks. PR #11 remains a draft. The architecture review accepted the approach and requested closure of the verification gaps before promotion.
 
@@ -55,11 +55,23 @@ Commit `56acb369e1bdb4d520f53976318036fbdc5d3ad6` sets `NODE_OPTIONS=--max-old-s
 
 [Verify run 43599731477](https://github.com/ADTrauts/LTC-Manager/actions/runs/43599731477) covered `2ac480fe606f7ff48c49ade0c58e46d8ec47cbfd`, which removed only the temporary Vercel branch suppression rule. All five jobs listed above passed. Database integration passed on retry after the workbook recovery test failed on the first attempt. The final merge-gate follow-up updates this report only. See [PR #11 checks](https://github.com/ADTrauts/LTC-Manager/pull/11/checks) for verification of the resulting head.
 
+[Verify run 43602672609](https://github.com/ADTrauts/LTC-Manager/actions/runs/43602672609) passed all five required jobs for `994a36032e2c580b53e979ba438651fe7b69adf3`, the commit exercised in the authenticated Preview smoke test. Database integration passed on retry after the previously observed partner membership-end race test failed on the first attempt. The smoke-test evidence update changes this report only. Required checks must be green on the head selected for merge.
+
 ### Protected Preview
 
-The [Git-triggered Preview](https://vercel.com/adtrauts-projects/ltc-manager/AD3ueqcH5R34pjzrLBbVoZ6RxgVR) for `2ac480fe` reached Ready with a successful production-mode build and Prisma client generation. Anonymous requests to the generated URL and branch alias redirected to Vercel Authentication. The Preview `DATABASE_URL` and `DIRECT_URL` records matched the credential record IDs previously verified by direct and pooled read-only checks against canonical staging. There was no branch override. The readiness endpoint itself reports connectivity and migration status without identifying a database.
+The protected Git Preview reached Ready after the branch-specific Vercel suppression was removed. Anonymous requests redirected to Vercel Authentication. The signed-in readiness endpoint reported healthy authentication configuration, database connectivity, and migrations. The Preview database binding matched the previously verified staging scope.
 
-The signed-in Vercel browser received `ready` with authentication configuration, database and migration checks all true. Marketplace Records at `/console/catalog?family=records` redirected to staff sign-in, and Facility Records at `/build/logs` redirected to Facility sign-in. These observations verified the app sign-in boundaries. The authenticated app smoke test remains pending because approved synthetic staff and Facility sign-ins were unavailable. Earlier synthetic credentials had been revoked. No staging or production records were changed.
+### Authenticated Preview smoke test
+
+The November 14 smoke test passed on `994a3603`. The operator signed in normally with a synthetic Harbor Owner and the recovered synthetic Facility Administrator. The recovery preserved existing Facility and Organization authority. The password handoff used the operator's private credential store.
+
+| Check | Result |
+| --- | --- |
+| Harbor Marketplace | A published platform Record appeared in browse and opened in detail. Two Facility-owned fixtures and one Organization-owned fixture were absent from browse results. Each private detail rendered the application's 404 page. |
+| Facility Records | The signed-in Facility Administrator could browse and open the platform Record and the local Facility-owned fixture. The other Facility's fixture and the Organization-owned fixture were absent from browse results and rendered the application's 404 page on direct navigation. |
+| Authorized install | The local synthetic form installed, opened placement controls, and persisted in the Facility Library after navigation. Existing platform Record configuration remained readable. |
+
+The three labeled definitions and the local fixture installation remain available on staging for review. Existing Records configuration was preserved. Live scanner and private Blob verification remains a production enablement gate.
 
 ### Closure regression results
 
@@ -96,7 +108,7 @@ The live scanner and private Blob integration remains unverified. Before enablin
 
 ### Release disposition
 
-- **Merge blockers.** Complete the protected Preview smoke test with approved synthetic staff and Facility accounts. Verify Marketplace Records and Facility Records can be read in the intended role and Facility. Confirm the required checks on the current candidate and obtain explicit product-owner merge approval. The existing architecture review accepted the control designs, and GitHub shows no unresolved inline review threads. Both security commits and their regression tests are intact. The release-gate changes add no schema changes, and `vercel.json` matches `main`.
+- **Merge gate.** The authenticated staging smoke test passed. The existing architecture review accepted the control designs, and GitHub shows no unresolved inline review threads. Both security commits and their regression tests are intact. The release-gate changes add no schema changes, and `vercel.json` matches `main`. Merge requires green checks on the selected head and explicit product-owner approval.
 - **Production enablement blockers.** Obtain approval to read an identified canonical snapshot or read replica with a SELECT-only role. Complete the inventory and disposition any confirmed historical misclassification before exposing Catalog data under the new controls. Obtain approval for the protected nonproduction scanner and Blob target and complete the synthetic integration test before enabling live original downloads. After any approved merge, verify the staged Production build and production-specific readiness. Live promotion requires separate release approval.
 - **Nonblocking follow-ups.** Track the Marketplace and placement-history fixture collision separately. Investigate the workbook and membership-end tests if the hosted failures recur.
 
