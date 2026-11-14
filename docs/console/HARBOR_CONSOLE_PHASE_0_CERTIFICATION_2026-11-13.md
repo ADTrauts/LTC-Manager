@@ -53,7 +53,13 @@ Commit `56acb369e1bdb4d520f53976318036fbdc5d3ad6` sets `NODE_OPTIONS=--max-old-s
 | Assignment browser gate | Success |
 | Dietary pilot gate | Success |
 
-The final release review updates this report only. The protected Preview and required Verify checks apply to the eventual merge candidate.
+[Verify run 43599731477](https://github.com/ADTrauts/LTC-Manager/actions/runs/43599731477) covered `2ac480fe606f7ff48c49ade0c58e46d8ec47cbfd`, which removed only the temporary Vercel branch suppression rule. All five jobs listed above passed. Database integration passed on retry after the workbook recovery test failed on the first attempt. The final merge-gate follow-up updates this report only. See [PR #11 checks](https://github.com/ADTrauts/LTC-Manager/pull/11/checks) for verification of the resulting head.
+
+### Protected Preview
+
+The [Git-triggered Preview](https://vercel.com/adtrauts-projects/ltc-manager/AD3ueqcH5R34pjzrLBbVoZ6RxgVR) for `2ac480fe` reached Ready with a successful production-mode build and Prisma client generation. Anonymous requests to the generated URL and branch alias redirected to Vercel Authentication. The Preview `DATABASE_URL` and `DIRECT_URL` records matched the credential record IDs previously verified by direct and pooled read-only checks against canonical staging. There was no branch override. The readiness endpoint itself reports connectivity and migration status without identifying a database.
+
+The signed-in Vercel browser received `ready` with authentication configuration, database and migration checks all true. Marketplace Records at `/console/catalog?family=records` redirected to staff sign-in, and Facility Records at `/build/logs` redirected to Facility sign-in. These observations verified the app sign-in boundaries. The authenticated app smoke test remains pending because approved synthetic staff and Facility sign-ins were unavailable. Earlier synthetic credentials had been revoked. No staging or production records were changed.
 
 ### Closure regression results
 
@@ -90,8 +96,8 @@ The live scanner and private Blob integration remains unverified. Before enablin
 
 ### Release disposition
 
-- **Merge blockers.** Obtain release-owner authorization to remove the `git.deploymentEnabled["fix/harbor-console-phase-0"]` entry and push a commit that can trigger a Preview. Before that push, verify Vercel Authentication and the canonical staging database binding under the existing Preview policy. Review the protected Preview and required Verify checks on the resulting candidate, then obtain merge approval through the existing review process.
-- **Production enablement blockers.** Obtain approval to read an identified canonical snapshot or read replica with a SELECT-only role. Complete the inventory and disposition any confirmed historical misclassification before exposing Catalog data under the new controls. Obtain approval for the protected nonproduction scanner and Blob target and complete the synthetic integration test before enabling live original downloads. Production promotion requires separate release approval under the existing release policy.
+- **Merge blockers.** Complete the protected Preview smoke test with approved synthetic staff and Facility accounts. Verify Marketplace Records and Facility Records can be read in the intended role and Facility. Confirm the required checks on the current candidate and obtain explicit product-owner merge approval. The existing architecture review accepted the control designs, and GitHub shows no unresolved inline review threads. Both security commits and their regression tests are intact. The release-gate changes add no schema changes, and `vercel.json` matches `main`.
+- **Production enablement blockers.** Obtain approval to read an identified canonical snapshot or read replica with a SELECT-only role. Complete the inventory and disposition any confirmed historical misclassification before exposing Catalog data under the new controls. Obtain approval for the protected nonproduction scanner and Blob target and complete the synthetic integration test before enabling live original downloads. After any approved merge, verify the staged Production build and production-specific readiness. Live promotion requires separate release approval.
 - **Nonblocking follow-ups.** Track the Marketplace and placement-history fixture collision separately. Investigate the workbook and membership-end tests if the hosted failures recur.
 
-The branch-specific `vercel.json` entry stays on the draft branch pending approval. Removing it restores Vercel's default automatic branch deployments and can queue a Preview. The exception must be removed before merge. No project settings changed. No deployment or merge was initiated.
+Release-owner approval authorized the Preview rule removal and push. PR #11 remains in draft. Production has not been deployed or promoted as part of this review.
