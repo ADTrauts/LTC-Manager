@@ -1,12 +1,24 @@
 # Harbor Console Phase 1 staff authority architecture
 
-**Status: proposed for product-owner and architecture review.** Phase 1A design checkpoint, November 14, 2026.
+**Status: initial Marketplace policy approved by the product owner.** The first capability awaits implementation. The rest of the permission matrix and Phase 1B–1D designs remain under review.
 
 ## Executive summary
 
-Keep `PlatformStaff` as the Console identity and resolve its permitted operations at the server. A staff role provides a baseline for platform capabilities. Customer access additionally requires scope for the target Facility or the owning domain's explicit assignment. Workspace entry requires a live, bounded assistance session. Customer role periods, Organization membership, Department authority, and ownership continue to govern customer identities and resources.
+Keep `PlatformStaff` as the Console identity and resolve its permitted operations at the server. A staff role provides a baseline for platform capabilities. Under the Phase 1 target, customer access also requires scope for the target Facility or an explicitly approved domain assignment. Customer role periods, Organization membership, Department authority, and ownership continue to govern customer identities and resources.
 
-Start with one platform-only capability for Marketplace publication. This proves the server enforcement pattern without changing Facility entry, customer roles, or Phase 0's authorization. Decide the role policy before implementing it. The next release that expands staff authority depends on closing the assistance and attribution gaps below.
+The first implementation adds one platform capability for Marketplace publication after this architecture PR is integrated into `main`. Facility assistance is a separate, high-priority security boundary. The publication capability does not implement or certify the Facility grant model.
+
+## Approved initial policy
+
+| Operation | OWNER | MEMBER | Customer Facility identity |
+| --- | --- | --- | --- |
+| Browse platform Marketplace Records in Harbor | Allowed | Allowed | Outside Harbor staff access |
+| Create and edit platform Catalog drafts in Harbor | Allowed | Allowed | Denied |
+| Publish platform Catalog Records in Harbor | Allowed with live staff authority and canonical ownership checks | Denied | Denied |
+
+Only `catalog.publish` is authorized for new enforcement in the first implementation. Missing, inactive, or stale staff authority denies publication. Customer Marketplace access through customer workflows remains governed by its own existing rules.
+
+OWNER status grants no automatic Facility access. The approved Phase 1B policy requires a recorded Facility grant for routine assistance by either staff role. The first Phase 1B release will allow only explicitly scoped reads. Emergency access remains disabled pending separate approval.
 
 ## Baseline and release status
 
@@ -27,6 +39,8 @@ The Git-triggered Vercel build for the exact merge SHA was Ready with a Producti
 | Attribution | Harbor start/end, login and selected Console events exist. Implementation, Support and setup imports also retain domain actor facts. | Implemented with gaps. Staff assistance needs durable operation-level outcomes and a stable session reference. Review the lifetime of audit evidence when staff accounts are retired. |
 
 The source trace followed both proxy and application-session resolution. A valid work session takes precedence in the shared app-session reader. The proxy limits path families but the server handlers still derive authority from the session and owning services. Reviewed downstream classes include Facility Builder, Department configuration, workforce management, asset visibility, Records configuration, file access, and setup imports. Some use independent customer or employee relationship checks. Others accept a staff-specific path or the compatibility role, so a matching Facility identifier alone does not establish staff permission. Browser cookie clearing ends the local context. The current work-session design has no durable assistance record for individual server-side termination. These are static findings. This review did not exercise an unauthorized operation against a hosted environment.
+
+The current work-session implementation does not enforce the approved recorded-grant and read-only assistance policy. The path filter and Facility Administrator compatibility role remain part of the current behavior. Phase 1B must close and verify that boundary before the new assistance mode is enabled.
 
 ## Authorization and ownership
 
@@ -52,9 +66,7 @@ The source trace followed both proxy and application-session resolution. A valid
 
 ## Proposed permission matrix
 
-The capability names below are proposed policy labels. All entries require live staff identity. “Scoped” means the resource Facility is covered by the relevant grant or explicitly approved domain relationship. “Read” refers to the domain action and may still emit audit evidence.
-
-For the initial policy, propose dashboard shell and platform Catalog browsing for both roles, with existing draft access preserved. Reserve publication and staff policy administration for OWNER, with an independent approval where the operation requires it. Decide the OWNER/MEMBER assignment for each other operation during its work package. Role approval alone supplies no Facility scope, and unresolved assignments confer no permission on a migrated surface.
+The matrix describes the target and identifies the baseline state. The initial approval above covers platform Marketplace browse, draft and publish access plus the starting boundary for future Facility assistance. The other labels and role assignments remain proposals. All entries require live staff identity. “Scoped” means the resource Facility is covered by the relevant grant or an explicitly approved domain relationship. “Read” refers to the domain action and may still emit audit evidence.
 
 | Operation | Platform capability | Facility scope | Additional rule | Mode | Audit evidence | Enforcing owner | Baseline status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -66,7 +78,7 @@ For the initial policy, propose dashboard shell and platform Catalog browsing fo
 | Support automation and shared templates | `support.settings.manage` | Platform policy for global rules | Explicit settings privilege | Write | Rule/template ID, state change and actor | Support automation and template services | Staff gate, capability gap |
 | Attachments | `support.attachment.read` | Ticket/contact scope | CLEAN and integrity checks. Implementation originals also require Implementation authority and participation | Read | File reference, sensitivity class and outcome | Support reader and Implementation source service | Phase 0 checks exist, broader staff scope gap |
 | Implementation engagement reads and actions | `implementation.read` or `implementation.manage` | Scoped discovery and engagement Facility | Participant enforcement for protected operations, separate assign and waiver authority, existing work-session exclusion | Read/write | Existing engagement events, actor, Facility and outcome | Implementation authority and service | Partial domain controls, discovery scope gap |
-| Marketplace authoring | `catalog.draft.write` or `catalog.publish` | Platform only | VSSYL ownership. Publish, retire and successor policy explicitly classified | Write | Definition ID, version, action, actor and outcome | Canonical Catalog service through Harbor authorization | Ownership enforced. Authoring capabilities missing |
+| Marketplace authoring | Staff draft access or OWNER-only `catalog.publish` | Platform only | VSSYL ownership. Retirement and successor creation have separate policy decisions | Write | Definition ID, version, action, actor and outcome | Canonical Catalog service through Harbor authorization | Ownership enforced. Publication capability awaits implementation |
 | Private Catalog Records | Customer-owned by default. Any later assisted read needs explicit `facility.records.read` | Scoped assistance | Canonical ownership and CDA conditions. No Marketplace publication or assistance override of private ownership | Read if approved | Record reference, grant, session and outcome | Canonical Catalog and CDA forms | Phase 0 ownership enforced, assistance policy open |
 | Provisioning, partner invitations and claims | `provision.facility`, `partner.invite`, `organization.claim.review` | Approved new target, or existing Organization/Facility scope | Invite recipient and replay guard. Explicit approval for first-admin decisions | Write | Target creation/claim/invite, actor, status and delivery receipt | Canonical provisioning and invitation/claim services | Mixed OWNER and staff gates |
 | Billing diagnostics | `billing.read` | Scoped | Redacted provider status and references | Read | Sensitive view, Facility and actor | Harbor diagnostics and Billing readers | Staff gate, scope gap |
@@ -80,13 +92,9 @@ For the initial policy, propose dashboard shell and platform Catalog browsing fo
 
 ## Facility access and accountability
 
-Recommend recorded, narrowly scoped Facility grants for routine assistance, including OWNER. Record who approved them, the allowed operations, purpose, start, expiry and revocation. OWNER can administer authorized platform operations. An OWNER appointment alone supplies zero Facility grants. Start with read-only assistance to allow rollout and verification before any assisted mutation.
+Routine assistance under Phase 1B will require a recorded, narrowly scoped Facility grant, including for OWNER. Record the approver, permitted read operations, purpose, start, expiry and revocation. Approval, renewal, revocation, and the initial read list remain Phase 1B decisions.
 
-Product-owner alternatives for exceptional access:
-
-- **Recorded grants only.** Use a pre-approved grant for every Facility, including incidents. This gives a uniform decision and needs an available approver.
-- **Recorded grants plus break-glass.** Require strong reauthentication, an incident reference, tightly bounded operations, short server-enforced expiry, reviewer notification and post-use review. Approve how a single-owner incident is handled before enabling this option. Exclude private original downloads, authority changes and money movement unless separately approved.
-- **No general staff workspace.** Use domain-specific Support and Implementation commands only. This keeps the access surface small and limits interactive setup assistance.
+Emergency access is disabled. A later proposal would require separate review of its scope, reauthentication, incident reference, server-enforced expiry, reviewer notification and post-use review.
 
 If a persistence change is approved, Harbor owns two narrow records. A **staff Facility grant** stores approved staff-to-Facility scope, allowed operations, approver, effective dates and revocation. Retain closed records as evidence. An **assistance session** binds one staff identity and staff login to one live grant and Facility, records purpose and allowed operation subset, and ends at logout, explicit exit, revocation or expiry. The work cookie should reference that server record. Assistance end or grant revocation takes effect on the next authorization decision. Serialize high-risk writes with authority changes so a write cannot commit after a revocation that wins the lock. Customer roles, Department authority, content ownership, staff employment and operational data remain with their existing owners. Derive roles and capabilities from the approved policy and live facts. Use forward-only migrations.
 
@@ -108,9 +116,9 @@ Use synthetic staff, customer Facility Administrators, Department staff, a partn
 
 ## Work packages and gates
 
-**1A — Staff capabilities.** Approve the role/capability baseline and classify platform actions. Extend Harbor authorization and the Catalog server boundary first using code-owned rules with no schema change. Dependencies are product-owner decisions for existing MEMBER publication and lifecycle operations. Verify role, deny-by-default and direct-handler/service behavior, preserving Phase 0 private Catalog enforcement. Acceptance requires server-side proof for every changed operation and regression preservation for authorized staff.
+**1A — Staff capabilities.** Implement the approved OWNER-only publication rule after the architecture document is integrated into `main`. Extend Harbor authorization and the Catalog server boundary using code-owned rules with no schema change. Classify further platform actions only after separate policy review. Verify live authority, denied direct requests and draft integrity, and preserve Phase 0 private Catalog enforcement. Acceptance requires server-side proof for both publication actions and regression coverage for authorized staff.
 
-**1B — Facility-scoped assistance.** Add approved Facility grants and tracked, revocable assistance using Harbor work/session and the domain services. Choose the approval policy and decide whether to support emergency access. Proposed forward migrations are limited to the approved grant/session records and required references. Start with explicit read operations, then migrate individually classified writes. Requires the 1A capability resolver, an approved scope policy and minimum 1D evidence before enabling any writes. Verify two-Facility isolation, cookie precedence, expiry and revocation, including concurrent requests and prior legitimate customer behavior. Acceptance requires no surviving path from an assistance context to a customer-role-only authorization.
+**1B — Facility-scoped assistance.** Design recorded Facility grants and revocable, read-only assistance using Harbor work/session and the domain services. Choose who can approve grants and which reads are admitted. Keep emergency access disabled. Proposed forward migrations are limited to the approved grant/session records and required references. Requires the 1A capability resolver and an approved scope policy. Any later assisted write requires separate approval and minimum 1D evidence. Verify two-Facility isolation, cookie precedence, expiry and revocation, including concurrent requests and prior legitimate customer behavior. Acceptance requires no surviving path from an assistance context to a customer-role-only authorization.
 
 **1C — Staff authentication and lifecycle.** Reuse `PlatformStaff`, Harbor login and session validation, rate limiting, and canonical revocation patterns. Add approved invite, activation, credential recovery, role-change, deactivate and last-owner policies. Confirm staff employment source, MFA/step-up approach and bootstrap recovery. Schema changes are optional until the chosen lifecycle and per-login revocation need durable facts. Requires 1A staff policy and coordination with 1B session invalidation. Verify stale tokens, failed auth, revocation and cross-identity isolation. Acceptance requires a documented end-to-end lifecycle with tested fail-closed behavior.
 
@@ -125,12 +133,11 @@ Use synthetic staff, customer Facility Administrators, Department staff, a partn
 
 For each package, **PASS** means its acceptance cases, server authorization, regression checks and required review all pass. **PASS WITH GAPS** means a documented evidence limitation outside the enabled boundary has an owner and a closure gate. **FAIL** means an authorization, isolation, revocation or attribution test fails, or a required boundary is unexercised without a verified fail-closed disposition. Package certification never substitutes for production enablement approval.
 
-## Product-owner decisions and first implementation PR
+## Remaining decisions and first implementation PR
 
-1. Approve the initial OWNER/MEMBER capability matrix, starting with Marketplace publication. Decide whether authorized MEMBER publishing needs a separate assignment in a later release.
-2. Specify how staff receive and lose Facility scope, whether ticket/engagement assignment grants bounded domain access, and who reviews grants or exceptions.
-3. Choose the OWNER assistance policy above and approve read-only starting scope, expiry, renewal and any emergency procedures.
-4. Decide staff employment and deactivation ownership, MFA/step-up, bootstrap recovery, last-owner handling, and individual session revocation.
-5. Approve which assisted writes may exist, what customer consent is required, and the audit retention, access and redaction rules.
+1. Review additional Phase 1A role assignments, including retirement and successor creation, before changing those operations.
+2. For Phase 1B, decide who approves and revokes Facility grants, the permitted read operations, grant and session expiry and renewal, and whether ticket or engagement assignments may convey separate domain access. Any emergency access or assisted write requires fresh approval, including the applicable customer consent.
+3. For Phase 1C, decide staff employment and deactivation ownership, MFA and step-up, bootstrap recovery, last-owner handling, and individual session revocation.
+4. For Phase 1D, decide who may review evidence, retention and redaction rules, and the evidence required before any later assisted write.
 
-The first implementation PR should add **one server-enforced `catalog.publish` capability** for the two existing publish paths, including combined save-and-publish before any write. Use live Harbor staff validation and canonical platform Catalog publication. Propose OWNER-only while preserving MEMBER browse and draft work, subject to explicit policy approval. Update the UI from the same decision, with direct action tests for permitted OWNER, denied MEMBER and customer, and Phase 0 ownership regressions. Leave retire and successor for their own classification and preserve existing histories. This slice needs no Facility changes, migrations, new role tables, or deployment policy.
+After this PR is integrated into `main`, a separate implementation PR will add **one server-enforced `catalog.publish` capability**. Use live Harbor staff validation and canonical platform Catalog publication. Apply the OWNER-only check to both publication paths, before any draft write in combined save-and-publish. Preserve MEMBER browse and draft editing and use the same decision for UI affordances. Test direct actions, inactive and stale sessions, unchanged draft data on denial, private Catalog ownership, and existing published history. Keep retirement and successor creation under their existing authorization until separately reviewed.
