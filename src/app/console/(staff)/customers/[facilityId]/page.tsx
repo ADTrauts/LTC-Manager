@@ -1,11 +1,13 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { CustomerBillingSyncForm } from "@/components/harbor-console/customer-billing-sync-form";
 import { SupportHistoryPanel } from "@/components/harbor-console/support-history-panel";
 import { resendHarborProvisionInviteAction } from "../provision-actions";
-import { peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
+import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { loadHarborFacility } from "@/lib/harbor-console/queries";
+import { HARBOR_WORK_CLEANUP_PATH, HARBOR_WORK_COOKIE } from "@/lib/harbor-console/session";
 import {
   stripeCustomerDashboardUrl,
   stripeSubscriptionDashboardUrl,
@@ -23,10 +25,7 @@ export default async function HarborCustomerPage({
   const session = await requireHarborStaff();
   const { facilityId } = await params;
   const provisionQuery = searchParams ? await searchParams : {};
-  const [facility, activeWorkFacilityId] = await Promise.all([
-    loadHarborFacility(prisma, facilityId),
-    peekHarborWorkFacilityId(),
-  ]);
+  const [facility, browserCookies] = await Promise.all([loadHarborFacility(prisma, facilityId), cookies()]);
   if (!facility) {
     notFound();
   }
@@ -40,7 +39,6 @@ export default async function HarborCustomerPage({
     },
   });
 
-  const workingHere = activeWorkFacilityId === facility.id;
   const stripeHref = facility.stripeCustomerId
     ? stripeCustomerDashboardUrl(facility.stripeCustomerId)
     : facility.stripeSubscriptionId
@@ -87,35 +85,10 @@ export default async function HarborCustomerPage({
           </form>
         ) : null}
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          {workingHere ? (
-            <>
-              <a
-                href="/admin/facility/builder"
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--run-aside)] px-4 text-sm font-semibold text-[var(--run-aside-fg)]"
-              >
-                Continue in facility
-              </a>
-              <form action="/api/console/work-session/end" method="post">
-                <button
-                  type="submit"
-                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--border-strong)] bg-white px-4 text-sm font-semibold"
-                >
-                  Exit work session
-                </button>
-              </form>
-            </>
-          ) : (
-            <form action="/api/console/work-session" method="post">
-              <input type="hidden" name="facilityId" value={facility.id} />
-              <button
-                type="submit"
-                data-testid="harbor-open-facility"
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--run-aside)] px-4 text-sm font-semibold text-[var(--run-aside-fg)]"
-              >
-                Open facility
-              </button>
-            </form>
-          )}
+          <p className="text-sm text-[var(--text-secondary)]">Staff Facility workspace access is paused.</p>
+          {browserCookies.has(HARBOR_WORK_COOKIE) ? (
+            <Link href={HARBOR_WORK_CLEANUP_PATH} className="text-sm underline">Clear old work session</Link>
+          ) : null}
           <Link
             href={`/console/tickets/new?facilityId=${facility.id}`}
             className="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--border-strong)] bg-white px-4 text-sm font-semibold"

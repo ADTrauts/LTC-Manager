@@ -123,7 +123,6 @@ test("harbor console — facility roles never enter /console", () => {
     "/console/catalog",
     "/console/catalog/new",
     "/api/console/work-session",
-    "/api/console/work-session/end",
     "/api/console/support-attachments/satt_1",
   ]) {
     assert.equal(outcome(path, null), "REQUIRE_AUTHENTICATION", path);
@@ -132,6 +131,12 @@ test("harbor console — facility roles never enter /console", () => {
       assert.equal(decision.outcome, "DENY", `${role} at ${path}`);
       assert.equal(roleMayAccessRoute(path, role, FLAGS), false, `${role} at ${path}`);
     }
+  }
+});
+
+test("retired work-session cleanup does not require a staff or customer session", () => {
+  for (const path of ["/console/work-session-ended", "/api/console/work-session/end"]) {
+    assert.equal(outcome(path, null), "ALLOW", path);
   }
 });
 

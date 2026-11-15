@@ -120,6 +120,14 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Unlisted Vssyl Console staff login. Not linked from marketing or facility /login.",
   },
   {
+    pattern: "/console/work-session-ended",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "PUBLIC" },
+    module: "harbor-console",
+    notes: "Explains how to clear a retired Facility work cookie.",
+  },
+  {
     pattern: "/console",
     match: "EXACT",
     surface: "PAGE",
@@ -289,7 +297,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "HARBOR_STAFF" },
     module: "harbor-console",
     requiresDownstreamAuthorization: true,
-    notes: "Opens a bannered work session on a customer facility. Does not impersonate a facility user.",
+    notes: "Retired endpoint. Rejects every work-session start request.",
   },
   {
     pattern: "/api/console/support-attachments/[attachmentId]",
@@ -304,10 +312,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     pattern: "/api/console/work-session/end",
     match: "EXACT",
     surface: "API",
-    access: { kind: "HARBOR_STAFF" },
+    access: { kind: "PUBLIC" },
     module: "harbor-console",
-    requiresDownstreamAuthorization: true,
-    notes: "Ends the Harbor work session and returns to the customer record.",
+    notes: "Same-origin POST clears only a retired work cookie, including after staff logout.",
   },
   {
     pattern: "/console/catalog",

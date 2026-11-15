@@ -19,7 +19,6 @@ import { DepartmentScopeSwitcher } from "@/components/department-scope-switcher"
 import { AttentionBellSlot } from "@/components/notifications/attention-bell-slot";
 import { ShellOfflineIndicator } from "@/components/offline/shell-offline-indicator";
 import { ResponsiveShellNav } from "@/components/responsive-shell-nav";
-import { HarborWorkSessionShell } from "@/components/harbor-console/harbor-work-session-shell";
 import { hasAtLeastRole } from "@/lib/access";
 import {
   loadWorkspaceSelectorModel,
@@ -87,27 +86,6 @@ export async function AppShell({ children }: AppShellProps) {
   const session = await getSession();
   if (!session) {
     redirect("/login");
-  }
-
-  if (session.authKind === "harbor_staff") {
-    const cookieStore = await cookies();
-    const [facility, deptNav, departments] = await Promise.all([
-      getFacilityForSession(),
-      resolveActiveDepartmentForShell(session, cookieStore),
-      resolveSelectableDepartmentsForSession(session),
-    ]);
-    return (
-      <HarborWorkSessionShell
-        facilityId={session.facilityId}
-        facilityName={facility?.displayName ?? "Facility"}
-        staffName={session.name}
-        departments={departments}
-        selectedDepartmentId={deptNav.activeDepartmentId}
-      >
-        <SpaceIdentityBoundary session={anySession} />
-        {children}
-      </HarborWorkSessionShell>
-    );
   }
 
   const cookieStore = await cookies();

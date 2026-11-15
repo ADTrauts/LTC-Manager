@@ -48,10 +48,10 @@ test("purpose-separated review signatures bind source, actor, Facility, scope, m
   assert.throws(() => readReview(`${Buffer.from(JSON.stringify(tampered)).toString("base64url")}.${sig}`),/Invalid/);
   assert.throws(() => readReview("other-purpose."+sig),/Invalid/);
 });
-test("User and Console stay distinct; Quick PIN, partner and changed Facility claims are denied", () => {
+test("Legacy staff, Quick PIN, partner and changed Facility claims cannot use Bulk setup", () => {
   const s={ uid: "actor", facilityId: "f", authKind: "user", authMethod: "PASSWORD", scopeKind: "facility", role: "FACILITY_ADMINISTRATOR", sessionVersion: 0 } as FacilitySession;
   assert.doesNotThrow(() => requireImportSession(s,"f"));
-  assert.doesNotThrow(() => requireImportSession({ ...s,authKind: "harbor_staff" },"f"));
+  assert.throws(() => requireImportSession({ ...s,authKind: "harbor_staff" },"f"), /internal Facility Administrator/);
   for (const patch of [{ authMethod: "QUICK_PIN" },{ authKind: "employee" },{ accessKind: "partner" },{ role: "MANAGER" },{ scopeKind: "account" }]) assert.throws(() => requireImportSession({ ...s,...patch } as FacilitySession,"f"));
   assert.throws(() => requireImportSession(s,"other"),/Facility changed/);
 });

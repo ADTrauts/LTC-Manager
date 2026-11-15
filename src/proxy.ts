@@ -23,7 +23,7 @@ import {
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { prisma } from "@/lib/prisma";
-import { authorizeHarborRequest, authorizeHarborWorkFacilityRequest } from "@/lib/harbor-console/proxy-gate";
+import { authorizeHarborRequest, rejectRetiredHarborWorkRequest } from "@/lib/harbor-console/proxy-gate";
 import { authorizeRoute, isApiPathname, type RouteAuthorizationDecision } from "@/lib/route-registry";
 import {
   classifySessionRejection,
@@ -274,10 +274,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const workDecision = await authorizeHarborWorkFacilityRequest(request);
-  if (workDecision !== "fallthrough") {
-    return workDecision;
-  }
+  const retiredWork = rejectRetiredHarborWorkRequest(request);
+  if (retiredWork) return retiredWork;
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (!token) {

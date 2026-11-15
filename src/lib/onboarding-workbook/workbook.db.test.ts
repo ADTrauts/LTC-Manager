@@ -66,12 +66,28 @@ test("SQL workbook: concurrent/repeated confirmation and lost child commit respo
   await f.confirm(p,bytes,[],proxy);assert.equal(lost,true);
   const settled=await Promise.allSettled([f.confirm(p),f.confirm(p)]);assert.ok(settled.some(s=>s.status==="fulfilled"));const current=await workbookResults(db,f.session,p.batchId);if(current.rows.some(r=>r.status==="unknown"))await f.confirm(p);assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:f.email}}),1);assert.equal(await db.unitSpace.count({where:{facilityId:f.facility.id}}),1);const recovered=await f.confirm(p);assert.ok(recovered.rows.every(r=>["committed","reused"].includes(r.status)));
 }));
-test("SQL workbook: existing account requires explicit consent, Console stays PlatformStaff, denied credentials and unknown references block",{skip},()=>run(async db=>{
-  const f=await fixture(db),staff=await db.platformStaff.create({data:{email:`staff-${randomUUID()}@example.com`,displayName:"Workbook Staff",passwordHash:"unused",role:"OWNER"}}),s={...f.session,uid:staff.id,authKind:"harbor_staff",primaryDepartmentId:null,name:staff.displayName,email:staff.email} as FacilitySession;
-  const bytes=await f.workbook(w=>f.add(w,"People",{rowRef:"admin",email:f.user.email})),p=await f.preview(bytes,s);assert.equal(p.rows[0]!.plan.requiresAccountConfirmation,f.user.id);const denied=await f.confirm(p,bytes,[],db,s);assert.equal(denied.rows[0]!.status,"unknown");const reused=await f.confirm(p,undefined,[p.rows[0]!.id],db,s);assert.equal(reused.rows[0]!.status,"reused");const parent=await db.setupImportBatch.findUniqueOrThrow({where:{id:p.batchId}});assert.equal(parent.actorUserId,null);assert.equal(parent.actorStaffId,staff.id);assert.equal(await db.user.count({where:{id:staff.id}}),0);assert.equal((await db.user.findUniqueOrThrow({where:{id:f.user.id}})).passwordHash,"existing-credential");
-  await assert.rejects(()=>f.preview(bytes,{...f.session,authMethod:"QUICK_PIN"}),/password session/);await assert.rejects(()=>f.preview(bytes,{...f.session,role:"MANAGER"}),/Administrator/);
-  const staffFull=await f.preview(await f.workbook(),s);assert.equal(staffFull.rows.at(-1)!.plan.action,"blocked");
-  const missing=await f.workbook(w=>f.add(w,"Department Memberships",{employeeId:"ref:not-present",department:"PLANT",membership:"ADDITIONAL"}));const bad=await f.preview(missing);assert.equal(bad.rows[0]!.plan.action,"blocked");
+test("SQL workbook: existing account requires explicit consent and legacy staff authority is rejected", {skip}, () => run(async db => {
+  const f = await fixture(db);
+  const bytes = await f.workbook(w => f.add(w, "People", { rowRef: "admin", email: f.user.email }));
+  await assert.rejects(() => f.preview(bytes, { ...f.session, authKind: "harbor_staff" }), /internal Facility Administrator/);
+  await assert.rejects(() => f.preview(bytes, { ...f.session, authMethod: "QUICK_PIN" }), /password session/);
+  await assert.rejects(() => f.preview(bytes, { ...f.session, role: "MANAGER" }), /Administrator/);
+
+  const review = await f.preview(bytes);
+  assert.equal(review.rows[0]!.plan.requiresAccountConfirmation, f.user.id);
+  const denied = await f.confirm(review, bytes, []);
+  assert.equal(denied.rows[0]!.status, "unknown");
+  const reused = await f.confirm(review, undefined, [review.rows[0]!.id]);
+  assert.equal(reused.rows[0]!.status, "reused");
+  const batch = await db.setupImportBatch.findUniqueOrThrow({ where: { id: review.batchId } });
+  assert.equal(batch.actorUserId, f.user.id);
+  assert.equal(batch.actorStaffId, null);
+  assert.equal((await db.user.findUniqueOrThrow({ where: { id: f.user.id } })).passwordHash, "existing-credential");
+
+  const missing = await f.workbook(w => f.add(w, "Department Memberships", {
+    employeeId: "ref:not-present", department: "PLANT", membership: "ADDITIONAL",
+  }));
+  assert.equal((await f.preview(missing)).rows[0]!.plan.action, "blocked");
 }));
 
 test("SQL workbook: canonical Facility Builder import racing workbook creation preserves one shared physical record",{skip},()=>run(async db=>{

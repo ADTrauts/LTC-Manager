@@ -4,7 +4,7 @@ Status: implemented; local phase verification is recorded in the tracker and dat
 
 ## Slice 1 — Engagement and intake
 
-`ImplementationEngagement` records the Facility, requesting customer User, responsible PlatformStaff, support conversation, requested scope and delivery revision. `ImplementationParticipant` is an explicit review grant, checked together with current Facility Administrator or Console authority on every read/action. Console service management requires exiting the Facility work session. Actual configuration/import execution remains in existing canonical Build tools and their work allowlist.
+`ImplementationEngagement` records the Facility, requesting customer User, responsible PlatformStaff, support conversation, requested scope and delivery revision. `ImplementationParticipant` is an explicit review grant, checked together with current Facility Administrator or Console authority on every read/action. Legacy work cookies must be cleared before staff proceed with engagement management. Authorized customer users execute configuration and imports in their canonical Build tools and can share their own receipts with the engagement.
 
 The customer requests AVAILABLE Product scope and deliverables; staff claim/assign responsibility and issue a quote. Scope planning neither licenses nor installs a Department. Existing subscribers can request a later separate engagement. Self-service remains available with no implementation fee.
 

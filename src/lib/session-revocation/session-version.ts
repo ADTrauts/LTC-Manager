@@ -124,39 +124,12 @@ export async function validateSessionAuthority(
   }
 
   if (session.authKind === "harbor_staff") {
-    return validateHarborStaffWorkSession(session, client);
+    return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
   }
 
   return session.authKind === "employee"
     ? validateEmployeeSession(session, client)
     : validateUserSession(session, client);
-}
-
-async function validateHarborStaffWorkSession(
-  session: AppJwtPayload,
-  client: PrismaLike,
-): Promise<SessionValidation> {
-  const staff = await client.platformStaff.findUnique({
-    where: { id: session.uid },
-    select: { isActive: true, sessionVersion: true },
-  });
-  if (!staff) {
-    return { valid: false, reason: "IDENTITY_NOT_FOUND" };
-  }
-  if (!staff.isActive) {
-    return { valid: false, reason: "IDENTITY_INACTIVE" };
-  }
-  if (staff.sessionVersion !== session.sessionVersion) {
-    return { valid: false, reason: "VERSION_STALE" };
-  }
-  const facility = await client.facility.findUnique({
-    where: { id: session.facilityId },
-    select: { id: true },
-  });
-  if (!facility) {
-    return { valid: false, reason: "FACILITY_ACCESS_REVOKED" };
-  }
-  return { valid: true, effectiveDepartmentId: null };
 }
 
 async function validateUserSession(

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getCookieOptions, SESSION_COOKIE } from "@/lib/auth";
+import { HARBOR_WORK_CLEANUP_PATH, HARBOR_WORK_COOKIE } from "@/lib/harbor-console/session";
 import { completePartnerFacilityTransition } from "@/lib/partner-facility-session";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
@@ -10,6 +11,9 @@ import { trackEvent } from "@/lib/telemetry";
  * The Organization id comes only from the signed token. Query parameters are ignored.
  */
 export async function GET(request: NextRequest) {
+  if (request.cookies.has(HARBOR_WORK_COOKIE)) {
+    return NextResponse.redirect(new URL(HARBOR_WORK_CLEANUP_PATH, request.url), 303);
+  }
   const raw = request.cookies.get(SESSION_COOKIE)?.value;
   const login = NextResponse.redirect(new URL("/login", request.url));
   login.cookies.set(SESSION_COOKIE, "", { ...getCookieOptions(), maxAge: 0 });

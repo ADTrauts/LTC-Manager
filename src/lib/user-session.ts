@@ -11,6 +11,7 @@ import {
   type AccountSession,
   type AppJwtPayload,
 } from "@/lib/auth";
+import { HARBOR_WORK_COOKIE } from "@/lib/harbor-console/session";
 import { prisma } from "@/lib/prisma";
 
 export type AuthenticatedUserScopeKind =
@@ -96,6 +97,7 @@ export async function requireAccountSession(): Promise<AccountSession> {
  */
 export async function readAuthenticatedUserIdentity(): Promise<UserIdentityRead> {
   const jar = await cookies();
+  if (jar.has(HARBOR_WORK_COOKIE)) return { ok: false, reason: "UNAUTHENTICATED" };
   const raw = jar.get(SESSION_COOKIE)?.value;
   if (!raw) {
     return { ok: false, reason: "UNAUTHENTICATED" };

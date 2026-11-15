@@ -94,7 +94,7 @@ test("SQL service: explicit receipt sharing preserves original actor and rejects
  const f=await setup(db,true);await approveQuote(db,f.c,f.id,f.order.id,f.order.digest);const text=f.workforce(),preview=await f.preview("workforce",text);await f.confirm(preview,text);
  await assert.rejects(()=>linkImport(db,f.s,f.id,preview.batchId),/original/);await linkImport(db,f.c,f.id,preview.batchId);
  const shared=await sharedResults(db,f.s,f.id);assert.equal(shared[0]!.actorKind,"user");assert.equal(shared[0]!.actorId,f.user.id);assert.equal(shared[0]!.receipts[0]!.status,"committed");assert.ok(!JSON.stringify(shared).includes("reviewedPlan"));
- const consoleWork={ jti: randomUUID(),...f.session,uid:f.owner.id,authKind:"harbor_staff"} as FacilitySession;await assert.rejects(()=>getImportResults(db,consoleWork,preview.batchId),/actor/);
+ const consoleWork={ jti: randomUUID(),...f.session,uid:f.owner.id,authKind:"harbor_staff"} as FacilitySession;await assert.rejects(()=>getImportResults(db,consoleWork,preview.batchId),/actor\/Facility/);
  const other=await fixture(db);await assert.rejects(()=>getEngagement(db,{kind:"customer",session:other.session},f.id));
  const next=await f.preview("department_locations",`department,locationType,locationId,kind\nPLANT,UNIT,${f.unit.id},PRIMARY\n`);await f.confirm(next,`department,locationType,locationId,kind\nPLANT,UNIT,${f.unit.id},PRIMARY\n`);
  await db.facilityDepartmentEntitlement.updateMany({where:{facilityId:f.facility.id,departmentKey:"PLANT"},data:{status:"REVOKED"}});await assert.rejects(()=>linkImport(db,f.c,f.id,next.batchId),/D09/);
@@ -130,10 +130,18 @@ test("SQL payment: mismatched amount/customer blocks reconciliation; positively 
  const session=[...p.sessions.values()][0]!;session.amount_total=1;assert.equal((await reconcileImplementationPayment({db,stripe:p.stripe},f.s,f.id,f.order.id)).status,"UNKNOWN");assert.equal((await db.implementationOrder.findUniqueOrThrow({where:{id:f.order.id}})).status,"APPROVED");session.amount_total=200000;session.status="expired";assert.equal((await reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id)).status,"EXPIRED");await prepare(db,f,p);assert.equal(await db.implementationPaymentAttempt.count({where:{orderId:f.order.id}}),2);await reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,true);assert.equal(p.creates,2);
 }));
 
-test("SQL service: staff shares its own receipts outside work; customer reads actual PlatformStaff execution",{skip},()=>run(async db=>{
+test("SQL service: original staff actor can still share historical receipts outside work",{skip},()=>run(async db=>{
  const f=await setup(db,true);await approveQuote(db,f.c,f.id,f.order.id,f.order.digest);
- const work={ jti: randomUUID(),...f.session,uid:f.owner.id,email:f.owner.email,name:f.owner.displayName,authKind:"harbor_staff",primaryDepartmentId:undefined} as FacilitySession;
- const csv=f.workforce(),preview=await previewImport(db,work,{dataset:"workforce",text:csv,fileName:"workforce.csv",expectedFacilityId:f.facility.id});await confirmImport(db,work,{reviewToken:preview.reviewToken,expectedFacilityId:f.facility.id,text:csv,fileName:"workforce.csv",confirmedAccountRows:[]});
+ const csv=f.workforce(),preview=await f.preview("workforce",csv);await f.confirm(preview,csv);
+ // Model a persisted pre-retirement receipt without executing as legacy staff.
+ await db.setupImportBatch.update({where:{id:preview.batchId},data:{
+   actorKind:"harbor_staff",actorUserId:null,actorStaffId:f.owner.id,
+   actorSnapshot:{kind:"harbor_staff",id:f.owner.id,role:f.owner.role},
+ }});
+ await assert.rejects(
+   () => getImportResults(db, {...f.session,uid:f.owner.id,authKind:"harbor_staff"}, preview.batchId),
+   /internal Facility Administrator/,
+ );
  await assert.rejects(()=>linkImport(db,f.c,f.id,preview.batchId),/original/);await linkImport(db,f.s,f.id,preview.batchId);const receipts=await sharedResults(db,f.c,f.id);assert.equal(receipts[0]!.actorKind,"harbor_staff");assert.equal(receipts[0]!.actorId,f.owner.id);assert.equal(receipts[0]!.outcomes[0]!.status,"committed");
  const event=await db.implementationEvent.findFirstOrThrow({where:{engagementId:f.id,kind:"IMPORT_SHARED"}});assert.equal(event.actorStaffId,f.owner.id);assert.equal(event.actorUserId,null);
  const batch=await db.setupImportBatch.findUniqueOrThrow({where:{id:preview.batchId}});assert.equal(batch.actorStaffId,f.owner.id);assert.equal(batch.actorUserId,null);assert.equal(await db.user.count({where:{id:f.owner.id}}),0);

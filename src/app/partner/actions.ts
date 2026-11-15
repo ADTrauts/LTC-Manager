@@ -9,6 +9,7 @@ import {
   getPartnerFacilitySession,
   SESSION_COOKIE,
 } from "@/lib/auth";
+import { HARBOR_WORK_CLEANUP_PATH, HARBOR_WORK_COOKIE } from "@/lib/harbor-console/session";
 import { requireOrganizationSession } from "@/lib/organization-context";
 import {
   completePartnerFacilityTransition,
@@ -75,6 +76,7 @@ export async function enterPartnerFacilityAction(formData: FormData): Promise<vo
 
 export async function leavePartnerFacilityAction(): Promise<void> {
   const jar = await cookies();
+  if (jar.has(HARBOR_WORK_COOKIE)) redirect(HARBOR_WORK_CLEANUP_PATH);
   const raw = jar.get(SESSION_COOKIE)?.value;
   if (!raw) redirect("/login");
 

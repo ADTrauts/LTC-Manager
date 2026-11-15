@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 
 export const HARBOR_SESSION_COOKIE = "harbor_session";
 export const HARBOR_WORK_COOKIE = "harbor_work";
+export const HARBOR_WORK_CLEANUP_PATH = "/console/work-session-ended";
 export const HARBOR_TOKEN_USE = "harbor";
 export const HARBOR_WORK_TOKEN_USE = "harbor_work";
 export const HARBOR_SESSION_TTL_SECONDS = 60 * 60 * 12;
@@ -63,18 +64,7 @@ export type HarborWorkJwtPayload = JWTPayload & {
   facilityId: string;
 };
 
-export async function createHarborWorkToken(input: { staffId: string; facilityId: string }) {
-  return new SignJWT({
-    tokenUse: HARBOR_WORK_TOKEN_USE,
-    staffId: input.staffId,
-    facilityId: input.facilityId,
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${HARBOR_SESSION_TTL_SECONDS}s`)
-    .sign(getJwtSecret());
-}
-
+/** Decode retired work tokens only for remaining Console denial checks. */
 export async function verifyHarborWorkToken(token: string): Promise<HarborWorkJwtPayload> {
   const { payload } = await jwtVerify(token, getJwtSecret());
   const p = payload as Record<string, unknown>;

@@ -14,7 +14,6 @@ import { prisma } from "@/lib/prisma";
 
 export {
   createHarborSessionToken,
-  createHarborWorkToken,
   getHarborCookieOptions,
   HARBOR_INITIAL_SESSION_VERSION,
   HARBOR_SESSION_COOKIE,
@@ -116,6 +115,7 @@ export async function requireHarborOwner() {
   return session;
 }
 
+/** Deny-only legacy context for Implementation and Support. */
 export async function peekHarborWorkFacilityId(): Promise<string | null> {
   const jar = await cookies();
   const raw = jar.get(HARBOR_WORK_COOKIE)?.value;
