@@ -284,6 +284,45 @@ test.describe("@console-marketplace-release @ci-gate Console Marketplace V1", ()
     const missingWork = await page.goto("/console/catalog/work/NOT_REAL");
     expect(missingWork?.status()).toBe(404);
   });
+
+  test("MEMBER can save a draft and only OWNER can publish it", async ({ page }) => {
+    const prisma = prismaClient();
+    try {
+      const name = `Publication permission ${cuidLike()}`;
+      const draft = await prisma.catalogLogDefinition.create({
+        data: {
+          stableKey: name.toLowerCase().replaceAll(" ", "_"),
+          name,
+          purposeType: "LOG",
+          fields: { create: { fieldKey: "result", label: "Result", fieldType: "YES_NO", displaySequence: 10 } },
+        },
+      });
+      try {
+        const path = `/console/catalog/${draft.stableKey}`;
+        await page.context().clearCookies();
+        await signInHarbor(page, harborMemberEmail);
+        await page.goto(path);
+        await expect(page.getByRole("heading", { name })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
+        await page.getByLabel("Name", { exact: true }).fill(`${name} edited`);
+        await page.getByRole("button", { name: "Save draft" }).click();
+        const state = () => prisma.catalogLogDefinition.findUniqueOrThrow({ where: { id: draft.id } });
+        await expect.poll(async () => (await state()).name).toBe(`${name} edited`);
+        expect((await state()).status).toBe("DRAFT");
+
+        await page.context().clearCookies();
+        await signInHarbor(page);
+        await page.goto(path);
+        await page.getByRole("button", { name: "Publish", exact: true }).click();
+        await expect.poll(async () => (await state()).status).toBe("PUBLISHED");
+        await expect(page.getByTestId("record-published-version")).toHaveText(/1/);
+      } finally {
+        await prisma.catalogLogDefinition.delete({ where: { id: draft.id } });
+      }
+    } finally {
+      await prisma.$disconnect();
+    }
+  });
 });
 
 test("@console-marketplace-release @ci-gate facility session cannot open Marketplace", async ({
@@ -298,7 +337,6 @@ test("@console-marketplace-release @ci-gate facility session cannot open Marketp
   for (const path of [
     "/console/catalog",
     "/console/catalog/products/PLANT",
-    "/console/catalog/work/MECHANICAL_ROOM_ROUND",
     "/console/catalog/cooler_temperature_log",
   ]) {
     await page.goto(path);
@@ -306,4 +344,6 @@ test("@console-marketplace-release @ci-gate facility session cannot open Marketp
     await expect(page.getByRole("heading", { name: "Staff sign in" })).toBeVisible();
     await expect(page.locator("[data-testid='marketplace-row']")).toHaveCount(0);
   }
+  const retiredPreset = await page.goto("/console/catalog/work/MECHANICAL_ROOM_ROUND");
+  expect(retiredPreset?.status()).toBe(404);
 });

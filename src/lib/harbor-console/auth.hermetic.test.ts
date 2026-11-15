@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createSessionToken } from "@/lib/auth";
-import { isHarborOwnerSession } from "@/lib/harbor-console/auth";
+import { hasHarborCapability, isHarborOwnerSession } from "@/lib/harbor-console/auth";
 import {
   createHarborSessionToken,
   HARBOR_TOKEN_USE,
@@ -38,4 +38,10 @@ test("Harbor tokens are distinct from facility sessions", async () => {
 test("Harbor OWNER is distinct from MEMBER", () => {
   assert.equal(isHarborOwnerSession({ staffRole: "OWNER" }), true);
   assert.equal(isHarborOwnerSession({ staffRole: "MEMBER" }), false);
+});
+
+test("Catalog publication is reserved for a resolved Harbor OWNER", () => {
+  assert.equal(hasHarborCapability("catalog.publish", { staffRole: "OWNER" }), true);
+  assert.equal(hasHarborCapability("catalog.publish", { staffRole: "MEMBER" }), false);
+  assert.equal(hasHarborCapability("catalog.publish", null), false);
 });

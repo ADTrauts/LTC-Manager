@@ -1,6 +1,6 @@
 # Harbor Console Phase 1 staff authority architecture
 
-**Status: initial Marketplace policy approved by the product owner.** The first capability awaits implementation. The rest of the permission matrix and Phase 1B–1D designs remain under review.
+**Status: initial Marketplace policy approved by the product owner.** See the [Catalog publication certification](HARBOR_CONSOLE_PHASE_1A_CATALOG_PUBLICATION_CERTIFICATION.md) for implementation evidence. The rest of the permission matrix and Phase 1B–1D designs remain under review.
 
 ## Executive summary
 

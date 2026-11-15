@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -5,6 +6,7 @@ import {
   HARBOR_SESSION_COOKIE,
   HARBOR_WORK_COOKIE,
   type HarborJwtPayload,
+  type HarborStaffRole,
   verifyHarborSessionToken,
   verifyHarborWorkToken,
 } from "@/lib/harbor-console/session";
@@ -26,8 +28,26 @@ export {
   type HarborWorkJwtPayload,
 } from "@/lib/harbor-console/session";
 
-export async function validateHarborStaffSession(session: HarborJwtPayload) {
-  const staff = await prisma.platformStaff.findUnique({
+const HARBOR_CAPABILITY_ROLES = {
+  "catalog.publish": ["OWNER"],
+} satisfies Record<string, readonly HarborStaffRole[]>;
+
+export type HarborCapability = keyof typeof HARBOR_CAPABILITY_ROLES;
+
+/** Apply capability policy to a session resolved by the Harbor server. */
+export function hasHarborCapability(
+  capability: HarborCapability,
+  session: Pick<HarborJwtPayload, "staffRole"> | null,
+): boolean {
+  const roles: readonly HarborStaffRole[] = HARBOR_CAPABILITY_ROLES[capability];
+  return session !== null && roles.includes(session.staffRole);
+}
+
+export async function validateHarborStaffSession(
+  session: HarborJwtPayload,
+  db: Pick<Prisma.TransactionClient, "platformStaff"> = prisma,
+) {
+  const staff = await db.platformStaff.findUnique({
     where: { id: session.uid },
     select: {
       id: true,
@@ -48,6 +68,12 @@ export async function validateHarborStaffSession(session: HarborJwtPayload) {
     return { valid: false as const };
   }
   return { valid: true as const, staff };
+}
+
+/** Recheck live authority and hold it stable through a protected write. */
+export async function lockHarborStaffSession(session: HarborJwtPayload, tx: Prisma.TransactionClient) {
+  await tx.$queryRaw`SELECT "id" FROM "PlatformStaff" WHERE "id" = ${session.uid} FOR SHARE`;
+  return validateHarborStaffSession(session, tx);
 }
 
 export async function getHarborSession(): Promise<HarborJwtPayload | null> {
