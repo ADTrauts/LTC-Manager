@@ -13,7 +13,7 @@ import type {
 import { z } from "zod";
 
 import { PLATFORM_CATALOG_OWNER } from "@/lib/canonical-logs/catalog-ownership";
-import { requireHarborStaff } from "@/lib/harbor-console/auth";
+import { hasHarborCapability, lockHarborStaffSession, requireHarborStaff } from "@/lib/harbor-console/auth";
 import {
   createCatalogDefinition,
   createCatalogDraftSuccessor,
@@ -288,16 +288,32 @@ export async function saveHarborCatalogDraftAction(formData: FormData): Promise<
   }
 }
 
-export async function saveAndPublishHarborCatalogAction(formData: FormData): Promise<CatalogActionResult> {
+async function publishHarborCatalog(formData: FormData, saveDraft: boolean): Promise<CatalogActionResult> {
   const staff = await requireHarborStaff();
+  const denied = "Only a Harbor OWNER can publish Catalog Records.";
+  if (!hasHarborCapability("catalog.publish", staff)) {
+    return { ok: false, error: denied };
+  }
   const definitionId = String(formData.get("definitionId") ?? "");
   const stableKey = String(formData.get("stableKey") ?? "");
   try {
-    const parsed = parseDefinition(formData);
-    await updateCatalogDraft(prisma, definitionId, toDefinitionInput(parsed), HARBOR_CATALOG_WRITE);
-    await publishCatalogDefinition(prisma, definitionId, undefined, HARBOR_CATALOG_WRITE);
-    await prisma.harborAuditEvent.create({
-      data: { staffId: staff.uid, action: "CATALOG_PUBLISH" },
+    const draft = saveDraft ? toDefinitionInput(parseDefinition(formData)) : null;
+    await prisma.$transaction(async (tx) => {
+      const authority = await lockHarborStaffSession(staff, tx);
+      if (!authority.valid) throw new Error(denied);
+      // Serialize publication with draft edits so validation sees the version being published.
+      await tx.$queryRaw`
+        SELECT "id" FROM "CatalogLogDefinition"
+        WHERE "id" = ${definitionId} AND "ownerKind" = ${PLATFORM_CATALOG_OWNER.ownerKind}::"CatalogFormOwnerKind"
+        FOR UPDATE
+      `;
+      if (draft) {
+        await updateCatalogDraft(tx, definitionId, draft, HARBOR_CATALOG_WRITE);
+      }
+      await publishCatalogDefinition(tx, definitionId, undefined, HARBOR_CATALOG_WRITE);
+      await tx.harborAuditEvent.create({
+        data: { staffId: authority.staff.id, action: "CATALOG_PUBLISH" },
+      });
     });
     revalidatePath("/console/catalog");
     revalidatePath(`/console/catalog/${stableKey}`);
@@ -307,21 +323,12 @@ export async function saveAndPublishHarborCatalogAction(formData: FormData): Pro
   }
 }
 
+export async function saveAndPublishHarborCatalogAction(formData: FormData): Promise<CatalogActionResult> {
+  return publishHarborCatalog(formData, true);
+}
+
 export async function publishHarborCatalogAction(formData: FormData): Promise<CatalogActionResult> {
-  const staff = await requireHarborStaff();
-  const definitionId = String(formData.get("definitionId") ?? "");
-  const stableKey = String(formData.get("stableKey") ?? "");
-  try {
-    await publishCatalogDefinition(prisma, definitionId, undefined, HARBOR_CATALOG_WRITE);
-    await prisma.harborAuditEvent.create({
-      data: { staffId: staff.uid, action: "CATALOG_PUBLISH" },
-    });
-    revalidatePath("/console/catalog");
-    revalidatePath(`/console/catalog/${stableKey}`);
-    return { ok: true };
-  } catch (error) {
-    return fail(error);
-  }
+  return publishHarborCatalog(formData, false);
 }
 
 export async function retireHarborCatalogAction(formData: FormData): Promise<CatalogActionResult> {

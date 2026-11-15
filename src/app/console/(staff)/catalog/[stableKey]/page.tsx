@@ -9,7 +9,7 @@ import {
   retireHarborCatalogForm,
 } from "@/app/console/(staff)/catalog/actions";
 import { HarborCatalogEditor } from "@/components/harbor-console/harbor-catalog-editor";
-import { requireHarborStaff } from "@/lib/harbor-console/auth";
+import { hasHarborCapability, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { loadHarborCatalogAdoption, loadHarborCatalogDetail } from "@/lib/harbor-console/catalog";
 import { catalogRecordPublishedVersionLabel } from "@/lib/harbor-console/console-catalog-detail";
 import { prisma } from "@/lib/prisma";
@@ -19,7 +19,7 @@ export default async function HarborCatalogDetailPage({
 }: {
   params: Promise<{ stableKey: string }>;
 }) {
-  await requireHarborStaff();
+  const staff = await requireHarborStaff();
   const { stableKey } = await params;
   const [detail, adoption] = await Promise.all([
     loadHarborCatalogDetail(prisma, stableKey),
@@ -97,7 +97,9 @@ export default async function HarborCatalogDetailPage({
             initialGroups={draft.repeatingGroups}
             initialCalculations={draft.calculations}
             primaryAction={saveHarborCatalogDraftAction}
-            secondaryAction={saveAndPublishHarborCatalogAction}
+            secondaryAction={
+              hasHarborCapability("catalog.publish", staff) ? saveAndPublishHarborCatalogAction : undefined
+            }
           />
           <form action={deleteHarborCatalogDraftForm}>
             <input type="hidden" name="definitionId" value={draft.id} />
