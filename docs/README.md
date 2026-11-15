@@ -28,6 +28,10 @@ Start with the [New Department Product implementation guide](product/NEW_DEPARTM
 
 The [Phase 1 amendment](product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md) records optional Role Job Flow composition and temporal principles. The [Product contract](product/13_DEPARTMENT_PRODUCT.md) distinguishes the implemented Records Marketplace from intended distribution of Rhythm starters and Menu templates. Use the [status register](DOCUMENTATION_STATUS.md) to check whether a document is implementation guidance, an approved target, or evidence. A proposed feature needs acceptance before it becomes an approved target.
 
+## Proposals under review
+
+- [Harbor Console staff authority architecture](console/HARBOR_CONSOLE_PHASE_1_STAFF_AUTHORITY_ARCHITECTURE.md)
+
 ## Historical evidence and open gaps
 
 The [documentation inventory](DOCUMENTATION_STATUS.md) classifies every tracked document in this tree and points to replacements for superseded material. The [gaps report](DOCUMENTATION_GAPS.md) identifies the remaining documentation and verification work. Earlier [consolidation](architecture/PRELAUNCH_CANONICAL_CONSOLIDATION_EXECUTION_REPORT_2026-11-10.md) and [cutover](architecture/PRELAUNCH_CANONICAL_CUTOVER_GATE.md) records describe specific checkpoints. The [legacy archive](architecture/archive/prelaunch-2026-11-10/) preserves superseded material.
