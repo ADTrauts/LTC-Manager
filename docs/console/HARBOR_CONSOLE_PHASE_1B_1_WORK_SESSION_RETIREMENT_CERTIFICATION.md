@@ -26,6 +26,12 @@ Some customer pages write during loading. Facility Builder can backfill room typ
 
 The focused direct-handler tests exercise a signed, unexpired legacy work token, invalid and empty markers, and live OWNER, MEMBER, customer Facility Administrator, Employee and partner sessions on disposable PostgreSQL. The negative assertions include no active-Department cookie, no Builder mutation, no customer identity fallback, and no staff role projection. The positive cases cover explicit cleanup, normal customer Builder writes, and the independent staff capability decision. Separate tests exercise import denial and historical receipt access.
 
+The local full SQL gate passed 3,760 tests with seven skips after the historical receipt fixtures were corrected. A sequential run of the affected suites passed 109 cases with one skip. The local hermetic suite, TypeScript, and production build passed. The updated browser-origin guard passed its direct tests, including the case where Next reports an internal hostname.
+
+Six Implementation and four Marketplace browser regression cases passed on the local production build. The retirement scenario initially exposed a browser API harness difference and a legitimate cleanup request that was rejected because Next used an internal hostname. The tests now issue requests through Chromium itself, and cleanup and Harbor logout verify the browser origin against the request Host. Harbor's sign-out form follows its own cookie-clearing redirect. Customer sign-out retains its separate notification and revocation behavior.
+
+The corrected retirement scenario passed in Chromium for both OWNER and MEMBER. It covered separate staff sign-ins, start denial, stale-cookie denial with a genuine customer session present, explicit cleanup, customer Builder access after cleanup, old-cookie replay, and staff sign-out.
+
 GitHub Verify and the protected Preview must be reviewed on the exact PR head. Functional Preview checks use approved synthetic accounts through normal sign-in. Local signed-cookie fixtures are for isolated tests only.
 
 A pre-retirement build still admits the legacy context, so it is an unsafe rollback target once this boundary is released. Before promotion, verify that live and reachable previous aliases cannot serve the retired capability to customer traffic. Use a patched revision as the rollback floor. Preserve customer authority and historical receipts through rollback. Production release approval is separate from this draft.

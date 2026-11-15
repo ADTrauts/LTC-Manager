@@ -3,6 +3,7 @@ import test from "node:test";
 import { SignJWT } from "jose";
 import { NextRequest } from "next/server";
 
+import { POST as logout } from "@/app/api/console/auth/logout/route";
 import { POST as start } from "@/app/api/console/work-session/route";
 import { POST as end } from "@/app/api/console/work-session/end/route";
 import { verifySessionToken } from "@/lib/auth";
@@ -59,4 +60,17 @@ test("cross-origin or missing origins cannot clear a legacy work cookie", async 
     assert.equal(response.status, 403);
     assert.equal(response.headers.get("set-cookie"), null);
   }
+});
+
+test("Harbor sign-out verifies the browser-facing Host when Next uses an internal hostname", async () => {
+  const url = `${origin}/api/console/auth/logout`;
+  const browserOrigin = "http://127.0.0.1:3000";
+  const host = "127.0.0.1:3000";
+  const allowed = await logout(new Request(url, { method: "POST", headers: { origin: browserOrigin, host } }));
+  assert.equal(allowed.status, 303);
+  assert.equal(allowed.headers.get("location"), browserOrigin + "/console/login");
+  assert.match(allowed.headers.get("set-cookie") ?? "", /harbor_work=;/);
+  const denied = await logout(new Request(url, { method: "POST", headers: { origin, host } }));
+  assert.equal(denied.status, 403);
+  assert.equal(denied.headers.get("set-cookie"), null);
 });

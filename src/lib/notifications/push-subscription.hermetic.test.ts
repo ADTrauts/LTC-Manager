@@ -257,7 +257,10 @@ test("sending stays off unless the flag is exactly true, and a public key is not
   assert.match(model, /userId/);
   assert.match(source("src/components/sign-out-controls.tsx"), /completeBrowserSignOut/);
   assert.match(source("src/components/global-user-menu.tsx"), /completeBrowserSignOut/);
-  assert.match(source("src/components/harbor-console/harbor-console-shell.tsx"), /completeBrowserSignOut/);
+  // Harbor's cookie-only sign-out must leave a separate customer's User push lifecycle alone.
+  const harborShell = source("src/components/harbor-console/harbor-console-shell.tsx");
+  assert.match(harborShell, /action="\/api\/console\/auth\/logout" method="post"/);
+  assert.doesNotMatch(harborShell, /completeBrowserSignOut/);
   const logout = source("src/app/api/auth/logout/route.ts");
   assert.equal(logout.includes(".catch(() => undefined)"), false);
   assert.match(logout, /status: 503/);

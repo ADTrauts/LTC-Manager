@@ -16,6 +16,10 @@ async function login(page: Page, kind: "customer" | "staff", email: string, pass
   await page.waitForURL((url) => url.pathname !== path);
 }
 
+function sessionStatus(page: Page) {
+  return page.evaluate(async () => (await fetch("/api/auth/session")).status);
+}
+
 test("live staff and old work cookies never enter a Facility or inherit ambient customer authority", async ({ browser, baseURL }) => {
   test.skip(!databaseUrl, "Requires a disposable database and matching local build.");
   assertDisposableDatabaseUrl(databaseUrl);
@@ -66,8 +70,13 @@ test("live staff and old work cookies never enter a Facility or inherit ambient 
         await page.goto(`/console/customers/${facility.id}`);
         await expect(page.getByText("Staff Facility workspace access is paused.")).toBeVisible();
         await expect(page.getByRole("button", { name: "Open facility" })).toHaveCount(0);
-        const start = await context.request.post("/api/console/work-session", { form: { facilityId: facility.id } });
-        expect(start.status()).toBe(410);
+        // Send the request from Chromium, which handles Secure loopback cookies as the app does.
+        const start = await page.evaluate(async (facilityId) => {
+          const form = new FormData();
+          form.set("facilityId", facilityId);
+          return (await fetch("/api/console/work-session", { method: "POST", body: form })).status;
+        }, facility.id);
+        expect(start).toBe(410);
         expect((await context.cookies()).some((cookie) => cookie.name === "harbor_work")).toBe(false);
 
         // Simulate a browser carrying an unexpired cookie from the previous release.
@@ -76,23 +85,23 @@ test("live staff and old work cookies never enter a Facility or inherit ambient 
           .sign(new TextEncoder().encode(secret));
         const legacyCookie = { name: "harbor_work", value: oldToken, url: baseURL, httpOnly: true, sameSite: "Lax" } as const;
         await context.addCookies([legacyCookie]);
-        expect((await context.request.get("/api/auth/session")).status()).toBe(403);
+        expect(await sessionStatus(page)).toBe(403);
         await context.addCookies([customerCookie!]);
         await page.goto("/admin/facility/builder");
         await expect(page).toHaveURL(/\/console\/work-session-ended$/);
         await expect(page.getByTestId("facility-builder-page")).toHaveCount(0);
-        expect((await context.request.get("/api/auth/session")).status()).toBe(403);
+        expect(await sessionStatus(page)).toBe(403);
         await page.getByRole("button", { name: "Clear old work session" }).click();
         await expect(page).toHaveURL(/\/console\/customers$/);
         expect((await context.cookies()).some((cookie) => cookie.name === "harbor_work")).toBe(false);
-        expect((await context.request.get("/api/auth/session")).status()).toBe(200);
+        expect(await sessionStatus(page)).toBe(200);
         await page.goto("/admin/facility/builder");
         await expect(page.getByTestId("facility-builder-page")).toBeVisible();
         await page.goto("/console/tickets");
         await expect(page.getByRole("link", { name: "Tickets", exact: true }).first()).toBeVisible();
 
         await context.addCookies([legacyCookie]);
-        expect((await context.request.get("/api/auth/session")).status()).toBe(403);
+        expect(await sessionStatus(page)).toBe(403);
         await page.getByRole("button", { name: "Sign out" }).click();
         await expect(page).toHaveURL(/\/console\/login$/);
         expect((await context.cookies()).filter((cookie) => ["harbor_session", "harbor_work"].includes(cookie.name))).toHaveLength(0);
