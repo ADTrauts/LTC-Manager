@@ -31,4 +31,10 @@ Five selected Marketplace scenarios passed in Chromium against the local product
 
 Facility work sessions still require Phase 1B review and implementation. This capability does not confer Facility access or certify the current work-session adapter. Other Harbor operations, including retirement and successor creation, await separate policy classification. Production readiness and release approval remain separate from PR review.
 
-Recommend merging the capability after the required Verify jobs and protected Preview pass on the proposed head and a reviewer approves the draft. The GitHub PR records the hosted run results for that revision.
+## Merge and staged build
+
+**Phase 1A PASS.** The product owner authorized merging reviewed head `279845c3acff628b8007fe157a10cb7f9cc7799a`. All ten required check results were green and the reviewed head was unchanged. PR #13 merged with a merge commit. GitHub and local `main` matched `23c6e6e9b895508ebfc3bf16e8631ec2838459f1`. [PR #13](https://github.com/ADTrauts/LTC-Manager/pull/13) · [PR Verify](https://github.com/ADTrauts/LTC-Manager/actions/runs/43667057569) · [Push Verify](https://github.com/ADTrauts/LTC-Manager/actions/runs/43667028990)
+
+Vercel created a Ready staged build with a Production target for that exact merge. Its deployment URL and generated alias redirected anonymous traffic to Vercel Authentication. Vercel listed no custom public aliases on the candidate. Project-level Production database variable metadata matched the expected bindings. The build remains unpromoted. The role-specific smoke test used the local production build and synthetic data. Signed-in readiness and role testing against the staged Production candidate are still open for release review.
+
+Phase 0's historical Catalog ownership inventory, approved scanner/private Blob verification, and production release approval remain separate enablement gates. Facility work-session controls move to the [Phase 1B proposal](HARBOR_CONSOLE_PHASE_1B_FACILITY_ASSISTANCE_ARCHITECTURE.md).

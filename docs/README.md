@@ -31,6 +31,7 @@ The [Phase 1 amendment](product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_202
 ## Proposals under review
 
 - [Harbor Console staff authority architecture](console/HARBOR_CONSOLE_PHASE_1_STAFF_AUTHORITY_ARCHITECTURE.md)
+- [Harbor Console Phase 1B Facility-scoped assistance](console/HARBOR_CONSOLE_PHASE_1B_FACILITY_ASSISTANCE_ARCHITECTURE.md)
 
 ## Historical evidence and open gaps
 
