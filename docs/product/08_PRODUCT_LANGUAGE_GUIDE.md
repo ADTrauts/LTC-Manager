@@ -90,6 +90,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | **Vendor account** | A person from the operating partner, signed in on the partner workspace | A repair vendor; a Facility Administrator |
 | **Self-operated / Vendor-run** | Derived from the operator: the facility's own company, or another company. Never a stored switch. | A persisted operating-model switch |
 | **Vssyl Console** | Vssyl's own desk at `/console`. It creates a customer facility, creates a partner company, invites that company's first people, and publishes Catalog forms. | A customer workspace; Harbor as the product name |
+| **Facility assistance** | Proposed Console workflow for staff access to a specific Facility under an explicit grant and a revocable assistance session. The Phase 1B.2 foundation is disabled. | Facility Administrator access; customer workspace switching; legacy work session |
 | **Marketplace** | Where a facility adds ready-made content inside a Department it already installed. The items run on Platform engines. | A second catalog; a new Department Product; a store of engines |
 | **Marketplace item** | A Records form, Operating Rhythm starter, or Menu template. Included or Paid. Work presets are not forward Marketplace items. | A Department; a license; generic Work |
 | **Facility Administrator** | The one person who governs the facility account. Views a self-operated Department unless they are its head. Sees a vendor-run Department as a summary plus compliance Records. | Several Facility Administrators; operating every Department |

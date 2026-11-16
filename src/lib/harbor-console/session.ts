@@ -43,8 +43,8 @@ export async function createHarborSessionToken(input: {
   name: string;
   staffRole: HarborStaffRole;
   sessionVersion: number;
-}) {
-  return new SignJWT({
+}, options?: { bindAssistance: true }) {
+  const token = new SignJWT({
     uid: input.uid,
     tokenUse: HARBOR_TOKEN_USE,
     email: input.email,
@@ -54,8 +54,10 @@ export async function createHarborSessionToken(input: {
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${HARBOR_SESSION_TTL_SECONDS}s`)
-    .sign(getJwtSecret());
+    .setExpirationTime(`${HARBOR_SESSION_TTL_SECONDS}s`);
+  // The normal login route leaves this unset while assistance is disabled.
+  if (options?.bindAssistance) token.setJti(crypto.randomUUID());
+  return token.sign(getJwtSecret());
 }
 
 export type HarborWorkJwtPayload = JWTPayload & {

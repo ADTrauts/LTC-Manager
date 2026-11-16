@@ -165,6 +165,7 @@ Disruption path
 | Concern | Authoritative owner |
 |---------|---------------------|
 | Which places may this Department use? | Facility Builder Department responsibility on canonical Units / UnitSpaces. Not Location Function. |
+| How is Console staff assistance scoped? | The disabled Vssyl Console foundation owns `HarborFacilityGrant` and `HarborAssistanceSession`. The grant binds one staff identity to one Facility. The session binds that grant to one staff login and expires or ends independently of customer sessions. |
 | What window is active (what is happening now)? | Published Operational Cycle and Phase effective now. No published applicable Cycle means no window (`NOT_CONFIGURED`), never a meal-time guess (foundation round, October 20, 2026). |
 | What was expected on a past service date? | Audit / Reports, using each owning engine’s historically effective configuration (Cycle versions, LogAttachment intervals, Coverage template intervals, etc.) — not a Department profile as a history bus |
 | Where should the supervisor look first? | The Dashboard |
