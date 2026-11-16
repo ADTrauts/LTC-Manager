@@ -2,7 +2,7 @@
 
 Version: `vssyl.onboarding.xlsx/1`. Current completion/evidence belongs to [the phase tracker](./PHASE_TRACKER.md); the workbook is implemented under [D16](./DECISIONS.md#onb-d16--combined-xlsx-canonical-execution-and-receipt-bound-references--october-18-2026). ONB-07, rollout and deployment are outside this phase.
 
-Open **People → Bulk setup → Combined XLSX workbook**, or the People link in guided setup. Console uses its actual **Open facility** work session and the same page. Internal Facility Administrator password authority is required for the combined package. Existing authorized operators retain individual Asset CSV through **Import one list instead**.
+Open **People → Bulk setup → Combined XLSX workbook**, or the People link in guided setup. Internal Facility Administrator password authority is required for the combined package. Existing authorized operators retain individual Asset CSV through **Import one list instead**.
 
 ## Download and complete
 

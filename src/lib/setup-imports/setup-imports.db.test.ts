@@ -133,15 +133,27 @@ test("SQL: stale source/review/actor/dependency and cross-Facility references ca
   assert.equal(await db.setupImportBatch.count({where:{id:p.batchId}}),0);
 }));
 
-test("SQL: Console work is attributed to PlatformStaff, never a User FK, and receipts are actor/Facility isolated",{skip},()=>run(async db=>{
-  const f=await fixture(db),staff=await db.platformStaff.create({data:{email:`staff-${randomUUID()}@example.com`,displayName:"Console Staff",passwordHash:"existing-staff-password",role:"MEMBER"}});
-  const session={ jti: randomUUID(),...f.session,uid:staff.id,email:staff.email,name:staff.displayName,authKind:"harbor_staff",primaryDepartmentId:undefined} as FacilitySession;
-  const csv=f.workforce(),p=await previewImport(db,session,{dataset:"workforce",text:csv,fileName:"workforce.csv",expectedFacilityId:f.facility.id});
-  const r=await confirmImport(db,session,{reviewToken:p.reviewToken,expectedFacilityId:f.facility.id,text:csv,fileName:p.fileName,confirmedAccountRows:[]});assert.equal(r.rows[0]!.result?.status,"committed");
-  const batch=await db.setupImportBatch.findUniqueOrThrow({where:{id:p.batchId}});assert.equal(batch.actorStaffId,staff.id);assert.equal(batch.actorUserId,null);
-  const grant=await db.userFacilityAccess.findUniqueOrThrow({where:{userId_facilityId:{userId:r.rows[0]!.result!.targetIds.userId!,facilityId:f.facility.id}},include:{rolePeriods:true}});assert.equal(grant.grantedByUserId,null);assert.ok(grant.rolePeriods.every(x=>x.createdByUserId===null));
-  assert.equal(await db.user.count({where:{id:staff.id}}),0);await assert.rejects(()=>getImportResults(db,f.session,p.batchId),/actor\/Facility/);
-  await db.platformStaff.update({where:{id:staff.id},data:{sessionVersion:{increment:1}}});await assert.rejects(()=>getImportResults(db,session,p.batchId),/authority|session/);
+test("SQL: legacy staff cannot preview, execute or read Bulk setup receipts", {skip}, () => run(async db => {
+  const f = await fixture(db);
+  const staff = await db.platformStaff.create({
+    data: { email: `staff-${randomUUID()}@example.com`, displayName: "Console Staff", passwordHash: "unused", role: "MEMBER" },
+  });
+  const legacy = { ...f.session, uid: staff.id, authKind: "harbor_staff" as const };
+  const csv = f.workforce();
+  const review = await f.preview("workforce", csv);
+  await assert.rejects(() => previewImport(db, legacy, {
+    dataset: "workforce", text: csv, fileName: review.fileName, expectedFacilityId: f.facility.id,
+  }), /internal Facility Administrator/);
+  await assert.rejects(() => confirmImport(db, legacy, {
+    reviewToken: review.reviewToken, expectedFacilityId: f.facility.id, text: csv,
+    fileName: review.fileName, confirmedAccountRows: [],
+  }), /internal Facility Administrator/);
+  assert.equal(await db.setupImportBatch.count({ where: { id: review.batchId } }), 0);
+  const result = await f.confirm(review, csv);
+  assert.equal(result.rows[0]?.result?.status, "committed");
+  await assert.rejects(() => getImportResults(db, legacy, review.batchId), /actor\/Facility/);
+  const other = await fixture(db);
+  await assert.rejects(() => getImportResults(db, other.session, review.batchId), /actor\/Facility/);
 }));
 
 test("SQL: atomic row failure, immutable partial receipts and explicit retry create no duplicate identities",{skip},()=>run(async db=>{

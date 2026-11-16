@@ -1,66 +1,76 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { SignJWT } from "jose";
+import { NextRequest } from "next/server";
 
-import { createSessionToken } from "@/lib/auth";
-import { composeHarborWorkAppSession } from "@/lib/harbor-console/work-payload";
-import {
-  createHarborSessionToken,
-  createHarborWorkToken,
-  HARBOR_TOKEN_USE,
-  HARBOR_WORK_TOKEN_USE,
-  verifyHarborSessionToken,
-  verifyHarborWorkToken,
-} from "@/lib/harbor-console/session";
+import { POST as logout } from "@/app/api/console/auth/logout/route";
+import { POST as start } from "@/app/api/console/work-session/route";
+import { POST as end } from "@/app/api/console/work-session/end/route";
+import { verifySessionToken } from "@/lib/auth";
+import { validateSessionAuthority } from "@/lib/session-revocation/session-version";
+import { proxy } from "@/proxy";
+import { HARBOR_WORK_CLEANUP_PATH, verifyHarborSessionToken, verifyHarborWorkToken } from "./session";
 
-process.env.AUTH_SECRET ??= "harbor-work-session-hermetic-secret";
+const origin = "http://localhost:3000";
+process.env.AUTH_SECRET ??= "synthetic-legacy-retirement-hermetic";
 
-test("work tokens are distinct from Harbor login and facility sessions", async () => {
-  const harbor = await createHarborSessionToken({
-    uid: "staff_1",
-    email: "andrew.trautman@vssyl.com",
-    name: "Andrew Trautman",
-    staffRole: "OWNER",
-    sessionVersion: 0,
-  });
-  const work = await createHarborWorkToken({ staffId: "staff_1", facilityId: "fac_1" });
-  const harborPayload = await verifyHarborSessionToken(harbor);
-  const workPayload = await verifyHarborWorkToken(work);
+async function oldToken() {
+  return new SignJWT({ tokenUse: "harbor_work", staffId: "test-staff", facilityId: "test-facility" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(new TextEncoder().encode(process.env.AUTH_SECRET));
+}
 
-  assert.equal(harborPayload.tokenUse, HARBOR_TOKEN_USE);
-  assert.equal(workPayload.tokenUse, HARBOR_WORK_TOKEN_USE);
-  assert.equal(workPayload.staffId, "staff_1");
-  assert.equal(workPayload.facilityId, "fac_1");
-
-  await assert.rejects(() => verifyHarborWorkToken(harbor), /Not a Harbor work session/);
-  await assert.rejects(() => verifyHarborSessionToken(work), /Not a Harbor session/);
-
-  const facility = await createSessionToken({
-    uid: "user_1",
-    role: "FACILITY_ADMINISTRATOR",
-    name: "Admin",
-    email: "admin@terraceview.local",
-    facilityId: "fac_1",
-    sessionVersion: 0,
-  });
-  await assert.rejects(() => verifyHarborWorkToken(facility), /Not a Harbor work session/);
+test("the retired start endpoint issues no cookie even when invoked directly", async () => {
+  const response = start();
+  assert.equal(response.status, 410);
+  assert.equal(response.headers.get("set-cookie"), null);
 });
 
-test("composed work session is Harbor staff, not a facility User", () => {
-  const session = composeHarborWorkAppSession(
-    {
-      uid: "staff_1",
-      tokenUse: HARBOR_TOKEN_USE,
-      email: "andrew.trautman@vssyl.com",
-      name: "Andrew Trautman",
-      staffRole: "OWNER",
-      sessionVersion: 4,
-    },
-    "fac_1",
-  );
-  assert.equal(session.authKind, "harbor_staff");
-  assert.equal(session.uid, "staff_1");
-  assert.equal(session.role, "FACILITY_ADMINISTRATOR");
-  assert.equal(session.authMethod, "PASSWORD");
-  assert.equal(session.facilityId, "fac_1");
-  assert.equal(session.sessionVersion, 4);
+test("old work tokens remain decodable for denial, but cannot become a login or app session", async () => {
+  const token = await oldToken();
+  assert.equal((await verifyHarborWorkToken(token)).staffId, "test-staff");
+  await assert.rejects(() => verifyHarborSessionToken(token), /Not a Harbor session/);
+  await assert.rejects(() => verifySessionToken(token), /Not a facility session/);
+  assert.deepEqual(await validateSessionAuthority({
+    uid: "test-staff", name: "Legacy staff", email: "staff@example.invalid", scopeKind: "facility",
+    facilityId: "test-facility", authKind: "harbor_staff", authMethod: "PASSWORD",
+    role: "FACILITY_ADMINISTRATOR", sessionVersion: 0,
+  }, {} as Parameters<typeof validateSessionAuthority>[1]), { valid: false, reason: "FACILITY_ACCESS_REVOKED" });
+});
+
+test("protected proxy requests with valid, invalid or empty work cookies cannot fall through", async () => {
+  for (const work of [await oldToken(), "malformed", ""]) {
+    const headers = { cookie: `harbor_work=${work}; ltc_session=unread` };
+    const page = await proxy(new NextRequest(origin + "/admin/facility/builder", { headers }));
+    assert.equal(page.status, 303);
+    assert.equal(page.headers.get("location"), origin + HARBOR_WORK_CLEANUP_PATH);
+    assert.equal(page.headers.get("set-cookie"), null);
+
+    const api = await proxy(new NextRequest(origin + "/api/auth/session", { headers }));
+    assert.equal(api.status, 403);
+    assert.equal(api.headers.get("set-cookie"), null);
+  }
+});
+
+test("cross-origin or missing origins cannot clear a legacy work cookie", async () => {
+  for (const headers of [{ origin: "https://other.example.invalid" }, {}] as HeadersInit[]) {
+    const response = await end(new Request(origin + "/api/console/work-session/end", { method: "POST", headers }));
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get("set-cookie"), null);
+  }
+});
+
+test("Harbor sign-out verifies the browser-facing Host when Next uses an internal hostname", async () => {
+  const url = `${origin}/api/console/auth/logout`;
+  const browserOrigin = "http://127.0.0.1:3000";
+  const host = "127.0.0.1:3000";
+  const allowed = await logout(new Request(url, { method: "POST", headers: { origin: browserOrigin, host } }));
+  assert.equal(allowed.status, 303);
+  assert.equal(allowed.headers.get("location"), browserOrigin + "/console/login");
+  assert.match(allowed.headers.get("set-cookie") ?? "", /harbor_work=;/);
+  const denied = await logout(new Request(url, { method: "POST", headers: { origin, host } }));
+  assert.equal(denied.status, 403);
+  assert.equal(denied.headers.get("set-cookie"), null);
 });
