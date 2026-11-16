@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { NextRequest } from "next/server";
 
 import { POST as logout } from "@/app/api/console/auth/logout/route";
 import { createSessionToken } from "@/lib/auth";
@@ -37,7 +38,7 @@ async function waitForLock(statement: string) {
 }
 
 function signOut(token: string, customerCookie = "") {
-  return logout(new Request(origin + "/api/console/auth/logout", { method: "POST", headers: {
+  return logout(new NextRequest(origin + "/api/console/auth/logout", { method: "POST", headers: {
     origin, cookie: `${HARBOR_SESSION_COOKIE}=${token}${customerCookie}`,
   } }));
 }
