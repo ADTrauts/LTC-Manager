@@ -56,6 +56,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/harbor-console/catalog-publication.db.test.ts",
   "src/lib/harbor-console/work-session-retirement.db.test.ts",
   "src/lib/harbor-console/assistance-store.db.test.ts",
+  "src/lib/harbor-console/assistance-governance.db.test.ts",
   "src/lib/setup-imports/setup-imports.db.test.ts",
   "src/lib/onboarding/onboarding.db.test.ts",
   "src/lib/onboarding/setup-workspace.db.test.ts",

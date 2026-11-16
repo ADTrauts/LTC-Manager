@@ -39,9 +39,12 @@ test("fail closed — being a Facility Administrator does not open unregistered 
   }
 });
 
-test("disabled Harbor assistance has no registered page, session API or grant API", () => {
+test("Harbor assistance classifies its exact entries and leaves other paths closed", () => {
+  for (const path of ["/console/assistance", "/api/console/assistance", "/api/harbor-assistance/consent"]) {
+    assert.equal(PLATFORM_ROUTES.find((entry) => entry.pattern === path)?.requiresDownstreamAuthorization, true);
+  }
   for (const path of [
-    "/console/assistance", "/api/console/assistance/sessions", "/api/console/assistance/grants",
+    "/console/assistance/export", "/api/console/assistance/sessions", "/api/console/assistance/grants",
   ]) {
     for (const role of [null, ...APP_ROLES] as (AppRole | null)[]) {
       assert.equal(outcome(path, role), "NOT_FOUND", path);
