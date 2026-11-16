@@ -67,6 +67,12 @@ test("live staff and old work cookies never enter a Facility or inherit ambient 
         await login(page, "staff", staff.email, password);
         await page.goto("/console/catalog");
         await expect(page.getByRole("heading", { name: "Marketplace" })).toBeVisible();
+        const unavailable = await page.evaluate(async () => Promise.all([
+          fetch("/console/assistance").then((response) => response.status),
+          fetch("/api/console/assistance/sessions", { method: "POST" }).then((response) => response.status),
+          fetch("/api/console/assistance/grants", { method: "POST" }).then((response) => response.status),
+        ]));
+        expect(unavailable).toEqual([404, 404, 404]);
         await page.goto(`/console/customers/${facility.id}`);
         await expect(page.getByText("Staff Facility workspace access is paused.")).toBeVisible();
         await expect(page.getByRole("button", { name: "Open facility" })).toHaveCount(0);

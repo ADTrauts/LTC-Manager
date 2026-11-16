@@ -128,6 +128,7 @@ model Organization {
 model Facility {
   implementationEngagements             ImplementationEngagement[]
   setupImportBatches                    SetupImportBatch[]
+  harborAssistanceGrants                HarborFacilityGrant[]
   id                                    String                                  @id @default(cuid())
   organizationId                        String
   organization                          Organization                            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -4679,9 +4680,17 @@ enum HarborAuditAction {
   TICKET_OPEN
   TICKET_REPLY
   PROVISION_FACILITY
+  ASSISTANCE_START
+  ASSISTANCE_END
+  ASSISTANCE_GRANT_REVOKE
+  ASSISTANCE_LOGIN_END
 }
 
 model PlatformStaff {
+  harborAssistanceGrants        HarborFacilityGrant[]           @relation("HarborGrantSubject")
+  harborGrantsApproved          HarborFacilityGrant[]           @relation("HarborGrantApprover")
+  harborGrantsRevoked            HarborFacilityGrant[]           @relation("HarborGrantRevoker")
+  harborAssistanceSessionsEnded HarborAssistanceSession[]      @relation("HarborAssistanceEndActor")
   implementationAssignments     ImplementationEngagement[]     @relation("ImplementationResponsible")
   implementationWaivers         ImplementationOrder[]          @relation("ImplementationWaiver")
   implementationParticipants    ImplementationParticipant[]    @relation("ImplementationParticipantStaff")
@@ -4768,9 +4777,78 @@ model HarborAuditEvent {
   action     HarborAuditAction
   facilityId String?
   createdAt  DateTime          @default(now())
+  assistance HarborAssistanceAuditDetail?
 
   @@index([staffId, createdAt])
   @@index([facilityId, createdAt])
+}
+
+/// Extra fields on assistance events. Ordinary Harbor audit writes do not need these tables.
+model HarborAssistanceAuditDetail {
+  eventId   String           @id
+  event     HarborAuditEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  grantId   String?
+  sessionId String?
+  /// A durable logout receipt. Retain through the lifetime of the signed login.
+  loginKey  String?          @unique @db.VarChar(64)
+
+  @@index([sessionId])
+}
+
+enum HarborAssistanceOperation {
+  FACILITY_STRUCTURE_READ
+}
+
+enum HarborAssistancePurpose {
+  FACILITY_STRUCTURE_REVIEW
+}
+
+enum HarborAssistanceEndReason {
+  STAFF_EXIT
+  HARBOR_LOGOUT
+  GRANT_REVOKED
+}
+
+/// Harbor-owned authority scoped to one canonical staff identity and Facility.
+model HarborFacilityGrant {
+  id                String                      @id @default(cuid())
+  staffId           String
+  staff             PlatformStaff               @relation("HarborGrantSubject", fields: [staffId], references: [id], onDelete: Restrict)
+  facilityId        String
+  facility          Facility                    @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  operations        HarborAssistanceOperation[]
+  approvedByStaffId String
+  approvedByStaff   PlatformStaff               @relation("HarborGrantApprover", fields: [approvedByStaffId], references: [id], onDelete: Restrict)
+  approvedAt        DateTime
+  startsAt          DateTime
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  revokedByStaffId  String?
+  revokedByStaff    PlatformStaff?              @relation("HarborGrantRevoker", fields: [revokedByStaffId], references: [id], onDelete: Restrict)
+  sessions          HarborAssistanceSession[]
+
+  @@index([staffId, facilityId, startsAt])
+  @@index([facilityId, startsAt])
+}
+
+/// Assistance never becomes a customer User, role or session.
+model HarborAssistanceSession {
+  id               String                    @id @default(cuid())
+  grantId          String
+  grant            HarborFacilityGrant       @relation(fields: [grantId], references: [id], onDelete: Restrict)
+  loginKey         String                    @db.VarChar(64)
+  requestId        String                    @db.Uuid
+  purpose          HarborAssistancePurpose
+  startedAt        DateTime
+  expiresAt        DateTime
+  endedAt          DateTime?
+  endReason        HarborAssistanceEndReason?
+  endedByStaffId   String?
+  endedByStaff     PlatformStaff?            @relation("HarborAssistanceEndActor", fields: [endedByStaffId], references: [id], onDelete: Restrict)
+
+  @@unique([loginKey, requestId])
+  @@index([grantId, endedAt])
+  @@index([loginKey, endedAt])
 }
 
 // ── Customer support (Vssyl Console) ───────────────────────────────────────────

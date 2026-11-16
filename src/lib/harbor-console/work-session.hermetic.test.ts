@@ -66,11 +66,11 @@ test("Harbor sign-out verifies the browser-facing Host when Next uses an interna
   const url = `${origin}/api/console/auth/logout`;
   const browserOrigin = "http://127.0.0.1:3000";
   const host = "127.0.0.1:3000";
-  const allowed = await logout(new Request(url, { method: "POST", headers: { origin: browserOrigin, host } }));
+  const allowed = await logout(new NextRequest(url, { method: "POST", headers: { origin: browserOrigin, host } }));
   assert.equal(allowed.status, 303);
   assert.equal(allowed.headers.get("location"), browserOrigin + "/console/login");
   assert.match(allowed.headers.get("set-cookie") ?? "", /harbor_work=;/);
-  const denied = await logout(new Request(url, { method: "POST", headers: { origin, host } }));
+  const denied = await logout(new NextRequest(url, { method: "POST", headers: { origin, host } }));
   assert.equal(denied.status, 403);
   assert.equal(denied.headers.get("set-cookie"), null);
 });

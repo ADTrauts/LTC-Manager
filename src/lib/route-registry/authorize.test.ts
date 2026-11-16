@@ -39,6 +39,16 @@ test("fail closed — being a Facility Administrator does not open unregistered 
   }
 });
 
+test("disabled Harbor assistance has no registered page, session API or grant API", () => {
+  for (const path of [
+    "/console/assistance", "/api/console/assistance/sessions", "/api/console/assistance/grants",
+  ]) {
+    for (const role of [null, ...APP_ROLES] as (AppRole | null)[]) {
+      assert.equal(outcome(path, role), "NOT_FOUND", path);
+    }
+  }
+});
+
 test("fail closed — no path resolves to ALLOW without a registry entry", () => {
   const probes = ["/x", "/a/b/c/d", "/api/x", "/units/extra", "/admin/reports", "/today/nope"];
   for (const path of probes) {
