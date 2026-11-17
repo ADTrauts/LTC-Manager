@@ -4,6 +4,7 @@ import { resolvePublishedDepartmentProductKeys } from "@/lib/department-products
 import { setupFeeCents } from "@/lib/billing/quote";
 
 export class ImplementationError extends Error {}
+export const PAYMENT_RECONCILED_EVENT = "PAYMENT_RECONCILED";
 export const STAGES = ["MAPPING", "IMPORT_REVIEW", "CONFIGURATION", "TRAINING", "HANDOFF"] as const;
 export type Stage = typeof STAGES[number];
 const text = z.string().trim().min(3).max(4000);

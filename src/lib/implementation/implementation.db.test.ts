@@ -242,16 +242,140 @@ test("SQL payment: lost provider response reconciles success before retry and we
  assert.equal((await reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,true)).status,"UNKNOWN");const paid=p.paid();
  await Promise.all([reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,true),handleImplementationCheckout({db,stripe:p.stripe},paid)]);
  for(let i=0;i<2;i++)await handleStripeBillingEvent({type:"checkout.session.completed",data:{object:paid}} as Stripe.Event,{db,stripe:p.stripe});
+ assert.deepEqual(await reconcileImplementationPayment({db,stripe:p.stripe},f.s,f.id,f.order.id),{status:"PAID",url:null});
+ assert.equal(await db.implementationEvent.count({where:{engagementId:f.id,kind:"PAYMENT_RECONCILED"}}),0);
  assert.equal(p.creates,1);assert.equal((await db.implementationOrder.findUniqueOrThrow({where:{id:f.order.id}})).status,"PAID");assert.equal(await db.implementationEvent.count({where:{engagementId:f.id,kind:"PAYMENT_SETTLED"}}),1);assert.equal(await db.implementationPaymentAttempt.count({where:{orderId:f.order.id}}),1);
  assert.equal((await db.facilityBilling.findUniqueOrThrow({where:{facilityId:f.facility.id}})).stripeSubscriptionId,null,"service does not create a subscription");
 }));
+test("SQL payment: staff reconciliation attributes only persisted transitions and keeps customer settlement history", { skip }, () => run(async db => {
+  const f = await setup(db), other = await setup(db), p = provider();
+  await approveQuote(db, f.c, f.id, f.order.id, f.order.digest);
+  await db.facility.update({ where: { id: f.facility.id }, data: { stripeCustomerId: "cus_existing" } });
+  const member = await db.platformStaff.create({ data: { email: `billing-reviewer-${randomUUID()}@example.com`, displayName: "Billing reviewer", passwordHash: "no-login", role: "MEMBER" } });
+  const reviewer: Actor = { kind: "staff", session: await verifyHarborSessionToken(await createHarborSessionToken({
+    uid: member.id, email: member.email, name: member.displayName, staffRole: member.role, sessionVersion: member.sessionVersion,
+  })), workFacilityId: null };
+  const deps = { db, stripe: p.stripe };
+  const events = () => db.implementationEvent.findMany({ where: { engagementId: f.id, kind: "PAYMENT_RECONCILED" } });
+  assert.deepEqual(await reconcileImplementationPayment(deps, f.s, f.id, f.order.id), { status: "NOT_STARTED", url: null });
+  await prepare(db, f, p);
+  const paymentAttempt = () => db.implementationPaymentAttempt.findFirstOrThrow({ where: { orderId: f.order.id } });
+  const attempt = await paymentAttempt();
+  await assert.rejects(() => reconcileImplementationPayment(deps, reviewer, f.id, f.order.id), /explicitly recorded participation/);
+  await assert.rejects(() => reconcileImplementationPayment(deps, f.s, f.id, other.order.id), /outside this engagement/);
+  await assert.rejects(() => reconcileImplementationPayment(deps, other.c, f.id, f.order.id), /intended Facility/);
+  assert.deepEqual(await paymentAttempt(), attempt);
+  assert.deepEqual(await events(), []);
+  await db.implementationParticipant.create({ data: { engagementId: f.id, staffId: member.id } });
+
+  // Even with the retry argument, staff may only observe existing provider evidence.
+  assert.deepEqual(await reconcileImplementationPayment(deps, reviewer, f.id, f.order.id, true), { status: "UNKNOWN", url: null });
+  assert.deepEqual(await reconcileImplementationPayment(deps, reviewer, f.id, f.order.id), { status: "UNKNOWN", url: null });
+  assert.equal(p.creates, 0);
+  assert.equal(await db.implementationPaymentAttempt.count({ where: { orderId: f.order.id } }), 1);
+  assert.equal((await paymentAttempt()).status, "UNKNOWN");
+
+  p.loseResponse(); // Customer initiation leaves real provider evidence in the double but no local checkout receipt.
+  assert.equal((await reconcileImplementationPayment(deps, f.c, f.id, f.order.id, true)).status, "UNKNOWN");
+  const remote = [...p.sessions.values()][0]!;
+  const open = { status: "OPEN", url: remote.url, sessionId: remote.id };
+  assert.deepEqual(await reconcileImplementationPayment(deps, reviewer, f.id, f.order.id), open);
+  assert.deepEqual(await reconcileImplementationPayment(deps, reviewer, f.id, f.order.id), open);
+  assert.deepEqual(await reconcileImplementationPayment(deps, f.c, f.id, f.order.id), open);
+  assert.equal((await paymentAttempt()).checkoutUrl, remote.url);
+
+  const paid = p.paid();
+  const settled = await Promise.all([
+    reconcileImplementationPayment(deps, reviewer, f.id, f.order.id),
+    reconcileImplementationPayment(deps, reviewer, f.id, f.order.id),
+  ]);
+  assert.equal(settled.filter(r => r.status === "PAID").length, 2);
+  assert.equal(settled.filter(r => "sessionId" in r && r.sessionId === paid.id).length, 1);
+  assert.equal(await handleImplementationCheckout(deps, paid), true);
+  assert.deepEqual(await reconcileImplementationPayment(deps, f.c, f.id, f.order.id), { status: "PAID", url: null });
+  assert.equal(p.creates, 1);
+  assert.equal((await paymentAttempt()).status, "PAID");
+  assert.equal((await paymentAttempt()).checkoutUrl, null);
+  assert.equal((await db.implementationOrder.findUniqueOrThrow({ where: { id: f.order.id } })).status, "PAID");
+
+  const records = await events();
+  assert.equal(records.length, 3);
+  for (const [previousStatus, newStatus] of [["PREPARED", "UNKNOWN"], ["UNKNOWN", "OPEN"], ["OPEN", "PAID"]]) {
+    const expected = { facilityId: f.facility.id, orderId: f.order.id, attemptId: attempt.id, previousStatus, newStatus };
+    const row = records.find(e => (e.data as { previousStatus: string }).previousStatus === previousStatus)!;
+    assert.deepEqual(row?.data, expected);
+    assert.equal(row.actorKind, "staff");
+    assert.equal(row.actorStaffId, member.id);
+    assert.equal(row.actorUserId, null);
+    assert.equal(row.providerEventId, null);
+  }
+  const staffView = await getEngagement(db, reviewer, f.id);
+  assert.equal(staffView.events.filter(e => e.kind === "PAYMENT_RECONCILED").length, 3);
+  const customerView = await getEngagement(db, f.c, f.id);
+  assert.ok(!JSON.stringify(customerView).includes("PAYMENT_RECONCILED"));
+  assert.equal(customerView.orders[0]?.attempts[0]?.status, "PAID");
+  const providerEvents = customerView.events.filter(e => e.kind === "PAYMENT_SETTLED");
+  assert.equal(providerEvents.length, 1);
+  assert.equal(providerEvents[0]!.actorKind, "provider");
+  assert.deepEqual(providerEvents[0]!.data, {
+    orderId: f.order.id, attemptId: attempt.id, sessionId: paid.id,
+    paymentIntentId: paid.payment_intent, amountCents: f.order.amountCents, currency: f.order.currency,
+  });
+}));
+
+test("SQL payment: failed staff audit or persistence rolls back UNKNOWN and PAID reconciliation", { skip }, () => run(async db => {
+  const f = await setup(db), p = provider();
+  await approveQuote(db, f.c, f.id, f.order.id, f.order.digest);
+  await db.facility.update({ where: { id: f.facility.id }, data: { stripeCustomerId: "cus_existing" } });
+  await prepare(db, f, p);
+  const snapshot = () => db.implementationOrder.findUniqueOrThrow({
+    where: { id: f.order.id },
+    include: { attempts: true, engagement: { include: { events: { orderBy: { id: "asc" } } } } },
+  });
+  const before = await snapshot();
+  const badAudit = db.$extends({ query: { implementationEvent: {
+    async create({ args, query }) {
+      if (args.data.kind === "PAYMENT_RECONCILED") throw Error("injected staff audit failure");
+      return query(args);
+    },
+  } } }) as unknown as PrismaClient;
+  const badProvider = provider();
+  badProvider.listFailure();
+  for (const stripe of [p.stripe, badProvider.stripe]) {
+    await assert.rejects(() => reconcileImplementationPayment({ db: badAudit, stripe }, f.s, f.id, f.order.id), /staff audit failure/);
+    assert.deepEqual(await snapshot(), before);
+  }
+  let failUpdate = true;
+  const badWrite = db.$extends({ query: { implementationPaymentAttempt: {
+    async update({ args, query }) {
+      if (failUpdate) { failUpdate = false; throw Error("injected attempt persistence failure"); }
+      return query(args);
+    },
+  } } }) as unknown as PrismaClient;
+  await assert.rejects(() => reconcileImplementationPayment({ db: badWrite, stripe: p.stripe }, f.s, f.id, f.order.id), /attempt persistence failure/);
+  assert.deepEqual(await snapshot(), before);
+
+  await reconcileImplementationPayment({ db, stripe: p.stripe }, f.c, f.id, f.order.id, true);
+  const open = await snapshot();
+  const remote = p.paid();
+  await assert.rejects(() => reconcileImplementationPayment({ db: badAudit, stripe: p.stripe }, f.s, f.id, f.order.id), /staff audit failure/);
+  assert.deepEqual(await snapshot(), open, "order, attempt, and provider settlement event must all roll back");
+  assert.equal((await reconcileImplementationPayment({ db, stripe: p.stripe }, f.s, f.id, f.order.id)).status, "PAID");
+  assert.equal(await handleImplementationCheckout({ db, stripe: p.stripe }, remote), true);
+  const settled = await snapshot();
+  assert.equal(settled.engagement.events.filter(e => e.kind === "PAYMENT_SETTLED").length, 1);
+  assert.equal(settled.engagement.events.filter(e => e.kind === "PAYMENT_RECONCILED").length, 1);
+  assert.equal(p.creates, 1);
+  assert.equal(badProvider.creates, 0);
+}));
+
 test("SQL payment: failed history scan or unknown attempt beyond replay window never creates a new charge",{skip},()=>run(async db=>{
  const f=await setup(db),p=provider();await approveQuote(db,f.c,f.id,f.order.id,f.order.digest);await db.facility.update({where:{id:f.facility.id},data:{stripeCustomerId:"cus_existing"}});await prepare(db,f,p);p.listFailure();assert.equal((await reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,true)).status,"UNKNOWN");assert.equal(p.creates,0);
  const clean=provider();assert.equal((await reconcileImplementationPayment({db,stripe:clean.stripe,now:()=>new Date(Date.now()+13*3600*1000)},f.c,f.id,f.order.id,true)).status,"UNKNOWN");assert.equal(clean.creates,0);await prepare(db,f,clean);assert.equal(await db.implementationPaymentAttempt.count({where:{orderId:f.order.id}}),1);
 }));
 test("SQL payment: mismatched amount/customer blocks reconciliation; positively expired unpaid attempt permits a distinct safe attempt",{skip},()=>run(async db=>{
  const f=await setup(db),p=provider();await approveQuote(db,f.c,f.id,f.order.id,f.order.digest);await db.facility.update({where:{id:f.facility.id},data:{stripeCustomerId:"cus_existing"}});await prepare(db,f,p);await reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,true);
- const session=[...p.sessions.values()][0]!;session.amount_total=1;assert.equal((await reconcileImplementationPayment({db,stripe:p.stripe},f.s,f.id,f.order.id)).status,"UNKNOWN");assert.equal((await db.implementationOrder.findUniqueOrThrow({where:{id:f.order.id}})).status,"APPROVED");session.amount_total=200000;session.status="expired";assert.equal((await reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id)).status,"EXPIRED");await prepare(db,f,p);assert.equal(await db.implementationPaymentAttempt.count({where:{orderId:f.order.id}}),2);await reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,true);assert.equal(p.creates,2);
+ const session=[...p.sessions.values()][0]!;session.amount_total=1;assert.deepEqual(await reconcileImplementationPayment({db,stripe:p.stripe},f.s,f.id,f.order.id),{status:"UNKNOWN",url:null,message:"Provider scope, customer or amount does not match the approved service order. No additional charge will be created."});assert.equal((await db.implementationPaymentAttempt.findFirstOrThrow({where:{orderId:f.order.id}})).checkoutUrl,null);assert.equal((await db.implementationOrder.findUniqueOrThrow({where:{id:f.order.id}})).status,"APPROVED");session.amount_total=200000;session.status="expired";assert.equal((await reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id)).status,"EXPIRED");await prepare(db,f,p);assert.equal(await db.implementationPaymentAttempt.count({where:{orderId:f.order.id}}),2);await reconcileImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,true);assert.equal(p.creates,2);
 }));
 
 test("SQL service: original staff actor can still share historical receipts outside work",{skip},()=>run(async db=>{

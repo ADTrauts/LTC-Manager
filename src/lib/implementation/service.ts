@@ -8,7 +8,7 @@ import { SUPPORT_ATTACHMENT_MAX_BYTES } from "@/lib/support/attachment-limits";
 import { loadCustomerOperableDepartments } from "@/lib/department-products/load-facility-catalog";
 import type { PlanRow } from "@/lib/setup-imports/contract";
 import { appendEvent, authorize, lockEngagement, requireParticipant, type Actor, type Db, type Tx } from "./authority";
-import { deliveryEvidence, digest, ImplementationError, parseScope, quoteScope, STAGES } from "./contract";
+import { deliveryEvidence, digest, ImplementationError, parseScope, PAYMENT_RECONCILED_EVENT, quoteScope, STAGES } from "./contract";
 export const IMPLEMENTATION_SOURCE_SUBMISSION_PREFIX = "implementation:";
 
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -206,8 +206,8 @@ export async function getEngagement(db: PrismaClient, actor: Actor, engagementId
   await authorize(db,actor,row.facilityId); await requireParticipant(db,actor,engagementId);
   const sourceIds = row.events.filter(e => e.kind === "SOURCE_RECEIVED").map(e => (e.data as { messageId: string }).messageId);
   const attachments = await db.supportTicketAttachment.findMany({ where: { messageId: { in: sourceIds }, message: { ticketId: row.supportTicketId, ticket: { facilityId: row.facilityId } } }, select: { id: true, messageId: true, filename: true, scanStatus: true, rejectionReason: true, sizeBytes: true, scanResultCode: true, scannerEngineVersion: true, scannerSignatureVersion: true, scannedAt: true } });
-  // The customer workspace renders and serializes event data. Keep assignment audit details staff-only.
-  const events = actor.kind === "staff" ? row.events : row.events.map(event => {
+  // Remove staff-only audit evidence before the customer workspace serializes the history.
+  const events = actor.kind === "staff" ? row.events : row.events.filter(event => event.kind !== PAYMENT_RECONCILED_EVENT).map(event => {
     if (event.kind !== "ASSIGNED") return event;
     const data = event.data;
     const responsibleStaffId = data && typeof data === "object" && !Array.isArray(data)
