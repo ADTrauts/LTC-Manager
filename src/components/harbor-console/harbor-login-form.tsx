@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 
 export function HarborLoginForm() {
   const router = useRouter();
@@ -11,22 +12,40 @@ export function HarborLoginForm() {
   async function onSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/console/auth/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        email: String(formData.get("email") ?? ""),
-        password: String(formData.get("password") ?? ""),
-      }),
-    });
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+    try {
+      const res = await fetch("/api/console/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: String(formData.get("email") ?? ""),
+          password: String(formData.get("password") ?? ""),
+        }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(payload.error ?? "Sign-in failed.");
+        return;
+      }
+      const payload = await res.json() as { mfa?: { challengeId: string; options: PublicKeyCredentialRequestOptionsJSON } };
+      if (payload.mfa) {
+        const { startAuthentication } = await import("@simplewebauthn/browser");
+        const response = await startAuthentication({ optionsJSON: payload.mfa.options });
+        const verified = await fetch("/api/console/staff-lifecycle/identity", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ operation: "sign-in", challengeId: payload.mfa.challengeId, response }),
+        });
+        if (!verified.ok) {
+          setError("The passkey could not be verified. Sign in again.");
+          return;
+        }
+      }
+      router.push("/console");
+      router.refresh();
+    } catch {
+      setError("Sign-in could not be completed. Try again.");
+    } finally {
       setLoading(false);
-      setError(payload.error ?? "Sign-in failed.");
-      return;
     }
-    router.push("/console");
-    router.refresh();
   }
 
   return (

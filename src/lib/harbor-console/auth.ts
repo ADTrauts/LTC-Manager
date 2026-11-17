@@ -12,6 +12,7 @@ import {
 } from "@/lib/harbor-console/session";
 import { prisma } from "@/lib/prisma";
 import { harborLoginIdentity, hasHarborLogoutReceipt } from "./login-receipt";
+import { staffLifecycleRequested } from "./lifecycle/gate";
 
 export {
   createHarborSessionToken,
@@ -49,6 +50,7 @@ export async function validateHarborStaffSession(
 ) {
   const login = harborLoginIdentity(session);
   if (!login || login.retainUntil.getTime() <= Date.now()) return { valid: false as const };
+  if (staffLifecycleRequested() && session.staffMfa !== true) return { valid: false as const };
   const staff = await db.platformStaff.findUnique({
     where: { id: session.uid },
     select: {

@@ -20,6 +20,7 @@ export type HarborJwtPayload = JWTPayload & {
   name: string;
   staffRole: HarborStaffRole;
   sessionVersion: number;
+  staffMfa?: true;
 };
 
 function getJwtSecret() {
@@ -46,7 +47,7 @@ export async function createHarborSessionToken(input: {
   name: string;
   staffRole: HarborStaffRole;
   sessionVersion: number;
-}, options?: { bindAssistance: true }) {
+}, options?: { bindAssistance?: true; mfaVerified?: true }) {
   const token = new SignJWT({
     uid: input.uid,
     // A pre-1C build cannot accept a new ordinary login or mistake it for an assistance login.
@@ -56,6 +57,7 @@ export async function createHarborSessionToken(input: {
     name: input.name,
     staffRole: input.staffRole,
     sessionVersion: input.sessionVersion,
+    ...(options?.mfaVerified && { staffMfa: true }),
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()

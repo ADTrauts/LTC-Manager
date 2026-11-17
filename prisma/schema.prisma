@@ -4695,6 +4695,7 @@ enum HarborAuditAction {
 }
 
 model PlatformStaff {
+  lifecyclePasskeys             HarborStaffPasskey[]
   harborAssistanceConsents      HarborAssistanceConsent[]
   harborAssistanceGrants        HarborFacilityGrant[]           @relation("HarborGrantSubject")
   harborGrantsApproved          HarborFacilityGrant[]           @relation("HarborGrantApprover")
@@ -4730,6 +4731,88 @@ model PlatformStaff {
   organizationClaimsRevoked     OrganizationClaimInvitation[]  @relation("OrganizationClaimRevokedBy")
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
+}
+
+/// Approval is distinct from an invitation or a PlatformStaff identity.
+model HarborStaffRosterEntry {
+  email        String   @id
+  approvedById String
+  approvedAt   DateTime @default(now())
+}
+
+model HarborStaffPasskey {
+  id        String        @id
+  staffId   String
+  staff     PlatformStaff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  publicKey Bytes
+  counter   BigInt
+  createdAt DateTime      @default(now())
+
+  @@index([staffId])
+}
+
+enum HarborStaffIntentKind {
+  INVITE
+  RECOVERY
+  BOOTSTRAP
+  OWNER_CHANGE
+}
+
+model HarborStaffLifecycleIntent {
+  id             String                @id @default(cuid())
+  kind           HarborStaffIntentKind
+  email          String
+  staffId        String?
+  staffVersion   Int?
+  tokenHash      String?               @unique
+  requestedById  String?
+  requestedByVersion Int?
+  approvedById   String?
+  approvedByVersion Int?
+  proofReference String?
+  changeReason   String?
+  selfVerifiedAt DateTime?
+  desiredRole    PlatformStaffRole?
+  desiredActive  Boolean?
+  usedAt         DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime              @default(now())
+
+  @@index([email, kind, expiresAt])
+}
+
+enum HarborStaffChallengeKind {
+  SIGN_IN
+  STAFF_ACTION
+  ENROLL
+  RECOVERY_FACTOR
+}
+
+model HarborStaffLifecycleChallenge {
+  id           String                   @id @default(cuid())
+  kind         HarborStaffChallengeKind
+  staffId      String?
+  staffVersion Int?
+  loginKey     String?
+  intentId     String?
+  action       Json?
+  challenge    String
+  usedAt       DateTime?
+  expiresAt    DateTime
+
+  @@index([expiresAt])
+}
+
+model HarborStaffLifecycleAudit {
+  id        String   @id @default(cuid())
+  action    String
+  actorId   String?
+  subject   String
+  intentId  String?
+  detail    Json?
+  createdAt DateTime @default(now())
+
+  @@index([subject, createdAt])
 }
 
 /// Reviewed, bounded import intent. Raw files and credentials are never retained.

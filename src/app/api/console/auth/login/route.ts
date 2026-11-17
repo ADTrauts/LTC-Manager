@@ -8,18 +8,11 @@ import {
   normalizeAccountIdentifier,
   passwordAccountBucketKey,
   registerAuthFailure,
-  resetAuthRateLimitBucket,
 } from "@/lib/auth-rate-limit";
-import { getAppSession } from "@/lib/auth";
-import { getAssistancePilot } from "@/lib/harbor-console/assistance-pilot";
-import {
-  createHarborSessionToken,
-  getHarborCookieOptions,
-  HARBOR_INITIAL_SESSION_VERSION,
-  HARBOR_SESSION_COOKIE,
-  resolveHarborSession,
-} from "@/lib/harbor-console/auth";
-import { revokePushForDepartingUser } from "@/lib/notifications/push-subscription";
+import { completeHarborSignIn } from "@/lib/harbor-console/complete-sign-in";
+import { secret, StaffLifecycleDenied } from "@/lib/harbor-console/lifecycle/ceremony";
+import { STAFF_MFA_COOKIE, STAFF_MFA_PATH, staffLifecycleConfig, staffLifecycleRequested } from "@/lib/harbor-console/lifecycle/gate";
+import { beginMfaSignIn } from "@/lib/harbor-console/lifecycle/identity";
 import { prisma } from "@/lib/prisma";
 
 const loginSchema = z.object({
@@ -77,40 +70,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
-  const pilot = getAssistancePilot(request.headers.get("host") ?? new URL(request.url).host);
-  const token = await createHarborSessionToken({
-    uid: staff.id,
-    email: staff.email,
-    name: staff.displayName,
-    staffRole: staff.role,
-    sessionVersion: staff.sessionVersion ?? HARBOR_INITIAL_SESSION_VERSION,
-  }, pilot?.staff.has(staff.id) ? { bindAssistance: true } : undefined);
-
-  // Do not issue a cookie unless the live authority and receipt store can validate it.
-  if (!await resolveHarborSession(token)) {
-    return NextResponse.json({ error: "Staff sign-in is temporarily unavailable." }, { status: 503 });
+  if (staffLifecycleRequested()) {
+    const config = staffLifecycleConfig(request);
+    if (!config) return NextResponse.json({ error: "Staff sign-in is temporarily unavailable." }, { status: 503 });
+    try {
+      const browserProof = secret();
+      const response = NextResponse.json({ mfa: await beginMfaSignIn(config, staff.id, staff.sessionVersion, browserProof) }, {
+        headers: { "cache-control": "no-store" },
+      });
+      response.cookies.set({ name: STAFF_MFA_COOKIE, value: browserProof, httpOnly: true, sameSite: "strict",
+        path: STAFF_MFA_PATH, maxAge: 300, secure: process.env.NODE_ENV === "production" });
+      return response;
+    } catch (error) {
+      if (error instanceof StaffLifecycleDenied) {
+        return NextResponse.json({ error: "Enrollment is required before signing in." }, { status: 403 });
+      }
+      return NextResponse.json({ error: "Staff sign-in is temporarily unavailable." }, { status: 503 });
+    }
   }
-
-  await resetAuthRateLimitBucket(accountBucketKey);
-  await prisma.platformStaff.update({
-    where: { id: staff.id },
-    data: { lastLoginAt: new Date() },
-  });
-  await prisma.harborAuditEvent.create({
-    data: { staffId: staff.id, action: "LOGIN" },
-  });
-
-  try {
-    const previous = await getAppSession();
-    await revokePushForDepartingUser(prisma, previous, null, new Date());
-  } catch {
-    return NextResponse.json(
-      { error: "Sign-in stopped. Browser alerts for the previous account are still active." },
-      { status: 503 },
-    );
-  }
-
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set(HARBOR_SESSION_COOKIE, token, getHarborCookieOptions());
-  return response;
+  return completeHarborSignIn(request, staff);
 }
