@@ -6,9 +6,11 @@ const loopback = new Set(["localhost", "127.0.0.1", "[::1]"]);
 export const ASSISTANCE_VIEW = "/console/assistance";
 export const ASSISTANCE_COMMANDS = "/api/console/assistance";
 export const ASSISTANCE_CONSENT = "/api/harbor-assistance/consent";
+export const ASSISTANCE_AUDIT = "/api/console/assistance/audit";
 
 export function isAssistancePath(path: string) {
-  return path === ASSISTANCE_VIEW || path === ASSISTANCE_COMMANDS || path === ASSISTANCE_CONSENT;
+  return path === ASSISTANCE_VIEW || path === ASSISTANCE_COMMANDS || path === ASSISTANCE_CONSENT ||
+    path === ASSISTANCE_AUDIT;
 }
 
 function values(input: string | undefined) {

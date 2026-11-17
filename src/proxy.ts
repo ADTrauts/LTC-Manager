@@ -255,7 +255,8 @@ function nextFacilityResponse(request: NextRequest) {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (isAssistancePath(pathname) && !getAssistancePilot(request.headers.get("host") ?? request.nextUrl.host)) {
+  const assistancePath = isAssistancePath(pathname);
+  if (assistancePath && !getAssistancePilot(request.headers.get("host") ?? request.nextUrl.host)) {
     return new NextResponse(null, { status: 404, headers: assistanceNoStore });
   }
   const featureFlags = routeFeatureFlags();
@@ -273,6 +274,9 @@ export async function proxy(request: NextRequest) {
   if (anonymousDecision.route.access.kind === "HARBOR_STAFF") {
     const harborDenial = await authorizeHarborRequest(request);
     if (harborDenial) {
+      if (assistancePath) {
+        for (const [name, value] of Object.entries(assistanceNoStore)) harborDenial.headers.set(name, value);
+      }
       return harborDenial;
     }
     return NextResponse.next();

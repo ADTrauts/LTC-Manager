@@ -154,6 +154,14 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
   },
   {
+    pattern: "/api/console/assistance/audit",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+  },
+  {
     pattern: "/api/harbor-assistance/consent",
     match: "EXACT",
     surface: "API",

@@ -263,28 +263,33 @@ export async function loadPilotStructure(pilot: AssistancePilot, token: string |
   });
 }
 
-/** Internal audit maintenance. The receipt table has its own retention rule and is never pruned here. */
-export async function maintainPilotAudit(pilot: AssistancePilot, token: string | undefined, prune = false) {
+function pilotAuditScope(pilot: AssistancePilot) {
+  const facilities = [...pilot.facilities];
+  const staff = [...pilot.staff];
+  return {
+    staffScope: {
+      staffId: { in: staff }, action: { in: [...auditActions] },
+      OR: [{ facilityId: { in: facilities } }, { facilityId: null }],
+    },
+    consentScope: { subjectStaffId: { in: staff }, facilityId: { in: facilities } },
+  };
+}
+
+const auditEventLimit = 200;
+const auditSessionLimit = 200;
+
+export async function readPilotAudit(pilot: AssistancePilot, token: string | undefined) {
   return withHarborAssistanceTransaction(async (tx) => {
     const reviewer = await authorizedStaff(tx, token, pilot.reviewers);
     if (!reviewer) return null;
     const since = new Date((await currentTime(tx)).getTime() - auditRetention);
-    const staffScope = {
-      staffId: { in: [...pilot.staff] }, action: { in: [...auditActions] },
-      OR: [{ facilityId: { in: [...pilot.facilities] } }, { facilityId: null }],
-    };
-    const consentScope = { subjectStaffId: { in: [...pilot.staff] }, facilityId: { in: [...pilot.facilities] } };
-    if (prune) {
-      const staff = await tx.harborAuditEvent.deleteMany({ where: { ...staffScope, createdAt: { lt: since } } });
-      const consent = await tx.harborAssistanceConsentAuditEvent.deleteMany({ where: { ...consentScope, createdAt: { lt: since } } });
-      return staff.count + consent.count;
-    }
+    const { staffScope, consentScope } = pilotAuditScope(pilot);
     const staff = await tx.harborAuditEvent.findMany({
       where: { ...staffScope, createdAt: { gte: since } },
       select: { id: true, staffId: true, facilityId: true, action: true, createdAt: true, assistance: {
-        select: { grantId: true, sessionId: true, requestKey: true, operation: true, purpose: true },
+        select: { grantId: true, sessionId: true, requestKey: true, operation: true, purpose: true, loginKey: true },
       } },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 200,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: auditEventLimit,
     });
     const consent = await tx.harborAssistanceConsentAuditEvent.findMany({
       where: { ...consentScope, createdAt: { gte: since } },
@@ -292,16 +297,50 @@ export async function maintainPilotAudit(pilot: AssistancePilot, token: string |
         id: true, facilityId: true, action: true, createdAt: true, administratorId: true, subjectStaffId: true,
         consentId: true, grantId: true, sessionIds: true, operation: true, purpose: true,
       },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 200,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: auditEventLimit,
     });
+    const logoutKeys = staff.flatMap(({ action, assistance }) =>
+      action === "ASSISTANCE_LOGIN_END" && assistance?.loginKey ? [assistance.loginKey] : []);
+    const receipts = logoutKeys.length ? await tx.harborAssistanceLoginReceipt.findMany({
+      where: { loginKey: { in: logoutKeys } }, select: { loginKey: true, retainUntil: true },
+    }) : [];
+    const deadlines = new Map(receipts.map(({ loginKey, retainUntil }) => [loginKey, retainUntil]));
+    if (reviewer.expiresAt <= await currentTime(tx)) return null;
+
     return [
-      ...staff.map((event) => ({ ...event, administratorId: null, subjectStaffId: null })),
+      ...staff.map(({ assistance, ...event }) => {
+        const isLogout = event.action === "ASSISTANCE_LOGIN_END";
+        const loginKey = isLogout ? assistance?.loginKey : null;
+        const retainUntil = loginKey ? deadlines.get(loginKey) ?? null : null;
+        return {
+          ...event, administratorId: null, subjectStaffId: null,
+          assistance: assistance && !isLogout ? {
+            grantId: assistance.grantId, sessionId: assistance.sessionId, requestKey: assistance.requestKey,
+            operation: assistance.operation, purpose: assistance.purpose,
+          } : null,
+          logoutReceipt: loginKey ? { exists: retainUntil !== null, retainUntil } : null,
+        };
+      }),
       ...consent.map(({ id, facilityId, action, createdAt, administratorId, subjectStaffId,
         consentId, grantId, sessionIds, operation, purpose }) => ({
         id, facilityId, action, createdAt, administratorId, subjectStaffId, staffId: null,
-        assistance: { consentId, grantId, sessionIds, operation, purpose, sessionId: null, requestKey: null },
+        assistance: { consentId, grantId, sessionIds: sessionIds.slice(0, auditSessionLimit),
+          sessionIdsTruncated: sessionIds.length > auditSessionLimit, operation, purpose, sessionId: null, requestKey: null },
+        logoutReceipt: null,
       })),
     ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : a.id === b.id ? 0 : -1))
-      .slice(0, 200);
+      .slice(0, auditEventLimit);
+  });
+}
+
+/** Offline maintenance. The independent login receipt table is outside audit retention. */
+export async function prunePilotAudit(pilot: AssistancePilot, token: string | undefined) {
+  return withHarborAssistanceTransaction(async (tx) => {
+    if (!await authorizedStaff(tx, token, pilot.reviewers)) return null;
+    const cutoff = new Date((await currentTime(tx)).getTime() - auditRetention);
+    const { staffScope, consentScope } = pilotAuditScope(pilot);
+    const staff = await tx.harborAuditEvent.deleteMany({ where: { ...staffScope, createdAt: { lt: cutoff } } });
+    const consent = await tx.harborAssistanceConsentAuditEvent.deleteMany({ where: { ...consentScope, createdAt: { lt: cutoff } } });
+    return staff.count + consent.count;
   });
 }

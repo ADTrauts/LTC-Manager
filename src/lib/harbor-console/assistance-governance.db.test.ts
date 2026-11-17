@@ -3,15 +3,18 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { SignJWT } from "jose";
+import { NextRequest } from "next/server";
+import { GET as getReviewerAudit } from "@/app/api/console/assistance/audit/route";
 import { createSessionToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import {
-  approveAssistanceGrant, endPilotAssistance, loadPilotStructure, maintainPilotAudit, recordAssistanceConsent,
+  approveAssistanceGrant, endPilotAssistance, loadPilotStructure, prunePilotAudit, readPilotAudit, recordAssistanceConsent,
   revokePilotAssistance, switchAssistanceContext, withdrawAssistanceConsent,
 } from "./assistance-governance";
 import { endBrowserAssistanceLogin, readBoundLogin, recordHarborAssistanceGrantRevocation, withHarborAssistanceTransaction } from "./assistance-store";
-import { createHarborSessionToken } from "./session";
+import { ASSISTANCE_AUDIT } from "./assistance-pilot";
+import { createHarborSessionToken, HARBOR_JWT_CLOCK_TOLERANCE_SECONDS, HARBOR_SESSION_COOKIE } from "./session";
 
 const url = process.env.VERIFY_DATABASE_URL;
 
@@ -211,8 +214,8 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   ] });
   assert.equal(await loadPilotStructure(pilot, separateLogin, refA), null);
   assert.equal(await loadPilotStructure(pilot, v, randomUUID()), null);
-  assert.equal(await maintainPilotAudit(pilot, approving), null);
-  const audit = await maintainPilotAudit(pilot, reviewing);
+  assert.equal(await readPilotAudit(pilot, approving), null);
+  const audit = await readPilotAudit(pilot, reviewing);
   assert.ok(Array.isArray(audit));
   assert.ok(audit.some((event) => event.action === "ASSISTANCE_READ" && event.staffId === viewer.id &&
     event.facilityId === a.id && event.assistance?.grantId === grantA && event.assistance?.sessionId === liveSession.id &&
@@ -305,7 +308,7 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   const withdrawnSessions = await prisma.harborAssistanceSession.findMany({ where: { grantId: grantB } });
   assert.ok(withdrawnSessions.every((session) => session.endedByUserId === replacement.id &&
     session.endReason === "CONSENT_WITHDRAWN" && session.endedAt?.getTime() === withdrawnGrant.revokedAt?.getTime()));
-  const withdrawalHistory = await maintainPilotAudit(pilot, reviewing);
+  const withdrawalHistory = await readPilotAudit(pilot, reviewing);
   assert.ok(Array.isArray(withdrawalHistory));
   const withdrawal = withdrawalHistory.filter((event) => event.action === "ASSISTANCE_CONSENT_WITHDRAWN");
   assert.equal(withdrawal.length, 1);
@@ -317,7 +320,7 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   assert.equal(withdrawal[0].assistance?.consentId, consentB);
   assert.equal(withdrawal[0].assistance?.grantId, grantB);
   assert.deepEqual(withdrawal[0].assistance?.sessionIds, beforeWithdrawal.sessions.map(({ id }) => id));
-  const scopedHistory = await maintainPilotAudit({ ...pilot, facilities: new Set([a.id]) }, reviewing);
+  const scopedHistory = await readPilotAudit({ ...pilot, facilities: new Set([a.id]) }, reviewing);
   assert.ok(Array.isArray(scopedHistory) && !scopedHistory.some((event) => event.facilityId === b.id));
 
   const refAgain = randomUUID();
@@ -356,7 +359,82 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   const login = await readBoundLogin(v);
   assert.ok(login);
   const receipt = await prisma.harborAssistanceLoginReceipt.findUniqueOrThrow({ where: { loginKey: login.key } });
-  assert.equal(receipt.retainUntil.getTime(), login.expiresAt.getTime());
+  assert.equal(receipt.retainUntil.getTime(), login.expiresAt.getTime() + HARBOR_JWT_CLOCK_TOLERANCE_SECONDS * 1000);
+  const logoutAudit = await prisma.harborAuditEvent.findFirstOrThrow({
+    where: { staffId: viewer.id, action: "ASSISTANCE_LOGIN_END" }, include: { assistance: true },
+  });
+  assert.ok(logoutAudit.assistance?.loginKey === login.key);
+  const reviewHost = "harbor-audit-test.vercel.app";
+  const deployedSha = "a".repeat(40);
+  const routeEnv = {
+    VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "harbor-1b3-pilot",
+    VERCEL_GIT_COMMIT_SHA: deployedSha, VERCEL_BRANCH_URL: reviewHost, VERCEL_URL: "direct-audit-test.vercel.app",
+    HARBOR_ASSISTANCE_PREVIEW: "1", HARBOR_ASSISTANCE_APPROVED_COMMIT: deployedSha,
+    HARBOR_ASSISTANCE_CUTOFF_UTC: new Date(Date.now() + 60_000).toISOString().replace(/\.\d{3}Z$/, "Z"),
+    HARBOR_ASSISTANCE_PROTECTED_PREVIEWS: reviewHost, HARBOR_ASSISTANCE_FACILITIES: a.id,
+    HARBOR_ASSISTANCE_STAFF: staffIds.filter((id) => id !== unrelated.id).join(","),
+    HARBOR_ASSISTANCE_VIEWERS: viewer.id, HARBOR_ASSISTANCE_APPROVERS: approver.id,
+    HARBOR_ASSISTANCE_REVOKERS: revoker.id, HARBOR_ASSISTANCE_REVIEWERS: reviewer.id,
+  };
+  function auditRoute(cookie?: string, search = "") {
+    return getReviewerAudit(new NextRequest(`https://${reviewHost}${ASSISTANCE_AUDIT}${search}`, {
+      headers: cookie ? { cookie } : {},
+    }));
+  }
+  const staffCookie = (token: string) => `${HARBOR_SESSION_COOKIE}=${token}`;
+  const original = Object.fromEntries(Object.keys(routeEnv).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, routeEnv);
+  try {
+    const auditCounters = () => Promise.all([
+      prisma.harborAuditEvent.count({ where: { staffId: { in: staffIds } } }),
+      prisma.harborAssistanceConsentAuditEvent.count({ where: { facilityId: { in: facilityIds } } }),
+      prisma.harborAssistanceLoginReceipt.count({ where: { loginKey: login.key } }),
+    ]);
+    const beforeReview = await auditCounters();
+    const response = await auditRoute(staffCookie(reviewing));
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("Cache-Control") ?? "", /no-store/);
+    const json = await response.text();
+    assert.ok(!json.includes(login.key) && !json.includes(v) && !json.includes("loginKey"));
+    const { events } = JSON.parse(json) as { events: NonNullable<Awaited<ReturnType<typeof readPilotAudit>>> };
+    const recorded = events.find((event) => event.action === "ASSISTANCE_CONSENT_RECORDED");
+    assert.equal(recorded?.administratorId, admins[0].id);
+    assert.equal(recorded?.facilityId, a.id);
+    const approved = events.find((event) => event.action === "ASSISTANCE_GRANT_APPROVE");
+    assert.equal(approved?.staffId, approver.id);
+    assert.equal(approved?.facilityId, a.id);
+    assert.ok(events.every((event) => event.facilityId !== b.id && event.staffId !== unrelated.id));
+    assert.deepEqual(events.find((event) => event.id === logoutAudit.id)?.logoutReceipt, {
+      exists: true, retainUntil: receipt.retainUntil.toISOString(),
+    });
+    process.env.HARBOR_ASSISTANCE_FACILITIES = facilityIds.join(",");
+    const expanded = await auditRoute(staffCookie(reviewing));
+    assert.equal(expanded.status, 200);
+    const expandedHistory = await expanded.json() as { events: typeof events };
+    const withdrawalEvent = expandedHistory.events.find((event) => event.action === "ASSISTANCE_CONSENT_WITHDRAWN");
+    assert.equal(withdrawalEvent?.administratorId, replacement.id);
+    assert.equal(withdrawalEvent?.facilityId, b.id);
+    assert.equal(withdrawalEvent?.assistance?.grantId, grantB);
+    assert.deepEqual(withdrawalEvent?.assistance?.sessionIds, beforeWithdrawal.sessions.map(({ id }) => id));
+    for (const cookie of [staffCookie(approving), staffCookie(separateLogin), staffCookie(v), `ltc_session=${adminA}`,
+      staffCookie(await staffToken(reviewer, false)), undefined]) {
+      const denial = await auditRoute(cookie);
+      assert.equal(denial.status, 404);
+      assert.match(denial.headers.get("Cache-Control") ?? "", /no-store/);
+    }
+    assert.equal((await auditRoute(staffCookie(reviewing), "?prune=true")).status, 404);
+    const secondReviewerLogin = await staffToken(reviewer);
+    await endBrowserAssistanceLogin(secondReviewerLogin);
+    assert.equal((await auditRoute(staffCookie(secondReviewerLogin))).status, 404);
+    const afterReview = await auditCounters();
+    assert.deepEqual(afterReview, [beforeReview[0] + 1, beforeReview[1], beforeReview[2]]);
+  } finally {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+
   await assert.rejects(prisma.harborAssistanceLoginReceipt.delete({ where: { loginKey: login.key } }), /still required/);
   await prisma.harborAuditEvent.updateMany({
     where: { staffId: viewer.id, action: "ASSISTANCE_LOGIN_END" },
@@ -365,7 +443,9 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   await prisma.harborAssistanceConsentAuditEvent.updateMany({
     where: { consentId: consentB }, data: { createdAt: new Date(Date.now() - 91 * 24 * 60 * 60_000) },
   });
-  assert.equal(await maintainPilotAudit(pilot, reviewing, true), 3);
+  assert.equal(await prunePilotAudit(pilot, reviewing), 3);
+  assert.equal(await prisma.harborAssistanceAuditDetail.findUnique({ where: { eventId: logoutAudit.id } }), null);
+  assert.deepEqual(await prisma.harborAssistanceLoginReceipt.findUnique({ where: { loginKey: login.key } }), receipt);
   assert.equal(await prisma.harborAssistanceConsentAuditEvent.count({ where: { consentId: consentB } }), 0);
   assert.equal((await prisma.harborAssistanceConsent.findUniqueOrThrow({ where: { id: consentB } })).withdrawnByUserId, replacement.id);
   assert.equal(await switchAssistanceContext(pilot, v, { ...liveScope, requestId: randomUUID() }), false);

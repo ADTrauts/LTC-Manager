@@ -40,11 +40,12 @@ test("fail closed — being a Facility Administrator does not open unregistered 
 });
 
 test("Harbor assistance classifies its exact entries and leaves other paths closed", () => {
-  for (const path of ["/console/assistance", "/api/console/assistance", "/api/harbor-assistance/consent"]) {
+  for (const path of ["/console/assistance", "/api/console/assistance", "/api/console/assistance/audit", "/api/harbor-assistance/consent"]) {
     assert.equal(PLATFORM_ROUTES.find((entry) => entry.pattern === path)?.requiresDownstreamAuthorization, true);
   }
   for (const path of [
     "/console/assistance/export", "/api/console/assistance/sessions", "/api/console/assistance/grants",
+    "/api/console/assistance/audit/prune",
   ]) {
     for (const role of [null, ...APP_ROLES] as (AppRole | null)[]) {
       assert.equal(outcome(path, role), "NOT_FOUND", path);

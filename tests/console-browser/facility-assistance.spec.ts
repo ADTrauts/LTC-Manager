@@ -2,10 +2,16 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
 import bcrypt from "bcryptjs";
+import { decodeJwt } from "jose";
+import { ASSISTANCE_AUDIT } from "../../src/lib/harbor-console/assistance-pilot";
+import { HARBOR_JWT_CLOCK_TOLERANCE_SECONDS, HARBOR_SESSION_COOKIE } from "../../src/lib/harbor-console/session";
 import { assertDisposableDatabaseUrl } from "../../src/lib/verify/database-target";
 
 const databaseUrl = process.env.CONSOLE_BROWSER_DATABASE_URL;
-const setup = { org: "b3-browser-org", facility: "b3-browser-a", viewer: "b3-browser-viewer", owner: "b3-browser-owner" };
+const setup = {
+  org: "b3-browser-org", facility: "b3-browser-a",
+  viewer: "b3-browser-viewer", owner: "b3-browser-owner", reviewer: "b3-browser-reviewer",
+};
 
 async function command(page: Page, path: string, body: object) {
   return page.evaluate(async ({ path, body }) => {
@@ -37,6 +43,15 @@ test("an approved synthetic Facility structure is read-only and login-bound in C
   const customer = await browser.newContext({ baseURL });
   const owner = await browser.newContext({ baseURL });
   const viewer = await browser.newContext({ baseURL });
+  const reviewer = await browser.newContext({ baseURL });
+  const replay = await browser.newContext({ baseURL });
+  const guardedTables = ["HarborAuditEvent", "HarborAssistanceAuditDetail", "HarborAssistanceConsentAuditEvent",
+    "HarborAssistanceLoginReceipt", "HarborFacilityGrant", "HarborAssistanceConsent", "HarborAssistanceSession",
+    "User", "PlatformStaff", "Facility", "Unit", "UnitSpace", "FacilityRoomType", "AuthRateLimitBucket"];
+  async function removeWriteGuard() {
+    // Local disposable browser database only. Removing the function also removes its triggers.
+    await db.$executeRaw`DROP FUNCTION IF EXISTS harbor_browser_forbid_audit_mutation() CASCADE`;
+  }
   try {
     await db.organization.create({ data: { id: setup.org, name: "Synthetic Harbor browser organization" } });
     await db.facility.create({ data: {
@@ -55,6 +70,7 @@ test("an approved synthetic Facility structure is read-only and login-bound in C
     await db.platformStaff.createMany({ data: [
       { id: setup.owner, displayName: "Synthetic Approver", email: "structure-owner@example.invalid", passwordHash, role: "OWNER" },
       { id: setup.viewer, displayName: "Synthetic Viewer", email: "structure-viewer@example.invalid", passwordHash, role: "MEMBER" },
+      { id: setup.reviewer, displayName: "Synthetic Reviewer", email: "structure-reviewer@example.invalid", passwordHash, role: "MEMBER" },
     ] });
     const floor = await db.unit.create({ data: {
       facilityId: setup.facility, name: "Synthetic floor", hierarchyRole: "FLOOR", unitType: "OTHER",
@@ -69,6 +85,13 @@ test("an approved synthetic Facility structure is read-only and login-bound in C
       signIn(ownerPage, true, "structure-owner@example.invalid", password),
       signIn(viewerPage, true, "structure-viewer@example.invalid", password),
     ]);
+    const reviewerPage = await reviewer.newPage();
+    await signIn(reviewerPage, true, "structure-reviewer@example.invalid", password);
+    const viewerLogin = (await viewer.cookies()).find(({ name }) => name === HARBOR_SESSION_COOKIE);
+    if (!viewerLogin) throw new Error("Viewer login missing");
+    const expiry = decodeJwt(viewerLogin.value).exp;
+    if (!expiry) throw new Error("Viewer signed expiry missing");
+    expect((await viewer.request.get(ASSISTANCE_AUDIT)).status()).toBe(404);
     const consentRequest = {
       action: "consent", facilityId: setup.facility, staffId: setup.viewer, minutes: 60, requestId: randomUUID(),
     };
@@ -118,13 +141,53 @@ test("an approved synthetic Facility structure is read-only and login-bound in C
     await expect(viewerPage.getByRole("heading", { name: "Facility structure", exact: true })).toHaveCount(0);
     expect((await viewer.cookies()).some((cookie) => cookie.name === "ltc_session")).toBe(true);
     expect(await db.harborAssistanceLoginReceipt.count()).toBeGreaterThan(0);
+
+    const counters = () => Promise.all([
+      db.harborAuditEvent.count(), db.harborAssistanceAuditDetail.count(),
+      db.harborAssistanceConsentAuditEvent.count(), db.harborAssistanceLoginReceipt.count(),
+    ]);
+    const beforeReview = await counters();
+    await db.$executeRaw`CREATE FUNCTION harbor_browser_forbid_audit_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'Reviewer route attempted to write'; END $$`;
+    for (const table of guardedTables) {
+      await db.$executeRawUnsafe(`CREATE TRIGGER harbor_browser_no_write BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE
+        ON "${table}" FOR EACH STATEMENT EXECUTE FUNCTION harbor_browser_forbid_audit_mutation()`);
+    }
+    const audit = await reviewerPage.goto(ASSISTANCE_AUDIT);
+    expect(audit?.status()).toBe(200);
+    expect(audit?.headers()["cache-control"]).toContain("no-store");
+    const body = await audit!.text();
+    expect(!body.includes("loginKey") && !body.includes(viewerLogin.value)).toBe(true);
+    const { events } = JSON.parse(body);
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ action: "ASSISTANCE_CONSENT_RECORDED", administratorId: user.id, facilityId: setup.facility }),
+      expect.objectContaining({ action: "ASSISTANCE_GRANT_APPROVE", staffId: setup.owner, facilityId: setup.facility }),
+      expect.objectContaining({
+        action: "ASSISTANCE_LOGIN_END", staffId: setup.viewer,
+        logoutReceipt: { exists: true, retainUntil: new Date((expiry + HARBOR_JWT_CLOCK_TOLERANCE_SECONDS) * 1000).toISOString() },
+      }),
+    ]));
+    expect((await ownerPage.goto(ASSISTANCE_AUDIT))?.status()).toBe(404);
+    expect((await customerPage.goto(ASSISTANCE_AUDIT))?.status()).toBe(401);
+    expect((await reviewer.request.get(`${ASSISTANCE_AUDIT}?prune=true`)).status()).toBe(404);
+    expect((await reviewer.request.delete(ASSISTANCE_AUDIT)).status()).toBe(405);
+    expect(await counters()).toEqual(beforeReview);
+    await removeWriteGuard();
+
+    await replay.addCookies((await reviewer.cookies()).filter(({ name }) => name === HARBOR_SESSION_COOKIE));
+    await reviewerPage.goto("/console");
+    await reviewerPage.getByRole("button", { name: "Sign out", exact: true }).click();
+    await reviewerPage.waitForURL(/\/console\/login$/);
+    expect((await reviewerPage.goto(ASSISTANCE_AUDIT))?.status()).toBe(401);
+    expect((await (await replay.newPage()).goto(ASSISTANCE_AUDIT))?.status()).toBe(404);
   } finally {
-    await Promise.all([customer.close(), owner.close(), viewer.close()]);
+    await Promise.all([customer.close(), owner.close(), viewer.close(), reviewer.close(), replay.close()]);
+    await removeWriteGuard();
     await db.harborAssistanceSession.deleteMany({ where: { grant: { facilityId: setup.facility } } });
     await db.harborFacilityGrant.deleteMany({ where: { facilityId: setup.facility } });
     await db.harborAssistanceConsentAuditEvent.deleteMany({ where: { facilityId: setup.facility } });
     await db.harborAssistanceConsent.deleteMany({ where: { facilityId: setup.facility } });
-    await db.platformStaff.deleteMany({ where: { id: { in: [setup.owner, setup.viewer] } } });
+    await db.platformStaff.deleteMany({ where: { id: { in: [setup.owner, setup.viewer, setup.reviewer] } } });
     await db.userFacilityRolePeriod.deleteMany({ where: { userFacilityAccess: { facilityId: setup.facility } } });
     await db.userFacilityAccess.deleteMany({ where: { facilityId: setup.facility } });
     await db.user.deleteMany({ where: { facilityId: setup.facility } });

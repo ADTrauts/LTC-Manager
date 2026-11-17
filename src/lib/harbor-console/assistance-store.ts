@@ -252,6 +252,7 @@ export async function endBrowserAssistanceLogin(token: string | undefined) {
     } });
     await tx.harborAuditEvent.create({ data: {
       staffId: login.claim.uid, action: "ASSISTANCE_LOGIN_END",
+      assistance: { create: { loginKey: login.key } },
       createdAt: now,
     } });
   });
