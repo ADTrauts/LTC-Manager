@@ -98,8 +98,8 @@ test("staff invite, passkey, recovery and authority workflows use application ro
   });
   await new Promise<void>((resolve) => sink.listen(Number(mailboxUrl.port), mailboxUrl.hostname, resolve));
   const db = new PrismaClient({ datasources: { db: { url: dbUrl } } });
-  const contexts = await Promise.all(Array.from({ length: 4 }, () => browser.newContext({ baseURL })));
-  const [a, b, reviewer, member] = await Promise.all(contexts.map(async (context) => {
+  const contexts = await Promise.all(Array.from({ length: 5 }, () => browser.newContext({ baseURL })));
+  const [a, b, reviewer, member, separateBrowser] = await Promise.all(contexts.map(async (context) => {
     const page = await context.newPage();
     await page.goto("/console/login", { waitUntil: "domcontentloaded" });
     const client = await context.newCDPSession(page);
@@ -154,9 +154,61 @@ test("staff invite, passkey, recovery and authority workflows use application ro
     if (invitation?.kind !== "INVITE") throw new Error("Expected synthetic work mailbox delivery.");
     await enroll(member, invitation.token, password, "Synthetic member");
     await signIn(member, memberEmail, password);
-    const targetStaff = await db.platformStaff.findUniqueOrThrow({ where: { email: memberEmail } });
-    expect(targetStaff.role).toBe("MEMBER");
+    const originalMember = await db.platformStaff.findUniqueOrThrow({ where: { email: memberEmail } });
+    expect(originalMember.role).toBe("MEMBER");
     await perform(member, { action: "invite", email: memberEmail }, 403);
+
+    // Routine recovery requires both the mailbox token and the browser that proved the old passkey.
+    expect((await post(member, identity, { operation: "request-recovery", email: memberEmail })).status).toBe(202);
+    const routineRecovery = delivered.find(({ to, kind }) => to === memberEmail && kind === "RECOVERY");
+    if (routineRecovery?.kind !== "RECOVERY") throw new Error("Expected a synthetic routine recovery message.");
+    const routineToken = routineRecovery.token;
+    const factorStart = { operation: "begin-recovery-factor", token: routineToken };
+    const factorChallenge = await post(member, identity, factorStart);
+    expect(factorChallenge.status).toBe(200);
+    expect((await post(separateBrowser, identity, factorStart)).status).toBe(200);
+    const factorProof = {
+      operation: "prove-recovery-factor", token: routineToken, challengeId: factorChallenge.data.challengeId,
+      response: await respond(member, factorChallenge.data),
+    };
+    expect((await post(separateBrowser, identity, factorProof)).status).toBe(403);
+    expect((await post(member, identity, factorProof)).status).toBe(200);
+    expect((await post(member, identity, factorProof)).status).toBe(403);
+
+    const enrollmentStart = { operation: "begin-enrollment", token: routineToken };
+    expect((await post(separateBrowser, identity, enrollmentStart)).status).toBe(403);
+    const enrollment = await post(member, identity, enrollmentStart);
+    expect(enrollment.status).toBe(200);
+    const memberPassword = randomUUID();
+    const finishRoutine = {
+      operation: "finish-enrollment", token: routineToken, password: memberPassword,
+      challengeId: enrollment.data.challengeId, response: await respond(member, enrollment.data),
+    };
+    expect((await post(separateBrowser, identity, finishRoutine)).status).toBe(403);
+
+    // Advance the proof's age without waiting, keeping the mailbox and registration challenges live.
+    const expiredProof = new Date(Date.now() - 6 * 60_000);
+    await db.$transaction([
+      db.harborStaffLifecycleChallenge.update({ where: { id: factorChallenge.data.challengeId }, data: { usedAt: expiredProof } }),
+      db.harborStaffLifecycleIntent.update({ where: { id: routineRecovery.intentId }, data: { selfVerifiedAt: expiredProof } }),
+    ]);
+    expect((await post(member, identity, finishRoutine)).status).toBe(403);
+    expect(await db.platformStaff.findUniqueOrThrow({
+      where: { id: originalMember.id }, select: { sessionVersion: true },
+    })).toEqual({ sessionVersion: originalMember.sessionVersion });
+    const refreshed = await post(member, identity, factorStart);
+    expect(refreshed.status).toBe(200);
+    expect((await post(member, identity, {
+      ...factorProof, challengeId: refreshed.data.challengeId, response: await respond(member, refreshed.data),
+    })).status).toBe(200);
+    expect((await post(member, identity, finishRoutine)).status).toBe(403);
+    await enroll(member, routineToken, memberPassword, "Synthetic member");
+    expect(delivered).toContainEqual({ kind: "RECOVERY_COMPLETED", to: memberEmail, intentId: routineRecovery.intentId });
+    await member.goto("/console", { waitUntil: "domcontentloaded" });
+    await expect(member).toHaveURL(/\/console\/login$/);
+    await signIn(member, memberEmail, memberPassword);
+    const targetStaff = await db.platformStaff.findUniqueOrThrow({ where: { email: memberEmail } });
+    expect(targetStaff.sessionVersion).toBe(originalMember.sessionVersion + 1);
 
     const command = { action: "change-authority", staffId: targetStaff.id, role: "OWNER", active: true, reason: "ROLE_ASSIGNMENT" };
     const first = (await a.context().cookies()).find(({ name }) => name === staffCookie);
@@ -218,7 +270,7 @@ test("staff invite, passkey, recovery and authority workflows use application ro
 
     // Prepare an eligible successor; only an independent reviewer's operator case may establish the second OWNER.
     await db.platformStaff.update({ where: { id: targetStaff.id }, data: { role: "MEMBER", isActive: true } });
-    await signIn(member, memberEmail, password);
+    await signIn(member, memberEmail, memberPassword);
     const { intentId: successorIntent } = await perform(a, command);
     await perform(a, { action: "approve-sole-owner-succession", intentId: successorIntent, proofReference: "CASE-SELF" }, 403);
     await perform(reviewer, {

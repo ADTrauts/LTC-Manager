@@ -57,76 +57,89 @@ export async function requestRecovery(config: StaffLifecycleConfig, email: strin
   }
 }
 
-export async function beginRecoveryFactor(config: StaffLifecycleConfig, token: string) {
+export async function beginRecoveryFactor(config: StaffLifecycleConfig, token: string, browserProof: string) {
   return lifecycleTransaction(async (tx) => {
     const intent = await tokenIntent(tx, token);
     requireLifecycle(intent.kind === "RECOVERY");
     const staff = await existingSubject(tx, intent);
     return beginAssertion(tx, config, {
       kind: "RECOVERY_FACTOR", staffId: staff.id, staffVersion: staff.sessionVersion, intentId: intent.id,
+      loginKey: digest(browserProof),
     });
   });
 }
 
 export async function finishRecoveryFactor(config: StaffLifecycleConfig, token: string, challengeId: string,
-  response: AuthenticationResponseJSON) {
+  response: AuthenticationResponseJSON, browserProof: string) {
   await lifecycleTransaction(async (tx) => {
     const intent = await tokenIntent(tx, token);
     requireLifecycle(intent.kind === "RECOVERY");
     const staff = await existingSubject(tx, intent);
     const row = await liveChallenge(tx, challengeId, "RECOVERY_FACTOR");
-    requireLifecycle(row.intentId === intent.id && row.staffId === staff.id && row.staffVersion === staff.sessionVersion);
-    await verifyStaffAssertion(tx, config, row, response);
-    await tx.harborStaffLifecycleIntent.update({ where: { id: intent.id }, data: { selfVerifiedAt: new Date() } });
+    requireLifecycle(row.intentId === intent.id && row.staffId === staff.id && row.staffVersion === staff.sessionVersion &&
+      row.loginKey === digest(browserProof));
+    const selfVerifiedAt = await verifyStaffAssertion(tx, config, row, response);
+    await tx.harborStaffLifecycleIntent.update({ where: { id: intent.id }, data: { selfVerifiedAt } });
     await audit(tx, "RECOVERY_FACTOR_VERIFIED", staff.id, staff.id, intent.id);
   });
 }
 
-async function canEnroll(tx: Tx, config: StaffLifecycleConfig, intent: HarborStaffLifecycleIntent) {
+async function authorizeEnrollment(tx: Tx, config: StaffLifecycleConfig, intent: HarborStaffLifecycleIntent,
+  browserProof: string | undefined, requireFactor = false) {
   if (intent.kind === "INVITE") {
     requireLifecycle(!await tx.platformStaff.findUnique({ where: { email: intent.email } }));
-    return null;
+    return { staff: null, factor: null };
   }
   const staff = await existingSubject(tx, intent);
   if (intent.kind === "BOOTSTRAP") {
     // The synthetic operator issues this escrow credential outside the public routes.
     requireLifecycle(intent.approvedById && intent.proofReference && intent.approvedById !== staff.id);
     requireLifecycle(!await tx.harborStaffPasskey.count({ where: { staffId: staff.id } }));
-  } else {
-    const soleOwner = staff.role === "OWNER" && !await hasOtherRecoverableOwner(tx, staff.id);
-    const reviewer = intent.approvedById && intent.proofReference && intent.approvedById !== staff.id &&
-      config.recoveryApprovers.has(intent.approvedById) &&
-      typeof intent.approvedByVersion === "number" &&
-      await tx.platformStaff.findFirst({ where: {
-        id: intent.approvedById, isActive: true, sessionVersion: intent.approvedByVersion,
-      } });
-    const liveFactor = intent.selfVerifiedAt && intent.selfVerifiedAt.getTime() + fiveMinutes > Date.now();
-    // Proof from the account's enrolled factor is enough only for routine recovery.
-    requireLifecycle(reviewer || (!soleOwner && liveFactor));
+    return { staff, factor: null };
   }
-  return staff;
+
+  const reviewer = !requireFactor && intent.approvedById && intent.proofReference && intent.approvedById !== staff.id &&
+    config.recoveryApprovers.has(intent.approvedById) &&
+    typeof intent.approvedByVersion === "number" &&
+    await tx.platformStaff.findFirst({ where: {
+      id: intent.approvedById, isActive: true, sessionVersion: intent.approvedByVersion,
+    } });
+  if (reviewer) return { staff, factor: null };
+
+  const soleOwner = staff.role === "OWNER" && !await hasOtherRecoverableOwner(tx, staff.id);
+  requireLifecycle(!soleOwner && browserProof && intent.selfVerifiedAt);
+  const verified = await tx.harborStaffLifecycleChallenge.findFirst({
+    where: { kind: "RECOVERY_FACTOR", intentId: intent.id, staffId: staff.id, staffVersion: staff.sessionVersion,
+      loginKey: digest(browserProof), usedAt: intent.selfVerifiedAt },
+    select: { id: true },
+  });
+  const expiresAt = intent.selfVerifiedAt.getTime() + fiveMinutes;
+  requireLifecycle(verified && expiresAt > Date.now());
+  return { staff, factor: { enrollmentKey: digest(browserProof + ":" + verified.id), expiresAt } };
 }
 
-export async function beginIdentityEnrollment(config: StaffLifecycleConfig, token: string) {
+export async function beginIdentityEnrollment(config: StaffLifecycleConfig, token: string, browserProof?: string) {
   return lifecycleTransaction(async (tx) => {
     const intent = await tokenIntent(tx, token);
-    await canEnroll(tx, config, intent);
-    return beginEnrollment(tx, config, intent.id, intent.email);
+    const { factor } = await authorizeEnrollment(tx, config, intent, browserProof);
+    return beginEnrollment(tx, config, intent.id, intent.email, factor?.enrollmentKey ?? null);
   });
 }
 
 export async function finishIdentityEnrollment(
   config: StaffLifecycleConfig, token: string, challengeId: string, response: RegistrationResponseJSON,
-  password: string, displayName?: string,
+  password: string, browserProof?: string, displayName?: string,
 ) {
   const passwordHash = await bcrypt.hash(password, 12);
   const notice = await lifecycleTransaction(async (tx) => {
     const intent = await tokenIntent(tx, token);
-    const subject = await canEnroll(tx, config, intent);
     const row = await liveChallenge(tx, challengeId, "ENROLL");
     requireLifecycle(row.intentId === intent.id);
+    const { staff: subject, factor } = await authorizeEnrollment(tx, config, intent, browserProof, row.loginKey !== null);
+    requireLifecycle(row.loginKey === (factor?.enrollmentKey ?? null));
     const key = await verifiedEnrollment(tx, config, row, response);
     const now = new Date();
+    requireLifecycle(!factor || factor.expiresAt > now.getTime());
     const claimed = await tx.harborStaffLifecycleIntent.updateMany({
       where: { id: intent.id, usedAt: null, expiresAt: { gt: now } }, data: { usedAt: now, tokenHash: null },
     });

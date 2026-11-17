@@ -40,7 +40,8 @@ export async function beginAssertion(tx: Tx, config: StaffLifecycleConfig, bindi
   return { challengeId: row.id, options };
 }
 
-export async function beginEnrollment(tx: Tx, config: StaffLifecycleConfig, intentId: string, email: string) {
+export async function beginEnrollment(tx: Tx, config: StaffLifecycleConfig, intentId: string, email: string,
+  loginKey: string | null) {
   const options = await generateRegistrationOptions({
     rpName: "Vssyl Console", rpID: config.rpID, userName: email,
     userID: new TextEncoder().encode(digest(email).slice(0, 32)),
@@ -49,7 +50,7 @@ export async function beginEnrollment(tx: Tx, config: StaffLifecycleConfig, inte
     supportedAlgorithmIDs: [-7, -257],
   });
   const row = await tx.harborStaffLifecycleChallenge.create({ data: {
-    kind: "ENROLL", intentId, challenge: options.challenge, expiresAt: new Date(Date.now() + fiveMinutes),
+    kind: "ENROLL", intentId, loginKey, challenge: options.challenge, expiresAt: new Date(Date.now() + fiveMinutes),
   } });
   return { challengeId: row.id, options };
 }
@@ -66,6 +67,7 @@ export async function consumeChallenge(tx: Tx, row: HarborStaffLifecycleChalleng
     where: { id: row.id, usedAt: null, expiresAt: { gt: now } }, data: { usedAt: now },
   });
   requireLifecycle(claimed.count === 1);
+  return now;
 }
 
 export async function verifyStaffAssertion(
@@ -84,8 +86,9 @@ export async function verifyStaffAssertion(
     throw new StaffLifecycleDenied();
   }
   requireLifecycle(result.verified);
-  await consumeChallenge(tx, row);
+  const usedAt = await consumeChallenge(tx, row);
   await tx.harborStaffPasskey.update({ where: { id: key.id }, data: { counter: BigInt(result.authenticationInfo.newCounter) } });
+  return usedAt;
 }
 
 export async function verifiedEnrollment(
