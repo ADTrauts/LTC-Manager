@@ -201,6 +201,17 @@ export async function acceptHandoff(db: PrismaClient, actor: Actor, engagementId
     await appendEvent(tx,actor,engagementId,"CUSTOMER_ACCEPTED",{ fingerprint, orderId: order.id, deliveryRevision: row.deliveryRevision, reviewedSnapshot: json({ stages: review.stages, results: review.results }) });
   });
 }
+/** Same staff scope as the Implementation index; individual engagement reads still require participation. */
+export async function loadStaffImplementationWorkCounts(db: Db, actor: Actor, facilityId: string) {
+  staff(actor);
+  await authorize(db, actor, facilityId);
+  const { _count } = await db.implementationEngagement.aggregate({
+    where: { facilityId, acceptedAt: null },
+    _count: { _all: true, responsibleStaffId: true },
+  });
+  return { open: _count._all, unassigned: _count._all - _count.responsibleStaffId };
+}
+
 export async function getEngagement(db: PrismaClient, actor: Actor, engagementId: string) {
   const row = await db.implementationEngagement.findUniqueOrThrow({ where: { id: engagementId }, include: { orders: { orderBy: { revision: "desc" }, include: { attempts: { orderBy: { sequence: "desc" }, select: { id: true, sequence: true, status: true, createdAt: true, updatedAt: true } } } }, events: { orderBy: { createdAt: "asc" } }, responsibleStaff: { select: { id: true, displayName: true } }, participants: { select: { userId: true, staffId: true } } } });
   await authorize(db,actor,row.facilityId); await requireParticipant(db,actor,engagementId);

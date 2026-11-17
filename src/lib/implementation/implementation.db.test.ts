@@ -10,7 +10,7 @@ import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { applyFacilitySubscription } from "@/lib/billing/apply-stripe-event";
 import { previewImport, confirmImport, getImportResults } from "@/lib/setup-imports/service";
 import type { Dataset, Preview } from "@/lib/setup-imports/contract";
-import { requestEngagement, addParticipant, assignEngagement, issueQuote, approveQuote, recordDelivery, recordMappingDecision, receiveSource, linkImport, sharedResults, reviewHandoff, acceptHandoff, getEngagement } from "./service";
+import { requestEngagement, addParticipant, assignEngagement, issueQuote, approveQuote, recordDelivery, recordMappingDecision, receiveSource, linkImport, sharedResults, reviewHandoff, acceptHandoff, getEngagement, loadStaffImplementationWorkCounts } from "./service";
 import { STAGES } from "./contract";
 import type { Actor } from "./authority";
 import { prepareImplementationPayment, reconcileImplementationPayment, handleImplementationCheckout } from "@/lib/billing/implementation-payment";
@@ -58,6 +58,37 @@ function provider(){
   return {stripe,sessions,get creates(){return creates;},loseResponse(){failAfterCreate=true;},listFailure(){failList=true;},paid(){const s=[...sessions.values()][0]!;s.status="complete";s.payment_status="paid";s.payment_intent ||= `pi_${randomUUID()}`;return s;}};
 }
 async function prepare(db:PrismaClient,f:Awaited<ReturnType<typeof setup>>,p:ReturnType<typeof provider>){return prepareImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,f.order.digest,"https://test.example",`/admin/billing/implementation?engagement=${f.id}`);}
+
+test("SQL work counts: same staff scope as the index, without including accepted or other Facility engagements", { skip }, () => run(async db => {
+  const current = await setup(db, true);
+  const other = await fixture(db);
+  await approveQuote(db, current.c, current.id, current.order.id, current.order.digest);
+  for (const stage of STAGES) await recordDelivery(db, current.s, current.id, {
+    stage, disposition: "DELIVERED", notes: "Reviewed synthetic delivery evidence",
+  });
+  await acceptHandoff(db, current.c, current.id, (await reviewHandoff(db, current.c, current.id)).fingerprint);
+  const assigned = await requestEngagement(db, current.c, current.facility.id, current.scope);
+  await assignEngagement(db, current.s, assigned, current.owner.id);
+  await requestEngagement(db, current.c, current.facility.id, current.scope);
+  await requestEngagement(db, { kind: "customer", session: other.session }, other.facility.id, current.scope);
+
+  const member = await db.platformStaff.create({ data: {
+    email: `overview-${randomUUID()}@example.com`, displayName: "Operations staff", passwordHash: "no-login", role: "MEMBER",
+  } });
+  const reviewer: Extract<Actor, { kind: "staff" }> = {
+    kind: "staff", workFacilityId: null, session: await verifyHarborSessionToken(await createHarborSessionToken({
+      uid: member.id, email: member.email, name: member.displayName, staffRole: member.role, sessionVersion: member.sessionVersion,
+    })),
+  };
+  assert.deepEqual(await loadStaffImplementationWorkCounts(db, current.s, current.facility.id), { open: 2, unassigned: 1 });
+  assert.deepEqual(await loadStaffImplementationWorkCounts(db, reviewer, current.facility.id), { open: 2, unassigned: 1 });
+  assert.deepEqual(await loadStaffImplementationWorkCounts(db, reviewer, other.facility.id), { open: 1, unassigned: 1 });
+  await assert.rejects(() => getEngagement(db, reviewer, assigned), /explicitly recorded participation/);
+  await assert.rejects(() => loadStaffImplementationWorkCounts(db, current.c, current.facility.id), /Console staff/);
+  await assert.rejects(() => loadStaffImplementationWorkCounts(db, { ...reviewer, workFacilityId: other.facility.id }, current.facility.id), /Exit the Facility work session/);
+  await db.platformStaff.update({ where: { id: member.id }, data: { sessionVersion: { increment: 1 } } });
+  await assert.rejects(() => loadStaffImplementationWorkCounts(db, reviewer, current.facility.id), /Console authority changed/);
+}));
 
 test("SQL assignment: records the locked previous staff and Facility without expanding customer or Support history", { skip }, () => run(async db => {
   const f = await fixture(db);

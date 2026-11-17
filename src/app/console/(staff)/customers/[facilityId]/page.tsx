@@ -5,13 +5,14 @@ import { notFound } from "next/navigation";
 import { CustomerBillingSyncForm } from "@/components/harbor-console/customer-billing-sync-form";
 import { SupportHistoryPanel } from "@/components/harbor-console/support-history-panel";
 import { resendHarborProvisionInviteAction } from "../provision-actions";
-import { requireHarborStaff } from "@/lib/harbor-console/auth";
+import { peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { loadHarborFacility } from "@/lib/harbor-console/queries";
 import { HARBOR_WORK_CLEANUP_PATH, HARBOR_WORK_COOKIE } from "@/lib/harbor-console/session";
 import {
   stripeCustomerDashboardUrl,
   stripeSubscriptionDashboardUrl,
 } from "@/lib/billing/stripe-dashboard";
+import { loadStaffImplementationWorkCounts } from "@/lib/implementation/service";
 import { prisma } from "@/lib/prisma";
 import { loadSupportFacilityHistory, supportContactHref } from "@/lib/support/history";
 
@@ -25,11 +26,16 @@ export default async function HarborCustomerPage({
   const session = await requireHarborStaff();
   const { facilityId } = await params;
   const provisionQuery = searchParams ? await searchParams : {};
-  const [facility, browserCookies] = await Promise.all([loadHarborFacility(prisma, facilityId), cookies()]);
+  const [facility, browserCookies, workFacilityId] = await Promise.all([
+    loadHarborFacility(prisma, facilityId), cookies(), peekHarborWorkFacilityId(),
+  ]);
   if (!facility) {
     notFound();
   }
-  const supportHistory = await loadSupportFacilityHistory(prisma, facility.id);
+  const [supportHistory, implementationWork] = await Promise.all([
+    loadSupportFacilityHistory(prisma, facility.id),
+    workFacilityId ? null : loadStaffImplementationWorkCounts(prisma, { kind: "staff", session, workFacilityId }, facility.id),
+  ]);
 
   await prisma.harborAuditEvent.create({
     data: {
@@ -55,10 +61,8 @@ export default async function HarborCustomerPage({
           <span className="mx-1.5 text-[var(--text-secondary)]">/</span>
           <span>{facility.displayName}</span>
         </p>
-        <Link className="underline" href={`/console/customers/${facility.id}/implementation`}>Implementation engagements / service orders</Link>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{facility.displayName}</h1>
         <p className="text-sm text-[var(--text-secondary)]">{facility.organizationName}</p>
-        <p className="mt-2 text-sm font-medium">{facility.onboarding}</p>
         {provisionQuery.provisioned === "1" ? (
           <p className="mt-3 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm">
             {provisionQuery.replayed === "1"
@@ -108,7 +112,29 @@ export default async function HarborCustomerPage({
         </div>
       </header>
 
-      <section className="rounded-md border border-[var(--border)] bg-white p-4">
+      <section aria-labelledby="operations-overview" className="rounded-md border border-[var(--border)] bg-white p-4">
+        <h2 id="operations-overview" className="text-sm font-semibold">Operations overview</h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <OverviewItem title="Setup" status={facility.onboarding} href="#account" action="View setup" />
+          <OverviewItem title="Billing" status={facility.billingStatus} href="#billing" action="View billing details" />
+          <OverviewItem
+            title="Support"
+            status={`${supportHistory.active} active · ${supportHistory.waitingOnCustomer} waiting on customer`}
+            href={supportHistory.viewAllHref}
+            action="View support tickets"
+          />
+          <OverviewItem
+            title="Implementation"
+            status={implementationWork
+              ? `${implementationWork.open} open · ${implementationWork.unassigned} unassigned`
+              : "Clear the old work session to see counts"}
+            href={`/console/customers/${facility.id}/implementation`}
+            action="View implementation work"
+          />
+        </div>
+      </section>
+
+      <section id="account" className="scroll-mt-4 rounded-md border border-[var(--border)] bg-white p-4">
         <h2 className="text-sm font-semibold">Account</h2>
         <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <Field label="Facility name" value={facility.displayName} />
@@ -146,7 +172,7 @@ export default async function HarborCustomerPage({
         </ul>
       </section>
 
-      <section className="rounded-md border border-[var(--border)] bg-white p-4">
+      <section id="billing" className="scroll-mt-4 rounded-md border border-[var(--border)] bg-white p-4">
         <h2 className="text-sm font-semibold">Billing</h2>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">
           Diagnostics only. Stripe owns money; Vssyl owns this local access mirror.
@@ -246,6 +272,24 @@ export default async function HarborCustomerPage({
 
 async function resendAdministratorInviteFormAction(formData: FormData): Promise<void> {
   await resendHarborProvisionInviteAction(formData);
+}
+
+function OverviewItem({ title, status, href, action }: {
+  title: string;
+  status: string;
+  href: string;
+  action: string;
+}) {
+  const linkStyle = "mt-1 inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-2";
+  return (
+    <div className="rounded-md bg-[var(--surface-muted)] px-3 pt-3">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{title}</h3>
+      <p className="mt-1 text-sm font-medium tabular-nums">{status}</p>
+      {href.startsWith("#")
+        ? <a className={linkStyle} href={href}>{action}</a>
+        : <Link className={linkStyle} href={href} prefetch={false}>{action}</Link>}
+    </div>
+  );
 }
 
 function Field({
