@@ -40,7 +40,7 @@ export default async function HarborCustomersPage({
             New customer
           </Link>
         ) : null}
-        <form className="flex flex-wrap items-end gap-2" action="/console/customers">
+        <form key={JSON.stringify([query, filter])} className="flex flex-wrap items-end gap-2" action="/console/customers">
           <input
             type="search"
             name="q"
