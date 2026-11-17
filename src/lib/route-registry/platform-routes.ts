@@ -139,10 +139,11 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
   {
     pattern: "/console/assistance",
     match: "EXACT",
-    surface: "PAGE",
+    surface: "API",
     access: { kind: "HARBOR_STAFF" },
     module: "harbor-console",
     requiresDownstreamAuthorization: true,
+    notes: "A standalone HTML route handler with no client scripts or prefetch.",
   },
   {
     pattern: "/api/console/assistance",
