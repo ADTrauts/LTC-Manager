@@ -52,21 +52,38 @@ async function liveAdministrator(tx: AssistanceTx, session: FacilitySession) {
 export async function recordAssistanceConsent(
   pilot: AssistancePilot,
   token: string | undefined,
-  input: { facilityId: string; staffId: string; minutes: number },
+  input: { facilityId: string; staffId: string; minutes: number; requestId: string },
 ) {
   if (!scoped(pilot, input.facilityId, input.staffId) || !pilot.viewers.has(input.staffId) ||
-    !Number.isInteger(input.minutes) || input.minutes < 1 || input.minutes > 1440) return null;
+    !assistanceReference.test(input.requestId) || !Number.isInteger(input.minutes) ||
+    input.minutes < 1 || input.minutes > 1440) return null;
   const administrator = await readAdministrator(token, input.facilityId);
   if (!administrator) return null;
   return withHarborAssistanceTransaction(async (tx) => {
     if (!(await lockStaff(tx, input.staffId))) return null;
     const now = await liveAdministrator(tx, administrator);
     if (!now) return null;
-    const consent = await tx.harborAssistanceConsent.create({ data: {
+    const duration = input.minutes * 60_000;
+    // The unique key also serializes retries that arrive under different scope locks.
+    const inserted = await tx.harborAssistanceConsent.createMany({ skipDuplicates: true, data: {
+      requestId: input.requestId,
       facilityId: input.facilityId, staffId: input.staffId, administratorId: administrator.uid,
       operation: structureRead, purpose: structureReview, grantedAt: now,
-      expiresAt: new Date(now.getTime() + input.minutes * 60_000),
-    }, select: { id: true } });
+      expiresAt: new Date(now.getTime() + duration),
+    } });
+    const consent = await tx.harborAssistanceConsent.findUnique({ where: { requestId: input.requestId } });
+    if (!consent || consent.facilityId !== input.facilityId || consent.staffId !== input.staffId ||
+        consent.administratorId !== administrator.uid || consent.operation !== structureRead ||
+        consent.purpose !== structureReview || consent.expiresAt.getTime() - consent.grantedAt.getTime() !== duration) {
+      return null;
+    }
+    if (inserted.count) {
+      await tx.harborAssistanceConsentAuditEvent.create({ data: {
+        action: "ASSISTANCE_CONSENT_RECORDED", administratorId: administrator.uid,
+        facilityId: consent.facilityId, subjectStaffId: consent.staffId, consentId: consent.id,
+        operation: consent.operation, purpose: consent.purpose, createdAt: now,
+      } });
+    }
     return consent.id;
   });
 }
@@ -131,19 +148,27 @@ export async function withdrawAssistanceConsent(
     if (!consent) return false;
     if (consent.withdrawnAt) return true;
     const grant = consent.grant && await lockGrant(tx, input.staffId, { grantId: consent.grant.id, facilityId: input.facilityId });
+    if (consent.grant && !grant) return false;
     const now = await currentTime(tx);
     if (typeof administrator.exp !== "number" || now.getTime() >= administrator.exp * 1000) return false;
     await tx.harborAssistanceConsent.update({ where: { id: consent.id }, data: {
       withdrawnAt: now, withdrawnByUserId: administrator.uid,
     } });
+    let sessionIds: string[] = [];
     if (grant && !grant.revokedAt) {
       await tx.harborFacilityGrant.update({ where: { id: grant.id }, data: {
         revokedAt: now, revokedByUserId: administrator.uid,
       } });
-      await tx.harborAssistanceSession.updateMany({ where: { grantId: grant.id, endedAt: null }, data: {
+      const ended = await tx.harborAssistanceSession.updateManyAndReturn({ where: { grantId: grant.id, endedAt: null }, data: {
         endedAt: now, endReason: "CONSENT_WITHDRAWN", endedByUserId: administrator.uid,
-      } });
+      }, select: { id: true } });
+      sessionIds = ended.map(({ id }) => id).sort();
     }
+    await tx.harborAssistanceConsentAuditEvent.create({ data: {
+      action: "ASSISTANCE_CONSENT_WITHDRAWN", administratorId: administrator.uid,
+      facilityId: consent.facilityId, subjectStaffId: consent.staffId, consentId: consent.id,
+      grantId: grant?.id, sessionIds, operation: consent.operation, purpose: consent.purpose, createdAt: now,
+    } });
     return true;
   });
 }
@@ -244,17 +269,39 @@ export async function maintainPilotAudit(pilot: AssistancePilot, token: string |
     const reviewer = await authorizedStaff(tx, token, pilot.reviewers);
     if (!reviewer) return null;
     const since = new Date((await currentTime(tx)).getTime() - auditRetention);
-    const scope = {
+    const staffScope = {
       staffId: { in: [...pilot.staff] }, action: { in: [...auditActions] },
       OR: [{ facilityId: { in: [...pilot.facilities] } }, { facilityId: null }],
     };
-    if (prune) return (await tx.harborAuditEvent.deleteMany({ where: { ...scope, createdAt: { lt: since } } })).count;
-    return tx.harborAuditEvent.findMany({
-      where: { ...scope, createdAt: { gte: since } },
-      select: { staffId: true, facilityId: true, action: true, createdAt: true, assistance: {
+    const consentScope = { subjectStaffId: { in: [...pilot.staff] }, facilityId: { in: [...pilot.facilities] } };
+    if (prune) {
+      const staff = await tx.harborAuditEvent.deleteMany({ where: { ...staffScope, createdAt: { lt: since } } });
+      const consent = await tx.harborAssistanceConsentAuditEvent.deleteMany({ where: { ...consentScope, createdAt: { lt: since } } });
+      return staff.count + consent.count;
+    }
+    const staff = await tx.harborAuditEvent.findMany({
+      where: { ...staffScope, createdAt: { gte: since } },
+      select: { id: true, staffId: true, facilityId: true, action: true, createdAt: true, assistance: {
         select: { grantId: true, sessionId: true, requestKey: true, operation: true, purpose: true },
       } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 200,
     });
+    const consent = await tx.harborAssistanceConsentAuditEvent.findMany({
+      where: { ...consentScope, createdAt: { gte: since } },
+      select: {
+        id: true, facilityId: true, action: true, createdAt: true, administratorId: true, subjectStaffId: true,
+        consentId: true, grantId: true, sessionIds: true, operation: true, purpose: true,
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 200,
+    });
+    return [
+      ...staff.map((event) => ({ ...event, administratorId: null, subjectStaffId: null })),
+      ...consent.map(({ id, facilityId, action, createdAt, administratorId, subjectStaffId,
+        consentId, grantId, sessionIds, operation, purpose }) => ({
+        id, facilityId, action, createdAt, administratorId, subjectStaffId, staffId: null,
+        assistance: { consentId, grantId, sessionIds, operation, purpose, sessionId: null, requestKey: null },
+      })),
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : a.id === b.id ? 0 : -1))
+      .slice(0, 200);
   });
 }

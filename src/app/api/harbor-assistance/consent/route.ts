@@ -5,10 +5,12 @@ import { HARBOR_WORK_COOKIE } from "@/lib/harbor-console/session";
 import { recordAssistanceConsent, withdrawAssistanceConsent } from "@/lib/harbor-console/assistance-governance";
 import { assistanceNoStore, getAssistancePilot } from "@/lib/harbor-console/assistance-pilot";
 import { sameOriginBrowserPost } from "@/lib/harbor-console/browser-post";
+import { assistanceReference } from "@/lib/harbor-console/assistance-store";
 
 const id = z.string().min(1).max(100);
 const commands = z.discriminatedUnion("action", [
-  z.strictObject({ action: z.literal("consent"), facilityId: id, staffId: id, minutes: z.number().int().min(1).max(1440) }),
+  z.strictObject({ action: z.literal("consent"), facilityId: id, staffId: id,
+    minutes: z.number().int().min(1).max(1440), requestId: z.string().regex(assistanceReference) }),
   z.strictObject({ action: z.literal("withdraw"), facilityId: id, staffId: id, consentId: id }),
 ]);
 const response = (body: object, status = 200) => NextResponse.json(body, { status, headers: assistanceNoStore });

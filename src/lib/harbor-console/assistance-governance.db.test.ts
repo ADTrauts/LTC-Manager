@@ -70,6 +70,9 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
     await prisma.$executeRaw`DROP FUNCTION IF EXISTS harbor_b3_customer_guard()`;
     await prisma.$executeRaw`DROP TRIGGER IF EXISTS harbor_b3_fail_audit ON "HarborAuditEvent"`;
     await prisma.$executeRaw`DROP FUNCTION IF EXISTS harbor_b3_fail_audit()`;
+    await prisma.$executeRaw`DROP TRIGGER IF EXISTS harbor_b3_fail_consent_audit ON "HarborAssistanceConsentAuditEvent"`;
+    await prisma.$executeRaw`DROP FUNCTION IF EXISTS harbor_b3_fail_consent_audit()`;
+    await prisma.harborAssistanceConsentAuditEvent.deleteMany({ where: { facilityId: { in: facilityIds } } });
     await prisma.harborAssistanceSession.deleteMany({ where: { grant: { staffId: { in: staffIds } } } });
     await prisma.harborFacilityGrant.deleteMany({ where: { staffId: { in: staffIds } } });
     await prisma.harborAssistanceConsent.deleteMany({ where: { staffId: { in: staffIds } } });
@@ -161,12 +164,22 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   }
   await assert.rejects(prisma.unitSpace.update({ where: { id: unlinked.id }, data: { name: "Changed" } }), /synthetic customer write denied/);
 
-  const consentA = await recordAssistanceConsent(pilot, adminA, { facilityId: a.id, staffId: viewer.id, minutes: 1440 });
+  const requestA = { facilityId: a.id, staffId: viewer.id, minutes: 1440, requestId: randomUUID() };
+  const [consentA, ...consentRetries] = await Promise.all(Array.from({ length: 5 }, () =>
+    recordAssistanceConsent(pilot, adminA, requestA)));
   assert.ok(consentA);
-  assert.equal(await recordAssistanceConsent(pilot, adminA, { facilityId: b.id, staffId: viewer.id, minutes: 30 }), null);
-  assert.equal(await recordAssistanceConsent(pilot, v, { facilityId: a.id, staffId: viewer.id, minutes: 30 }), null);
-  assert.equal(await recordAssistanceConsent(pilot, adminA, { facilityId: a.id, staffId: viewer.id, minutes: 1441 }), null);
-  const selfConsent = await recordAssistanceConsent(pilot, adminA, { facilityId: a.id, staffId: approver.id, minutes: 30 });
+  assert.deepEqual(consentRetries, Array(4).fill(consentA));
+  assert.equal(await prisma.harborAssistanceConsent.count({ where: { requestId: requestA.requestId } }), 1);
+  assert.equal(await prisma.harborAssistanceConsentAuditEvent.count({ where: { consentId: consentA } }), 1);
+  assert.equal(await recordAssistanceConsent(pilot, adminA, { ...requestA, minutes: 30 }), null);
+  assert.equal(await recordAssistanceConsent(pilot, adminA, { ...requestA, staffId: approver.id }), null);
+  assert.equal(await recordAssistanceConsent(pilot, adminB, { ...requestA, facilityId: b.id }), null);
+  assert.equal(await recordAssistanceConsent(pilot, adminA, { ...requestA, facilityId: b.id }), null);
+  assert.equal(await recordAssistanceConsent(pilot, v, requestA), null);
+  assert.equal(await recordAssistanceConsent(pilot, adminA, { ...requestA, minutes: 1441 }), null);
+  const selfConsent = await recordAssistanceConsent(pilot, adminA, {
+    ...requestA, staffId: approver.id, minutes: 30, requestId: randomUUID(),
+  });
   assert.ok(selfConsent);
   assert.equal(await approveAssistanceGrant(pilot, approving, { facilityId: a.id, staffId: approver.id, consentId: selfConsent }), null);
   const evidenceA = { facilityId: a.id, staffId: viewer.id, consentId: consentA };
@@ -206,6 +219,10 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
     event.assistance?.operation === "FACILITY_STRUCTURE_READ" && event.assistance.requestKey));
   assert.ok(audit.some((event) => event.action === "ASSISTANCE_READ_DENIED" && event.facilityId === null &&
     event.assistance?.grantId === null && event.assistance?.sessionId === null));
+  assert.ok(audit.some((event) => event.action === "ASSISTANCE_CONSENT_RECORDED" && event.staffId === null &&
+    event.administratorId === admins[0].id && event.subjectStaffId === viewer.id && event.facilityId === a.id &&
+    event.assistance?.consentId === consentA && event.assistance.grantId === null &&
+    event.assistance.sessionIds.length === 0));
 
   await prisma.$executeRawUnsafe(`CREATE FUNCTION harbor_b3_fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$
     BEGIN IF NEW."staffId" = '${viewer.id}' AND NEW."action"::text = 'ASSISTANCE_READ'
@@ -215,7 +232,8 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   await assert.rejects(loadPilotStructure(pilot, v, refA), /synthetic audit failure/);
   await prisma.$executeRaw`DROP TRIGGER harbor_b3_fail_audit ON "HarborAuditEvent"`;
 
-  const consentB = await recordAssistanceConsent(pilot, adminB, { facilityId: b.id, staffId: viewer.id, minutes: 60 });
+  const requestB = { facilityId: b.id, staffId: viewer.id, minutes: 60, requestId: randomUUID() };
+  const consentB = await recordAssistanceConsent(pilot, adminB, requestB);
   assert.ok(consentB);
   const evidenceB = { facilityId: b.id, staffId: viewer.id, consentId: consentB };
   const grantB = await approveAssistanceGrant(pilot, approving, evidenceB);
@@ -228,15 +246,79 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   const refB = refs[switches.indexOf(true)];
   assert.equal(await loadPilotStructure(pilot, v, refA), null);
   assert.equal((await loadPilotStructure(pilot, v, refB))?.facilityName, "Synthetic B");
+  assert.equal(await switchAssistanceContext(pilot, separateLogin, {
+    facilityId: b.id, grantId: grantB, requestId: randomUUID(),
+  }), true);
+
+  // Transfer the synthetic seat so the consenting and withdrawing actors differ.
+  const replacement = await prisma.$transaction(async (tx) => {
+    const now = new Date();
+    await tx.userFacilityRolePeriod.updateMany({
+      where: { userFacilityAccess: { facilityId: b.id, userId: admins[1].id }, endsAt: null },
+      data: { endsAt: now },
+    });
+    return tx.user.create({ data: {
+      email: `replacement-${marker}@example.invalid`, displayName: "Replacement administrator",
+      facilityId: b.id, roleId: role.id, emailVerifiedAt: now,
+      facilityAccesses: { create: { facilityId: b.id, rolePeriods: { create: {
+        startsAt: now, roleKey: "FACILITY_ADMINISTRATOR",
+      } } } },
+    } });
+  });
+  admins.push(replacement);
+  const withdrawing = await createSessionToken({
+    uid: replacement.id, email: replacement.email, name: replacement.displayName,
+    role: "FACILITY_ADMINISTRATOR", sessionVersion: replacement.sessionVersion, facilityId: b.id,
+  });
+  assert.equal(await recordAssistanceConsent(pilot, withdrawing, requestB), null);
   assert.equal(await withdrawAssistanceConsent(pilot, adminA, evidenceB), false);
-  assert.equal(await withdrawAssistanceConsent(pilot, adminB, evidenceB), true);
+  assert.equal(await withdrawAssistanceConsent(pilot, adminB, evidenceB), false);
+  const beforeWithdrawal = {
+    consent: await prisma.harborAssistanceConsent.findUniqueOrThrow({ where: { id: consentB } }),
+    grant: await prisma.harborFacilityGrant.findUniqueOrThrow({ where: { id: grantB } }),
+    sessions: await prisma.harborAssistanceSession.findMany({ where: { grantId: grantB }, orderBy: { id: "asc" } }),
+  };
+  assert.equal(beforeWithdrawal.sessions.length, 2);
+  await prisma.$executeRawUnsafe(`CREATE FUNCTION harbor_b3_fail_consent_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF NEW."consentId" = '${consentB}' AND NEW."action"::text = 'ASSISTANCE_CONSENT_WITHDRAWN'
+    THEN RAISE EXCEPTION 'synthetic withdrawal audit failure'; END IF; RETURN NEW; END $$`);
+  await prisma.$executeRaw`CREATE TRIGGER harbor_b3_fail_consent_audit BEFORE INSERT ON "HarborAssistanceConsentAuditEvent"
+    FOR EACH ROW EXECUTE FUNCTION harbor_b3_fail_consent_audit()`;
+  await assert.rejects(withdrawAssistanceConsent(pilot, withdrawing, evidenceB), /synthetic withdrawal audit failure/);
+  assert.deepEqual(await prisma.harborAssistanceConsent.findUniqueOrThrow({ where: { id: consentB } }), beforeWithdrawal.consent);
+  assert.deepEqual(await prisma.harborFacilityGrant.findUniqueOrThrow({ where: { id: grantB } }), beforeWithdrawal.grant);
+  assert.deepEqual(await prisma.harborAssistanceSession.findMany({
+    where: { grantId: grantB }, orderBy: { id: "asc" },
+  }), beforeWithdrawal.sessions);
+  assert.equal(await prisma.harborAssistanceConsentAuditEvent.count({
+    where: { consentId: consentB, action: "ASSISTANCE_CONSENT_WITHDRAWN" },
+  }), 0);
+  assert.equal((await loadPilotStructure(pilot, v, refB))?.facilityName, "Synthetic B");
+  await prisma.$executeRaw`DROP TRIGGER harbor_b3_fail_consent_audit ON "HarborAssistanceConsentAuditEvent"`;
+
+  assert.equal(await withdrawAssistanceConsent(pilot, withdrawing, evidenceB), true);
+  assert.equal(await withdrawAssistanceConsent(pilot, withdrawing, evidenceB), true);
   assert.equal(await loadPilotStructure(pilot, v, refB), null);
   assert.equal(await approveAssistanceGrant(pilot, approving, evidenceB), null);
   const withdrawnGrant = await prisma.harborFacilityGrant.findUniqueOrThrow({ where: { id: grantB } });
-  assert.equal(withdrawnGrant.revokedByUserId, admins[1].id);
-  const withdrawnSession = await prisma.harborAssistanceSession.findFirstOrThrow({ where: { grantId: grantB } });
-  assert.equal(withdrawnSession.endedByUserId, admins[1].id);
-  assert.equal(withdrawnSession.endReason, "CONSENT_WITHDRAWN");
+  assert.equal(withdrawnGrant.revokedByUserId, replacement.id);
+  const withdrawnSessions = await prisma.harborAssistanceSession.findMany({ where: { grantId: grantB } });
+  assert.ok(withdrawnSessions.every((session) => session.endedByUserId === replacement.id &&
+    session.endReason === "CONSENT_WITHDRAWN" && session.endedAt?.getTime() === withdrawnGrant.revokedAt?.getTime()));
+  const withdrawalHistory = await maintainPilotAudit(pilot, reviewing);
+  assert.ok(Array.isArray(withdrawalHistory));
+  const withdrawal = withdrawalHistory.filter((event) => event.action === "ASSISTANCE_CONSENT_WITHDRAWN");
+  assert.equal(withdrawal.length, 1);
+  assert.equal(withdrawal[0].administratorId, replacement.id);
+  assert.equal(withdrawal[0].staffId, null);
+  assert.equal(withdrawal[0].subjectStaffId, viewer.id);
+  assert.equal(withdrawal[0].facilityId, b.id);
+  assert.equal(withdrawal[0].createdAt.getTime(), withdrawnGrant.revokedAt?.getTime());
+  assert.equal(withdrawal[0].assistance?.consentId, consentB);
+  assert.equal(withdrawal[0].assistance?.grantId, grantB);
+  assert.deepEqual(withdrawal[0].assistance?.sessionIds, beforeWithdrawal.sessions.map(({ id }) => id));
+  const scopedHistory = await maintainPilotAudit({ ...pilot, facilities: new Set([a.id]) }, reviewing);
+  assert.ok(Array.isArray(scopedHistory) && !scopedHistory.some((event) => event.facilityId === b.id));
 
   const refAgain = randomUUID();
   assert.equal(await switchAssistanceContext(pilot, v, { ...scopeA, requestId: refAgain }), true);
@@ -259,8 +341,11 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   assert.equal(await revoke, true);
   assert.equal(await waitingRead, null);
 
-  const liveConsent = await recordAssistanceConsent(pilot, adminA, { facilityId: a.id, staffId: viewer.id, minutes: 60 });
+  assert.equal(await recordAssistanceConsent(pilot, adminA, requestA), consentA);
+  assert.equal(await approveAssistanceGrant(pilot, approving, evidenceA), null);
+  const liveConsent = await recordAssistanceConsent(pilot, adminA, { ...requestA, minutes: 60, requestId: randomUUID() });
   assert.ok(liveConsent);
+  assert.notEqual(liveConsent, consentA);
   const liveGrant = await approveAssistanceGrant(pilot, approving, { ...evidenceA, consentId: liveConsent });
   assert.ok(liveGrant);
   const liveScope = { ...scopeA, grantId: liveGrant };
@@ -277,7 +362,12 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
     where: { staffId: viewer.id, action: "ASSISTANCE_LOGIN_END" },
     data: { createdAt: new Date(Date.now() - 91 * 24 * 60 * 60_000) },
   });
-  assert.equal(await maintainPilotAudit(pilot, reviewing, true), 1);
+  await prisma.harborAssistanceConsentAuditEvent.updateMany({
+    where: { consentId: consentB }, data: { createdAt: new Date(Date.now() - 91 * 24 * 60 * 60_000) },
+  });
+  assert.equal(await maintainPilotAudit(pilot, reviewing, true), 3);
+  assert.equal(await prisma.harborAssistanceConsentAuditEvent.count({ where: { consentId: consentB } }), 0);
+  assert.equal((await prisma.harborAssistanceConsent.findUniqueOrThrow({ where: { id: consentB } })).withdrawnByUserId, replacement.id);
   assert.equal(await switchAssistanceContext(pilot, v, { ...liveScope, requestId: randomUUID() }), false);
   assert.equal(await loadPilotStructure(pilot, v, logoutRef), null);
 

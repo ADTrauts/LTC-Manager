@@ -4815,6 +4815,7 @@ model HarborAssistanceLoginReceipt {
 
 model HarborAssistanceConsent {
   id                String                   @id @default(cuid())
+  requestId         String?                  @unique @db.Uuid
   facilityId        String
   facility          Facility                 @relation(fields: [facilityId], references: [id], onDelete: Restrict)
   staffId           String
@@ -4829,6 +4830,28 @@ model HarborAssistanceConsent {
   withdrawnByUserId String?
   withdrawnBy       User?                    @relation("HarborConsentWithdrawal", fields: [withdrawnByUserId], references: [id], onDelete: Restrict)
   grant             HarborFacilityGrant?
+}
+
+enum HarborAssistanceConsentAuditAction {
+  ASSISTANCE_CONSENT_RECORDED
+  ASSISTANCE_CONSENT_WITHDRAWN
+}
+
+/// Customer administrator events in the restricted Harbor pilot history.
+model HarborAssistanceConsentAuditEvent {
+  id              String                             @id @default(cuid())
+  action          HarborAssistanceConsentAuditAction
+  administratorId String
+  facilityId      String
+  subjectStaffId  String
+  consentId       String
+  grantId         String?
+  sessionIds      String[]                           @default([])
+  operation       HarborAssistanceOperation
+  purpose         HarborAssistancePurpose
+  createdAt       DateTime
+
+  @@index([facilityId, createdAt])
 }
 
 enum HarborAssistanceOperation {

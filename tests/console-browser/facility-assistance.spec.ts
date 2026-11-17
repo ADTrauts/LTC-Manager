@@ -69,10 +69,16 @@ test("an approved synthetic Facility structure is read-only and login-bound in C
       signIn(ownerPage, true, "structure-owner@example.invalid", password),
       signIn(viewerPage, true, "structure-viewer@example.invalid", password),
     ]);
-    const consent = await command(customerPage, "/api/harbor-assistance/consent", {
-      action: "consent", facilityId: setup.facility, staffId: setup.viewer, minutes: 60,
-    });
+    const consentRequest = {
+      action: "consent", facilityId: setup.facility, staffId: setup.viewer, minutes: 60, requestId: randomUUID(),
+    };
+    const consent = await command(customerPage, "/api/harbor-assistance/consent", consentRequest);
     expect(consent.status).toBe(201);
+    const retry = await command(customerPage, "/api/harbor-assistance/consent", consentRequest);
+    expect(retry.status).toBe(201);
+    expect(JSON.parse(retry.body)).toEqual(JSON.parse(consent.body));
+    const conflict = await command(customerPage, "/api/harbor-assistance/consent", { ...consentRequest, minutes: 61 });
+    expect(conflict.status).toBe(404);
     const grant = await command(ownerPage, "/api/console/assistance", {
       action: "approve", facilityId: setup.facility, staffId: setup.viewer, consentId: JSON.parse(consent.body).consentId,
     });
@@ -116,6 +122,7 @@ test("an approved synthetic Facility structure is read-only and login-bound in C
     await Promise.all([customer.close(), owner.close(), viewer.close()]);
     await db.harborAssistanceSession.deleteMany({ where: { grant: { facilityId: setup.facility } } });
     await db.harborFacilityGrant.deleteMany({ where: { facilityId: setup.facility } });
+    await db.harborAssistanceConsentAuditEvent.deleteMany({ where: { facilityId: setup.facility } });
     await db.harborAssistanceConsent.deleteMany({ where: { facilityId: setup.facility } });
     await db.platformStaff.deleteMany({ where: { id: { in: [setup.owner, setup.viewer] } } });
     await db.userFacilityRolePeriod.deleteMany({ where: { userFacilityAccess: { facilityId: setup.facility } } });
