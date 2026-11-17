@@ -38,8 +38,9 @@ test("Support ticket history shows the Facility from the manual status change", 
         startsAt: new Date("2020-01-01Z"), roleKey: "FACILITY_ADMINISTRATOR",
       } } } },
     } });
+    const subject = `Facility attribution ${key}`;
     const ticket = await createSupportTicket(db, {
-      actorStaffId: staff.id, requesterEmail: customer.email, subject: `Facility attribution ${key}`, facilityId: oldFacility.id,
+      actorStaffId: staff.id, requesterEmail: customer.email, subject, facilityId: oldFacility.id,
     });
     const legacyCanary = randomUUID();
     await db.supportTicketEvent.create({ data: {
@@ -56,7 +57,7 @@ test("Support ticket history shows the Facility from the manual status change", 
     await customerPage.waitForURL((url) => url.pathname !== "/login");
     await customerPage.goto(path);
     await expect(customerPage).toHaveURL(/\/console\/login/);
-    await expect(customerPage.getByText(ticket.subject)).toHaveCount(0);
+    await expect(customerPage.getByText(subject)).toHaveCount(0);
     expect(await db.supportTicketEvent.count({ where: { ticketId: ticket.id, type: "STATUS_CHANGED" } })).toBe(1);
 
     const page = await staffBrowser.newPage();
@@ -66,7 +67,7 @@ test("Support ticket history shows the Facility from the manual status change", 
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL((url) => url.pathname !== "/console/login");
     await page.goto(path);
-    await expect(page.getByRole("heading", { name: ticket.subject })).toBeVisible();
+    await expect(page.getByRole("heading", { name: subject })).toBeVisible();
     await page.getByLabel("New status").selectOption("RESOLVED");
     await page.getByRole("button", { name: "Change status", exact: true }).click();
 
