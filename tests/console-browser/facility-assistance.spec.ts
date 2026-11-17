@@ -91,7 +91,7 @@ test("an approved synthetic Facility structure is read-only and login-bound in C
     if (!viewerLogin) throw new Error("Viewer login missing");
     const expiry = decodeJwt(viewerLogin.value).exp;
     if (!expiry) throw new Error("Viewer signed expiry missing");
-    expect((await viewer.request.get(ASSISTANCE_AUDIT)).status()).toBe(404);
+    expect((await viewerPage.goto(ASSISTANCE_AUDIT))?.status()).toBe(404);
     const consentRequest = {
       action: "consent", facilityId: setup.facility, staffId: setup.viewer, minutes: 60, requestId: randomUUID(),
     };
@@ -169,8 +169,9 @@ test("an approved synthetic Facility structure is read-only and login-bound in C
     ]));
     expect((await ownerPage.goto(ASSISTANCE_AUDIT))?.status()).toBe(404);
     expect((await customerPage.goto(ASSISTANCE_AUDIT))?.status()).toBe(401);
-    expect((await reviewer.request.get(`${ASSISTANCE_AUDIT}?prune=true`)).status()).toBe(404);
-    expect((await reviewer.request.delete(ASSISTANCE_AUDIT)).status()).toBe(405);
+    expect((await reviewerPage.goto(`${ASSISTANCE_AUDIT}?prune=true`))?.status()).toBe(404);
+    expect(await reviewerPage.evaluate(async (path) =>
+      (await fetch(path, { method: "DELETE" })).status, ASSISTANCE_AUDIT)).toBe(405);
     expect(await counters()).toEqual(beforeReview);
     await removeWriteGuard();
 
