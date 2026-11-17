@@ -14,7 +14,9 @@ test("manual Support status snapshots follow the row lock and roll back with the
   skip: !databaseUrl && "requires disposable PostgreSQL",
 }, async () => {
   assertDisposableDatabaseUrl(databaseUrl);
-  const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+  const connection = { datasources: { db: { url: databaseUrl } } };
+  const db = new PrismaClient(connection);
+  const statusDb = new PrismaClient(connection);
   const key = randomUUID();
   const email = `status-${key}@example.invalid`;
   let staffId: string | undefined;
@@ -42,17 +44,18 @@ test("manual Support status snapshots follow the row lock and roll back with the
       await db.$transaction(async (tx) => {
         const [{ pid }] = await tx.$queryRaw<Array<{ pid: number }>>`SELECT pg_backend_pid() AS pid`;
         await tx.supportTicket.update({ where: { id: ticket.id }, data: { facilityId: facilityB.id } });
-        transition = changeSupportTicketStatus(db, { ...input, status: "WAITING_ON_CUSTOMER" });
-        for (let attempt = 0; attempt < 100; attempt++) {
+        transition = changeSupportTicketStatus(statusDb, { ...input, status: "WAITING_ON_CUSTOMER" });
+        for (let attempt = 0; attempt < 160; attempt++) {
+          // pg_locks reflects current waiters, including connections opened after this transaction began.
           const [{ waiting }] = await tx.$queryRaw<Array<{ waiting: boolean }>>`
-            SELECT EXISTS (SELECT 1 FROM pg_stat_activity
-              WHERE ${pid} = ANY(pg_blocking_pids(pg_stat_activity.pid))) AS waiting
+            SELECT EXISTS (SELECT 1 FROM pg_locks
+              WHERE NOT granted AND ${pid} = ANY(pg_blocking_pids(pg_locks.pid))) AS waiting
           `;
           if (waiting) return;
           await setTimeout(25);
         }
         assert.fail("The status update did not wait on the ticket reassignment");
-      });
+      }, { timeout: 10_000 });
     } finally {
       if (transition) assert.deepEqual(await transition, { changed: true });
     }
@@ -91,6 +94,6 @@ test("manual Support status snapshots follow the row lock and roll back with the
       await db.facility.deleteMany({ where: { organizationId } });
       await db.organization.delete({ where: { id: organizationId } });
     }
-    await db.$disconnect();
+    await Promise.all([db.$disconnect(), statusDb.$disconnect()]);
   }
 });
