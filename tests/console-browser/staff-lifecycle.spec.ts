@@ -101,7 +101,7 @@ test("staff invite, passkey, recovery and authority workflows use application ro
   const contexts = await Promise.all(Array.from({ length: 4 }, () => browser.newContext({ baseURL })));
   const [a, b, reviewer, member] = await Promise.all(contexts.map(async (context) => {
     const page = await context.newPage();
-    await page.goto("/console/login");
+    await page.goto("/console/login", { waitUntil: "domcontentloaded" });
     const client = await context.newCDPSession(page);
     await client.send("WebAuthn.enable");
     await client.send("WebAuthn.addVirtualAuthenticator", { options: {
@@ -135,8 +135,8 @@ test("staff invite, passkey, recovery and authority workflows use application ro
     }
 
     // The actual login form completes the password and native passkey ceremonies.
-    await a.goto("/console");
-    await a.getByRole("button", { name: "Sign out", exact: true }).click();
+    await a.goto("/console", { waitUntil: "domcontentloaded" });
+    await a.getByRole("button", { name: "Sign out", exact: true }).click({ timeout: 15000 });
     await expect(a).toHaveURL(/\/console\/login$/);
     await a.getByLabel("Email").fill(email(fixture.a));
     await a.getByLabel("Password").fill(password);
@@ -181,7 +181,7 @@ test("staff invite, passkey, recovery and authority workflows use application ro
     const promoted = await db.platformStaff.findUniqueOrThrow({ where: { id: targetStaff.id } });
     expect(promoted.role).toBe("OWNER");
     expect(promoted.sessionVersion).toBe(targetStaff.sessionVersion + 1);
-    await member.goto("/console");
+    await member.goto("/console", { waitUntil: "domcontentloaded" });
     await expect(member).toHaveURL(/\/console\/login$/);
 
     // Arrange the one-owner fixture after exercising the normal dual-approval path.
@@ -206,7 +206,7 @@ test("staff invite, passkey, recovery and authority workflows use application ro
     for (const cookie of [first, (await a.context().cookies()).find(({ name }) => name === staffCookie)]) {
       if (!cookie) continue;
       await a.context().addCookies([cookie]);
-      await a.goto("/console");
+      await a.goto("/console", { waitUntil: "domcontentloaded" });
       await expect(a).toHaveURL(/\/console\/login$/);
     }
     await signIn(a, email(fixture.a), newPassword);
@@ -226,11 +226,12 @@ test("staff invite, passkey, recovery and authority workflows use application ro
     });
     expect(await db.harborStaffLifecycleAudit.findFirst({ where: { intentId: successorIntent, action: "SOLE_OWNER_SUCCESSION_APPROVED" } }))
       .toMatchObject({ actorId: fixture.reviewer, subject: targetStaff.id, detail: { proofReference: "CASE-SUCCESSION" } });
-    await member.goto("/console");
+    await member.goto("/console", { waitUntil: "domcontentloaded" });
     await expect(member).toHaveURL(/\/console\/login$/);
   } finally {
-    await Promise.all(contexts.map((context) => context.close()));
+    await Promise.allSettled(contexts.map((context) => context.close()));
     await db.$disconnect();
+    sink.closeAllConnections();
     await new Promise<void>((resolve, reject) => sink.close((error) => error ? reject(error) : resolve()));
   }
 });
