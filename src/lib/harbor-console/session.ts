@@ -6,6 +6,7 @@ export const HARBOR_WORK_CLEANUP_PATH = "/console/work-session-ended";
 export const HARBOR_TOKEN_USE = "harbor";
 export const HARBOR_WORK_TOKEN_USE = "harbor_work";
 export const HARBOR_SESSION_TTL_SECONDS = 60 * 60 * 12;
+export const HARBOR_JWT_CLOCK_TOLERANCE_SECONDS = 0;
 export const HARBOR_INITIAL_SESSION_VERSION = 0;
 
 export type HarborStaffRole = "OWNER" | "MEMBER";
@@ -87,7 +88,9 @@ export async function verifyHarborWorkToken(token: string): Promise<HarborWorkJw
 }
 
 export async function verifyHarborSessionToken(token: string): Promise<HarborJwtPayload> {
-  const { payload } = await jwtVerify(token, getJwtSecret());
+  const { payload } = await jwtVerify(token, getJwtSecret(), {
+    clockTolerance: HARBOR_JWT_CLOCK_TOLERANCE_SECONDS,
+  });
   const p = payload as Record<string, unknown>;
   if (p.tokenUse !== HARBOR_TOKEN_USE) {
     throw new Error("Not a Harbor session.");

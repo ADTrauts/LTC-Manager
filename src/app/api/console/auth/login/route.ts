@@ -11,6 +11,7 @@ import {
   resetAuthRateLimitBucket,
 } from "@/lib/auth-rate-limit";
 import { getAppSession } from "@/lib/auth";
+import { getAssistancePilot } from "@/lib/harbor-console/assistance-pilot";
 import {
   createHarborSessionToken,
   getHarborCookieOptions,
@@ -84,13 +85,14 @@ export async function POST(request: Request) {
     data: { staffId: staff.id, action: "LOGIN" },
   });
 
+  const pilot = getAssistancePilot(request.headers.get("host") ?? new URL(request.url).host);
   const token = await createHarborSessionToken({
     uid: staff.id,
     email: staff.email,
     name: staff.displayName,
     staffRole: staff.role,
     sessionVersion: staff.sessionVersion ?? HARBOR_INITIAL_SESSION_VERSION,
-  });
+  }, pilot?.staff.has(staff.id) ? { bindAssistance: true } : undefined);
 
   try {
     const previous = await getAppSession();

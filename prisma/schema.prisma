@@ -126,6 +126,7 @@ model Organization {
 
 /// One deployment typically has one facility; all operational data is scoped here for future multi-site support.
 model Facility {
+  harborAssistanceConsents              HarborAssistanceConsent[]
   implementationEngagements             ImplementationEngagement[]
   setupImportBatches                    SetupImportBatch[]
   harborAssistanceGrants                HarborFacilityGrant[]
@@ -938,6 +939,10 @@ model MenuOperationalCycleApplicability {
 }
 
 model User {
+  harborAssistanceConsents          HarborAssistanceConsent[] @relation("HarborConsentAdministrator")
+  harborAssistanceConsentsWithdrawn HarborAssistanceConsent[] @relation("HarborConsentWithdrawal")
+  harborAssistanceGrantsRevoked     HarborFacilityGrant[] @relation("HarborGrantCustomerRevoker")
+  harborAssistanceSessionsEnded    HarborAssistanceSession[] @relation("HarborAssistanceCustomerEnd")
   implementationRequests                   ImplementationEngagement[]              @relation("ImplementationRequester")
   implementationAcceptances                ImplementationEngagement[]              @relation("ImplementationAcceptance")
   implementationApprovals                  ImplementationOrder[]                   @relation("ImplementationApproval")
@@ -4684,9 +4689,13 @@ enum HarborAuditAction {
   ASSISTANCE_END
   ASSISTANCE_GRANT_REVOKE
   ASSISTANCE_LOGIN_END
+  ASSISTANCE_GRANT_APPROVE
+  ASSISTANCE_READ
+  ASSISTANCE_READ_DENIED
 }
 
 model PlatformStaff {
+  harborAssistanceConsents      HarborAssistanceConsent[]
   harborAssistanceGrants        HarborFacilityGrant[]           @relation("HarborGrantSubject")
   harborGrantsApproved          HarborFacilityGrant[]           @relation("HarborGrantApprover")
   harborGrantsRevoked            HarborFacilityGrant[]           @relation("HarborGrantRevoker")
@@ -4791,8 +4800,58 @@ model HarborAssistanceAuditDetail {
   sessionId String?
   /// A durable logout receipt. Retain through the lifetime of the signed login.
   loginKey  String?          @unique @db.VarChar(64)
+  requestKey String?         @db.Uuid
+  operation  HarborAssistanceOperation?
+  purpose    HarborAssistancePurpose?
 
   @@index([sessionId])
+}
+
+/// Credential revocation evidence has no cascading relationship to staff or audit rows.
+model HarborAssistanceLoginReceipt {
+  loginKey    String   @id @db.VarChar(64)
+  retainUntil DateTime
+}
+
+model HarborAssistanceConsent {
+  id                String                   @id @default(cuid())
+  requestId         String?                  @unique @db.Uuid
+  facilityId        String
+  facility          Facility                 @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  staffId           String
+  staff             PlatformStaff            @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  administratorId   String
+  administrator     User                     @relation("HarborConsentAdministrator", fields: [administratorId], references: [id], onDelete: Restrict)
+  operation         HarborAssistanceOperation
+  purpose           HarborAssistancePurpose
+  grantedAt         DateTime
+  expiresAt         DateTime
+  withdrawnAt       DateTime?
+  withdrawnByUserId String?
+  withdrawnBy       User?                    @relation("HarborConsentWithdrawal", fields: [withdrawnByUserId], references: [id], onDelete: Restrict)
+  grant             HarborFacilityGrant?
+}
+
+enum HarborAssistanceConsentAuditAction {
+  ASSISTANCE_CONSENT_RECORDED
+  ASSISTANCE_CONSENT_WITHDRAWN
+}
+
+/// Customer administrator events in the restricted Harbor pilot history.
+model HarborAssistanceConsentAuditEvent {
+  id              String                             @id @default(cuid())
+  action          HarborAssistanceConsentAuditAction
+  administratorId String
+  facilityId      String
+  subjectStaffId  String
+  consentId       String
+  grantId         String?
+  sessionIds      String[]                           @default([])
+  operation       HarborAssistanceOperation
+  purpose         HarborAssistancePurpose
+  createdAt       DateTime
+
+  @@index([facilityId, createdAt])
 }
 
 enum HarborAssistanceOperation {
@@ -4807,6 +4866,8 @@ enum HarborAssistanceEndReason {
   STAFF_EXIT
   HARBOR_LOGOUT
   GRANT_REVOKED
+  SWITCHED
+  CONSENT_WITHDRAWN
 }
 
 /// Harbor-owned authority scoped to one canonical staff identity and Facility.
@@ -4825,6 +4886,10 @@ model HarborFacilityGrant {
   revokedAt         DateTime?
   revokedByStaffId  String?
   revokedByStaff    PlatformStaff?              @relation("HarborGrantRevoker", fields: [revokedByStaffId], references: [id], onDelete: Restrict)
+  revokedByUserId   String?
+  revokedByUser     User?                       @relation("HarborGrantCustomerRevoker", fields: [revokedByUserId], references: [id], onDelete: Restrict)
+  consentId         String?                     @unique
+  consent           HarborAssistanceConsent?    @relation(fields: [consentId], references: [id], onDelete: Restrict)
   sessions          HarborAssistanceSession[]
 
   @@index([staffId, facilityId, startsAt])
@@ -4845,6 +4910,8 @@ model HarborAssistanceSession {
   endReason        HarborAssistanceEndReason?
   endedByStaffId   String?
   endedByStaff     PlatformStaff?            @relation("HarborAssistanceEndActor", fields: [endedByStaffId], references: [id], onDelete: Restrict)
+  endedByUserId    String?
+  endedByUser      User?                     @relation("HarborAssistanceCustomerEnd", fields: [endedByUserId], references: [id], onDelete: Restrict)
 
   @@unique([loginKey, requestId])
   @@index([grantId, endedAt])

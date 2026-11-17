@@ -24,6 +24,7 @@ import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { prisma } from "@/lib/prisma";
 import { authorizeHarborRequest, rejectRetiredHarborWorkRequest } from "@/lib/harbor-console/proxy-gate";
+import { assistanceNoStore, getAssistancePilot, isAssistancePath } from "@/lib/harbor-console/assistance-pilot";
 import { authorizeRoute, isApiPathname, type RouteAuthorizationDecision } from "@/lib/route-registry";
 import {
   classifySessionRejection,
@@ -254,6 +255,9 @@ function nextFacilityResponse(request: NextRequest) {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (isAssistancePath(pathname) && !getAssistancePilot(request.headers.get("host") ?? request.nextUrl.host)) {
+    return new NextResponse(null, { status: 404, headers: assistanceNoStore });
+  }
   const featureFlags = routeFeatureFlags();
 
   // Resolve the path against the registry before touching the session, so unregistered paths and
