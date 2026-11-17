@@ -8,6 +8,7 @@ import type { FacilitySession } from "@/lib/auth";
 import { createHarborSessionToken, verifyHarborSessionToken } from "@/lib/harbor-console/session";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { applyFacilitySubscription } from "@/lib/billing/apply-stripe-event";
+import { listHarborFacilities } from "@/lib/harbor-console/queries";
 import { previewImport, confirmImport, getImportResults } from "@/lib/setup-imports/service";
 import type { Dataset, Preview } from "@/lib/setup-imports/contract";
 import { requestEngagement, addParticipant, assignEngagement, issueQuote, approveQuote, recordDelivery, recordMappingDecision, receiveSource, linkImport, sharedResults, reviewHandoff, acceptHandoff, getEngagement, loadStaffImplementationWorkCounts } from "./service";
@@ -88,6 +89,47 @@ test("SQL work counts: same staff scope as the index, without including accepted
   await assert.rejects(() => loadStaffImplementationWorkCounts(db, { ...reviewer, workFacilityId: other.facility.id }, current.facility.id), /Exit the Facility work session/);
   await db.platformStaff.update({ where: { id: member.id }, data: { sessionVersion: { increment: 1 } } });
   await assert.rejects(() => loadStaffImplementationWorkCounts(db, reviewer, current.facility.id), /Console authority changed/);
+}));
+
+test("SQL directory: filters Implementation work and search before the Facility limit", { skip }, () => run(async db => {
+  const prefix = `Ops filter ${randomUUID()}`;
+  const assigned = await setup(db);
+  const awaiting = await fixture(db, assigned.org.id);
+  const accepted = await setup(db, true);
+  await db.facility.createMany({ data: Array.from({ length: 200 }, (_, index) => ({
+    organizationId: assigned.org.id,
+    displayName: `${prefix} A${String(index).padStart(3, "0")}`,
+  })) });
+  await db.facility.update({ where: { id: assigned.facility.id }, data: {
+    displayName: `${prefix} B Assigned`, billingEmail: `assigned-${assigned.user.email}`,
+  } });
+  await db.facility.update({ where: { id: awaiting.facility.id }, data: {
+    displayName: `${prefix} C Unassigned`, billingEmail: `unassigned-${awaiting.user.email}`,
+  } });
+  await db.facility.update({ where: { id: accepted.facility.id }, data: { displayName: `${prefix} D Accepted` } });
+  await requestEngagement(db, { kind: "customer", session: awaiting.session }, awaiting.facility.id, assigned.scope);
+  await approveQuote(db, accepted.c, accepted.id, accepted.order.id, accepted.order.digest);
+  for (const stage of STAGES) await recordDelivery(db, accepted.s, accepted.id, {
+    stage, disposition: "DELIVERED", notes: "Reviewed synthetic delivery evidence",
+  });
+  await acceptHandoff(db, accepted.c, accepted.id, (await reviewHandoff(db, accepted.c, accepted.id)).fingerprint);
+
+  const baseline = await listHarborFacilities(db, prefix);
+  assert.equal(baseline.length, 200);
+  assert.ok(!baseline.some(row => [assigned.facility.id, awaiting.facility.id, accepted.facility.id].includes(row.id)));
+  const open = { filter: "open", actor: assigned.s } as const;
+  const unassigned = { filter: "unassigned", actor: assigned.s } as const;
+  assert.deepEqual((await listHarborFacilities(db, prefix.toUpperCase(), open)).map(row => row.id), [assigned.facility.id, awaiting.facility.id]);
+  assert.deepEqual((await listHarborFacilities(db, prefix, unassigned)).map(row => row.id), [awaiting.facility.id]);
+  assert.deepEqual((await listHarborFacilities(db, ` UNASSIGNED-${awaiting.user.email.toUpperCase()} `, open)).map(row => row.id), [awaiting.facility.id]);
+  assert.deepEqual(await listHarborFacilities(db, `assigned-${assigned.user.email}`, unassigned), []);
+  assert.deepEqual(await listHarborFacilities(db, `${prefix} D Accepted`, open), []);
+  assert.deepEqual(await listHarborFacilities(db, `${prefix} D Accepted`, unassigned), []);
+  assert.deepEqual((await listHarborFacilities(db, `${prefix} D Accepted`)).map(row => row.id), [accepted.facility.id]);
+  await assert.rejects(() => listHarborFacilities(db, prefix, { filter: "open", actor: assigned.c }), /Console staff/);
+  if (assigned.s.kind !== "staff") throw new Error("Expected staff fixture");
+  const legacy = { ...assigned.s, workFacilityId: accepted.facility.id };
+  await assert.rejects(() => listHarborFacilities(db, prefix, { filter: "unassigned", actor: legacy }), /Exit the Facility work session/);
 }));
 
 test("SQL assignment: records the locked previous staff and Facility without expanding customer or Support history", { skip }, () => run(async db => {

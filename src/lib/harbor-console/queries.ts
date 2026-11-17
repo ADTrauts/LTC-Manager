@@ -1,6 +1,8 @@
 import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
 import { deriveFacilityDepartmentCatalog } from "@/lib/department-products/facility-catalog";
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { authorizeImplementationStaff, type Actor } from "@/lib/implementation/authority";
+import { implementationWorkWhere, type ImplementationWorkFilter } from "@/lib/implementation/work-queue";
 
 import {
   billingStatusLabel,
@@ -142,20 +144,28 @@ function billingSourceLabel(input: {
   return "Local mirror only";
 }
 
-export async function listHarborFacilities(client: Db, query?: string): Promise<HarborFacilityRow[]> {
+export async function listHarborFacilities(
+  client: Db,
+  query?: string,
+  implementation?: { filter: ImplementationWorkFilter; actor: Actor },
+): Promise<HarborFacilityRow[]> {
+  if (implementation) await authorizeImplementationStaff(client, implementation.actor);
   const trimmed = query?.trim() ?? "";
+  const textMatch: Prisma.FacilityWhereInput = trimmed ? {
+    OR: [
+      { displayName: { contains: trimmed, mode: "insensitive" } },
+      { billingEmail: { contains: trimmed, mode: "insensitive" } },
+      { organization: { name: { contains: trimmed, mode: "insensitive" } } },
+      { organization: { displayName: { contains: trimmed, mode: "insensitive" } } },
+    ],
+  } : {};
   const rows = await client.facility.findMany({
-    where:
-      trimmed.length > 0
-        ? {
-            OR: [
-              { displayName: { contains: trimmed, mode: "insensitive" } },
-              { billingEmail: { contains: trimmed, mode: "insensitive" } },
-              { organization: { name: { contains: trimmed, mode: "insensitive" } } },
-              { organization: { displayName: { contains: trimmed, mode: "insensitive" } } },
-            ],
-          }
-        : undefined,
+    where: {
+      ...textMatch,
+      ...(implementation ? {
+        implementationEngagements: { some: implementationWorkWhere(implementation.filter) },
+      } : {}),
+    },
     select: facilitySelect,
     orderBy: { displayName: "asc" },
     take: 200,
