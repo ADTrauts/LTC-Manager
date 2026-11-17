@@ -4870,9 +4870,19 @@ model HarborAuditEvent {
   facilityId String?
   createdAt  DateTime          @default(now())
   assistance HarborAssistanceAuditDetail?
+  catalogPublication HarborCatalogPublicationAuditDetail?
 
   @@index([staffId, createdAt])
   @@index([facilityId, createdAt])
+}
+
+/// Canonical identity of the published version, retained independently of the Catalog row.
+model HarborCatalogPublicationAuditDetail {
+  eventId      String           @id
+  event        HarborAuditEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  definitionId String
+  stableKey    String
+  version      Int
 }
 
 /// Extra fields on assistance events. Ordinary Harbor audit writes do not need these tables.

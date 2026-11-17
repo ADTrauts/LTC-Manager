@@ -188,7 +188,13 @@ test("Harbor publication actions enforce live authority and preserve Catalog dat
 
   await t.test("OWNER publishes and combines save and publish while preserving history and installs", async () => {
     const draft = await createCatalogDefinition(prisma, input("versions"), HARBOR_CATALOG_WRITE);
-    assert.deepEqual(await runAction(owner.cookie, () => publishHarborCatalogAction(form(draft))), { ok: true });
+    const direct = form(draft);
+    direct.set("stableKey", "untrusted-form-key");
+    // A concurrent request for the same immutable version is an idempotent repeat.
+    assert.deepEqual(await Promise.all([
+      runAction(owner.cookie, () => publishHarborCatalogAction(direct)),
+      runAction(owner.cookie, () => publishHarborCatalogAction(form(draft))),
+    ]), [{ ok: true }, { ok: true }]);
     const published = await snapshot(draft.id);
     assert.equal(published.status, "PUBLISHED");
     assert.equal(published.fields[0]?.fieldKey, "result");
@@ -203,7 +209,23 @@ test("Harbor publication actions enforce live authority and preserve Catalog dat
     assert.equal(versionTwo.fields[0]?.fieldKey, "edited");
     assert.deepEqual(await snapshot(published.id), published);
     assert.deepEqual(await prisma.facilityCatalogInstall.findUniqueOrThrow({ where: { id: install.id } }), install);
-    assert.equal(await prisma.harborAuditEvent.count({ where: { staffId: owner.id, action: "CATALOG_PUBLISH" } }), 2);
+    const events = await prisma.harborAuditEvent.findMany({
+      where: { staffId: owner.id, action: "CATALOG_PUBLISH" },
+      select: { staffId: true, catalogPublication: { select: { definitionId: true, stableKey: true, version: true } } },
+    });
+    assert.deepEqual(events.sort((a, b) => (a.catalogPublication?.version ?? 0) - (b.catalogPublication?.version ?? 0)),
+      [published, versionTwo].map(({ id, stableKey, version }) => ({
+        staffId: owner.id, catalogPublication: { definitionId: id, stableKey, version },
+      })));
+  });
+
+  await t.test("a legacy publication event retains unknown attribution", async () => {
+    const legacyStaff = await createStaff("Legacy", "OWNER");
+    const legacy = await prisma.harborAuditEvent.create({ data: { staffId: legacyStaff.id, action: "CATALOG_PUBLISH" } });
+    const record = await prisma.harborAuditEvent.findUniqueOrThrow({
+      where: { id: legacy.id }, include: { catalogPublication: true },
+    });
+    assert.equal(record.catalogPublication, null);
   });
 
   await t.test("logout invalidates one signed login and the receipt outlives staff and audit rows", async () => {
@@ -246,6 +268,7 @@ test("Harbor publication actions enforce live authority and preserve Catalog dat
     });
     assert.deepEqual(await lock.publication, { ok: false, error: "Only a Harbor OWNER can publish Catalog Records." });
     assert.equal((await snapshot(draft.id)).status, "DRAFT");
+    assert.equal(await prisma.harborAuditEvent.count({ where: { staffId: first.id, action: "CATALOG_PUBLISH" } }), 0);
     assert.deepEqual((await Promise.all([signOut(), signOut()])).map((response) => response.status), [303, 303]);
     assert.equal(await resolveHarborSession(first.token), null);
     assert.equal((await resolveHarborSession(second))?.uid, first.id);
@@ -262,6 +285,29 @@ test("Harbor publication actions enforce live authority and preserve Catalog dat
     assert.deepEqual(result, { ok: false, error: "Cannot publish a Catalog definition with no fields." });
     assert.deepEqual(await snapshot(draft.id), before);
     assert.equal(await prisma.harborAuditEvent.count({ where: { staffId: owner.id, action: "CATALOG_PUBLISH" } }), 2);
+  });
+
+  await t.test("both publication paths roll back when the audit detail cannot be stored", async () => {
+    const draft = await createCatalogDefinition(prisma, input("audit_write"), HARBOR_CATALOG_WRITE);
+    const before = await snapshot(draft.id);
+    const checkName = `catalog_test_audit_${randomUUID().replaceAll("-", "")}`;
+    // This disposable constraint rejects only this fixture's detail. Other suites can keep writing.
+    assert.match(draft.id, /^[a-z0-9]+$/);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "HarborCatalogPublicationAuditDetail" ADD CONSTRAINT "${checkName}"
+      CHECK ("definitionId" <> '${draft.id}') NOT VALID
+    `);
+    try {
+      for (const action of publishActions) {
+        assert.deepEqual(await runAction(owner.cookie, () => action(form(draft))), {
+          ok: false, error: "Publication could not be recorded. No changes were saved.",
+        });
+        assert.deepEqual(await snapshot(draft.id), before);
+        assert.equal(await prisma.harborAuditEvent.count({ where: { staffId: owner.id, action: "CATALOG_PUBLISH" } }), 2);
+      }
+    } finally {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "HarborCatalogPublicationAuditDetail" DROP CONSTRAINT "${checkName}"`);
+    }
   });
 
   await t.test("platform OWNER cannot publish private Facility or vendor drafts through either action", async () => {
