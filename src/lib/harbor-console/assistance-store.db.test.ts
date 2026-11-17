@@ -12,7 +12,7 @@ import {
   endHarborAssistanceSession, recordHarborAssistanceGrantRevocation, resolveHarborAssistanceActor,
   startHarborAssistanceSession, withHarborAssistanceTransaction as transaction,
 } from "./assistance-store";
-import { createHarborSessionToken, HARBOR_SESSION_COOKIE, verifyHarborSessionToken } from "./session";
+import { createHarborSessionToken, HARBOR_SESSION_COOKIE, HARBOR_STAFF_LOGIN_TOKEN_USE, verifyHarborSessionToken } from "./session";
 
 const databaseUrl = process.env.VERIFY_DATABASE_URL;
 const origin = "https://preview.example.invalid";
@@ -107,7 +107,9 @@ test("Harbor assistance authority is scoped, revocable and transactional", {
     });
     const g = await grant();
     const params = intent(g.id);
-    assert.equal((await verifyHarborSessionToken(ordinary)).jti, undefined);
+    const ordinaryClaims = await verifyHarborSessionToken(ordinary);
+    assert.equal(ordinaryClaims.tokenUse, HARBOR_STAFF_LOGIN_TOKEN_USE);
+    assert.ok(ordinaryClaims.jti);
     for (const unqualified of [owner, ordinary, customer, "malformed"]) {
       assert.equal(await start(unqualified, params), null);
     }

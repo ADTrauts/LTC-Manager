@@ -12,7 +12,7 @@ import { deliveryEvidence, digest, ImplementationError, parseScope, quoteScope, 
 export const IMPLEMENTATION_SOURCE_SUBMISSION_PREFIX = "implementation:";
 
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
-const transaction = <T>(db: PrismaClient, fn: (tx: Tx) => Promise<T>) => db.$transaction(fn,{ timeout: 30000, maxWait: 30000 });
+const transaction = <T>(db: PrismaClient, fn: (tx: Tx) => Promise<T>) => db.$transaction(fn,{ isolationLevel: "ReadCommitted", timeout: 30000, maxWait: 30000 });
 function customer(actor: Actor) { if (actor.kind !== "customer") throw new ImplementationError("Customer Facility Administrator approval is required."); return actor.session; }
 function staff(actor: Actor) { if (actor.kind !== "staff") throw new ImplementationError("Console staff action is required."); return actor.session; }
 function editable(row: { acceptedAt: Date | null }) { if (row.acceptedAt) throw new ImplementationError("This handoff is accepted. Request a separate engagement for later work."); }

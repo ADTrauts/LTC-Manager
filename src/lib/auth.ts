@@ -4,7 +4,7 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { cookies } from "next/headers";
 
 import type { AppRole } from "@/lib/access";
-import { HARBOR_TOKEN_USE, HARBOR_WORK_COOKIE, HARBOR_WORK_TOKEN_USE } from "@/lib/harbor-console/session";
+import { HARBOR_STAFF_LOGIN_TOKEN_USE, HARBOR_TOKEN_USE, HARBOR_WORK_COOKIE, HARBOR_WORK_TOKEN_USE } from "@/lib/harbor-console/session";
 
 export const SESSION_COOKIE = "ltc_session";
 
@@ -361,7 +361,8 @@ export async function verifySessionToken(token: string): Promise<AppJwtPayload> 
   const { payload } = await jwtVerify(token, getJwtSecret());
   const p = payload as Record<string, unknown>;
   const authKind = (p.authKind as AuthKind | undefined) ?? "user";
-  if (authKind === "harbor_staff" || p.tokenUse === HARBOR_TOKEN_USE || p.tokenUse === HARBOR_WORK_TOKEN_USE) {
+  if (authKind === "harbor_staff" || p.tokenUse === HARBOR_TOKEN_USE ||
+      p.tokenUse === HARBOR_STAFF_LOGIN_TOKEN_USE || p.tokenUse === HARBOR_WORK_TOKEN_USE) {
     throw new Error("Not a facility session.");
   }
   const facilityIdRaw = typeof p.facilityId === "string" ? p.facilityId : "";

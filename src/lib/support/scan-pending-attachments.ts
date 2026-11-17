@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { lockHarborStaffSession } from "@/lib/harbor-console/auth";
 import { getSupportAttachmentStore, type SupportAttachmentStore } from "./attachment-store";
 import { failedScan, getSupportAttachmentScanner, validateScanResult, type ScanResult, type SupportAttachmentScanner } from "./attachment-scanner";
 import { isBlockedSupportAttachmentType, looksLikeExecutableContent, SUPPORT_ATTACHMENT_MAX_BYTES } from "./attachment-limits";
@@ -75,13 +76,12 @@ export async function readVerifiedSupportAttachment(store: SupportAttachmentStor
 export async function requestFailedSupportAttachmentRescan(db: PrismaClient, session: import("@/lib/harbor-console/session").HarborJwtPayload, attachmentId: string, reason: string) {
   if (reason.trim().length < 3 || reason.length > 2000) throw new Error("A rescan reason is required");
   return db.$transaction(async tx => {
-    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "PlatformStaff" WHERE "id"=${session.uid} FOR SHARE`);
-    const staff = await tx.platformStaff.findUniqueOrThrow({ where: { id: session.uid } });
-    if (!staff.isActive || staff.sessionVersion !== session.sessionVersion || staff.role !== session.staffRole || staff.email !== session.email) throw new Error("Console authority changed");
+    const authority = await lockHarborStaffSession(session, tx);
+    if (!authority.valid) throw new Error("Console authority changed");
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "SupportTicketAttachment" WHERE "id"=${attachmentId} FOR UPDATE`);
     const row = await tx.supportTicketAttachment.findUniqueOrThrow({ where: { id: attachmentId }, include: { message: { select: { ticketId: true } } } });
     if (row.scanStatus !== "SCAN_FAILED") throw new Error("Only failed scans can explicitly re-enter PENDING; blocked files require separate review");
     await tx.supportTicketAttachment.update({ where: { id: attachmentId }, data: { scanCycle: { increment: 1 }, scanStatus: "PENDING", nextScanAt: null, scanLeaseToken: null, scanLeaseExpiresAt: null, scanResultCode: "RESCAN_REQUESTED" } });
-    await tx.supportTicketMessage.create({ data: { ticketId: row.message.ticketId, kind: "NOTE", authorStaffId: staff.id, bodyText: `Security rescan requested for attachment ${attachmentId}, cycle ${row.scanCycle+1}. Reason: ${reason.trim()}` } });
-  });
+    await tx.supportTicketMessage.create({ data: { ticketId: row.message.ticketId, kind: "NOTE", authorStaffId: authority.staff.id, bodyText: `Security rescan requested for attachment ${attachmentId}, cycle ${row.scanCycle+1}. Reason: ${reason.trim()}` } });
+  }, { isolationLevel: "ReadCommitted" });
 }

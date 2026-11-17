@@ -3,12 +3,15 @@ import "next/dist/server/node-environment-baseline";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { SignJWT } from "jose";
 import { workAsyncStorage, type WorkStore } from "next/dist/server/app-render/work-async-storage.external";
 import { workUnitAsyncStorage } from "next/dist/server/app-render/work-unit-async-storage.external";
 import { createRequestStoreForAPI } from "next/dist/server/async-storage/request-store";
 import { getURLFromRedirectError } from "next/dist/client/components/redirect";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { NextRequest } from "next/server";
+import { POST as logout } from "@/app/api/console/auth/logout/route";
 
 import {
   createHarborCatalogAction,
@@ -26,7 +29,9 @@ import {
 import { prisma } from "@/lib/prisma";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 
-import { createHarborSessionToken, HARBOR_SESSION_COOKIE, type HarborStaffRole } from "./session";
+import { resolveHarborSession } from "./auth";
+import { readHarborLogin } from "./login-receipt";
+import { createHarborSessionToken, HARBOR_SESSION_COOKIE, HARBOR_TOKEN_USE, type HarborStaffRole } from "./session";
 
 const databaseUrl = process.env.VERIFY_DATABASE_URL;
 const prefix = `phase1a_${randomUUID().replaceAll("-", "")}`;
@@ -57,7 +62,7 @@ async function createStaff(label: string, role: HarborStaffRole) {
   const token = await createHarborSessionToken({
     uid: staff.id, email: staff.email, name: staff.displayName, staffRole: role, sessionVersion: staff.sessionVersion,
   });
-  return { id: staff.id, cookie: `${HARBOR_SESSION_COOKIE}=${token}` };
+  return { id: staff.id, token, cookie: `${HARBOR_SESSION_COOKIE}=${token}` };
 }
 
 function input(suffix: string): CatalogDefinitionInput {
@@ -199,6 +204,55 @@ test("Harbor publication actions enforce live authority and preserve Catalog dat
     assert.deepEqual(await snapshot(published.id), published);
     assert.deepEqual(await prisma.facilityCatalogInstall.findUniqueOrThrow({ where: { id: install.id } }), install);
     assert.equal(await prisma.harborAuditEvent.count({ where: { staffId: owner.id, action: "CATALOG_PUBLISH" } }), 2);
+  });
+
+  await t.test("logout invalidates one signed login and the receipt outlives staff and audit rows", async () => {
+    const first = await createStaff("logout", "OWNER");
+    const claim = await resolveHarborSession(first.token);
+    assert.ok(claim);
+    const second = await createHarborSessionToken({
+      uid: claim.uid, email: claim.email, name: claim.name, staffRole: claim.staffRole, sessionVersion: claim.sessionVersion,
+    });
+    const old = await new SignJWT({
+      uid: claim.uid, email: claim.email, name: claim.name, staffRole: claim.staffRole,
+      sessionVersion: claim.sessionVersion, tokenUse: HARBOR_TOKEN_USE,
+    }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("1h")
+      .sign(new TextEncoder().encode(process.env.AUTH_SECRET));
+    assert.equal(await resolveHarborSession(old), null);
+
+    const signOut = () => logout(new NextRequest("https://console.example.invalid/api/console/auth/logout", {
+      method: "POST", headers: { cookie: first.cookie, origin: "https://console.example.invalid" },
+    }));
+    const login = await readHarborLogin(first.token);
+    assert.ok(login && !login.assistance);
+    const draft = await createCatalogDefinition(prisma, input("logout"), HARBOR_CATALOG_WRITE);
+    // Hold the same staff lock as logout while publication passes its initial session check.
+    const lock = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "PlatformStaff" WHERE "id" = ${first.id} FOR NO KEY UPDATE`;
+      const publication = runAction(first.cookie, () => publishHarborCatalogAction(form(draft)));
+      for (let attempt = 0; attempt < 80; attempt++) {
+        const [state] = await prisma.$queryRaw<Array<{ waiting: boolean }>>`
+          SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database()
+            AND wait_event_type = 'Lock' AND query LIKE '%FROM "PlatformStaff"%FOR SHARE%') AS waiting
+        `;
+        if (state.waiting) {
+          // This is the ordinary logout transaction's only persistent change.
+          await tx.harborAssistanceLoginReceipt.create({ data: { loginKey: login.key, retainUntil: login.retainUntil } });
+          return { publication };
+        }
+        await delay(20);
+      }
+      throw new Error("Publication did not wait for the staff lock.");
+    });
+    assert.deepEqual(await lock.publication, { ok: false, error: "Only a Harbor OWNER can publish Catalog Records." });
+    assert.equal((await snapshot(draft.id)).status, "DRAFT");
+    assert.deepEqual((await Promise.all([signOut(), signOut()])).map((response) => response.status), [303, 303]);
+    assert.equal(await resolveHarborSession(first.token), null);
+    assert.equal((await resolveHarborSession(second))?.uid, first.id);
+    await prisma.platformStaff.delete({ where: { id: first.id } });
+    const receipt = await prisma.harborAssistanceLoginReceipt.findUniqueOrThrow({ where: { loginKey: login.key } });
+    assert.equal(receipt.retainUntil.getTime(), login.retainUntil.getTime());
+    await assert.rejects(() => prisma.harborAssistanceLoginReceipt.delete({ where: { loginKey: login.key } }), /still required/);
   });
 
   await t.test("failed combined publication rolls back field replacement and metadata", async () => {

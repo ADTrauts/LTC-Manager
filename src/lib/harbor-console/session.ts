@@ -4,16 +4,18 @@ export const HARBOR_SESSION_COOKIE = "harbor_session";
 export const HARBOR_WORK_COOKIE = "harbor_work";
 export const HARBOR_WORK_CLEANUP_PATH = "/console/work-session-ended";
 export const HARBOR_TOKEN_USE = "harbor";
+export const HARBOR_STAFF_LOGIN_TOKEN_USE = "harbor_staff_login";
 export const HARBOR_WORK_TOKEN_USE = "harbor_work";
 export const HARBOR_SESSION_TTL_SECONDS = 60 * 60 * 12;
 export const HARBOR_JWT_CLOCK_TOLERANCE_SECONDS = 0;
 export const HARBOR_INITIAL_SESSION_VERSION = 0;
+export const HARBOR_LOGIN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export type HarborStaffRole = "OWNER" | "MEMBER";
 
 export type HarborJwtPayload = JWTPayload & {
   uid: string;
-  tokenUse: typeof HARBOR_TOKEN_USE;
+  tokenUse: typeof HARBOR_TOKEN_USE | typeof HARBOR_STAFF_LOGIN_TOKEN_USE;
   email: string;
   name: string;
   staffRole: HarborStaffRole;
@@ -47,7 +49,9 @@ export async function createHarborSessionToken(input: {
 }, options?: { bindAssistance: true }) {
   const token = new SignJWT({
     uid: input.uid,
-    tokenUse: HARBOR_TOKEN_USE,
+    // A pre-1C build cannot accept a new ordinary login or mistake it for an assistance login.
+    tokenUse: options?.bindAssistance ? HARBOR_TOKEN_USE : HARBOR_STAFF_LOGIN_TOKEN_USE,
+    authKind: "harbor_staff",
     email: input.email,
     name: input.name,
     staffRole: input.staffRole,
@@ -55,9 +59,8 @@ export async function createHarborSessionToken(input: {
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${HARBOR_SESSION_TTL_SECONDS}s`);
-  // The normal login route leaves this unset while assistance is disabled.
-  if (options?.bindAssistance) token.setJti(crypto.randomUUID());
+    .setExpirationTime(`${HARBOR_SESSION_TTL_SECONDS}s`)
+    .setJti(crypto.randomUUID());
   return token.sign(getJwtSecret());
 }
 
@@ -92,7 +95,8 @@ export async function verifyHarborSessionToken(token: string): Promise<HarborJwt
     clockTolerance: HARBOR_JWT_CLOCK_TOLERANCE_SECONDS,
   });
   const p = payload as Record<string, unknown>;
-  if (p.tokenUse !== HARBOR_TOKEN_USE) {
+  const tokenUse = p.tokenUse;
+  if (tokenUse !== HARBOR_TOKEN_USE && tokenUse !== HARBOR_STAFF_LOGIN_TOKEN_USE) {
     throw new Error("Not a Harbor session.");
   }
   const staffRole = p.staffRole === "OWNER" || p.staffRole === "MEMBER" ? p.staffRole : null;
@@ -105,7 +109,7 @@ export async function verifyHarborSessionToken(token: string): Promise<HarborJwt
   return {
     ...payload,
     uid: String(p.uid ?? ""),
-    tokenUse: HARBOR_TOKEN_USE,
+    tokenUse,
     email: String(p.email ?? ""),
     name: String(p.name ?? ""),
     staffRole,

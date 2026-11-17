@@ -1,3 +1,4 @@
+import { createHarborSessionToken } from "../../src/lib/harbor-console/session";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { PrismaClient, RoleKey } from "@prisma/client";
@@ -114,7 +115,7 @@ test("new account accepts canonical activation then customer People enrolls PIN 
 
 test("Console opens real Facility work and retains PlatformStaff attribution; denied customer role has no workforce intake",async({page,context,browser})=>{
   const f=await fixture(),id=randomUUID(),staff=await db.platformStaff.create({data:{email:`staff-${id}@example.com`,displayName:"Import Support",passwordHash:"unused-local",role:"OWNER"}});
-  const token=await sign({uid:staff.id,tokenUse:"harbor",email:staff.email,name:staff.displayName,staffRole:"OWNER",sessionVersion:0});await context.addCookies([{name:"harbor_session",value:token,url:baseURL,httpOnly:true,sameSite:"Lax"}]);
+  const token=await createHarborSessionToken({uid:staff.id,email:staff.email,name:staff.displayName,staffRole:staff.role,sessionVersion:staff.sessionVersion});await context.addCookies([{name:"harbor_session",value:token,url:baseURL,httpOnly:true,sameSite:"Lax"}]);
   await page.goto(`/console/customers/${f.facility.id}`);await page.getByTestId("harbor-open-facility").click();await page.goto("/employees/bulk-setup");await upload(page,"workforce",f.csv);await confirm(page);await expect(results(page).getByLabel("Outcome counts")).toContainText("committed: 1");
   const batch=await db.setupImportBatch.findFirstOrThrow({where:{facilityId:f.facility.id}});expect(batch.actorStaffId).toBe(staff.id);expect(batch.actorUserId).toBeNull();expect(await db.user.count({where:{id:staff.id}})).toBe(0);
   const manager=await fixture("MANAGER"),other=await browser.newContext({baseURL});await login(other,manager.token);const denied=await other.newPage();await denied.goto("/employees/bulk-setup");await expect(denied.getByLabel("CSV dataset").locator("option")).toHaveText(["Asset registry"]);expect(await db.setupImportBatch.count({where:{facilityId:manager.facility.id}})).toBe(0);await other.close();

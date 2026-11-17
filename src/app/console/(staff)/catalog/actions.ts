@@ -314,7 +314,7 @@ async function publishHarborCatalog(formData: FormData, saveDraft: boolean): Pro
       await tx.harborAuditEvent.create({
         data: { staffId: authority.staff.id, action: "CATALOG_PUBLISH" },
       });
-    });
+    }, { isolationLevel: "ReadCommitted" });
     revalidatePath("/console/catalog");
     revalidatePath(`/console/catalog/${stableKey}`);
     return { ok: true };

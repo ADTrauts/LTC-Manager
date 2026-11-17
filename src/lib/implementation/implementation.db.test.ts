@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient, RoleKey } from "@prisma/client";
 import type Stripe from "stripe";
 import type { FacilitySession } from "@/lib/auth";
-import type { HarborJwtPayload } from "@/lib/harbor-console/session";
+import { createHarborSessionToken, verifyHarborSessionToken } from "@/lib/harbor-console/session";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { applyFacilitySubscription } from "@/lib/billing/apply-stripe-event";
 import { previewImport, confirmImport, getImportResults } from "@/lib/setup-imports/service";
@@ -44,7 +44,7 @@ async function fixture(db: PrismaClient, organizationId?: string) {
 
 async function setup(db: PrismaClient, waived=false) {
   const f=await fixture(db);const owner=await db.platformStaff.create({data:{email:`owner-${randomUUID()}@example.com`,displayName:"Service Owner",passwordHash:"no-login",role:"OWNER"}});
-  const c:Actor={kind:"customer",session:f.session};const s:Actor={kind:"staff",session:{uid:owner.id,staffRole:owner.role,email:owner.email,name:owner.displayName,sessionVersion:0,tokenUse:"harbor"} as HarborJwtPayload,workFacilityId:null};
+  const c:Actor={kind:"customer",session:f.session};const s:Actor={kind:"staff",session:await verifyHarborSessionToken(await createHarborSessionToken({uid:owner.id,email:owner.email,name:owner.displayName,staffRole:owner.role,sessionVersion:owner.sessionVersion})),workFacilityId:null};
   const scope={departmentKeys:["DIETARY","PLANT"],deliverables:["Workforce mapping and reviewed results","Configuration review and training"]};
   const id=await requestEngagement(db,c,f.facility.id,scope);await assignEngagement(db,s,id,owner.id);const order=await issueQuote(db,s,id,0,scope,waived?"Owner-approved service recovery":undefined);
   return {...f,c,s,owner,scope,id,order};
