@@ -4,7 +4,7 @@ import type Stripe from "stripe";
 import { getStripeServerClient } from "@/lib/stripe";
 import { appendEvent, authorize, lockEngagement, type Actor, type Tx } from "@/lib/implementation/authority";
 import { ImportError } from "@/lib/setup-imports/contract";
-import { ImplementationError } from "@/lib/implementation/contract";
+import { ImplementationError, PAYMENT_RECONCILED_EVENT } from "@/lib/implementation/contract";
 
 export type PaymentDependencies = { db: PrismaClient; stripe?: Stripe; now?: () => Date };
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -40,12 +40,12 @@ async function applySession(tx: Tx, order: ImplementationOrder, attempt: Impleme
   }
   // A late event cannot undo a settled payment. Every event retrieves current state first.
   if (attempt.status === "PAID" && status !== "PAID") throw new ImplementationError("A settled service payment needs billing review; its delivered history is preserved.");
-  await tx.implementationPaymentAttempt.update({ where: { id: attempt.id }, data: { status, checkoutSessionId: session.id, paymentIntentId, checkoutUrl: status === "OPEN" ? session.url : null } });
+  const stored = await tx.implementationPaymentAttempt.update({ where: { id: attempt.id }, data: { status, checkoutSessionId: session.id, paymentIntentId, checkoutUrl: status === "OPEN" ? session.url : null }, select: { status: true } });
   if (status === "PAID" && order.status !== "PAID") {
     await tx.implementationOrder.update({ where: { id: order.id }, data: { status: "PAID" } });
     await tx.implementationEvent.create({ data: { engagementId: order.engagementId, kind: "PAYMENT_SETTLED", actorKind: "provider", data: { orderId: order.id, attemptId: attempt.id, sessionId: session.id, paymentIntentId, amountCents: order.amountCents, currency: order.currency } } });
   }
-  return { status, url: status === "OPEN" ? session.url : null, sessionId: session.id };
+  return { status: stored.status, url: status === "OPEN" ? session.url : null, sessionId: session.id };
 }
 /** List reconciliation is paginated and complete. A failed/incomplete scan never permits POST. */
 async function findAttemptSession(stripe: Stripe, attempt: ImplementationPaymentAttempt) {
@@ -99,9 +99,11 @@ export async function reconcileImplementationPayment(deps: PaymentDependencies, 
     if (order.engagementId !== engagement.id) throw new ImplementationError("Order is outside this engagement.");
     payable(order);
     if (order.status === "PAID") return { status: "PAID", url: null };
+    // Preparation, reconciliation, and webhook settlement all hold the order lock before touching attempts.
     const attempt = await tx.implementationPaymentAttempt.findFirst({ where: { orderId }, orderBy: { sequence: "desc" } });
     if (!attempt) return { status: "NOT_STARTED", url: null };
     let session: Stripe.Checkout.Session | null;
+    let providerFailure: { message: string } | undefined;
     try {
       session = await findAttemptSession(stripe,attempt);
       if (!session && allowSameKeyRetry && actor.kind === "customer" && +nowOf(deps)-+attempt.createdAt < 12*60*60*1000) {
@@ -109,20 +111,35 @@ export async function reconcileImplementationPayment(deps: PaymentDependencies, 
         await authorize(tx,actor,engagement.facilityId);
         session = await stripe.checkout.sessions.create(attempt.request as unknown as Stripe.Checkout.SessionCreateParams,{ ...options, idempotencyKey: attempt.idempotencyKey });
       }
-      if (!session) {
-        await tx.implementationPaymentAttempt.update({ where: { id: attempt.id }, data: { status: "UNKNOWN" } });
-        return { status: "UNKNOWN", url: null };
-      }
-      checkSession(order,attempt,session);
+      if (session) checkSession(order,attempt,session);
     } catch (error) {
       if (error instanceof ImportError) throw error; // Authority failure before POST is not a provider outcome.
-      // No fresh key after an ambiguous response, failed reconciliation, mismatch or SDK error.
-      await tx.implementationPaymentAttempt.update({ where: { id: attempt.id }, data: { status: "UNKNOWN", checkoutUrl: null } });
-      return { status: "UNKNOWN", url: null, message: error instanceof ImplementationError ? error.message : "Payment outcome is unknown. Reconcile this stored attempt before retrying; no new order or charge was created by this recovery." };
+      session = null;
+      providerFailure = { message: error instanceof ImplementationError ? error.message : "Payment outcome is unknown. Reconcile this stored attempt before retrying; no new order or charge was created by this recovery." };
     }
-    // Persistence failure must roll back the entire settlement, including its audit.
-    // Do not turn a partially applied local settlement into a committed UNKNOWN row.
-    return applySession(tx,order,attempt,session,stripe);
+    // Persist and attribute the outcome outside the provider catch so either write can abort the transaction.
+    const result = session
+      ? await applySession(tx,order,attempt,session,stripe)
+      : {
+        ...await tx.implementationPaymentAttempt.update({
+          where: { id: attempt.id },
+          // Preserve the stored URL on an empty history result; clear it when reconciliation failed.
+          data: { status: "UNKNOWN", ...(providerFailure ? { checkoutUrl: null } : {}) },
+          select: { status: true },
+        }),
+        url: null,
+        ...providerFailure,
+      };
+    if (actor.kind === "staff" && result.status !== attempt.status) {
+      await appendEvent(tx, actor, engagement.id, PAYMENT_RECONCILED_EVENT, {
+        facilityId: engagement.facilityId,
+        orderId: order.id,
+        attemptId: attempt.id,
+        previousStatus: attempt.status,
+        newStatus: result.status,
+      });
+    }
+    return result;
   },txOptions);
 }
 /** Signed webhook dispatcher supplies only a locator. Current Stripe state and the approved snapshot are proof. */
