@@ -109,6 +109,7 @@ export const SQL_BACKED_TEST_FILES = [
   "src/lib/support/support-macros.db.test.ts",
   "src/lib/support/support-notifications.db.test.ts",
   "src/lib/support/support-history.db.test.ts",
+  "src/lib/support/support-status-attribution.db.test.ts",
   "src/lib/support/support-automation.db.test.ts",
   "src/lib/harbor-console/console-catalog.db.test.ts",
   "src/lib/harbor-console/console-catalog-detail.db.test.ts",

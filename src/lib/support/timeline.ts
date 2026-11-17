@@ -88,6 +88,16 @@ function metadataString(metadata: unknown, key: string): string | null {
   return typeof value === "string" && value ? value : null;
 }
 
+function manualStatusFacilityLabel(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object" || !("manualStatusFacility" in metadata)) return null;
+  const facility = metadata.manualStatusFacility;
+  if (facility === null) return "Unassigned";
+  if (!facility || typeof facility !== "object" ||
+      !("id" in facility) || typeof facility.id !== "string" || !facility.id ||
+      !("displayName" in facility) || typeof facility.displayName !== "string" || !facility.displayName) return null;
+  return facility.displayName;
+}
+
 function statusLabel(value: string | null): string {
   return value ? (SUPPORT_TICKET_STATUS_LABEL[value as SupportTicketStatus] ?? value) : "None";
 }
@@ -118,7 +128,9 @@ export function describeSupportEvent(event: SupportTimelineEvent): string {
         if (event.toValue === "CLOSED") return "Automation closed resolved ticket";
       }
       const change = `Status changed from ${statusLabel(event.fromValue)} to ${statusLabel(event.toValue)}`;
-      return !event.actorName && event.causedByMessageId ? `${change} because the customer replied` : change;
+      if (!event.actorName && event.causedByMessageId) return `${change} because the customer replied`;
+      const facility = manualStatusFacilityLabel(event.metadata);
+      return facility === null ? change : `${change} · Facility at status change: ${facility}`;
     }
     case "PRIORITY_CHANGED":
       return `Priority changed from ${priorityLabel(event.fromValue)} to ${priorityLabel(event.toValue)}`;
