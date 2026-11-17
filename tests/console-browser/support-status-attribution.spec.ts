@@ -77,7 +77,7 @@ test("Support ticket history shows the Facility from the manual status change", 
     await expect(event).not.toContainText(oldFacility.id);
     expect(await db.supportTicket.findUnique({ where: { id: ticket.id }, select: { status: true } })).toEqual({ status: "RESOLVED" });
 
-    await page.getByLabel("Facility", { exact: true }).selectOption(newFacility.id);
+    await page.locator('select[name="facilityId"]').selectOption(newFacility.id, { timeout: 15000 });
     await page.getByRole("button", { name: "Save details", exact: true }).click();
     await expect(page.getByRole("link", { name: newFacility.displayName, exact: true })).toBeVisible();
     await expect(event).toContainText(`Facility at status change: ${oldFacility.displayName}`);
