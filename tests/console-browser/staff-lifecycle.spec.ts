@@ -182,7 +182,7 @@ test("staff invite, passkey, recovery and authority workflows use application ro
     const memberPassword = randomUUID();
     const finishRoutine = {
       operation: "finish-enrollment", token: routineToken, password: memberPassword,
-      challengeId: enrollment.data.challengeId, response: await respond(member, enrollment.data),
+      challengeId: enrollment.data.challengeId, response: await respond(separateBrowser, enrollment.data),
     };
     expect((await post(separateBrowser, identity, finishRoutine)).status).toBe(403);
 
