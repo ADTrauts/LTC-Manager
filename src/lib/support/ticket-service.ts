@@ -164,6 +164,7 @@ export async function applySupportTicketStatusChange(
     actorStaffId: string | null;
     causedByMessageId?: string | null;
     eventMetadata?: Prisma.InputJsonObject;
+    captureManualFacility?: true;
     now: Date;
   },
 ): Promise<boolean> {
@@ -190,6 +191,15 @@ export async function applySupportTicketStatusChange(
   if (updated.count !== 1) {
     throw new SupportTicketError("conflict");
   }
+  let metadata = input.eventMetadata;
+  if (input.captureManualFacility) {
+    // The successful update holds the ticket lock, so a reassignment cannot change this snapshot.
+    const { facility } = await tx.supportTicket.findUniqueOrThrow({
+      where: { id: input.ticket.id },
+      select: { facility: { select: { id: true, displayName: true } } },
+    });
+    metadata = { ...metadata, manualStatusFacility: facility };
+  }
   await tx.supportTicketEvent.create({
     data: {
       ticketId: input.ticket.id,
@@ -198,7 +208,7 @@ export async function applySupportTicketStatusChange(
       causedByMessageId: input.causedByMessageId ?? null,
       fromValue: plan.from,
       toValue: plan.to,
-      metadata: input.eventMetadata,
+      metadata,
     },
   });
   return true;
@@ -225,6 +235,7 @@ export async function changeSupportTicketStatus(
       ticket,
       to: input.status,
       actorStaffId: input.actorStaffId,
+      captureManualFacility: true,
       now: input.now ?? new Date(),
     });
     return { changed };
