@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import type {
   CatalogLogCategory,
   CatalogLogPurposeType,
+  CatalogLogStatus,
   CatalogRecommendedCadence,
   OperationalEvidenceFieldType,
   OperationalTemplateScheduleKind,
@@ -295,25 +296,38 @@ async function publishHarborCatalog(formData: FormData, saveDraft: boolean): Pro
     return { ok: false, error: denied };
   }
   const definitionId = String(formData.get("definitionId") ?? "");
-  const stableKey = String(formData.get("stableKey") ?? "");
   try {
     const draft = saveDraft ? toDefinitionInput(parseDefinition(formData)) : null;
-    await prisma.$transaction(async (tx) => {
+    const stableKey = await prisma.$transaction(async (tx) => {
       const authority = await lockHarborStaffSession(staff, tx);
       if (!authority.valid) throw new Error(denied);
-      // Serialize publication with draft edits so validation sees the version being published.
-      await tx.$queryRaw`
-        SELECT "id" FROM "CatalogLogDefinition"
+      // Serialize publication with draft edits and distinguish a transition from an idempotent repeat.
+      const [locked] = await tx.$queryRaw<{ status: CatalogLogStatus }[]>`
+        SELECT "status" FROM "CatalogLogDefinition"
         WHERE "id" = ${definitionId} AND "ownerKind" = ${PLATFORM_CATALOG_OWNER.ownerKind}::"CatalogFormOwnerKind"
         FOR UPDATE
       `;
+      if (!locked) throw new Error("Catalog definition not found.");
       if (draft) {
         await updateCatalogDraft(tx, definitionId, draft, HARBOR_CATALOG_WRITE);
       }
-      await publishCatalogDefinition(tx, definitionId, undefined, HARBOR_CATALOG_WRITE);
-      await tx.harborAuditEvent.create({
-        data: { staffId: authority.staff.id, action: "CATALOG_PUBLISH" },
-      });
+      const published = await publishCatalogDefinition(tx, definitionId, undefined, HARBOR_CATALOG_WRITE);
+      if (locked.status === "DRAFT") {
+        try {
+          await tx.harborAuditEvent.create({
+            data: {
+              staffId: authority.staff.id,
+              action: "CATALOG_PUBLISH",
+              catalogPublication: { create: {
+                definitionId: published.id, stableKey: published.stableKey, version: published.version,
+              } },
+            },
+          });
+        } catch {
+          throw new Error("Publication could not be recorded. No changes were saved.");
+        }
+      }
+      return published.stableKey;
     }, { isolationLevel: "ReadCommitted" });
     revalidatePath("/console/catalog");
     revalidatePath(`/console/catalog/${stableKey}`);

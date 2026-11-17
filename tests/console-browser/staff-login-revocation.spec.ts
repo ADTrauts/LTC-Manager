@@ -87,6 +87,13 @@ test("Harbor logout revokes one login, including across a concurrent Catalog pub
     await Promise.all([publishClick, logoutClick]);
     await signOutPage.waitForURL(/\/console\/login$/);
     expect((await db.catalogLogDefinition.findUniqueOrThrow({ where: { id: draft.id } })).status).toBe("PUBLISHED");
+    const firstPublication = await db.harborAuditEvent.findFirstOrThrow({
+      where: { staffId: owner.id, action: "CATALOG_PUBLISH" },
+      select: { catalogPublication: { select: { definitionId: true, stableKey: true, version: true } } },
+    });
+    expect(firstPublication.catalogPublication).toEqual({
+      definitionId: draft.id, stableKey: draft.stableKey, version: draft.version,
+    });
     const receipt = await db.harborAssistanceLoginReceipt.findUnique({ where: { loginKey: login.key } });
     expect(receipt?.retainUntil.toISOString()).toBe(login.retainUntil.toISOString());
     expect((await first.cookies()).some(({ name }) => name === HARBOR_SESSION_COOKIE)).toBe(false);
@@ -99,8 +106,25 @@ test("Harbor logout revokes one login, including across a concurrent Catalog pub
     await expect(primary).toHaveURL(/\/console\/login$/);
     await primary.goto("/admin/facility/builder");
     await expect(primary.getByTestId("facility-builder-page")).toBeVisible();
-    await independent.goto("/console/catalog");
+    await independent.goto(`/console/catalog/${draft.stableKey}`);
     await expect(independent).toHaveURL(/\/console\/catalog/);
+    await independent.getByRole("button", { name: "New version", exact: true }).click();
+    await expect(independent.getByTestId("record-draft-version")).toHaveText("v2");
+    await independent.getByRole("button", { name: "Publish", exact: true }).click();
+    await expect(independent.getByTestId("record-published-version")).toHaveText("v2");
+    const successor = await db.catalogLogDefinition.findUniqueOrThrow({
+      where: { stableKey_version: { stableKey: draft.stableKey, version: 2 } },
+      select: { id: true },
+    });
+    const publishedEvents = await db.harborAuditEvent.findMany({
+      where: { staffId: owner.id, action: "CATALOG_PUBLISH" },
+      orderBy: { createdAt: "asc" },
+      select: { catalogPublication: { select: { definitionId: true, stableKey: true, version: true } } },
+    });
+    expect(publishedEvents.map(({ catalogPublication }) => catalogPublication)).toEqual([
+      { definitionId: draft.id, stableKey: draft.stableKey, version: 1 },
+      { definitionId: successor.id, stableKey: draft.stableKey, version: 2 },
+    ]);
 
     // The role-change fixture models the existing account-wide version invalidation.
     await signIn(signOutPage, owner.email, password, true);
