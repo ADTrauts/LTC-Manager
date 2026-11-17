@@ -115,7 +115,7 @@ export default async function HarborCustomersPage({
                       <Link
                         href={`/console/customers/${row.id}/implementation`}
                         aria-label={`View Implementation work for ${row.displayName}`}
-                        className="mt-1 inline-flex min-h-8 items-center text-xs underline"
+                        className="mt-1 flex min-h-8 w-fit items-center text-xs underline"
                         prefetch={false}
                       >
                         View Implementation work
