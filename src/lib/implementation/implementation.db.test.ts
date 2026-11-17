@@ -59,6 +59,129 @@ function provider(){
 }
 async function prepare(db:PrismaClient,f:Awaited<ReturnType<typeof setup>>,p:ReturnType<typeof provider>){return prepareImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,f.order.digest,"https://test.example",`/admin/billing/implementation?engagement=${f.id}`);}
 
+test("SQL assignment: records the locked previous staff and Facility without expanding customer or Support history", { skip }, () => run(async db => {
+  const f = await fixture(db);
+  const customer: Actor = { kind: "customer", session: f.session };
+  async function staffActor(role: "OWNER" | "MEMBER") {
+    const staff = await db.platformStaff.create({
+      data: { email: `assignment-${randomUUID()}@example.invalid`, displayName: role, passwordHash: "no-login", role },
+    });
+    const token = await createHarborSessionToken({
+      uid: staff.id, name: staff.displayName, email: staff.email, staffRole: role, sessionVersion: staff.sessionVersion,
+    });
+    return { kind: "staff", session: await verifyHarborSessionToken(token), workFacilityId: null } as const;
+  }
+  const [owner, member, replacement, successor] = await Promise.all([
+    staffActor("OWNER"), staffActor("MEMBER"), staffActor("MEMBER"), staffActor("MEMBER"),
+  ]);
+  const engagementId = await requestEngagement(db, customer, f.facility.id, {
+    departmentKeys: ["DIETARY"], deliverables: ["Synthetic assignment evidence"],
+  });
+  const readEngagement = () => db.implementationEngagement.findUniqueOrThrow({
+    where: { id: engagementId },
+    include: { participants: { orderBy: { id: "asc" } }, events: { orderBy: { id: "asc" } } },
+  });
+  const original = await readEngagement();
+  const supportHistory = () => db.supportTicketEvent.findMany({
+    where: { ticketId: original.supportTicketId }, orderBy: { id: "asc" },
+  });
+  const originalSupportHistory = await supportHistory();
+  await assert.rejects(assignEngagement(db, customer, engagementId, member.session.uid), /Console staff action/);
+  await assert.rejects(assignEngagement(db, member, engagementId, replacement.session.uid), /Owner/);
+  assert.deepEqual(await readEngagement(), original);
+
+  await assignEngagement(db, member, engagementId, member.session.uid);
+  const claimed = await readEngagement();
+  const claim = claimed.events.find(event => event.kind === "ASSIGNED");
+  assert.equal(claim?.actorStaffId, member.session.uid);
+  assert.deepEqual(claim?.data, {
+    responsibleStaffId: member.session.uid, previousResponsibleStaffId: null, facilityId: f.facility.id,
+  });
+  await assert.rejects(assignEngagement(db, member, engagementId, replacement.session.uid), /Owner/);
+  assert.deepEqual(await readEngagement(), claimed);
+
+  // Pause the first assignment before its event insert. The second call observes the old
+  // committed assignment at its initial lookup and must re-read after obtaining the locks.
+  let observeFirstWrite!: () => void;
+  let releaseFirstWrite!: () => void;
+  let observeSecondRead!: (staffId: string | null) => void;
+  const firstWriting = new Promise<void>(resolve => { observeFirstWrite = resolve; });
+  const firstCanCommit = new Promise<void>(resolve => { releaseFirstWrite = resolve; });
+  const secondRead = new Promise<string | null>(resolve => { observeSecondRead = resolve; });
+  const firstDb = db.$extends({ query: { implementationEvent: {
+    async create({ args, query }) {
+      if (args.data.kind === "ASSIGNED") {
+        observeFirstWrite();
+        await firstCanCommit;
+      }
+      return query(args);
+    },
+  } } }) as unknown as PrismaClient;
+  let observed = false;
+  const secondDb = db.$extends({ query: { implementationEngagement: {
+    async findUniqueOrThrow({ args, query }) {
+      const row = await query(args);
+      if (!observed) {
+        observed = true;
+        observeSecondRead(row.responsibleStaffId);
+      }
+      return row;
+    },
+  } } }) as unknown as PrismaClient;
+  const first = assignEngagement(firstDb, owner, engagementId, replacement.session.uid);
+  let second: Promise<void> | undefined;
+  try {
+    await Promise.race([firstWriting, first.then(() => assert.fail("First assignment did not wait at its event write"))]);
+    second = assignEngagement(secondDb, owner, engagementId, successor.session.uid);
+    assert.equal(await Promise.race([
+      secondRead, second.then(() => assert.fail("Second assignment did not read the engagement")),
+    ]), member.session.uid);
+  } finally {
+    releaseFirstWrite();
+    await Promise.allSettled(second ? [first, second] : [first]);
+  }
+  await first;
+  await second;
+
+  const assigned = await readEngagement();
+  assert.equal(assigned.deliveryRevision, original.deliveryRevision + 3);
+  assert.equal(assigned.responsibleStaffId, successor.session.uid);
+  assert.deepEqual(assigned.participants.map(({ staffId, userId }) => staffId ?? userId).sort(),
+    [f.user.id, member.session.uid, owner.session.uid, replacement.session.uid, successor.session.uid].sort());
+  const staffView = await getEngagement(db, owner, engagementId);
+  const customerView = await getEngagement(db, customer, engagementId);
+  const staffEvents = staffView.events.filter(event => event.kind === "ASSIGNED");
+  const customerEvents = customerView.events.filter(event => event.kind === "ASSIGNED");
+  assert.equal(staffEvents.length, 3);
+  assert.deepEqual(staffEvents.find(event => event.actorStaffId === owner.session.uid &&
+    (event.data as { responsibleStaffId: string }).responsibleStaffId === replacement.session.uid)?.data, {
+    responsibleStaffId: replacement.session.uid, previousResponsibleStaffId: member.session.uid, facilityId: f.facility.id,
+  });
+  assert.deepEqual(staffEvents.find(event => event.actorStaffId === owner.session.uid &&
+    (event.data as { responsibleStaffId: string }).responsibleStaffId === successor.session.uid)?.data, {
+    responsibleStaffId: successor.session.uid, previousResponsibleStaffId: replacement.session.uid, facilityId: f.facility.id,
+  });
+  assert.deepEqual(customerEvents.sort((a, b) => a.id.localeCompare(b.id)), staffEvents.map(event => ({
+    ...event, data: { responsibleStaffId: (event.data as { responsibleStaffId: string }).responsibleStaffId },
+  })).sort((a, b) => a.id.localeCompare(b.id)));
+  assert.deepEqual(await supportHistory(), originalSupportHistory);
+
+  const readTicket = () => db.supportTicket.findUniqueOrThrow({ where: { id: original.supportTicketId } });
+  const assignedTicket = await readTicket();
+  assert.equal(assignedTicket.assignedStaffId, successor.session.uid);
+  const [newActor, newAssignee] = await Promise.all([staffActor("OWNER"), staffActor("MEMBER")]);
+  const failingDb = db.$extends({ query: { implementationEvent: {
+    async create({ args, query }) {
+      if (args.data.kind === "ASSIGNED") throw new Error("injected assignment event failure");
+      return query(args);
+    },
+  } } }) as unknown as PrismaClient;
+  await assert.rejects(assignEngagement(failingDb, newActor, engagementId, newAssignee.session.uid), /injected assignment event failure/);
+  assert.deepEqual(await readEngagement(), assigned);
+  assert.deepEqual(await readTicket(), assignedTicket);
+  assert.deepEqual(await supportHistory(), originalSupportHistory);
+}));
+
 test("SQL service: exact price/revision approval, stale quote rejection and approved scope immutability",{skip},()=>run(async db=>{
  const f=await setup(db);assert.equal(f.order.amountCents,200000);const revision2=await issueQuote(db,f.s,f.id,1,{...f.scope,departmentKeys:["DIETARY"]});
  await assert.rejects(()=>approveQuote(db,f.c,f.id,f.order.id,f.order.digest),/changed/);await approveQuote(db,f.c,f.id,revision2.id,revision2.digest);
@@ -106,6 +229,7 @@ test("SQL service: customer acceptance binds delivered/deferred evidence and cur
  const old=await reviewHandoff(db,f.c,f.id);await recordMappingDecision(db,f.s,f.id,"Customer requested corrected role mapping",null);await assert.rejects(()=>acceptHandoff(db,f.c,f.id,old.fingerprint),/changed/);
  const current=await reviewHandoff(db,f.c,f.id);await acceptHandoff(db,f.c,f.id,current.fingerprint);const accepted=await db.implementationEngagement.findUniqueOrThrow({where:{id:f.id}});assert.equal(accepted.acceptedByUserId,f.user.id);assert.equal(accepted.acceptedRevision,accepted.deliveryRevision);
  await assert.rejects(()=>recordMappingDecision(db,f.s,f.id,"Must request separate work",null),/accepted/);
+ await assert.rejects(()=>assignEngagement(db,f.s,f.id,f.owner.id),/accepted/);
  const billing=await db.facilityBilling.findUniqueOrThrow({where:{facilityId:f.facility.id}});assert.equal(billing.status,"ACTIVE");assert.equal(await db.department.count({where:{facilityId:f.facility.id}}),2);
 }));
 test("SQL payment: unapproved scope cannot start, concurrent repeated charging uses one stored request/key",{skip},()=>run(async db=>{

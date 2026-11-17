@@ -43,7 +43,11 @@ export async function assignEngagement(db: PrismaClient, actor: Actor, engagemen
     await tx.implementationEngagement.update({ where: { id: row.id }, data: { responsibleStaffId, deliveryRevision: { increment: 1 } } });
     for (const id of new Set([responsibleStaffId,session.uid])) await tx.implementationParticipant.upsert({ where: { engagementId_staffId: { engagementId, staffId: id } }, create: { engagementId, staffId: id }, update: {} });
     await tx.supportTicket.update({ where: { id: row.supportTicketId }, data: { assignedStaffId: responsibleStaffId } });
-    await appendEvent(tx,actor,engagementId,"ASSIGNED",{ responsibleStaffId });
+    await appendEvent(tx, actor, row.id, "ASSIGNED", {
+      responsibleStaffId: responsible.id,
+      previousResponsibleStaffId: row.responsibleStaffId,
+      facilityId: row.facilityId,
+    });
   });
 }
 export async function addParticipant(db: PrismaClient, actor: Actor, engagementId: string, userId: string) {
@@ -202,7 +206,16 @@ export async function getEngagement(db: PrismaClient, actor: Actor, engagementId
   await authorize(db,actor,row.facilityId); await requireParticipant(db,actor,engagementId);
   const sourceIds = row.events.filter(e => e.kind === "SOURCE_RECEIVED").map(e => (e.data as { messageId: string }).messageId);
   const attachments = await db.supportTicketAttachment.findMany({ where: { messageId: { in: sourceIds }, message: { ticketId: row.supportTicketId, ticket: { facilityId: row.facilityId } } }, select: { id: true, messageId: true, filename: true, scanStatus: true, rejectionReason: true, sizeBytes: true, scanResultCode: true, scannerEngineVersion: true, scannerSignatureVersion: true, scannedAt: true } });
-  return { ...row, attachments, review: await reviewHandoff(db,actor,engagementId) };
+  // The customer workspace renders and serializes event data. Keep assignment audit details staff-only.
+  const events = actor.kind === "staff" ? row.events : row.events.map(event => {
+    if (event.kind !== "ASSIGNED") return event;
+    const data = event.data;
+    const responsibleStaffId = data && typeof data === "object" && !Array.isArray(data)
+      ? data.responsibleStaffId
+      : undefined;
+    return { ...event, data: typeof responsibleStaffId === "string" ? { responsibleStaffId } : {} };
+  });
+  return { ...row, events, attachments, review: await reviewHandoff(db,actor,engagementId) };
 }
 
 function findSourceReceipt(db: Db, engagementId: string, messageId: string) {
