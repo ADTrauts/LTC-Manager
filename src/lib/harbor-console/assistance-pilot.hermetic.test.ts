@@ -26,6 +26,50 @@ test("only the opt-in loopback disposable configuration opens the synthetic gate
   }
 });
 
+test("the hosted pilot requires the approved branch, commit, opt-in, UTC cutoff, and branch hostname", () => {
+  const alias = "ltc-manager-git-harbor-1b3-pilot-adtrauts-projects.vercel.app";
+  const direct = "ltc-manager-abcd12345-adtrauts-projects.vercel.app";
+  const commit = "a".repeat(40);
+  const now = Date.parse("2030-11-16T18:00:00Z");
+  const env: NodeJS.ProcessEnv = {
+    VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "harbor-1b3-pilot", VERCEL_GIT_COMMIT_SHA: commit,
+    VERCEL_BRANCH_URL: alias, VERCEL_URL: direct, HARBOR_ASSISTANCE_PROTECTED_PREVIEWS: alias,
+    HARBOR_ASSISTANCE_PREVIEW: "1", HARBOR_ASSISTANCE_APPROVED_COMMIT: commit,
+    HARBOR_ASSISTANCE_CUTOFF_UTC: "2030-11-16T19:00:00Z",
+    HARBOR_ASSISTANCE_FACILITIES: "a,b", HARBOR_ASSISTANCE_STAFF: "viewer,owner,revoker,reviewer",
+    HARBOR_ASSISTANCE_VIEWERS: "viewer", HARBOR_ASSISTANCE_APPROVERS: "owner",
+    HARBOR_ASSISTANCE_REVOKERS: "revoker", HARBOR_ASSISTANCE_REVIEWERS: "reviewer",
+  };
+  const actual = getAssistancePilot(alias, env, now);
+  assert.deepEqual(actual, {
+    facilities: new Set(["a", "b"]), staff: new Set(["viewer", "owner", "revoker", "reviewer"]),
+    viewers: new Set(["viewer"]), approvers: new Set(["owner"]), revokers: new Set(["revoker"]),
+    reviewers: new Set(["reviewer"]),
+  });
+
+  const mismatches = {
+    VERCEL: "0", VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", VERCEL_GIT_COMMIT_SHA: "b".repeat(40),
+    VERCEL_BRANCH_URL: "wrong.vercel.app", HARBOR_ASSISTANCE_PROTECTED_PREVIEWS: `${alias},wrong.vercel.app`,
+    HARBOR_ASSISTANCE_PREVIEW: "0", HARBOR_ASSISTANCE_APPROVED_COMMIT: "abc",
+    HARBOR_ASSISTANCE_CUTOFF_UTC: "2030-11-16T14:00:00-05:00",
+    HARBOR_ASSISTANCE_FACILITIES: "", HARBOR_ASSISTANCE_STAFF: "unlisted", HARBOR_ASSISTANCE_VIEWERS: "unlisted",
+  };
+  for (const [key, value] of Object.entries(mismatches)) {
+    assert.equal(getAssistancePilot(alias, { ...env, [key]: value }, now), null, key);
+    assert.equal(getAssistancePilot(alias, { ...env, [key]: undefined }, now), null, `missing ${key}`);
+  }
+  assert.equal(getAssistancePilot(alias, { ...env, HARBOR_ASSISTANCE_PREVIEW: "true" }, now), null);
+  assert.equal(getAssistancePilot(alias, { ...env, HARBOR_ASSISTANCE_CUTOFF_UTC: "2030-02-30T19:00:00Z" }, now), null);
+  const expiry = Date.parse(env.HARBOR_ASSISTANCE_CUTOFF_UTC!);
+  assert.ok(getAssistancePilot(alias, env, expiry - 1));
+  assert.equal(getAssistancePilot(alias, env, expiry), null);
+  assert.equal(getAssistancePilot(alias, env, expiry + 1), null);
+  assert.equal(getAssistancePilot(direct, env, now), null);
+  assert.equal(getAssistancePilot("ltc-manager-ten.vercel.app", env, now), null);
+  assert.equal(getAssistancePilot(direct, { ...env, VERCEL_BRANCH_URL: direct, HARBOR_ASSISTANCE_PROTECTED_PREVIEWS: direct }, now), null);
+  assert.equal(getAssistancePilot(alias, { ...env, HARBOR_ASSISTANCE_REVIEWERS: "owner" }, now), null);
+});
+
 test("the hosted boundary fails before parsing cookies, commands or an assistance query", async () => {
   const host = "https://preview.example.invalid";
   const endpoints = [
