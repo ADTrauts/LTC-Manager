@@ -77,11 +77,17 @@ test("session replacement and credential revocation share the User push revoke",
   for (const path of [
     "src/app/api/auth/login/route.ts",
     "src/app/api/auth/pin-login/route.ts",
-    "src/app/api/console/auth/login/route.ts",
+    "src/lib/harbor-console/complete-sign-in.ts",
   ]) {
     const text = source(path);
     assert.match(text, /revokePushForDepartingUser/, path);
     assert.match(text, /status: 503/, path);
+  }
+  for (const path of [
+    "src/app/api/console/auth/login/route.ts",
+    "src/app/api/console/staff-lifecycle/identity/route.ts",
+  ]) {
+    assert.match(source(path), /completeHarborSignIn\(request, staff[,)]/, path);
   }
   assert.match(source("src/app/api/auth/password-reset/confirm/route.ts"), /revokeAllPushSubscriptionsForUser/);
   assert.match(source("src/lib/session-revocation/administrative-revoke.ts"), /revokeAllPushSubscriptionsForUser/);

@@ -301,6 +301,23 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Support contact history. Derived from SupportTicket; not a customer CRM.",
   },
   {
+    pattern: "/api/console/staff-lifecycle",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+  },
+  {
+    pattern: "/api/console/staff-lifecycle/identity",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Requires the synthetic gate plus password-bound MFA or a roster-bound enrollment intent.",
+  },
+  {
     pattern: "/api/console/auth/login",
     match: "EXACT",
     surface: "API",
