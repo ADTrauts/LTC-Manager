@@ -1,3 +1,4 @@
+import { createHarborSessionToken } from "../../src/lib/harbor-console/session";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { PrismaClient, type RoleKey } from "@prisma/client";
@@ -83,7 +84,7 @@ test("Console describes setup acknowledgement separately from licensing and inst
   await db.facility.update({ where: { id: f.facility.id }, data: { onboardingCompletedAt: new Date() } });
   const id = randomUUID();
   const staff = await db.platformStaff.create({ data: { email: `staff-${id}@example.com`, displayName: "Onboarding Support", passwordHash: "unused-disposable-test", role: "OWNER" } });
-  const token = await new SignJWT({ uid: staff.id, tokenUse: "harbor", email: staff.email, name: staff.displayName, staffRole: "OWNER", sessionVersion: 0 }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("1h").sign(new TextEncoder().encode(process.env.AUTH_SECRET));
+  const token = await createHarborSessionToken({uid:staff.id,email:staff.email,name:staff.displayName,staffRole:staff.role,sessionVersion:staff.sessionVersion});
   await context.addCookies([{ name: "harbor_session", value: token, url: baseURL, httpOnly: true, sameSite: "Lax" }]);
   await page.goto(`/console/customers/${f.facility.id}`);
   await expect(page.getByText("Guided setup acknowledged", { exact: true }).first()).toBeVisible();

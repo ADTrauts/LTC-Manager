@@ -11,6 +11,7 @@ import {
   verifyHarborWorkToken,
 } from "@/lib/harbor-console/session";
 import { prisma } from "@/lib/prisma";
+import { harborLoginIdentity, hasHarborLogoutReceipt } from "./login-receipt";
 
 export {
   createHarborSessionToken,
@@ -44,8 +45,10 @@ export function hasHarborCapability(
 
 export async function validateHarborStaffSession(
   session: HarborJwtPayload,
-  db: Pick<Prisma.TransactionClient, "platformStaff"> = prisma,
+  db: Pick<Prisma.TransactionClient, "platformStaff" | "harborAssistanceLoginReceipt"> = prisma,
 ) {
+  const login = harborLoginIdentity(session);
+  if (!login || login.retainUntil.getTime() <= Date.now()) return { valid: false as const };
   const staff = await db.platformStaff.findUnique({
     where: { id: session.uid },
     select: {
@@ -66,6 +69,9 @@ export async function validateHarborStaffSession(
   if (staff.role !== session.staffRole || staff.email !== session.email) {
     return { valid: false as const };
   }
+  if (await hasHarborLogoutReceipt(db, login.key) || login.retainUntil.getTime() <= Date.now()) {
+    return { valid: false as const };
+  }
   return { valid: true as const, staff };
 }
 
@@ -75,9 +81,7 @@ export async function lockHarborStaffSession(session: HarborJwtPayload, tx: Pris
   return validateHarborStaffSession(session, tx);
 }
 
-export async function getHarborSession(): Promise<HarborJwtPayload | null> {
-  const jar = await cookies();
-  const raw = jar.get(HARBOR_SESSION_COOKIE)?.value;
+export async function resolveHarborSession(raw: string | undefined): Promise<HarborJwtPayload | null> {
   if (!raw) {
     return null;
   }
@@ -91,6 +95,10 @@ export async function getHarborSession(): Promise<HarborJwtPayload | null> {
   } catch {
     return null;
   }
+}
+
+export async function getHarborSession(): Promise<HarborJwtPayload | null> {
+  return resolveHarborSession((await cookies()).get(HARBOR_SESSION_COOKIE)?.value);
 }
 
 export async function requireHarborStaff() {

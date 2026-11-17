@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createSessionToken } from "@/lib/auth";
+import { createSessionToken, verifySessionToken } from "@/lib/auth";
 import { hasHarborCapability, isHarborOwnerSession } from "@/lib/harbor-console/auth";
 import {
   createHarborSessionToken,
-  HARBOR_TOKEN_USE,
+  HARBOR_LOGIN_ID,
+  HARBOR_STAFF_LOGIN_TOKEN_USE,
   verifyHarborSessionToken,
 } from "@/lib/harbor-console/session";
 
@@ -20,7 +21,9 @@ test("Harbor tokens are distinct from facility sessions", async () => {
     sessionVersion: 0,
   });
   const payload = await verifyHarborSessionToken(harbor);
-  assert.equal(payload.tokenUse, HARBOR_TOKEN_USE);
+  assert.equal(payload.tokenUse, HARBOR_STAFF_LOGIN_TOKEN_USE);
+  assert.match(payload.jti ?? "", HARBOR_LOGIN_ID);
+  await assert.rejects(() => verifySessionToken(harbor), /Not a facility session/);
   assert.equal(payload.staffRole, "OWNER");
   assert.equal(payload.email, "andrew.trautman@vssyl.com");
 

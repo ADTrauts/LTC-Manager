@@ -17,6 +17,7 @@ import {
   getHarborCookieOptions,
   HARBOR_INITIAL_SESSION_VERSION,
   HARBOR_SESSION_COOKIE,
+  resolveHarborSession,
 } from "@/lib/harbor-console/auth";
 import { revokePushForDepartingUser } from "@/lib/notifications/push-subscription";
 import { prisma } from "@/lib/prisma";
@@ -76,15 +77,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
-  await resetAuthRateLimitBucket(accountBucketKey);
-  await prisma.platformStaff.update({
-    where: { id: staff.id },
-    data: { lastLoginAt: new Date() },
-  });
-  await prisma.harborAuditEvent.create({
-    data: { staffId: staff.id, action: "LOGIN" },
-  });
-
   const pilot = getAssistancePilot(request.headers.get("host") ?? new URL(request.url).host);
   const token = await createHarborSessionToken({
     uid: staff.id,
@@ -93,6 +85,20 @@ export async function POST(request: Request) {
     staffRole: staff.role,
     sessionVersion: staff.sessionVersion ?? HARBOR_INITIAL_SESSION_VERSION,
   }, pilot?.staff.has(staff.id) ? { bindAssistance: true } : undefined);
+
+  // Do not issue a cookie unless the live authority and receipt store can validate it.
+  if (!await resolveHarborSession(token)) {
+    return NextResponse.json({ error: "Staff sign-in is temporarily unavailable." }, { status: 503 });
+  }
+
+  await resetAuthRateLimitBucket(accountBucketKey);
+  await prisma.platformStaff.update({
+    where: { id: staff.id },
+    data: { lastLoginAt: new Date() },
+  });
+  await prisma.harborAuditEvent.create({
+    data: { staffId: staff.id, action: "LOGIN" },
+  });
 
   try {
     const previous = await getAppSession();

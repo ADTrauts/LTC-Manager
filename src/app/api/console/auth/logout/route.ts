@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { endBrowserAssistanceLogin } from "@/lib/harbor-console/assistance-store";
 import { getHarborCookieOptions, HARBOR_SESSION_COOKIE, HARBOR_WORK_COOKIE } from "@/lib/harbor-console/auth";
 import { sameOriginBrowserPost } from "@/lib/harbor-console/browser-post";
+import { endBrowserHarborLogin } from "@/lib/harbor-console/staff-logout";
 
 export async function POST(request: NextRequest) {
   const origin = sameOriginBrowserPost(request);
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
   const token = request.cookies.get(HARBOR_SESSION_COOKIE)?.value;
   try {
-    await endBrowserAssistanceLogin(token);
+    await endBrowserHarborLogin(token);
   } catch {
     return NextResponse.json({ error: "Sign-out could not be completed. Please try again." }, { status: 503 });
   }

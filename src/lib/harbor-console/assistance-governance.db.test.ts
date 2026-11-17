@@ -1,3 +1,4 @@
+import { endBrowserHarborLogin } from "./staff-logout";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -10,7 +11,7 @@ import {
   approveAssistanceGrant, endPilotAssistance, loadPilotStructure, maintainPilotAudit, recordAssistanceConsent,
   revokePilotAssistance, switchAssistanceContext, withdrawAssistanceConsent,
 } from "./assistance-governance";
-import { endBrowserAssistanceLogin, readBoundLogin, recordHarborAssistanceGrantRevocation, withHarborAssistanceTransaction } from "./assistance-store";
+import { readBoundLogin, recordHarborAssistanceGrantRevocation, withHarborAssistanceTransaction } from "./assistance-store";
 import { createHarborSessionToken } from "./session";
 
 const url = process.env.VERIFY_DATABASE_URL;
@@ -351,7 +352,7 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   const liveScope = { ...scopeA, grantId: liveGrant };
   const logoutRef = randomUUID();
   assert.equal(await switchAssistanceContext(pilot, v, { ...liveScope, requestId: logoutRef }), true);
-  await Promise.all([loadPilotStructure(pilot, v, logoutRef), endBrowserAssistanceLogin(v)]);
+  await Promise.all([loadPilotStructure(pilot, v, logoutRef), endBrowserHarborLogin(v)]);
   assert.equal(await loadPilotStructure(pilot, v, logoutRef), null);
   const login = await readBoundLogin(v);
   assert.ok(login);
@@ -371,7 +372,7 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
   assert.equal(await switchAssistanceContext(pilot, v, { ...liveScope, requestId: randomUUID() }), false);
   assert.equal(await loadPilotStructure(pilot, v, logoutRef), null);
 
-  await endBrowserAssistanceLogin(unrelatedToken);
+  await endBrowserHarborLogin(unrelatedToken);
   const unrelatedLogin = await readBoundLogin(unrelatedToken);
   assert.ok(unrelatedLogin);
   await prisma.platformStaff.delete({ where: { id: unrelated.id } });
@@ -408,7 +409,7 @@ test("Phase 1B.3 synthetic A/B authority, read-only structure, and durable logou
     .sign(new TextEncoder().encode(process.env.AUTH_SECRET));
   const shortLogin = await readBoundLogin(shortToken);
   assert.ok(shortLogin);
-  await endBrowserAssistanceLogin(shortToken);
+  await endBrowserHarborLogin(shortToken);
   assert.equal((await prisma.harborAssistanceLoginReceipt.findUniqueOrThrow({
     where: { loginKey: shortLogin.key },
   })).retainUntil.getTime(), signedExpiry * 1000);

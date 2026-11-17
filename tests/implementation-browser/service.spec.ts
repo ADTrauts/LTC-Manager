@@ -1,3 +1,4 @@
+import { createHarborSessionToken } from "../../src/lib/harbor-console/session";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { PrismaClient, RoleKey } from "@prisma/client";
@@ -31,7 +32,7 @@ async function fixture(roleKey:RoleKey="FACILITY_ADMINISTRATOR"){
 async function login(context:BrowserContext,token:string){await context.addCookies([{name:"ltc_session",value:token,url:baseURL,httpOnly:true,sameSite:"Lax"}]);}
 async function staffLogin(context:BrowserContext,role:"OWNER"|"MEMBER"="OWNER"){
  const staff=await db.platformStaff.create({data:{email:`service-${randomUUID()}@example.com`,displayName:"Implementation Owner",passwordHash:"unused-fixture",role}});
- await context.addCookies([{name:"harbor_session",value:await sign({uid:staff.id,email:staff.email,name:staff.displayName,staffRole:staff.role,sessionVersion:0,tokenUse:"harbor"}),url:baseURL,httpOnly:true,sameSite:"Lax"}]);return staff;
+ await context.addCookies([{name:"harbor_session",value:await createHarborSessionToken({uid:staff.id,email:staff.email,name:staff.displayName,staffRole:staff.role,sessionVersion:staff.sessionVersion}),url:baseURL,httpOnly:true,sameSite:"Lax"}]);return staff;
 }
 const serviceForm=(page:Page,label:string)=>page.getByRole("button",{name:label,exact:true}).locator("..");
 async function request(page:Page){await page.goto("/admin/billing/implementation");const form=serviceForm(page,"Request assisted engagement");await form.getByLabel("Food and Nutrition").check();await form.getByLabel("Facility Plant Operations").check();await form.getByLabel("Deliverables, one per line").fill("Map workforce and review actual import results\nConfiguration and training handoff");await form.getByRole("button").click();await expect(page).toHaveURL(/engagement=/);return new URL(page.url()).searchParams.get("engagement")!;}

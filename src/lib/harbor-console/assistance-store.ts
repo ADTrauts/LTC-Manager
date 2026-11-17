@@ -1,9 +1,8 @@
-import { createHash } from "node:crypto";
 import type { HarborAssistanceOperation, HarborFacilityGrant, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { validateHarborStaffSession } from "./auth";
-import { HARBOR_JWT_CLOCK_TOLERANCE_SECONDS, type HarborJwtPayload, verifyHarborSessionToken } from "./session";
+import { readHarborLogin } from "./login-receipt";
 
 // Persistence commands. Pilot capabilities and consent are checked by the governance service.
 declare const assistanceTransaction: unique symbol;
@@ -17,7 +16,7 @@ export function withHarborAssistanceTransaction<T>(run: (tx: Tx) => Promise<T>):
 
 export type GrantScope = { grantId: string; facilityId: string };
 type SessionScope = GrantScope & { sessionId: string };
-type BoundLogin = { claim: HarborJwtPayload; key: string; expiresAt: Date };
+type BoundLogin = NonNullable<Awaited<ReturnType<typeof readHarborLogin>>>;
 
 export type HarborAssistanceActor = Readonly<{
   kind: "harbor_assistance";
@@ -33,19 +32,8 @@ export const structureReview = "FACILITY_STRUCTURE_REVIEW";
 export const assistanceReference = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export async function readBoundLogin(token: string | undefined): Promise<BoundLogin | null> {
-  if (!token) return null;
-  let claim: HarborJwtPayload;
-  try {
-    claim = await verifyHarborSessionToken(token);
-  } catch {
-    return null;
-  }
-  if (typeof claim.jti !== "string" || !assistanceReference.test(claim.jti) ||
-      typeof claim.exp !== "number" || !Number.isSafeInteger(claim.exp)) return null;
-  const expiresAt = new Date(claim.exp * 1000);
-  if (!Number.isFinite(expiresAt.getTime()) || !claim.uid) return null;
-  const key = createHash("sha256").update(claim.uid).update("\0").update(claim.jti).digest("hex");
-  return { claim, key, expiresAt };
+  const login = await readHarborLogin(token);
+  return login?.assistance ? login : null;
 }
 
 // Serialize for a subject across every grant and login. Revocation can involve two staff rows.
@@ -62,18 +50,11 @@ export async function currentTime(tx: Tx): Promise<Date> {
   return row.now;
 }
 
-async function hasEndedLogin(tx: Tx, key: string): Promise<boolean> {
-  return (await tx.harborAssistanceLoginReceipt.findUnique({
-    where: { loginKey: key },
-    select: { loginKey: true },
-  })) !== null;
-}
-
 export async function acquireLiveLogin(tx: Tx, token: string | undefined): Promise<BoundLogin | null> {
   const login = await readBoundLogin(token);
   if (!login || !(await lockStaff(tx, login.claim.uid))) return null;
   const authority = await validateHarborStaffSession(login.claim, tx);
-  return authority.valid && !(await hasEndedLogin(tx, login.key)) ? login : null;
+  return authority.valid ? login : null;
 }
 
 export async function lockGrant(tx: Tx, staffId: string, scope: GrantScope) {
@@ -212,7 +193,7 @@ export async function recordHarborAssistanceGrantRevocation(
   const revoker = await readBoundLogin(token);
   if (!revoker || !(await lockStaff(tx, scope.staffId, revoker.claim.uid))) return false;
   const authority = await validateHarborStaffSession(revoker.claim, tx);
-  if (!authority.valid || await hasEndedLogin(tx, revoker.key)) return false;
+  if (!authority.valid) return false;
   const grant = await lockGrant(tx, scope.staffId, scope);
   if (!grant) return false;
   const now = await currentTime(tx);
@@ -232,27 +213,4 @@ export async function recordHarborAssistanceGrantRevocation(
     assistance: { create: { grantId: grant.id } }, createdAt: now,
   } });
   return true;
-}
-
-/** Unbound logins need no assistance tables. */
-export async function endBrowserAssistanceLogin(token: string | undefined) {
-  const login = await readBoundLogin(token);
-  if (!login) return;
-  await withHarborAssistanceTransaction(async (tx) => {
-    if (!(await lockStaff(tx, login.claim.uid)) || await hasEndedLogin(tx, login.key)) return;
-    const now = await currentTime(tx);
-    await tx.harborAssistanceSession.updateMany({
-      where: { loginKey: login.key, endedAt: null },
-      data: { endedAt: now, endReason: "HARBOR_LOGOUT", endedByStaffId: login.claim.uid },
-    });
-    // This receipt survives audit pruning and staff removal, even when there was no open session.
-    await tx.harborAssistanceLoginReceipt.create({ data: {
-      loginKey: login.key,
-      retainUntil: new Date(login.expiresAt.getTime() + HARBOR_JWT_CLOCK_TOLERANCE_SECONDS * 1000),
-    } });
-    await tx.harborAuditEvent.create({ data: {
-      staffId: login.claim.uid, action: "ASSISTANCE_LOGIN_END",
-      createdAt: now,
-    } });
-  });
 }

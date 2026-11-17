@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import type { FacilitySession } from "@/lib/auth";
+import { lockHarborStaffSession, validateHarborStaffSession } from "@/lib/harbor-console/auth";
 import type { HarborJwtPayload } from "@/lib/harbor-console/session";
 import { lockAuthority, liveActor } from "@/lib/setup-imports/authority";
 import { ImplementationError } from "./contract";
@@ -13,9 +14,9 @@ export async function authorize(db: Db, actor: Actor, facilityId: string, lock =
     if (lock) await lockAuthority(db as Tx,actor.session,"workforce"); else await liveActor(db,actor.session,facilityId,"workforce");
   } else {
     if (actor.workFacilityId) throw new ImplementationError("Exit the Facility work session before managing implementation engagements.");
-    if (lock) await (db as Tx).$queryRaw(Prisma.sql`SELECT "id" FROM "PlatformStaff" WHERE "id"=${actor.session.uid} FOR SHARE`);
-    const staff = await db.platformStaff.findUnique({ where: { id: actor.session.uid } });
-    if (!staff?.isActive || staff.role !== actor.session.staffRole || staff.email !== actor.session.email || staff.sessionVersion !== actor.session.sessionVersion) throw new ImplementationError("Console authority changed. Sign in again.");
+    const authority = lock ? await lockHarborStaffSession(actor.session, db as Tx) :
+      await validateHarborStaffSession(actor.session, db);
+    if (!authority.valid) throw new ImplementationError("Console authority changed. Sign in again.");
   }
 }
 export async function lockEngagement(tx: Tx, actor: Actor, id: string, participant = true) {
