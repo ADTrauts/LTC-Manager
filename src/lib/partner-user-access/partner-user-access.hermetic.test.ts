@@ -831,6 +831,7 @@ function createWorld() {
     $queryRaw: async (query: { strings?: string[]; values?: unknown[] }) => {
       const text = (query.strings ?? []).join(" ");
       const id = String(query.values?.[0] ?? "");
+      if (text.includes("clock_timestamp()")) return [{ now: new Date() }];
       if (text.includes('"Organization"')) {
         return organizations.some((row) => row.id === id) ? [{ id }] : [];
       }
