@@ -7,8 +7,9 @@ import type { SupportAttachmentStore } from "@/lib/support/attachment-store";
 import { SUPPORT_ATTACHMENT_MAX_BYTES } from "@/lib/support/attachment-limits";
 import { loadCustomerOperableDepartments } from "@/lib/department-products/load-facility-catalog";
 import type { PlanRow } from "@/lib/setup-imports/contract";
-import { appendEvent, authorize, lockEngagement, requireParticipant, type Actor, type Db, type Tx } from "./authority";
+import { appendEvent, authorize, authorizeImplementationStaff, lockEngagement, requireParticipant, type Actor, type Db, type Tx } from "./authority";
 import { deliveryEvidence, digest, ImplementationError, parseScope, PAYMENT_RECONCILED_EVENT, quoteScope, STAGES } from "./contract";
+import { implementationWorkWhere } from "./work-queue";
 export const IMPLEMENTATION_SOURCE_SUBMISSION_PREFIX = "implementation:";
 
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -203,10 +204,9 @@ export async function acceptHandoff(db: PrismaClient, actor: Actor, engagementId
 }
 /** Same staff scope as the Implementation index; individual engagement reads still require participation. */
 export async function loadStaffImplementationWorkCounts(db: Db, actor: Actor, facilityId: string) {
-  staff(actor);
-  await authorize(db, actor, facilityId);
+  await authorizeImplementationStaff(db, actor);
   const { _count } = await db.implementationEngagement.aggregate({
-    where: { facilityId, acceptedAt: null },
+    where: { facilityId, ...implementationWorkWhere("open") },
     _count: { _all: true, responsibleStaffId: true },
   });
   return { open: _count._all, unassigned: _count._all - _count.responsibleStaffId };

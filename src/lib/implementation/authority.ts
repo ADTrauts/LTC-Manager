@@ -13,11 +13,16 @@ export async function authorize(db: Db, actor: Actor, facilityId: string, lock =
     if (actor.session.authKind !== "user" || actor.session.facilityId !== facilityId) throw new ImplementationError("Use the intended Facility Administrator account.");
     if (lock) await lockAuthority(db as Tx,actor.session,"workforce"); else await liveActor(db,actor.session,facilityId,"workforce");
   } else {
-    if (actor.workFacilityId) throw new ImplementationError("Exit the Facility work session before managing implementation engagements.");
-    const authority = lock ? await lockHarborStaffSession(actor.session, db as Tx) :
-      await validateHarborStaffSession(actor.session, db);
-    if (!authority.valid) throw new ImplementationError("Console authority changed. Sign in again.");
+    await authorizeImplementationStaff(db, actor, lock);
   }
+}
+
+export async function authorizeImplementationStaff(db: Db, actor: Actor, lock = false) {
+  if (actor.kind !== "staff") throw new ImplementationError("Console staff action is required.");
+  if (actor.workFacilityId) throw new ImplementationError("Exit the Facility work session before managing implementation engagements.");
+  const authority = lock ? await lockHarborStaffSession(actor.session, db as Tx) :
+    await validateHarborStaffSession(actor.session, db);
+  if (!authority.valid) throw new ImplementationError("Console authority changed. Sign in again.");
 }
 export async function lockEngagement(tx: Tx, actor: Actor, id: string, participant = true) {
   // Facility lock is shared with imports and billing. Lock order is authority → Facility → engagement.
