@@ -144,33 +144,71 @@ function billingSourceLabel(input: {
   return "Local mirror only";
 }
 
-export async function listHarborFacilities(
+type ImplementationFilter = { filter: ImplementationWorkFilter; actor: Actor };
+
+async function harborFacilityWhere(
   client: Db,
   query?: string,
-  implementation?: { filter: ImplementationWorkFilter; actor: Actor },
-): Promise<HarborFacilityRow[]> {
+  implementation?: ImplementationFilter,
+): Promise<Prisma.FacilityWhereInput> {
   if (implementation) await authorizeImplementationStaff(client, implementation.actor);
   const trimmed = query?.trim() ?? "";
-  const textMatch: Prisma.FacilityWhereInput = trimmed ? {
-    OR: [
+  const where: Prisma.FacilityWhereInput = {};
+  if (trimmed) {
+    where.OR = [
       { displayName: { contains: trimmed, mode: "insensitive" } },
       { billingEmail: { contains: trimmed, mode: "insensitive" } },
       { organization: { name: { contains: trimmed, mode: "insensitive" } } },
       { organization: { displayName: { contains: trimmed, mode: "insensitive" } } },
-    ],
-  } : {};
+    ];
+  }
+  if (implementation) {
+    where.implementationEngagements = { some: implementationWorkWhere(implementation.filter) };
+  }
+  return where;
+}
+
+export async function listHarborFacilities(
+  client: Db,
+  query?: string,
+  implementation?: ImplementationFilter,
+): Promise<HarborFacilityRow[]> {
   const rows = await client.facility.findMany({
-    where: {
-      ...textMatch,
-      ...(implementation ? {
-        implementationEngagements: { some: implementationWorkWhere(implementation.filter) },
-      } : {}),
-    },
+    where: await harborFacilityWhere(client, query, implementation),
     select: facilitySelect,
     orderBy: { displayName: "asc" },
     take: 200,
   });
   return rows.map(toRow);
+}
+
+const DIRECTORY_PAGE_SIZE = 25;
+
+export async function loadHarborCustomerDirectoryPage(
+  client: PrismaClient,
+  input: { query?: string; implementation?: ImplementationFilter; page?: string | string[] },
+) {
+  const rawPage = input.page;
+  const parsedPage = typeof rawPage === "string" && /^[1-9][0-9]{0,15}$/.test(rawPage) ? Number(rawPage) : 1;
+  const requestedPage = Number.isSafeInteger(parsedPage) ? parsedPage : 1;
+
+  return client.$transaction(async (tx) => {
+    const where = await harborFacilityWhere(tx, input.query, input.implementation);
+    const total = await tx.facility.count({ where });
+    const pageCount = Math.max(1, Math.ceil(total / DIRECTORY_PAGE_SIZE));
+    // Clamp to the verified result count before constructing a database offset.
+    const page = Math.min(requestedPage, pageCount);
+    const offset = (page - 1) * DIRECTORY_PAGE_SIZE;
+    const rows = total ? await tx.facility.findMany({
+      where,
+      select: facilitySelect,
+      orderBy: [{ displayName: "asc" }, { id: "asc" }],
+      skip: offset,
+      take: DIRECTORY_PAGE_SIZE,
+    }) : [];
+
+    return { rows: rows.map(toRow), total, page, pageCount, offset };
+  }, { isolationLevel: "RepeatableRead" });
 }
 
 export async function loadHarborToday(client: Db) {

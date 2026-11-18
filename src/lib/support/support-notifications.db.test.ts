@@ -47,6 +47,7 @@ test(
     assert.ok(databaseUrl);
     const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
     const tag = suffix();
+    const requesterEmail = `ada-${tag}@example.com`;
     const ticketIds: string[] = [];
     const contactEmails: string[] = [];
     const staffIds: string[] = [];
@@ -64,7 +65,7 @@ test(
         ["me", "other"].map((key) =>
           db.platformStaff.create({
             data: {
-              email: `notify-${key}-${tag}@vssyl.test`,
+              email: `notify-${key === "other" ? "ada-other" : key}-${tag}@vssyl.test`,
               displayName: `Notify ${key} ${tag}`,
               passwordHash: "x",
             },
@@ -76,7 +77,7 @@ test(
       const created = await processInboundSupportEmail(
         db,
         inboundEmail({
-          fromEmail: `ada-${tag}@example.com`,
+          fromEmail: requesterEmail,
           fromName: "Ada Lovelace",
           subject: "Report export failed",
           textBody: "Export is broken",
@@ -85,7 +86,7 @@ test(
       );
       assert.equal(created.result, "created");
       ticketIds.push(created.ticketId);
-      contactEmails.push(`ada-${tag}@example.com`);
+      contactEmails.push(requesterEmail);
 
       const newRows = await db.supportStaffNotification.findMany({
         where: { ticketId: created.ticketId, type: "NEW_TICKET", staffId: { in: staffIds } },
@@ -99,7 +100,7 @@ test(
       const again = await processInboundSupportEmail(
         db,
         inboundEmail({
-          fromEmail: `ada-${tag}@example.com`,
+          fromEmail: requesterEmail,
           fromName: "Ada Lovelace",
           subject: "Report export failed",
           textBody: "Export is broken",
@@ -151,7 +152,7 @@ test(
       const reply = await processInboundSupportEmail(
         db,
         inboundEmail({
-          fromEmail: `ada-${tag}@example.com`,
+          fromEmail: requesterEmail,
           mailboxHash: ticket.replyToken,
           subject: `Re: [VSS-${ticket.number}] Report export failed`,
           textBody: "Still broken",
@@ -169,7 +170,7 @@ test(
       const auto = await processInboundSupportEmail(
         db,
         inboundEmail({
-          fromEmail: `ada-${tag}@example.com`,
+          fromEmail: requesterEmail,
           mailboxHash: ticket.replyToken,
           subject: "Out of office",
           textBody: "Away",
@@ -364,7 +365,8 @@ test(
       const activeStaff = await db.platformStaff.findMany({ where: { isActive: true }, select: { email: true } });
       const staffEmails = new Set(activeStaff.map((staff) => staff.email));
       assert.ok(sent.every((message) => staffEmails.has(message.to)));
-      assert.ok(sent.every((message) => !message.to.includes("ada-")));
+      assert.ok(sent.some((message) => message.to === other.email));
+      assert.ok(sent.every((message) => message.to !== requesterEmail));
       assert.ok(sent.every((message) => message.tag === "support-staff-notification"));
       assert.ok(sent.every((message) => message.subject.startsWith("[Vssyl Support]")));
       assert.ok(sent.every((message) => (message.text ?? "").includes("/console/tickets/")));

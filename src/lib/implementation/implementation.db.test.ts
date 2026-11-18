@@ -8,7 +8,7 @@ import type { FacilitySession } from "@/lib/auth";
 import { createHarborSessionToken, verifyHarborSessionToken } from "@/lib/harbor-console/session";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { applyFacilitySubscription } from "@/lib/billing/apply-stripe-event";
-import { listHarborFacilities } from "@/lib/harbor-console/queries";
+import { listHarborFacilities, loadHarborCustomerDirectoryPage } from "@/lib/harbor-console/queries";
 import { previewImport, confirmImport, getImportResults } from "@/lib/setup-imports/service";
 import type { Dataset, Preview } from "@/lib/setup-imports/contract";
 import { requestEngagement, addParticipant, assignEngagement, issueQuote, approveQuote, recordDelivery, recordMappingDecision, receiveSource, linkImport, sharedResults, reviewHandoff, acceptHandoff, getEngagement, loadStaffImplementationWorkCounts } from "./service";
@@ -91,15 +91,18 @@ test("SQL work counts: same staff scope as the index, without including accepted
   await assert.rejects(() => loadStaffImplementationWorkCounts(db, reviewer, current.facility.id), /Console authority changed/);
 }));
 
-test("SQL directory: filters Implementation work and search before the Facility limit", { skip }, () => run(async db => {
+test("SQL directory: paginates search and Implementation work past 200 with stable name ties", { skip }, () => run(async db => {
   const prefix = `Ops filter ${randomUUID()}`;
   const assigned = await setup(db);
   const awaiting = await fixture(db, assigned.org.id);
   const accepted = await setup(db, true);
-  await db.facility.createMany({ data: Array.from({ length: 200 }, (_, index) => ({
+  const fillers = Array.from({ length: 200 }, (_, index) => ({
+    id: randomUUID(),
     organizationId: assigned.org.id,
-    displayName: `${prefix} A${String(index).padStart(3, "0")}`,
-  })) });
+    // The equal names straddle the first page boundary.
+    displayName: `${prefix} A${String(index === 25 ? 24 : index).padStart(3, "0")}`,
+  }));
+  await db.facility.createMany({ data: fillers });
   await db.facility.update({ where: { id: assigned.facility.id }, data: {
     displayName: `${prefix} B Assigned`, billingEmail: `assigned-${assigned.user.email}`,
   } });
@@ -130,6 +133,34 @@ test("SQL directory: filters Implementation work and search before the Facility 
   if (assigned.s.kind !== "staff") throw new Error("Expected staff fixture");
   const legacy = { ...assigned.s, workFacilityId: accepted.facility.id };
   await assert.rejects(() => listHarborFacilities(db, prefix, { filter: "unassigned", actor: legacy }), /Exit the Facility work session/);
+
+  const first = await loadHarborCustomerDirectoryPage(db, { query: prefix });
+  const second = await loadHarborCustomerDirectoryPage(db, { query: prefix, page: "2" });
+  assert.equal(first.total, 203);
+  assert.equal(first.pageCount, 9);
+  assert.equal(first.rows.length, 25);
+  assert.equal(second.offset, 25);
+  assert.deepEqual([first.rows.at(-1)?.id, second.rows[0]?.id], [fillers[24].id, fillers[25].id].sort());
+
+  const last = await loadHarborCustomerDirectoryPage(db, { query: prefix, page: "9999999" });
+  assert.equal(last.page, 9);
+  assert.equal(last.offset, 200);
+  assert.deepEqual(last.rows.map(row => row.id), [assigned.facility.id, awaiting.facility.id, accepted.facility.id]);
+  for (const page of [["2", "9"], "0", "-2", "1e4", "2.5", "99999999999999999999"]) {
+    const invalid = await loadHarborCustomerDirectoryPage(db, { query: prefix, page });
+    assert.equal(invalid.page, 1);
+    assert.deepEqual(invalid.rows.map(row => row.id), first.rows.map(row => row.id));
+  }
+
+  const filtered = await loadHarborCustomerDirectoryPage(db, { query: prefix, implementation: open, page: "9" });
+  assert.equal(filtered.total, 2);
+  assert.equal(filtered.page, 1);
+  assert.deepEqual(filtered.rows.map(row => row.id), [assigned.facility.id, awaiting.facility.id]);
+  const empty = await loadHarborCustomerDirectoryPage(db, { query: `${prefix} D Accepted`, implementation: unassigned, page: "9" });
+  assert.deepEqual(empty, { rows: [], total: 0, page: 1, pageCount: 1, offset: 0 });
+  await assert.rejects(() => loadHarborCustomerDirectoryPage(db, {
+    query: prefix, implementation: { filter: "unassigned", actor: legacy }, page: "2",
+  }), /Exit the Facility work session/);
 }));
 
 test("SQL assignment: records the locked previous staff and Facility without expanding customer or Support history", { skip }, () => run(async db => {
