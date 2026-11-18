@@ -107,6 +107,13 @@ async function lockPartnership(db: DbClient, partnershipId: string): Promise<voi
   }
 }
 
+/** Read a shared effective time after the mutation's locks are held. */
+export async function partnerAccessEffectiveTime(tx: Prisma.TransactionClient, explicitTime?: Date): Promise<Date> {
+  if (explicitTime) return explicitTime;
+  const [row] = await tx.$queryRaw<Array<{ now: Date }>>(Prisma.sql`SELECT clock_timestamp() AS now`);
+  return row.now;
+}
+
 function assertNoOverlap(
   periods: Array<{ startsAt: Date; endsAt: Date | null }>,
   message: string,
@@ -263,20 +270,11 @@ async function closeCurrentPartnerUserRolePeriod(
   });
 }
 
-/**
- * Close every current personal assignment for one User through one Organization.
- * Caller must already hold the Organization row lock. This locks that Organization's
- * partnership rows in id order, then closes open role periods at the membership instant.
- */
-export async function closeCurrentPartnerAssignmentsForOrganizationMembership(
+/** Lock the Organization's partnerships in id order after acquiring the Organization lock. */
+export async function lockPartnershipsForOrganizationMembership(
   db: DbClient,
-  input: {
-    userId: string;
-    organizationId: string;
-    endsAt: Date;
-    actorUserId: string | null;
-  },
-): Promise<void> {
+  organizationId: string,
+): Promise<string[]> {
   const client = db as PrismaClient;
   if (typeof client.$queryRaw !== "function") {
     throw new PartnerUserAccessError(
@@ -285,9 +283,23 @@ export async function closeCurrentPartnerAssignmentsForOrganizationMembership(
     );
   }
   const locked = await client.$queryRaw<Array<{ id: string }>>(
-    Prisma.sql`SELECT "id" FROM "FacilityPartnerOrganization" WHERE "organizationId" = ${input.organizationId} ORDER BY "id" FOR UPDATE`,
+    Prisma.sql`SELECT "id" FROM "FacilityPartnerOrganization" WHERE "organizationId" = ${organizationId} ORDER BY "id" FOR UPDATE`,
   );
-  const partnershipIds = Array.isArray(locked) ? locked.map((row) => row.id) : [];
+  return Array.isArray(locked) ? locked.map((row) => row.id) : [];
+}
+
+/** Close one User's assignments at the membership instant while holding the Organization and partnership locks. */
+export async function closeCurrentPartnerAssignmentsForOrganizationMembership(
+  db: DbClient,
+  input: {
+    userId: string;
+    organizationId: string;
+    endsAt: Date;
+    actorUserId: string | null;
+    lockedPartnershipIds?: string[];
+  },
+): Promise<void> {
+  const partnershipIds = input.lockedPartnershipIds ?? await lockPartnershipsForOrganizationMembership(db, input.organizationId);
   if (partnershipIds.length === 0) return;
 
   const assignments = await db.partnerUserFacilityAccess.findMany({
@@ -619,9 +631,9 @@ export async function assignPartnerUser(
     at?: Date;
   },
 ): Promise<{ assignmentId: string; rolePeriod: PartnerRolePeriodView }> {
-  const at = input.at ?? new Date();
   const assigned = await runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
+    const at = await partnerAccessEffectiveTime(tx, input.at);
     const partnership = await loadPartnership(tx, input);
     await assertAssignmentAuthority(tx, input, partnership, at);
     await assertAssignable(tx, {
@@ -691,9 +703,9 @@ export async function changePartnerUserRole(
     at?: Date;
   },
 ): Promise<PartnerRolePeriodView> {
-  const at = input.at ?? new Date();
   const next = await runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
+    const at = await partnerAccessEffectiveTime(tx, input.at);
     const partnership = await loadPartnership(tx, input);
     await assertAssignmentAuthority(tx, input, partnership, at);
     await assertNotRestricted(tx, partnership.id, input.userId, at);
@@ -757,9 +769,9 @@ export async function endPartnerUserAssignment(
   db: DbClient,
   input: ActorContext & { userId: string; at?: Date },
 ): Promise<PartnerRolePeriodView> {
-  const at = input.at ?? new Date();
   const closed = await runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
+    const at = await partnerAccessEffectiveTime(tx, input.at);
     const partnership = await loadPartnership(tx, input);
     await assertAssignmentAuthority(tx, input, partnership, at);
     if (input.authority?.kind === "partner_org_admin") {
@@ -887,11 +899,11 @@ export async function blockPartnerUser(
   db: DbClient,
   input: ActorContext & { userId: string; note?: string | null; at?: Date },
 ) {
-  const at = input.at ?? new Date();
   assertFacilityOnlyWriter(input.authority);
   const note = input.note?.trim() ? input.note.trim() : null;
   return runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
+    const at = await partnerAccessEffectiveTime(tx, input.at);
     await assertFacilityAdministrator(tx, input);
     const partnership = await loadPartnership(tx, input);
     const assignment = await loadAssignment(tx, {
@@ -959,10 +971,10 @@ export async function unblockPartnerUser(
   db: DbClient,
   input: ActorContext & { userId: string; at?: Date },
 ) {
-  const at = input.at ?? new Date();
   assertFacilityOnlyWriter(input.authority);
   return runInTransaction(db, async (tx) => {
     await lockPartnership(tx, input.partnershipId);
+    const at = await partnerAccessEffectiveTime(tx, input.at);
     await assertFacilityAdministrator(tx, input);
     const partnership = await loadPartnership(tx, input);
     const restrictions = await restrictionPeriods(tx, {

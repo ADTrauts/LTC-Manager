@@ -44,6 +44,46 @@ async function waitFor(predicate: () => Promise<boolean>, label: string) {
   throw new Error(`timed out waiting for ${label}`);
 }
 
+async function runPartnershipRace<First, Second>(
+  prisma: PrismaClient,
+  locks: { partnershipId: string; organizationId?: string },
+  first: (tx: Prisma.TransactionClient) => Promise<First>,
+  second: (tx: Prisma.TransactionClient) => Promise<Second>,
+) {
+  let waiting: Promise<PromiseSettledResult<Second>> | undefined;
+  try {
+    const firstResult = await prisma.$transaction(async (leader) => {
+      if (locks.organizationId) {
+        await leader.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${locks.organizationId} FOR UPDATE`;
+      }
+      await leader.$queryRaw`SELECT "id" FROM "FacilityPartnerOrganization" WHERE "id" = ${locks.partnershipId} FOR UPDATE`;
+      let waitingPid: number | undefined;
+      waiting = prisma.$transaction(async (follower) => {
+        const [{ pid }] = await follower.$queryRaw<Array<{ pid: number }>>`SELECT pg_backend_pid() AS pid`;
+        waitingPid = pid;
+        return second(follower);
+      }, { timeout: 20_000 }).then<PromiseSettledResult<Second>, PromiseSettledResult<Second>>(
+        (value) => ({ status: "fulfilled", value }),
+        (reason) => ({ status: "rejected", reason }),
+      );
+      await waitFor(async () => {
+        if (!waitingPid) return false;
+        const [row] = await leader.$queryRaw<Array<{ blocked: boolean }>>`
+          SELECT pg_backend_pid() = ANY(pg_blocking_pids(${waitingPid}::int)) AS blocked
+        `;
+        return row?.blocked === true;
+      }, "the second mutation to wait on the partnership lock");
+      const blockedAt = Date.now();
+      await waitFor(async () => Date.now() > blockedAt, "the clock to advance after the second mutation is blocked");
+      return first(leader);
+    }, { timeout: 20_000 });
+    assert(waiting);
+    return { first: firstResult, second: await waiting };
+  } finally {
+    await waiting;
+  }
+}
+
 test(
   "membership end closes every current assignment through that organization",
   { skip },
@@ -271,7 +311,7 @@ test(
 test(
   "assignment and role-change races leave no current assignment after membership end",
   { skip },
-  async () => {
+  async (t) => {
     const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
     const tag = suffix();
     const parentId = `org_parent_${tag}`;
@@ -281,6 +321,7 @@ test(
     const janeId = `user_jane_${tag}`;
     const adminId = `user_admin_${tag}`;
     const departmentId = `dept_${tag}`;
+    const raceUserIds: string[] = [];
     let partnershipId = "";
     try {
       const role = await prisma.role.upsert({
@@ -358,40 +399,65 @@ test(
         maxPartnerRole: "PARTNER_MANAGER",
       });
 
-      await Promise.allSettled([
-        assignPartnerUser(prisma, {
-          actorUserId: actorId,
-          partnershipId,
-          facilityId,
-          userId: janeId,
-          partnerRole: "PARTNER_VIEWER",
-        }),
-        endOrganizationMembership(prisma, {
-          userId: janeId,
-          organizationId: metzId,
-          actorUserId: adminId,
-          revokeSessions: false,
-        }),
-      ]);
+      for (const mutation of ["assign", "change role"] as const) {
+        for (const partnerWins of [true, false]) {
+          await t.test(`${mutation}, ${partnerWins ? "partner mutation" : "membership end"} holds the lock first`, async () => {
+            const userId = `${janeId}_race_${raceUserIds.length}`;
+            raceUserIds.push(userId);
+            await prisma.user.create({
+              data: { id: userId, email: `${userId}@race.example`, displayName: "Partner member", emailVerifiedAt: new Date() },
+            });
+            await prisma.userOrganizationMembership.create({
+              data: {
+                userId,
+                organizationId: metzId,
+                rolePeriods: { create: { role: "ORG_MEMBER", startsAt: new Date("2020-01-01T00:00:00.000Z") } },
+              },
+            });
+            const assignment = { actorUserId: actorId, partnershipId, facilityId, userId };
+            const membership = { userId, organizationId: metzId, actorUserId: adminId, revokeSessions: false };
+            const end = (tx: Prisma.TransactionClient) => endOrganizationMembership(tx, membership);
+            const roleHistory = () => prisma.partnerUserRolePeriod.findMany({
+              where: { partnerUserFacilityAccess: { userId, facilityPartnerOrganizationId: partnershipId } },
+            });
+            if (mutation === "change role") {
+              await assignPartnerUser(prisma, { ...assignment, partnerRole: "PARTNER_VIEWER" });
+            }
+            const mutate = async (tx: Prisma.TransactionClient) => mutation === "assign"
+              ? (await assignPartnerUser(tx, { ...assignment, partnerRole: "PARTNER_VIEWER" })).rolePeriod
+              : changePartnerUserRole(tx, { ...assignment, partnerRole: "PARTNER_OPERATOR" });
+            const priorHistory = await roleHistory();
+            let writtenPeriodId: string | undefined;
 
-      const membership = await prisma.userOrganizationRolePeriod.findFirst({
-        where: { membership: { userId: janeId, organizationId: metzId }, endsAt: null },
-      });
-      assert.equal(membership, null);
-      const open = await prisma.partnerUserRolePeriod.count({
-        where: {
-          endsAt: null,
-          partnerUserFacilityAccess: { userId: janeId, facilityPartnerOrganizationId: partnershipId },
-        },
-      });
-      assert.equal(open, 0);
+            if (partnerWins) {
+              const result = await runPartnershipRace(prisma, { partnershipId }, mutate, end);
+              assert.equal(result.second.status, "fulfilled");
+              writtenPeriodId = result.first.id;
+            } else {
+              const result = await runPartnershipRace(prisma, { partnershipId, organizationId: metzId }, end, mutate);
+              assert(result.second.status === "rejected" && result.second.reason instanceof PartnerUserAccessError);
+              assert.equal(result.second.reason.code, "NOT_CURRENT_MEMBER");
+            }
 
-      await rejoinOrganizationMembership(prisma, {
-        userId: janeId,
-        organizationId: metzId,
-        role: "ORG_MEMBER",
-        actorUserId: adminId,
-      });
+            const membershipPeriod = await prisma.userOrganizationRolePeriod.findFirstOrThrow({
+              where: { membership: { userId, organizationId: metzId } },
+              orderBy: { startsAt: "desc" },
+            });
+            assert(membershipPeriod.endsAt);
+            const history = await roleHistory();
+            assert.equal(history.filter((period) => period.endsAt === null).length, 0);
+            assert.equal(history.length, priorHistory.length + (partnerWins ? 1 : 0));
+            const closed = writtenPeriodId
+              ? history.find((period) => period.id === writtenPeriodId)
+              : history.find((period) => priorHistory.some((prior) => prior.id === period.id && prior.endsAt === null));
+            if (partnerWins || mutation === "change role") {
+              assert.equal(closed?.endReason, "ORGANIZATION_MEMBERSHIP_ENDED");
+              assert.deepEqual(closed?.endsAt, membershipPeriod.endsAt);
+            }
+          });
+        }
+      }
+
       await assignPartnerUser(prisma, {
         actorUserId: actorId,
         partnershipId,
@@ -453,45 +519,6 @@ test(
         },
       });
       assert.equal(openAfterOrgRole, 0);
-      await rejoinOrganizationMembership(prisma, {
-        userId: janeId,
-        organizationId: metzId,
-        role: "ORG_MEMBER",
-        actorUserId: adminId,
-      });
-      await assignPartnerUser(prisma, {
-        actorUserId: actorId,
-        partnershipId,
-        facilityId,
-        userId: janeId,
-        partnerRole: "PARTNER_VIEWER",
-      });
-      await Promise.allSettled([
-        changePartnerUserRole(prisma, {
-          actorUserId: actorId,
-          partnershipId,
-          facilityId,
-          userId: janeId,
-          partnerRole: "PARTNER_OPERATOR",
-        }),
-        endOrganizationMembership(prisma, {
-          userId: janeId,
-          organizationId: metzId,
-          actorUserId: adminId,
-          revokeSessions: false,
-        }),
-      ]);
-      const openAfterRoleChange = await prisma.partnerUserRolePeriod.count({
-        where: {
-          endsAt: null,
-          partnerUserFacilityAccess: { userId: janeId, facilityPartnerOrganizationId: partnershipId },
-        },
-      });
-      assert.equal(openAfterRoleChange, 0);
-      const membershipAfter = await prisma.userOrganizationRolePeriod.findFirst({
-        where: { membership: { userId: janeId, organizationId: metzId }, endsAt: null },
-      });
-      assert.equal(membershipAfter, null);
     } finally {
       if (partnershipId) {
         await prisma.partnerUserRolePeriod.deleteMany({
@@ -508,7 +535,7 @@ test(
       });
       await prisma.userOrganizationMembership.deleteMany({ where: { organizationId: metzId } });
       await prisma.department.deleteMany({ where: { id: departmentId } });
-      await prisma.user.deleteMany({ where: { id: { in: [actorId, janeId, adminId] } } });
+      await prisma.user.deleteMany({ where: { id: { in: [actorId, janeId, adminId, ...raceUserIds] } } });
       await prisma.facility.deleteMany({ where: { id: facilityId } });
       await prisma.organization.deleteMany({ where: { id: { in: [parentId, metzId] } } });
       await prisma.$disconnect();
