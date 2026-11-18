@@ -536,6 +536,7 @@ export const WRITE_MANIFEST: WriteManifest = {
   [`${APP}/console/(staff)/customers/provision-actions.ts`]: each(AUTH_SYSTEM, [
     "previewHarborProvisionAdministratorAction",
     "provisionFacilityAction",
+    "recoverHarborProvisionAction",
     "resendHarborProvisionInviteAction",
   ]),
   [`${APP}/console/(staff)/partners/actions.ts`]: each(AUTH_SYSTEM, [
