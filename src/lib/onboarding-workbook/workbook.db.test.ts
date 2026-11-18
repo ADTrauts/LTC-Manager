@@ -169,6 +169,55 @@ test("SQL workbook: concurrent independent Facilities retain one canonical ident
   }
 }));
 
+test("SQL workbook: an outdated first-claim hint replays the winning receipt after its own catalog changes",{skip,timeout:20_000},()=>run(async db=>{
+  const f=await fixture(db),bytes=await f.workbook(w=>f.add(w,"People",{rowRef:"person",email:f.email,firstName:"Concurrent",lastName:"Worker",roleType:"STAFF",employmentType:"PART_TIME",primaryDepartment:"DIETARY"})),p=await f.preview(bytes);
+  let missed!:()=>void, resume!:()=>void;
+  const hintRead=new Promise<void>(resolve=>{missed=resolve;}),winnerFinished=new Promise<void>(resolve=>{resume=resolve;});
+  const delayed=db.$extends({query:{setupImportBatch:{async findUnique({args,query}){
+    const result=await query(args);
+    if(args.where.id===p.batchId&&args.select?.id&&!result){missed();await winnerFinished;}
+    return result;
+  }}}}) as unknown as PrismaClient;
+  const replay=f.confirm(p,bytes,[],delayed);
+  try{
+    await Promise.race([hintRead,replay.then(()=>assert.fail("First claim did not wait for the competing request."))]);
+    const winner=await f.confirm(p,bytes);
+    assert.equal(winner.rows[0]!.status,"committed");
+  } finally { resume(); }
+  const result=await replay;
+  assert.equal(result.rows[0]!.status,"committed");
+  assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:f.email}}),1);
+  assert.equal(await db.setupImportBatch.count({where:{id:p.batchId}}),1);
+  assert.equal(await db.setupImportResult.count({where:{batchId:p.batchId,phase:"WORKBOOK",status:"committed"}}),1);
+}));
+
+test("SQL workbook: unknown initial claim COMMIT leaves the original lease and intent for reconciliation",{skip},()=>run(async db=>{
+  const f=await fixture(db),bytes=await f.workbook(w=>f.add(w,"People",{rowRef:"person",email:f.email,firstName:"Casey",lastName:"Worker",roleType:"STAFF",employmentType:"PART_TIME",primaryDepartment:"DIETARY"})),p=await f.preview(bytes);
+  let transactions=0;
+  const uncertain=new Proxy(db,{get(target,key){
+    if(key==="$transaction")return async(work:unknown,options:unknown)=>{
+      transactions++;
+      await (target.$transaction as unknown as (work:unknown,options:unknown)=>Promise<unknown>).call(target,work,options);
+      throw Error("lost initial claim COMMIT response");
+    };
+    const value=Reflect.get(target,key);return typeof value==="function"?value.bind(target):value;
+  }}) as PrismaClient;
+  await assert.rejects(()=>f.confirm(p,bytes,[],uncertain),/lost initial claim COMMIT response/);
+  assert.equal(transactions,1);
+  assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:f.email}}),0);
+  const running=await f.confirm(p);
+  assert.equal(running.running,true);
+  assert.equal(running.rows[0]!.status,"unknown");
+  const receipt=await db.setupImportBatch.findUniqueOrThrow({where:{id:p.batchId}});
+  assert.ok(receipt.leaseToken);
+  assert.equal(receipt.actorUserId,f.user.id);
+  await db.setupImportBatch.update({where:{id:p.batchId},data:{leaseExpiresAt:new Date(0)}});
+  const resumed=await f.confirm(p);
+  assert.equal(resumed.rows[0]!.status,"committed");
+  assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:f.email}}),1);
+  assert.equal(await db.setupImportResult.count({where:{batchId:p.batchId,phase:"WORKBOOK",status:"committed"}}),1);
+}));
+
 test("SQL workbook: exhausted child-claim SSI is a failed attempt, preserves 25-row progress and resumes the same references",{skip},()=>run(async db=>{
   const f=await fixture(db),bytes=await f.workbook(w=>{
     f.add(w,"Locations",{rowRef:"room001",floor:"Floor 1",neighborhood:"Wing",locationName:"Room 001",locationType:"Resident Room"});
