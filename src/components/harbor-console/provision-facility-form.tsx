@@ -74,6 +74,13 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
   const [confirmOwnership, setConfirmOwnership] = useState(false);
   const [confirmExistingUser, setConfirmExistingUser] = useState(false);
   const [confirmDuplicateName, setConfirmDuplicateName] = useState(false);
+
+  function openProvisionedFacility(key: string, path: string) {
+    if (storedRequestKey() === key) storeRequestKey(null);
+    if (requestKey.current === key) requestKey.current = null;
+    router.replace(path);
+  }
+
   const [state, action, submitting] = useActionState<HarborProvisionState, FormData>(async (previous, formData) => {
     const key = requestKey.current ?? storedRequestKey() ?? crypto.randomUUID();
     requestKey.current = key;
@@ -88,12 +95,6 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
     if (result?.ok && result.nextPath) openProvisionedFacility(key, result.nextPath);
     return result;
   }, null);
-
-  function openProvisionedFacility(key: string, path: string) {
-    if (storedRequestKey() === key) storeRequestKey(null);
-    if (requestKey.current === key) requestKey.current = null;
-    router.replace(path);
-  }
 
   function recoverSubmission() {
     const key = requestKey.current ?? storedRequestKey();
