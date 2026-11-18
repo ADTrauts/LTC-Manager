@@ -1,16 +1,19 @@
 import Link from "next/link";
 
-import { requireHarborStaff } from "@/lib/harbor-console/auth";
+import { peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { harborCustomersHref } from "@/lib/harbor-console/presentation";
-import { loadHarborToday } from "@/lib/harbor-console/queries";
+import { loadHarborToday, loadHarborUnassignedImplementation } from "@/lib/harbor-console/queries";
+import { HARBOR_WORK_CLEANUP_PATH } from "@/lib/harbor-console/session";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_SUPPORT_STATUSES } from "@/lib/support/queues";
 import { formatSupportTicketNumber } from "@/lib/support/ticket-number";
 
 export default async function HarborTodayPage() {
-  await requireHarborStaff();
-  const [{ setupFollowUp, paymentProblems }, openTickets, newTickets] = await Promise.all([
+  const session = await requireHarborStaff();
+  const workFacilityId = await peekHarborWorkFacilityId();
+  const [{ setupFollowUp, paymentProblems }, unassigned, openTickets, newTickets] = await Promise.all([
     loadHarborToday(prisma),
+    workFacilityId ? null : loadHarborUnassignedImplementation(prisma, { kind: "staff", session, workFacilityId }),
     prisma.supportTicket.count({
       where: { status: { in: ACTIVE_SUPPORT_STATUSES } },
     }),
@@ -27,16 +30,33 @@ export default async function HarborTodayPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Guided setup follow-up, open tickets, and payment problems.
+          Implementation requests, guided setup follow-up, open tickets, and payment problems.
         </p>
       </header>
 
-      <section className="grid grid-cols-3 gap-3">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat value={unassigned ? String(unassigned.total) : "Unavailable"} label="Unassigned Implementation requests" muted={!unassigned} />
         <Stat value={String(setupFollowUp.total)} label="Awaiting setup acknowledgment" />
         <Stat value={String(openTickets)} label="Open tickets" />
         <Stat value={String(paymentProblems.length)} label="Payment problems" />
       </section>
 
+      {unassigned ? <Queue
+        title="Unassigned Implementation requests"
+        empty="No Implementation requests are awaiting staff assignment."
+        followUp={harborCustomersHref({ work: "unassigned" })}
+        followUpLabel="View unassigned work in Customers"
+        summary={`Showing ${unassigned.rows.length} of ${unassigned.total} unassigned requests.`}
+        rows={unassigned.rows.map(row => ({
+          href: `/console/customers/${row.facilityId}/implementation?engagement=${encodeURIComponent(row.id)}`,
+          title: row.facilityName,
+          detail: `${row.organizationName} · Requested ${row.requestedAt.toISOString().slice(0, 16).replace("T", " ")} UTC`,
+        }))}
+      /> : <section aria-label="Unassigned Implementation requests" className="space-y-3 rounded-md border border-[var(--border)] bg-white p-4">
+        <h2 className="text-sm font-semibold">Unassigned Implementation requests</h2>
+        <p className="text-sm">This queue is unavailable while a retired Facility work context is present. Clear that context before managing Implementation requests.</p>
+        <Link href={HARBOR_WORK_CLEANUP_PATH} className="inline-flex min-h-11 items-center text-sm font-medium underline">Clear retired Facility context</Link>
+      </section>}
       <Queue
         title="New tickets"
         empty="No new tickets."
@@ -86,16 +106,18 @@ function Queue({
   empty,
   rows,
   followUp,
+  followUpLabel = "View setup follow-up in Customers",
   summary,
 }: {
   title: string;
   empty: string;
   rows: Array<{ href: string; title: string; detail: string }>;
   followUp?: string;
+  followUpLabel?: string;
   summary?: string;
 }) {
   return (
-    <section className="rounded-md border border-[var(--border)] bg-white">
+    <section aria-label={title} className="rounded-md border border-[var(--border)] bg-white">
       <h2 className="border-b border-[var(--border)] px-4 py-3 text-sm font-semibold">{title}</h2>
       {rows.length === 0 ? (
         <p className="px-4 py-6 text-sm text-[var(--text-secondary)]">{empty}</p>
@@ -115,7 +137,7 @@ function Queue({
         <div className="flex flex-wrap items-center gap-x-4 border-t border-[var(--border)] px-4 text-sm">
           {summary ? <p className="text-xs text-[var(--text-secondary)]">{summary}</p> : null}
           <Link href={followUp} className="inline-flex min-h-11 items-center font-medium underline underline-offset-2">
-            View setup follow-up in Customers
+            {followUpLabel}
           </Link>
         </div>
       ) : null}
