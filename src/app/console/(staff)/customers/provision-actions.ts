@@ -10,7 +10,9 @@ import {
   HarborOrganizationNameMatchError,
   previewHarborAdministrator,
   provisionFacilityForHarbor,
+  recoverHarborProvisionResult,
   type HarborOrganizationMatch,
+  type HarborProvisionPreviewUser,
 } from "@/lib/facility-provisioning/harbor";
 import { isOrganizationType } from "@/lib/organization";
 import { replaceHarborAdministratorInvitation } from "@/lib/harbor-console/administrator-invite-recovery";
@@ -23,7 +25,7 @@ export type HarborProvisionState = {
   code?: string;
   message: string;
   facilityId?: string;
-  existingUser?: { displayName: string; email: string } | null;
+  nextPath?: string;
   organizationConflict?: { proposedName: string; matches: HarborOrganizationMatch[] };
 } | null;
 
@@ -36,23 +38,35 @@ function requestOrigin(headerStore: Headers): string {
 
 export async function previewHarborProvisionAdministratorAction(
   email: string,
-): Promise<{ exists: boolean; displayName: string; email: string } | { error: string }> {
+): Promise<HarborProvisionPreviewUser | { error: string }> {
   const session = await requireHarborStaff();
   if (!isHarborOwnerSession(session)) {
     return { error: "Only Harbor owners can provision facilities." };
   }
   try {
     const preview = await previewHarborAdministrator(prisma, email);
-    return {
-      exists: preview.exists,
-      displayName: preview.displayName,
-      email: preview.email,
-    };
+    return preview;
   } catch (error) {
     if (error instanceof FacilityProvisioningError) {
       return { error: error.message };
     }
     return { error: "Unable to look up that account." };
+  }
+}
+
+function recoveredProvisionPath(facilityId: string) {
+  return `/console/customers/${encodeURIComponent(facilityId)}?provisioned=1&requestRecovered=1`;
+}
+
+export async function recoverHarborProvisionAction(requestKey: string): Promise<HarborProvisionState> {
+  const session = await requireHarborOwner();
+  try {
+    const result = await recoverHarborProvisionResult(prisma, session, requestKey);
+    return result
+      ? { ok: true, message: "Facility recovered.", nextPath: recoveredProvisionPath(result.facility.id) }
+      : { ok: false, message: "No completed submission was found. You can continue with the form." };
+  } catch (error) {
+    return { ok: false, message: error instanceof FacilityProvisioningError ? error.message : "Unable to recover this submission." };
   }
 }
 
@@ -71,45 +85,21 @@ export async function provisionFacilityAction(
   const billingEmail = String(formData.get("billingEmail") ?? "").trim();
   const administratorName = String(formData.get("administratorName") ?? "").trim();
   const administratorEmail = String(formData.get("administratorEmail") ?? "").trim();
+  const requestKey = String(formData.get("requestKey") ?? "");
   const confirmOwnership = String(formData.get("confirmOwnership") ?? "") === "1";
-  const confirmExistingUser = String(formData.get("confirmExistingUser") ?? "") === "1";
+  const confirmedAdministratorId = String(formData.get("confirmedAdministratorId") ?? "").trim() || null;
   const confirmDuplicateName = String(formData.get("confirmDuplicateName") ?? "") === "1";
 
   if (organizationMode !== "create" && organizationMode !== "existing") {
     return { ok: false, code: "INVALID_INPUT", message: "Choose a parent Organization." };
   }
-  if (!confirmOwnership) {
-    return {
-      ok: false,
-      code: "INVALID_INPUT",
-      message: "Confirm that Facility ownership cannot be reassigned.",
-    };
-  }
-
   const organizationType = isOrganizationType(organizationTypeRaw) ? organizationTypeRaw : null;
-
-  let preview;
-  try {
-    preview = await previewHarborAdministrator(prisma, administratorEmail);
-  } catch (error) {
-    if (error instanceof FacilityProvisioningError) {
-      return { ok: false, code: error.code, message: error.message };
-    }
-    return { ok: false, code: "INVALID_INPUT", message: "Unable to resolve the administrator." };
-  }
-
-  if (preview.exists && !confirmExistingUser) {
-    return {
-      ok: false,
-      code: "EXISTING_USER",
-      message: "This existing Vssyl user will receive Facility Administrator access.",
-      existingUser: { displayName: preview.displayName, email: preview.email },
-    };
-  }
 
   let result;
   try {
     result = await provisionFacilityForHarbor(prisma, session, {
+      requestKey,
+      confirmOwnership,
       organizationMode,
       organizationId,
       organizationName,
@@ -119,6 +109,7 @@ export async function provisionFacilityAction(
       billingEmail,
       administratorName,
       administratorEmail,
+      confirmedAdministratorId,
       confirmDuplicateName,
       distinctOrganization: {
         attested: formData.get("attestDistinctOrganization") === "1",
@@ -139,6 +130,10 @@ export async function provisionFacilityAction(
       return { ok: false, code: error.code, message: error.message };
     }
     return { ok: false, code: "INVALID_INPUT", message: "Unable to provision this Facility." };
+  }
+
+  if (result.requestReplayed) {
+    return { ok: true, message: "Facility recovered.", nextPath: recoveredProvisionPath(result.facility.id) };
   }
 
   let invite: "sent" | "failed" | "skipped" = "skipped";
@@ -183,7 +178,7 @@ export async function provisionFacilityAction(
     invite,
   });
   if (result.replayed) params.set("replayed", "1");
-  redirect(`/console/customers/${result.facility.id}?${params.toString()}`);
+  return { ok: true, message: "Facility provisioned.", nextPath: `/console/customers/${result.facility.id}?${params.toString()}` };
 }
 
 export async function resendHarborProvisionInviteAction(_previous: HarborProvisionState, formData: FormData): Promise<HarborProvisionState> {

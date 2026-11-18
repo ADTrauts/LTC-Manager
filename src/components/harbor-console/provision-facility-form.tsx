@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 
 import {
   previewHarborProvisionAdministratorAction,
   provisionFacilityAction,
+  recoverHarborProvisionAction,
   type HarborProvisionState,
 } from "@/app/console/(staff)/customers/provision-actions";
 import {
@@ -24,6 +26,21 @@ export type HarborOrganizationOption = {
   facilityCount: number;
 };
 
+const PENDING_PROVISION_REQUEST = "harbor:pending-facility-provision";
+
+function storedRequestKey() {
+  try { return sessionStorage.getItem(PENDING_PROVISION_REQUEST); } catch { return null; }
+}
+
+function storeRequestKey(key: string | null) {
+  try {
+    if (key) sessionStorage.setItem(PENDING_PROVISION_REQUEST, key);
+    else sessionStorage.removeItem(PENDING_PROVISION_REQUEST);
+  } catch {
+    // The in-memory key still supports retries in this tab while the form is open.
+  }
+}
+
 function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
   return (
@@ -38,6 +55,10 @@ function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: st
 }
 
 export function ProvisionFacilityForm({ organizations }: { organizations: HarborOrganizationOption[] }) {
+  const router = useRouter();
+  const requestKey = useRef<string | null>(null);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [recovering, startRecovery] = useTransition();
   const [step, setStep] = useState(1);
   const [organizationMode, setOrganizationMode] = useState<"create" | "existing">("create");
   const [organizationId, setOrganizationId] = useState("");
@@ -48,12 +69,49 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
   const [billingEmail, setBillingEmail] = useState("");
   const [administratorName, setAdministratorName] = useState("");
   const [administratorEmail, setAdministratorEmail] = useState("");
-  const [existingUser, setExistingUser] = useState<{ displayName: string; email: string } | null>(null);
+  const [existingUser, setExistingUser] = useState<{ id: string; displayName: string; email: string } | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [confirmOwnership, setConfirmOwnership] = useState(false);
   const [confirmExistingUser, setConfirmExistingUser] = useState(false);
   const [confirmDuplicateName, setConfirmDuplicateName] = useState(false);
-  const [state, action] = useActionState<HarborProvisionState, FormData>(provisionFacilityAction, null);
+
+  function openProvisionedFacility(key: string, path: string) {
+    if (storedRequestKey() === key) storeRequestKey(null);
+    if (requestKey.current === key) requestKey.current = null;
+    router.replace(path);
+  }
+
+  const [state, action, submitting] = useActionState<HarborProvisionState, FormData>(async (previous, formData) => {
+    const key = requestKey.current ?? storedRequestKey() ?? crypto.randomUUID();
+    requestKey.current = key;
+    storeRequestKey(key);
+    formData.set("requestKey", key);
+    let result: HarborProvisionState;
+    try {
+      result = await provisionFacilityAction(previous, formData);
+    } catch {
+      return { ok: false, message: "The result could not be confirmed. Recover or retry this submission before starting a new one." };
+    }
+    if (result?.ok && result.nextPath) openProvisionedFacility(key, result.nextPath);
+    return result;
+  }, null);
+
+  function recoverSubmission() {
+    const key = requestKey.current ?? storedRequestKey();
+    if (!key) {
+      setRecoveryMessage("There is no pending submission in this tab.");
+      return;
+    }
+    startRecovery(async () => {
+      try {
+        const result = await recoverHarborProvisionAction(key);
+        if (result?.ok && result.nextPath) openProvisionedFacility(key, result.nextPath);
+        else setRecoveryMessage(result?.message ?? "Unable to recover this submission.");
+      } catch {
+        setRecoveryMessage("Unable to recover this submission. Try again.");
+      }
+    });
+  }
 
   const selectedMatch = state?.organizationConflict?.matches.find((row) => row.id === organizationId && row.isActive);
   const selectedOrganization = organizations.find((row) => row.id === organizationId) ?? selectedMatch;
@@ -74,7 +132,7 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
       setLookupError(preview.error);
       return;
     }
-    setExistingUser(preview.exists ? { displayName: preview.displayName, email: preview.email } : null);
+    setExistingUser(preview.userId ? { id: preview.userId, displayName: preview.displayName, email: preview.email } : null);
     setConfirmExistingUser(false);
     setStep(4);
   }
@@ -91,6 +149,27 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
           </li>
         ))}
       </ol>
+      <div className="space-y-2 text-sm">
+        <button type="button" disabled={recovering || submitting} onClick={recoverSubmission} className="underline">
+          {recovering ? "Checking previous submission…" : "Recover previous submission"}
+        </button>
+        {recoveryMessage ? <p role="status">{recoveryMessage}</p> : null}
+        {state?.code === "PROVISION_REQUEST_CONFLICT" ? (
+          <button
+            type="button"
+            onClick={() => {
+              requestKey.current = null;
+              storeRequestKey(null);
+              setRecoveryMessage("Review the details before submitting a separate provisioning request.");
+              setConfirmOwnership(false);
+            }}
+            disabled={recovering || submitting}
+            className="ml-3 underline"
+          >
+            Start a separate request
+          </button>
+        ) : null}
+      </div>
 
       {step === 1 ? (
         <section className="space-y-4 rounded-md border border-[var(--border)] bg-white p-4">
@@ -379,7 +458,7 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
             </fieldset>
           ) : null}
           {confirmOwnership ? <input type="hidden" name="confirmOwnership" value="1" /> : null}
-          {confirmExistingUser ? <input type="hidden" name="confirmExistingUser" value="1" /> : null}
+          {confirmExistingUser && existingUser ? <input type="hidden" name="confirmedAdministratorId" value={existingUser.id} /> : null}
           {confirmDuplicateName ? <input type="hidden" name="confirmDuplicateName" value="1" /> : null}
           {state && !state.ok && !state.organizationConflict ? <p className="text-sm text-red-700">{state.message}</p> : null}
           <div className="flex gap-2">
