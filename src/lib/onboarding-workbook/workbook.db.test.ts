@@ -106,16 +106,45 @@ test("SQL workbook: assisted review shares authorized canonical child receipts, 
 test("SQL workbook: independently reviewed concurrent packages cannot auto-reuse a raced identity or duplicate a place",{skip},()=>run(async db=>{
  const f=await fixture(db),bytes=await f.workbook(),a=await f.preview(bytes),b=await f.preview(bytes),races=await Promise.allSettled([f.confirm(a,bytes),f.confirm(b,bytes)]);assert.ok(races.some(r=>r.status==="fulfilled"));assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:f.email}}),1);assert.equal(await db.unitSpace.count({where:{facilityId:f.facility.id}}),1);for(const p of [a,b]){const count=await db.setupImportBatch.count({where:{id:p.batchId}});if(count){const receipts=await workbookResults(db,f.session,p.batchId);if(!receipts.mapping["workforce:p001"])await assert.rejects(()=>f.confirm(p),/External material|Material facts/);}}
 }));
-test("SQL workbook: repeatedly failed early rows cannot starve unattempted work or its rollback recovery",{skip},()=>run(async db=>{
+for (const beforeCreateRollbacks of [0,1,5]) test(`SQL workbook: repeatedly failed early rows cannot starve unattempted work or its rollback recovery${beforeCreateRollbacks ? ` with ${beforeCreateRollbacks} real SSI rollback(s) before Employee.create` : ""}`,{skip},()=>run(async db=>{
  const f=await fixture(db),bytes=await f.workbook(w=>{for(let i=1;i<=26;i++)f.add(w,"People",{rowRef:`p${i}`,email:`${i===26?"success":"fail"}-${i}-${f.email}`,firstName:"Casey",lastName:"Worker",roleType:"STAFF",employmentType:"PART_TIME",primaryDepartment:"DIETARY"});}),p=await f.preview(bytes);
- let rollbackAttempts=0;
- const faulty=db.$extends({query:{employee:{async create({args,query}){
+ let rollbackAttempts=0,exhaustRowExecution=false;
+ const injected=db.$extends({query:{employee:{async create({args,query}){
    if(String(args.data.email).startsWith("fail-"))throw Error("repeatable row-local failure");
-   // Exhaust the existing five transaction attempts once. A row attempt is not
-   // a promised commit; a later request must recover the SAME reviewed child.
-   if(rollbackAttempts++<5)throw new Prisma.PrismaClientKnownRequestError("injected serialization rollback",{code:"P2034",clientVersion:Prisma.prismaVersion.client});
+   // Exhaust only the second request. Real SSI can consume an attempt before
+   // this callback; unused injected failures must not leak into recovery.
+   if(exhaustRowExecution){rollbackAttempts++;throw new Prisma.PrismaClientKnownRequestError("injected serialization rollback",{code:"P2034",clientVersion:Prisma.prismaVersion.client});}
    return query(args);
  }}}}) as unknown as PrismaClient;
+ const sentinels=beforeCreateRollbacks?await Promise.all(["a","b"].map(name=>db.user.create({data:{email:`recovery-ssi-${name}-${randomUUID()}@example.invalid`,displayName:"SSI probe",facilityId:f.facility.id,roleId:f.user.roleId}}))):[];
+ let earlyRollbacks=0;
+ const earlyErrors:Array<{code:unknown;sqlState:unknown}>=[];
+ // Force a real SSI pivot before the employee hook: victim reads A; rival
+ // reads B, writes A and commits; victim writes B and PostgreSQL rolls it back.
+ const faulty=new Proxy(injected,{get(target,key){
+   if(key==="$transaction")return (work:(tx:unknown)=>Promise<unknown>,options:unknown)=>(target.$transaction as unknown as (work:(tx:Prisma.TransactionClient)=>Promise<unknown>,options:unknown)=>Promise<unknown>).call(target,async(tx:Prisma.TransactionClient)=>work(new Proxy(tx,{get(t,k){
+     if(k==="setupImportBatch")return new Proxy(t.setupImportBatch,{get(delegate,method){
+       if(method==="findUniqueOrThrow")return async(args:Prisma.SetupImportBatchFindUniqueOrThrowArgs)=>{
+         const row=await delegate.findUniqueOrThrow(args),stored=row.reviewedPlan as unknown as {source?:{rows?:Array<{values:{email?:string}}>}} ;
+         if(exhaustRowExecution&&row.dataset==="workforce"&&stored.source?.rows?.[0]?.values.email===`success-26-${f.email}`&&earlyRollbacks<beforeCreateRollbacks){
+           earlyRollbacks++;
+           await tx.user.findUniqueOrThrow({where:{id:sentinels[0]!.id},select:{updatedAt:true}});
+           await db.$transaction(async rival=>{
+             await rival.user.findUniqueOrThrow({where:{id:sentinels[1]!.id},select:{updatedAt:true}});
+             await rival.user.update({where:{id:sentinels[0]!.id},data:{updatedAt:new Date()}});
+           },{isolationLevel:"Serializable"});
+           try{await tx.user.update({where:{id:sentinels[1]!.id},data:{updatedAt:new Date()}});}catch(error){
+             const e=error as {code?:unknown;meta?:{code?:unknown}};earlyErrors.push({code:e.code,sqlState:e.meta?.code});throw error;
+           }
+         }
+         return row;
+       };
+       const value=Reflect.get(delegate,method);return typeof value==="function"?value.bind(delegate):value;
+     }});
+     const value=Reflect.get(t,k);return typeof value==="function"?value.bind(t):value;
+   }})),options);
+   const value=Reflect.get(target,key);return typeof value==="function"?value.bind(target):value;
+ }}) as PrismaClient;
  const counters=async()=>((await db.setupImportBatch.findUniqueOrThrow({where:{id:p.batchId}})).reviewedPlan as unknown as {attemptCounts:Record<string,number>}).attemptCounts;
  const total=(counts:Record<string,number>)=>Object.values(counts).reduce((a,b)=>a+b,0);
  const first=await f.confirm(p,bytes,[],faulty);
@@ -124,21 +153,27 @@ test("SQL workbook: repeatedly failed early rows cannot starve unattempted work 
  // Employee.create callback. Keep exact five-attempt proof, not a weaker bound.
  const retries:Array<{batchId:string;attempt:number;stage:string}>=[],originalInfo=console.info;
  let second:Awaited<ReturnType<typeof f.confirm>>;
+ exhaustRowExecution=true;
  try{
    console.info=(...args:unknown[])=>{
      try{const event=JSON.parse(String(args[0]));if(event.event==="onboarding.import.transaction_retry")retries.push(event.payload);}catch{/* Preserve non-JSON diagnostics. */}
      originalInfo(...args);
    };
    second=await f.confirm(p,undefined,[],faulty);
- }finally{console.info=originalInfo;}
+ }finally{exhaustRowExecution=false;console.info=originalInfo;}
  const childId=second.rows[25]!.childBatchId!;
+ const injectedAfterSecond=rollbackAttempts;
+ const details=(row:typeof second.rows[number])=>JSON.stringify({earlyRollbacks,earlyErrors,injectedAfterSecond,rollbackAttempts,childId:row.childBatchId,status:row.status,message:row.message,attempts:row.attempts});
  const rowRetries=retries.filter(r=>r.batchId===childId&&r.stage==="row_execution");
  assert.deepEqual(rowRetries.map(r=>r.attempt),[1,2,3,4]);assert.equal(rowRetries.length+1,5);
- assert.equal(second.rows[25]!.status,"failed");assert.equal(second.mapping["workforce:p26"],undefined);assert.equal(total(await counters()),50);
+ assert.equal(second.rows[25]!.status,"failed",details(second.rows[25]!));assert.equal(second.mapping["workforce:p26"],undefined);assert.equal(total(await counters()),50);
+ if(beforeCreateRollbacks)assert.ok(earlyErrors.length>0,details(second.rows[25]!));
+ assert.equal(earlyErrors.length,earlyRollbacks,details(second.rows[25]!));
+ assert.ok(earlyErrors.every(e=>e.code==="P2034"||(e.code==="P2010"&&e.sqlState==="40001")),details(second.rows[25]!));
  assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:{startsWith:"success-"}}}),0);
  assert.equal(await db.setupImportResult.count({where:{batchId:childId,phase:"IMPORT",status:"failed"}}),1);
  const third=await f.confirm(p,undefined,[],faulty);
- assert.equal(third.rows[25]!.status,"committed");assert.equal(third.rows[25]!.childBatchId,childId);assert.ok(third.mapping["workforce:p26"]);assert.equal(total(await counters()),75);
+ assert.equal(third.rows[25]!.status,"committed",details(third.rows[25]!));assert.equal(third.rows[25]!.childBatchId,childId);assert.ok(third.mapping["workforce:p26"]);assert.equal(total(await counters()),75);
  assert.equal(await db.employee.count({where:{facilityId:f.facility.id,email:{startsWith:"success-"}}}),1);
  assert.equal(await db.setupImportResult.count({where:{batchId:childId,phase:"IMPORT",status:"committed"}}),1);
  assert.equal(await db.setupImportResult.count({where:{batchId:childId,phase:"IMPORT",status:"failed"}}),1);
