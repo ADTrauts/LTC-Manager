@@ -4895,6 +4895,17 @@ model HarborProvisioningOverrideAuditDetail {
   verificationBasis     String
 }
 
+/// An immutable record of a completed Harbor provisioning request. Retain IDs even if the original records are removed.
+model HarborFacilityProvisionReceipt {
+  requestKey      String   @id @db.Uuid
+  staffId         String
+  fingerprint     String
+  organizationId  String
+  facilityId      String
+  administratorId String
+  createdAt       DateTime @default(now())
+}
+
 /// Extra fields on assistance events. Ordinary Harbor audit writes do not need these tables.
 model HarborAssistanceAuditDetail {
   eventId   String           @id

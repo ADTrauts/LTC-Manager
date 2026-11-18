@@ -11,11 +11,14 @@ import {
   type FacilityBootstrapResult,
 } from "./bootstrap";
 import { FacilityProvisioningError } from "./errors";
+import { harborProvisionFingerprint, lockHarborProvisionRequest, normalizeProvisionRequestKey, provisionRequestConflict } from "./harbor-receipt";
 import { isValidFacilityTimezone } from "./timezones";
 
 type DbClient = PrismaClient | Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
 export type HarborProvisionInput = {
+  requestKey: string;
+  confirmOwnership: boolean;
   organizationMode: "create" | "existing";
   organizationId?: string | null;
   organizationName?: string | null;
@@ -25,6 +28,7 @@ export type HarborProvisionInput = {
   billingEmail: string;
   administratorName: string;
   administratorEmail: string;
+  confirmedAdministratorId?: string | null;
   confirmDuplicateName?: boolean;
   distinctOrganization?: { attested: boolean; verificationBasis: string; reviewedMatchIds: readonly string[] };
 };
@@ -47,6 +51,12 @@ export type HarborOrganizationMatch = {
 export class HarborOrganizationNameMatchError extends FacilityProvisioningError {
   constructor(readonly proposedName: string, readonly matches: HarborOrganizationMatch[]) {
     super("ORGANIZATION_NAME_MATCH", "Review the matching Organizations. Select an active Organization or record verified evidence for a distinct one.");
+  }
+}
+
+export class HarborAdministratorReviewRequired extends FacilityProvisioningError {
+  constructor(readonly administrator: HarborProvisionPreviewUser | null) {
+    super("ADMINISTRATOR_REVIEW_REQUIRED", "The Administrator account needs review. Confirm the current account before provisioning.");
   }
 }
 
@@ -85,21 +95,29 @@ export async function provisionFacilityForHarbor(
   db: PrismaClient,
   session: HarborJwtPayload,
   input: HarborProvisionInput,
-): Promise<FacilityBootstrapResult & { overrideRecorded: boolean }> {
+): Promise<FacilityBootstrapResult & { overrideRecorded: boolean; requestReplayed: boolean }> {
+  const requestKey = normalizeProvisionRequestKey(input.requestKey);
+  const fingerprint = harborProvisionFingerprint(input);
   const organizationName = input.organizationName?.trim() ?? "";
-  if (input.organizationMode === "create" && (organizationName.length < 2 || organizationName.length > 200)) {
-    throw new FacilityProvisioningError("INVALID_INPUT", "Organization name must be 2–200 characters.");
-  }
 
   return db.$transaction(async (tx) => {
+    await lockHarborProvisionRequest(tx, requestKey);
     if (input.organizationMode === "create") {
       // The matching read must run after this lock, with a new READ COMMITTED snapshot.
       // Only Harbor provisioning uses this lock domain. Collisions just serialize two names.
       await tx.$queryRaw`SELECT 1::int AS locked FROM pg_advisory_xact_lock(617884, hashtext(${normalizeOrganizationKey(organizationName)}))`;
     }
-    const authority = await lockHarborStaffSession(session, tx);
-    if (!authority.valid || authority.staff.role !== "OWNER") {
-      throw new FacilityProvisioningError("FORBIDDEN", "Only a signed-in Harbor Owner can provision a Facility.");
+    const staffId = await requireProvisioningOwner(tx, session);
+    const receipt = await tx.harborFacilityProvisionReceipt.findUnique({ where: { requestKey } });
+    if (receipt) {
+      if (receipt.staffId !== staffId || receipt.fingerprint !== fingerprint) throw provisionRequestConflict();
+      return { ...(await readProvisionedIdentities(tx, receipt)), overrideRecorded: false, requestReplayed: true };
+    }
+    if (!input.confirmOwnership) {
+      throw new FacilityProvisioningError("INVALID_INPUT", "Confirm that Facility ownership cannot be reassigned.");
+    }
+    if (input.organizationMode === "create" && (organizationName.length < 2 || organizationName.length > 200)) {
+      throw new FacilityProvisioningError("INVALID_INPUT", "Organization name must be 2–200 characters.");
     }
 
     let override: { matchedOrganizationIds: string[]; verificationBasis: string } | undefined;
@@ -124,7 +142,7 @@ export async function provisionFacilityForHarbor(
     if (override) {
       await tx.harborAuditEvent.create({
         data: {
-          staffId: authority.staff.id,
+          staffId,
           action: "PROVISION_FACILITY",
           facilityId: result.facility.id,
           provisioningOverride: { create: { organizationId: result.organization.id, ...override } },
@@ -132,8 +150,51 @@ export async function provisionFacilityForHarbor(
         select: { id: true },
       });
     }
-    return { ...result, overrideRecorded: !!override };
+    await tx.harborFacilityProvisionReceipt.create({ data: {
+      requestKey, staffId, fingerprint, organizationId: result.organization.id,
+      facilityId: result.facility.id, administratorId: result.user.id,
+    } });
+    return { ...result, overrideRecorded: !!override, requestReplayed: false };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+}
+
+export async function recoverHarborProvisionResult(db: PrismaClient, session: HarborJwtPayload, rawKey: string) {
+  const requestKey = normalizeProvisionRequestKey(rawKey);
+  return db.$transaction(async (tx) => {
+    await lockHarborProvisionRequest(tx, requestKey);
+    const staffId = await requireProvisioningOwner(tx, session);
+    const receipt = await tx.harborFacilityProvisionReceipt.findUnique({ where: { requestKey } });
+    if (!receipt || receipt.staffId !== staffId) return null;
+    return readProvisionedIdentities(tx, receipt);
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+}
+
+async function requireProvisioningOwner(tx: Prisma.TransactionClient, session: HarborJwtPayload) {
+  const authority = await lockHarborStaffSession(session, tx);
+  if (!authority.valid || authority.staff.role !== "OWNER") {
+    throw new FacilityProvisioningError("FORBIDDEN", "Only a signed-in Harbor Owner can provision a Facility.");
+  }
+  return authority.staff.id;
+}
+
+async function readProvisionedIdentities(
+  tx: Prisma.TransactionClient,
+  receipt: { organizationId: string; facilityId: string; administratorId: string },
+): Promise<FacilityBootstrapResult> {
+  const [organization, facility, user] = await Promise.all([
+    tx.organization.findUnique({ where: { id: receipt.organizationId }, select: { id: true, name: true, displayName: true } }),
+    tx.facility.findUnique({ where: { id: receipt.facilityId }, select: { id: true, displayName: true, organizationId: true } }),
+    tx.user.findUnique({ where: { id: receipt.administratorId }, select: { id: true, email: true, displayName: true } }),
+  ]);
+  if (!organization || !facility || facility.organizationId !== organization.id || !user) {
+    throw new FacilityProvisioningError("PROVISION_RESULT_UNAVAILABLE", "This request was already completed, but its original records are unavailable. Review the existing customer records.");
+  }
+  return {
+    organization: { id: organization.id, name: organization.displayName?.trim() || organization.name, created: false },
+    facility: { id: facility.id, displayName: facility.displayName, created: false },
+    user: { ...user, created: false },
+    replayed: true,
+  };
 }
 
 async function bootstrapHarborProvision(
@@ -159,7 +220,13 @@ async function bootstrapHarborProvision(
     throw new FacilityProvisioningError("INVALID_TIMEZONE", "Choose a valid facility timezone.");
   }
 
+  if (input.confirmedAdministratorId) {
+    await db.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${input.confirmedAdministratorId} FOR SHARE`;
+  }
   const preview = await previewHarborAdministrator(db, administratorEmail);
+  if (preview.userId !== (input.confirmedAdministratorId ?? null)) {
+    throw new HarborAdministratorReviewRequired(preview.exists ? preview : null);
+  }
   let organizationId: string | null = null;
 
   if (input.organizationMode === "existing") {

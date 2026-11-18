@@ -18,6 +18,7 @@ test("Harbor provisioning blocks normalized matches and records the Owner's exac
   const db = new PrismaClient({ datasourceUrl: target });
   const key = randomUUID();
   const base = (suffix: string): HarborProvisionInput => ({
+    requestKey: randomUUID(), confirmOwnership: true,
     organizationMode: "create", organizationName: `Pine Health ${key}`,
     facilityDisplayName: `Synthetic ${suffix} ${key}`, timezone: "America/New_York",
     billingEmail: `billing-${key}@example.invalid`, administratorName: "Synthetic Administrator",

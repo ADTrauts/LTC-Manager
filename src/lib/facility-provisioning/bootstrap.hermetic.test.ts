@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -105,6 +106,7 @@ function buildDb(seed?: {
     platformStaff: { findUnique: async () => ({ id: ownerSession.uid, email: ownerSession.email, isActive: true, role: "OWNER", sessionVersion: 0 }) },
     harborAssistanceLoginReceipt: { findUnique: async () => null },
     harborAuditEvent: { create: async () => ({ id: "audit" }) },
+    harborFacilityProvisionReceipt: { findUnique: async () => null, create: async () => ({}) },
     facility: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row = { id: id("fac"), stripeCustomerId: null, onboardingCompletedAt: null, ...data };
@@ -326,6 +328,7 @@ test("new Organization and existing User reuse the global User and skip invite p
     users: [{ id: "user_sarah", email: "sarah@example.com", displayName: "Sarah", facilityId: "fac_old" }],
   });
   const result = await provisionFacilityForHarbor(world.db, ownerSession, {
+    requestKey: randomUUID(), confirmOwnership: true, confirmedAdministratorId: "user_sarah",
     organizationMode: "create",
     organizationName: "ABC Senior Living",
     organizationType: "MANAGEMENT_COMPANY",
@@ -373,6 +376,7 @@ test("existing Organization and existing User reuse identity and grant only Sara
 test("exact replay reuses the incomplete Facility", async () => {
   const world = buildDb();
   const first = await provisionFacilityForHarbor(world.db, ownerSession, {
+    requestKey: randomUUID(), confirmOwnership: true,
     organizationMode: "create",
     organizationName: "NewCo",
     organizationType: "OTHER",
@@ -383,6 +387,7 @@ test("exact replay reuses the incomplete Facility", async () => {
     administratorEmail: "sarah@newco.example",
   });
   const second = await provisionFacilityForHarbor(world.db, ownerSession, {
+    requestKey: randomUUID(), confirmOwnership: true, confirmedAdministratorId: first.user.id,
     organizationMode: "existing",
     organizationId: first.organization.id,
     facilityDisplayName: "Facility X",
@@ -405,6 +410,7 @@ test("same Organization name with a different FA requires explicit duplicate con
   await assert.rejects(
     () =>
       provisionFacilityForHarbor(world.db, ownerSession, {
+        requestKey: randomUUID(), confirmOwnership: true, confirmedAdministratorId: "user_sarah",
         organizationMode: "existing",
         organizationId: "org_1",
         facilityDisplayName: "Terrace View",
@@ -416,6 +422,7 @@ test("same Organization name with a different FA requires explicit duplicate con
     (error: unknown) => error instanceof FacilityProvisioningError && error.code === "DUPLICATE_NAME",
   );
   const created = await provisionFacilityForHarbor(world.db, ownerSession, {
+    requestKey: randomUUID(), confirmOwnership: true, confirmedAdministratorId: "user_sarah",
     organizationMode: "existing",
     organizationId: "org_1",
     facilityDisplayName: "Terrace View",
