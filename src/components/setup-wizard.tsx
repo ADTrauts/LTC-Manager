@@ -56,6 +56,7 @@ export function SetupWizard({ initial, checkoutOutcome, checkout, returned, file
   const [invitationResults, setInvitationResults] = useState<Array<{ email: string; error?: string; deliveryStatus?: string }>>([]);
   const [override, setOverride] = useState<SetupDraft | null>(null);
   const [ignoreQuery, setIgnoreQuery] = useState(false);
+  const [choiceReviewed, setChoiceReviewed] = useState(false);
   const facilityId = initial.facility.id;
   const storageKey = setupDraftKey(initial.administrator.id, facilityId);
   const subscribe = useCallback((notify: () => void) => {
@@ -102,22 +103,23 @@ export function SetupWizard({ initial, checkoutOutcome, checkout, returned, file
   }
   useEffect(() => {
     if (ignoreQuery || (!checkout && !returned)) return;
-    saveDraft({ step: position.step, reached: position.reached });
+    saveDraft({ step: position.step, reached: position.reached, approach: "self" });
     setIgnoreQuery(true);
     router.replace("/setup");
     // Apply checkout or a builder return once, then drop the query so Back can revisit earlier questions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkout, returned]);
+  const reviewingChoice = forceChoice && !choiceReviewed && !checkout && !returned;
   const serverApproach =
-    !stored.approach && !checkout && step === "site" && reached === "site" && selected.length === 0
+    !stored.approach && !checkout && !returned
       ? initial.setupPath === "ASSISTED"
         ? "vssyl"
         : initial.setupPath === "SELF_SERVE"
           ? "self"
           : null
       : null;
-  const approach = stored.approach ?? serverApproach;
-  const showChoice = (forceChoice && approach == null) || (approach == null && !initial.facility.onboardingCompletedAt && !checkout && step === "site" && reached === "site" && selected.length === 0);
+  const approach = reviewingChoice ? null : stored.approach ?? serverApproach;
+  const showChoice = reviewingChoice || (approach == null && !initial.facility.onboardingCompletedAt && !checkout && step === "site" && reached === "site" && selected.length === 0);
   const showHandoff = approach === "vssyl" && !checkout && (forceChoice || !initial.facility.onboardingCompletedAt);
   useEffect(() => {
     if (showChoice || showHandoff) return;
@@ -136,6 +138,7 @@ export function SetupWizard({ initial, checkoutOutcome, checkout, returned, file
     await withFeedback(async () => {
       await request("/api/onboarding/state", { expectedFacilityId: facilityId, setupPath: nextApproach === "vssyl" ? "ASSISTED" : "SELF_SERVE" });
       saveDraft({ approach: nextApproach });
+      setChoiceReviewed(true);
     });
   }
 
@@ -248,13 +251,13 @@ export function SetupWizard({ initial, checkoutOutcome, checkout, returned, file
         </button>
         <button type="button" disabled={busy} className="rounded border border-zinc-200 bg-white p-4 text-left hover:border-zinc-900" onClick={() => void chooseApproach("vssyl")}>
           <span className="block font-semibold text-zinc-950">Vssyl setup</span>
-          <span className="mt-1 block text-sm text-zinc-600">Open the facility now. Download the lists and start filling them out. A Vssyl representative will be in contact shortly.</span>
+          <span className="mt-1 block text-sm text-zinc-600">Open the facility now. Prepare the lists and request help with setup. Choosing this path does not send a request.</span>
         </button>
       </div>
     </article> : null}
     {showHandoff ? <article className="app-card space-y-4">
       <h2 className="text-lg font-semibold">Start the lists</h2>
-      <p className="text-sm">Download these files and begin filling them out. A Vssyl representative will be in contact shortly. The facility is open now.</p>
+      <p className="text-sm">Download these files and begin filling them out. To start assisted setup, submit a request and follow its status on the implementation page. You can open the facility now.</p>
       <ul className="divide-y divide-zinc-200 rounded border border-zinc-200">
         {([
           ["Facility Builder", "facility-builder.csv", files.facility, "Buildings, floors, and rooms."],
@@ -270,6 +273,8 @@ export function SetupWizard({ initial, checkoutOutcome, checkout, returned, file
           </li>
         ))}
       </ul>
+      <Link href="/admin/billing/implementation" className="app-button inline-block">Request help with setup</Link>
+      <p className="text-sm text-zinc-600">Choosing Vssyl setup does not send a request or authorize a charge. Review and approve the separate scope and quote before any service payment.</p>
       <Link href="/dashboard" className="app-button app-accent-button inline-block text-white">Open the facility</Link>
       <button type="button" className="app-button" disabled={busy} onClick={() => void chooseApproach("self")}>I&apos;ll set it up myself</button>
     </article> : null}
