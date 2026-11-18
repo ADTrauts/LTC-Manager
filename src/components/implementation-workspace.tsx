@@ -1,19 +1,48 @@
 "use client";
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ActionResult } from "@/lib/implementation/action";
 import type { getEngagement } from "@/lib/implementation/service";
+import { implementationRequestStorageKey, isImplementationRequestId } from "@/lib/implementation/request-id";
 
 type View = Awaited<ReturnType<typeof getEngagement>>;
 type Props = { facilityId: string; facilityName: string; staff: boolean; owner?: boolean; actorId: string; action: (data: FormData) => Promise<ActionResult>; engagements: { id: string; responsibleStaffId: string | null; accepted: boolean }[]; selected: View | null; selectedId?: string; products: { key: string; name: string }[]; staffOptions?: { id: string; displayName: string }[]; error?: string };
 const button = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
 const input = "block min-h-11 w-full rounded border px-3 py-2";
+const REQUEST_CHANGED = "vssyl.implementation-request.changed";
+function subscribeRequests(listener: () => void) {
+  window.addEventListener("storage", listener);
+  window.addEventListener(REQUEST_CHANGED, listener);
+  return () => { window.removeEventListener("storage", listener); window.removeEventListener(REQUEST_CHANGED, listener); };
+}
+function storedRequest(key: string) {
+  try { const id = sessionStorage.getItem(key); return isImplementationRequestId(id) ? id : null; } catch { return null; }
+}
+const noRequest = () => null;
 function ServiceForm({ command, props, children, label }: { command: string; props: Props; children?: ReactNode; label: string }) {
   const [pending,start] = useTransition(); const [result,setResult] = useState<ActionResult | null>(null); const retryId = useRef<string | null>(null); const router = useRouter();
+  const requestKey = implementationRequestStorageKey(props.actorId, props.facilityId);
+  const memory = useRef(new Map<string, string | null>());
+  const [recoveryUnavailable, setRecoveryUnavailable] = useState(false);
+  const readRequest = useCallback(() => command === "request"
+    ? memory.current.has(requestKey) ? memory.current.get(requestKey)! : storedRequest(requestKey)
+    : null, [command, requestKey]);
+  const pendingRequest = useSyncExternalStore(subscribeRequests, readRequest, noRequest);
+  function rememberRequest(id: string | null) {
+    memory.current.set(requestKey, id);
+    try {
+      if (id) sessionStorage.setItem(requestKey, id); else sessionStorage.removeItem(requestKey);
+    } catch { setRecoveryUnavailable(true); }
+    window.dispatchEvent(new Event(REQUEST_CHANGED));
+  }
   return <form className="space-y-3 rounded border p-4" onChange={e => { if (e.target instanceof HTMLInputElement && e.target.type === "file") retryId.current = null; }} onSubmit={e => {
     e.preventDefault(); const data = new FormData(e.currentTarget);
     if (command === "source") { retryId.current ??= crypto.randomUUID(); data.set("submissionId",retryId.current); }
+    if (command === "request") {
+      const id = readRequest() ?? crypto.randomUUID();
+      rememberRequest(id); data.set("requestId", id);
+    }
     start(async () => {
       try {
         const response = await props.action(data); setResult(response);
@@ -27,6 +56,13 @@ function ServiceForm({ command, props, children, label }: { command: string; pro
   }}>
     <input type="hidden" name="command" value={command} /><input type="hidden" name="expectedFacilityId" value={props.facilityId} /><input type="hidden" name="engagementId" value={props.selected?.id ?? props.selectedId ?? ""} />
     {children}<button className={button} disabled={pending}>{pending ? "Working…" : label}</button>
+    {command === "request" && pendingRequest ? <aside className="space-y-2 text-sm">
+      <p>A previous request may already be saved. Check its status, or retry with the same Departments and deliverables.</p>
+      <Link href={`?engagement=${encodeURIComponent(pendingRequest)}`} className="underline">Check previous request</Link>{" "}
+      <button type="button" className={button} disabled={pending} onClick={() => { rememberRequest(null); setResult(null); }}>Start a new request</button>
+      <p>Starting a new request allows separate work, even with the same scope.</p>
+    </aside> : null}
+    {command === "request" && recoveryUnavailable ? <p role="status" className="text-sm">Browser recovery storage is unavailable. Keep this page open to retry the same request.</p> : null}
     {result ? <p role={result.ok ? "status" : "alert"} className="break-words text-sm">{result.ok ? result.message : result.error}</p> : null}
   </form>;
 }
@@ -35,6 +71,19 @@ function ScopeFields({ props, scope }: { props: Props; scope?: { departmentKeys:
 }
 export function ImplementationWorkspace(props: Props) {
   const router = useRouter();
+  const selectedRequestId = props.selected?.id;
+  useEffect(() => {
+    // Clear only after the authorized server view confirms the saved result.
+    // An interrupted action or failed navigation must keep its recovery key.
+    if (props.staff || !selectedRequestId) return;
+    const key = implementationRequestStorageKey(props.actorId, props.facilityId);
+    try {
+      if (storedRequest(key) === selectedRequestId) {
+        sessionStorage.removeItem(key);
+        window.dispatchEvent(new Event(REQUEST_CHANGED));
+      }
+    } catch { /* A retained key is safe to reconcile again. */ }
+  }, [props.staff, props.actorId, props.facilityId, selectedRequestId]);
   const row = props.selected; const order = row?.orders[0]; const scope = (order?.scope ?? row?.requestedScope) as { departmentKeys: string[]; deliverables: string[] } | undefined;
   return <section className="mx-auto max-w-5xl space-y-5 break-words" data-testid="implementation-workspace">
     <header><h1 className="text-2xl font-semibold">VSSYL implementation</h1><p>{props.facilityName}</p><p>Self-service has no implementation fee; normal subscription charges apply. Each separately approved assisted engagement costs $1,500 for its first Department and $500 per additional Department. Later Department purchases carry no automatic implementation fee.</p><p className="mt-2 text-sm">Service delivery, payment and waivers grant no Department access, operational readiness or publication. Licensing and customer publication authority remain separate.</p></header>

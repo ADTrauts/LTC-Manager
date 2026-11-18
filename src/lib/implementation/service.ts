@@ -10,6 +10,7 @@ import type { PlanRow } from "@/lib/setup-imports/contract";
 import { appendEvent, authorize, authorizeImplementationStaff, lockEngagement, requireParticipant, type Actor, type Db, type Tx } from "./authority";
 import { deliveryEvidence, digest, ImplementationError, parseScope, PAYMENT_RECONCILED_EVENT, quoteScope, STAGES } from "./contract";
 import { implementationWorkWhere } from "./work-queue";
+import { isImplementationRequestId } from "./request-id";
 export const IMPLEMENTATION_SOURCE_SUBMISSION_PREFIX = "implementation:";
 
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -17,20 +18,49 @@ const transaction = <T>(db: PrismaClient, fn: (tx: Tx) => Promise<T>) => db.$tra
 function customer(actor: Actor) { if (actor.kind !== "customer") throw new ImplementationError("Customer Facility Administrator approval is required."); return actor.session; }
 function staff(actor: Actor) { if (actor.kind !== "staff") throw new ImplementationError("Console staff action is required."); return actor.session; }
 function editable(row: { acceptedAt: Date | null }) { if (row.acceptedAt) throw new ImplementationError("This handoff is accepted. Request a separate engagement for later work."); }
-export async function requestEngagement(db: PrismaClient, actor: Actor, facilityId: string, input: unknown) {
+export async function requestEngagement(db: PrismaClient, actor: Actor, facilityId: string, input: unknown, requestId?: string) {
   const session = customer(actor); const scope = parseScope(input);
-  return transaction(db,async tx => {
+  if (requestId !== undefined && !isImplementationRequestId(requestId)) throw new ImplementationError("Choose a valid request identifier or explicitly start a new request.");
+  const key = requestId?.toLowerCase();
+  const lockActor = async (tx: Tx) => {
     await authorize(tx,actor,facilityId,true);
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Facility" WHERE "id"=${facilityId} FOR UPDATE`);
     await authorize(tx,actor,facilityId);
+  };
+  const replay = async (tx: Tx) => {
+    if (!key) return null;
+    const prior = await tx.implementationEngagement.findUnique({ where: { id: key } });
+    if (!prior) return null;
+    if (prior.facilityId !== facilityId || prior.requesterUserId !== session.uid ||
+        digest(parseScope(prior.requestedScope)) !== digest(scope)) {
+      throw new ImplementationError("This identifier belongs to a different request. Recover the original request or explicitly start a new one.");
+    }
+    await requireParticipant(tx, actor, prior.id);
+    return prior.id;
+  };
+  try { return await transaction(db,async tx => {
+    await lockActor(tx);
+    const prior = await replay(tx);
+    if (prior) return prior;
     const contact = await upsertSupportContact(tx,{ email: session.email, displayName: session.name });
     // Customer-originated support intake uses its actual contact. No invented PlatformStaff actor.
     const ticket = await tx.supportTicket.create({ data: { replyToken: generateSupportReplyToken(), subject: "VSSYL implementation engagement", facilityId, contactId: contact.id, status: "NEW" } });
-    const engagement = await tx.implementationEngagement.create({ data: { facilityId, requesterUserId: session.uid, supportTicketId: ticket.id, requestedScope: json(scope), participants: { create: { userId: session.uid } } } });
+    const engagement = await tx.implementationEngagement.create({ data: { id: key, facilityId, requesterUserId: session.uid, supportTicketId: ticket.id, requestedScope: json(scope), participants: { create: { userId: session.uid } } } });
     await tx.supportTicketEvent.create({ data: { ticketId: ticket.id, type: "CREATED", metadata: { source: "IMPLEMENTATION", engagementId: engagement.id, actorUserId: session.uid } } });
     await appendEvent(tx,actor,engagement.id,"REQUESTED",json(scope));
     return engagement.id;
-  });
+  }); } catch (error) {
+    // Distinct Facilities do not share a lock. A racing duplicate primary key
+    // rolls back its ticket and event writes; reconcile only that exact key in
+    // a fresh authorized transaction. Never retry unknown COMMIT outcomes here.
+    if (!key || !(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+    return transaction(db, async tx => {
+      await lockActor(tx);
+      const prior = await replay(tx);
+      if (!prior) throw error;
+      return prior;
+    });
+  }
 }
 export async function assignEngagement(db: PrismaClient, actor: Actor, engagementId: string, responsibleStaffId: string) {
   const session = staff(actor);
