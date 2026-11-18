@@ -22,7 +22,7 @@ export default async function HarborCustomerPage({
   searchParams,
 }: {
   params: Promise<{ facilityId: string }>;
-  searchParams?: Promise<{ provisioned?: string; invite?: string; user?: string; replayed?: string }>;
+  searchParams?: Promise<{ provisioned?: string; invite?: string; user?: string; replayed?: string; requestRecovered?: string }>;
 }) {
   const session = await requireHarborStaff();
   const { facilityId } = await params;
@@ -69,7 +69,9 @@ export default async function HarborCustomerPage({
         </Link>
         {provisionQuery.provisioned === "1" ? (
           <p className="mt-3 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm">
-            {provisionQuery.replayed === "1"
+            {provisionQuery.requestRecovered === "1"
+              ? "Original provisioning result recovered. This retry did not send an invitation."
+              : provisionQuery.replayed === "1"
               ? "Existing Facility reused. No new tenancy was created."
               : provisionQuery.user === "existing"
                 ? "Facility provisioned. Existing Vssyl account received Facility Administrator access."
