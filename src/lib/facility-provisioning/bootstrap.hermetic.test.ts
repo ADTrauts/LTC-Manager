@@ -493,7 +493,7 @@ test("signup and Harbor share bootstrap and do not install products or claims", 
   assert.match(harbor, /PROVISION_FACILITY/);
   assert.ok(actions.indexOf("await provisionFacilityForHarbor(") < actions.indexOf("issueAndSendAccountInvite({"));
   assert.match(detail, /Facility created\. Administrator invite could not be delivered/);
-  assert.match(detail, /resendHarborProvisionInviteAction/);
+  assert.match(detail, /AdministratorInviteRecoveryForm/);
   assert.doesNotMatch(actions, /createHarborWorkToken|WORK_SESSION_START/);
   assert.match(form, /from \"@\/lib\/facility-provisioning\/timezones\"/);
   assert.doesNotMatch(form, /from \"@\/lib\/facility-provisioning\"/);

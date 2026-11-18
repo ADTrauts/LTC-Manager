@@ -2,9 +2,9 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { AdministratorInviteRecoveryForm } from "@/components/harbor-console/administrator-invite-recovery-form";
 import { CustomerBillingSyncForm } from "@/components/harbor-console/customer-billing-sync-form";
 import { SupportHistoryPanel } from "@/components/harbor-console/support-history-panel";
-import { resendHarborProvisionInviteAction } from "../provision-actions";
 import { isHarborOwnerSession, peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { loadHarborAdministratorActivation } from "@/lib/harbor-console/administrator-activation";
 import { loadHarborFacility } from "@/lib/harbor-console/queries";
@@ -79,18 +79,6 @@ export default async function HarborCustomerPage({
                     ? "Facility created. Administrator invite could not be delivered."
                     : "Facility provisioned."}
           </p>
-        ) : null}
-        {provisionQuery.invite === "failed" && facility.primaryAdmin?.invitePending ? (
-          <form action={resendAdministratorInviteFormAction} className="mt-3">
-            <input type="hidden" name="facilityId" value={facility.id} />
-            <input type="hidden" name="userId" value={facility.primaryAdmin.id} />
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--border-strong)] bg-white px-4 text-sm font-semibold"
-            >
-              Resend administrator invite
-            </button>
-          </form>
         ) : null}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <p className="text-sm text-[var(--text-secondary)]">Staff Facility workspace access is paused.</p>
@@ -174,6 +162,13 @@ export default async function HarborCustomerPage({
               </p>
             ) : null}
             <p className="mt-1 text-xs text-[var(--text-secondary)]">This status does not confirm email delivery.</p>
+            {administratorActivation.recovery ? (
+              <AdministratorInviteRecoveryForm
+                key={administratorActivation.recovery.periodId}
+                facilityId={facility.id}
+                target={administratorActivation.recovery}
+              />
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -291,10 +286,6 @@ export default async function HarborCustomerPage({
       ) : null}
     </div>
   );
-}
-
-async function resendAdministratorInviteFormAction(formData: FormData): Promise<void> {
-  await resendHarborProvisionInviteAction(formData);
 }
 
 function OverviewItem({ title, status, href, action }: {
