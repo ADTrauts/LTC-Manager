@@ -3,11 +3,15 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { OrganizationType } from "@prisma/client";
 
 import { issueAndSendAccountInvite } from "@/lib/account-invite/send";
 import { FacilityProvisioningError } from "@/lib/facility-provisioning";
-import { previewHarborAdministrator, provisionFacilityForHarbor } from "@/lib/facility-provisioning/harbor";
+import {
+  HarborOrganizationNameMatchError,
+  previewHarborAdministrator,
+  provisionFacilityForHarbor,
+  type HarborOrganizationMatch,
+} from "@/lib/facility-provisioning/harbor";
 import { isOrganizationType } from "@/lib/organization";
 import { isHarborOwnerSession, requireHarborOwner, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +23,7 @@ export type HarborProvisionState = {
   message: string;
   facilityId?: string;
   existingUser?: { displayName: string; email: string } | null;
+  organizationConflict?: { proposedName: string; matches: HarborOrganizationMatch[] };
 } | null;
 
 function requestOrigin(headerStore: Headers): string {
@@ -103,21 +108,32 @@ export async function provisionFacilityAction(
 
   let result;
   try {
-    result = await prisma.$transaction((tx) =>
-      provisionFacilityForHarbor(tx, {
-        organizationMode,
-        organizationId,
-        organizationName,
-        organizationType: organizationType as OrganizationType | null,
-        facilityDisplayName,
-        timezone,
-        billingEmail,
-        administratorName,
-        administratorEmail,
-        confirmDuplicateName,
-      }),
-    );
+    result = await provisionFacilityForHarbor(prisma, session, {
+      organizationMode,
+      organizationId,
+      organizationName,
+      organizationType,
+      facilityDisplayName,
+      timezone,
+      billingEmail,
+      administratorName,
+      administratorEmail,
+      confirmDuplicateName,
+      distinctOrganization: {
+        attested: formData.get("attestDistinctOrganization") === "1",
+        verificationBasis: String(formData.get("organizationVerificationBasis") ?? ""),
+        reviewedMatchIds: formData.getAll("reviewedOrganizationMatchId").map(String),
+      },
+    });
   } catch (error) {
+    if (error instanceof HarborOrganizationNameMatchError) {
+      return {
+        ok: false,
+        code: error.code,
+        message: error.message,
+        organizationConflict: { proposedName: error.proposedName, matches: error.matches },
+      };
+    }
     if (error instanceof FacilityProvisioningError) {
       return { ok: false, code: error.code, message: error.message };
     }
@@ -135,13 +151,12 @@ export async function provisionFacilityAction(
   }
 
   try {
-    await prisma.harborAuditEvent.create({
-      data: {
-        staffId: session.uid,
-        action: "PROVISION_FACILITY",
-        facilityId: result.facility.id,
-      },
-    });
+    if (!result.overrideRecorded) {
+      await prisma.harborAuditEvent.create({
+        data: { staffId: session.uid, action: "PROVISION_FACILITY", facilityId: result.facility.id },
+        select: { id: true },
+      });
+    }
     await trackEvent("harbor.facility.provisioned", {
       facilityId: result.facility.id,
       organizationId: result.organization.id,
@@ -152,7 +167,7 @@ export async function provisionFacilityAction(
       invite,
     });
   } catch (error) {
-    console.info("harbor_provision_audit_failed", {
+    console.info("harbor_provision_audit_or_telemetry_failed", {
       facilityId: result.facility.id,
       error: error instanceof Error ? error.message : "unknown",
     });

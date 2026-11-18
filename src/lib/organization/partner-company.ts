@@ -41,22 +41,27 @@ export function validatePartnerCompanyName(
   return { ok: true, name };
 }
 
-/** Match a proposed name against name, display name, or legal name. */
+/** Match proposed names against canonical, display, or legal names. */
+export function listOrganizationsByNormalizedName<T extends OrganizationNameFields>(
+  rows: readonly T[],
+  candidates: readonly string[],
+): T[] {
+  const keys = new Set(
+    candidates.map((value) => normalizeOrganizationKey(value)).filter((key) => key.length > 0),
+  );
+  if (keys.size === 0) return [];
+  return rows.filter((row) =>
+    [row.name, row.displayName, row.legalName].some(
+      (value) => value != null && keys.has(normalizeOrganizationKey(value)),
+    ),
+  );
+}
+
 export function matchOrganizationByNormalizedName<T extends OrganizationNameFields>(
   rows: readonly T[],
   candidates: readonly string[],
 ): T | null {
-  const keys = new Set(
-    candidates.map((value) => normalizeOrganizationKey(value)).filter((key) => key.length > 0),
-  );
-  if (keys.size === 0) return null;
-  return (
-    rows.find((row) =>
-      [row.name, row.displayName, row.legalName].some(
-        (value) => value != null && keys.has(normalizeOrganizationKey(value)),
-      ),
-    ) ?? null
-  );
+  return listOrganizationsByNormalizedName(rows, candidates)[0] ?? null;
 }
 
 /**
