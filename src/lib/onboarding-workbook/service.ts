@@ -56,11 +56,46 @@ export type WorkbookResults=Awaited<ReturnType<typeof workbookResults>>;
 export async function confirmWorkbook(db:PrismaClient,session:FacilitySession,input:{reviewToken:string;expectedFacilityId:string;bytes?:Buffer;fileName?:string;confirmedAccountRows:number[]}){
   const review=read(input.reviewToken);if(input.expectedFacilityId!==session.facilityId)throw new WorkbookError("Facility changed. Preview in the intended site.");
   const supplied=input.bytes?readWorkbook(input.bytes,input.fileName||"",session.facilityId):null;if(supplied&&supplied.sourceHash!==review.sourceHash)throw new WorkbookError("Workbook bytes changed. Preview again.");
+  // This is only a replay hint. Do not read a missing batch UUID in the
+  // Serializable transaction before inserting: independent UUIDs can share
+  // an index page, and the negative lookup can conflict with either insert.
+  const replayHint = supplied && await db.setupImportBatch.findUnique({
+    where: { id: review.id, facilityId: session.facilityId, actorUserId: session.uid, dataset: "onboarding_workbook" },
+    select: { id: true },
+  });
   const lease=randomUUID();const claimed=await importTransaction(db,async tx=>{
-    const actor=await authority(tx,session,review,true);await lockFacility(tx,session.facilityId);await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "SetupImportBatch" WHERE "id"=${review.id} FOR UPDATE`);
-    let batch=await tx.setupImportBatch.findUnique({where:{id:review.id}});
-    if(!batch){if(!supplied)throw new WorkbookError("First confirmation requires the same reviewed workbook.");const catalog=await workbookCatalog(tx,session,supplied),rows=planWorkbook(supplied,catalog),state=checkpoint(catalog);if(intentDigest(supplied,rows,state,review.checkpointVersion)!==review.digest)throw new WorkbookError("Material facts changed since preview. Preview again before execution.");await authority(tx,session,review);batch=await tx.setupImportBatch.create({data:{id:review.id,facilityId:session.facilityId,actorKind:session.authKind!,actorUserId:session.authKind==="user"?session.uid:null,actorStaffId:session.authKind==="harbor_staff"?session.uid:null,actorSnapshot:json(actor),dataset:"onboarding_workbook",mode:"dependency_order",contractVersion:"vssyl.onboarding.xlsx/1",fileName:supplied.fileName,sourceHash:supplied.sourceHash,planDigest:review.digest,expiresAt:new Date(review.expiresAt),reviewedPlan:json({source:supplied,rows,checkpoint:state,reviewedCheckpoint:state,mapping:{},children:{},checkpointVersion:review.checkpointVersion})}});}
-    await loadOwned(tx,session,review.id);if(batch.planDigest!==review.digest||(batch.reviewedPlan as unknown as Stored).checkpointVersion!==review.checkpointVersion)throw new WorkbookError("Workbook review does not match its receipt.");if(batch.leaseExpiresAt&&+batch.leaseExpiresAt>Date.now())return false;
+    const actor=await authority(tx,session,review,true);await lockFacility(tx,session.facilityId);
+    if (supplied && !replayHint) {
+      const catalog = await workbookCatalog(tx, session, supplied);
+      const rows = planWorkbook(supplied, catalog);
+      const state = checkpoint(catalog);
+      if (intentDigest(supplied, rows, state, review.checkpointVersion) === review.digest) {
+        await authority(tx, session, review);
+        // The batch UUID is the only unique key. Publish its reviewed intent
+        // and lease together; a concurrent winner is handled as a replay.
+        const { count } = await tx.setupImportBatch.createMany({
+          data: {
+            id: review.id, facilityId: session.facilityId, actorKind: actor.kind, actorUserId: actor.id,
+            actorSnapshot: json(actor), dataset: "onboarding_workbook", mode: "dependency_order",
+            contractVersion: "vssyl.onboarding.xlsx/1", fileName: supplied.fileName,
+            sourceHash: supplied.sourceHash, planDigest: review.digest, expiresAt: new Date(review.expiresAt),
+            reviewedPlan: json({ source: supplied, rows, checkpoint: state, reviewedCheckpoint: state, mapping: {}, children: {}, checkpointVersion: review.checkpointVersion }),
+            leaseToken: lease, leaseExpiresAt: new Date(Date.now() + 90_000),
+          },
+          skipDuplicates: true,
+        });
+        if (count === 1) return true;
+      }
+    }
+    // The hint can miss a committed claim. A winner may already have changed
+    // the catalog, so prefer the locked, checked receipt even after a mismatch.
+    const [locked] = await tx.$queryRaw<Array<{id:string}>>(Prisma.sql`SELECT "id" FROM "SetupImportBatch" WHERE "id"=${review.id} FOR UPDATE`);
+    if (!locked) {
+      if (!supplied) throw new WorkbookError("First confirmation requires the same reviewed workbook.");
+      throw new WorkbookError("Material facts changed since preview. Preview again before execution.");
+    }
+    const batch = await loadOwned(tx, session, review.id);
+    if(batch.planDigest!==review.digest||(batch.reviewedPlan as unknown as Stored).checkpointVersion!==review.checkpointVersion)throw new WorkbookError("Workbook review does not match its receipt.");if(batch.leaseExpiresAt&&+batch.leaseExpiresAt>Date.now())return false;
     await tx.setupImportBatch.update({where:{id:review.id},data:{leaseToken:lease,leaseExpiresAt:new Date(Date.now()+90_000)}});return true;
   },{timeout:30000,maxWait:30000});
   if(!claimed)return workbookResults(db,session,review.id);
