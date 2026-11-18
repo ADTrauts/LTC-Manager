@@ -1,11 +1,21 @@
 import Link from "next/link";
 
 import { isHarborOwnerSession, peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
-import { listHarborFacilities } from "@/lib/harbor-console/queries";
+import { loadHarborCustomerDirectoryPage } from "@/lib/harbor-console/queries";
 import { HARBOR_WORK_CLEANUP_PATH } from "@/lib/harbor-console/session";
 import { prisma } from "@/lib/prisma";
 
-type SearchParams = Promise<{ q?: string | string[]; work?: string | string[] }>;
+type SearchParam = string | string[] | undefined;
+type SearchParams = Promise<{ q?: SearchParam; work?: SearchParam; page?: SearchParam }>;
+
+function customersHref(query: string, filter: "open" | "unassigned" | null, page = 1) {
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  if (filter) params.set("work", filter);
+  if (page > 1) params.set("page", String(page));
+  const search = params.toString();
+  return search ? `/console/customers?${search}` : "/console/customers";
+}
 
 export default async function HarborCustomersPage({
   searchParams,
@@ -13,14 +23,15 @@ export default async function HarborCustomersPage({
   searchParams: SearchParams;
 }) {
   const session = await requireHarborStaff();
-  const [{ q, work }, workFacilityId] = await Promise.all([searchParams, peekHarborWorkFacilityId()]);
+  const [{ q, work, page: requestedPage }, workFacilityId] = await Promise.all([searchParams, peekHarborWorkFacilityId()]);
   const query = typeof q === "string" ? q.trim() : "";
   // A submitted filter must not narrow the directory while a legacy work context is present.
   const filter = !workFacilityId && (work === "open" || work === "unassigned") ? work : null;
-  const rows = await listHarborFacilities(prisma, query, filter ? {
-    filter, actor: { kind: "staff", session, workFacilityId },
-  } : undefined);
-  const clearWorkHref = query ? `/console/customers?${new URLSearchParams({ q: query })}` : "/console/customers";
+  const { rows, total, page, pageCount, offset } = await loadHarborCustomerDirectoryPage(prisma, {
+    query,
+    page: requestedPage,
+    implementation: filter ? { filter, actor: { kind: "staff", session, workFacilityId } } : undefined,
+  });
   const canProvision = isHarborOwnerSession(session);
 
   return (
@@ -40,7 +51,7 @@ export default async function HarborCustomersPage({
             New customer
           </Link>
         ) : null}
-        <form key={JSON.stringify([query, filter])} className="flex flex-wrap items-end gap-2" action="/console/customers">
+        <form key={JSON.stringify([query, filter, page])} className="flex flex-wrap items-end gap-2" action="/console/customers">
           <input
             type="search"
             name="q"
@@ -69,6 +80,11 @@ export default async function HarborCustomersPage({
           >
             Search
           </button>
+          {filter ? (
+            <Link href={customersHref(query, null)} className="inline-flex min-h-11 items-center px-2 text-sm underline">
+              Clear work filter
+            </Link>
+          ) : null}
         </form>
         {workFacilityId ? (
           <p className="basis-full text-sm text-[var(--text-secondary)]">
@@ -93,12 +109,9 @@ export default async function HarborCustomersPage({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-[var(--text-secondary)]">
-                  {filter ? (
-                    <>
-                      {query ? "No facilities match this search and work filter." : "No facilities match this work filter."}{" "}
-                      <Link href={clearWorkHref} className="underline">Clear work filter</Link>
-                    </>
-                  ) : "No facilities match."}
+                  {filter
+                    ? (query ? "No facilities match this search and work filter." : "No facilities match this work filter.")
+                    : "No facilities match."}
                 </td>
               </tr>
             ) : (
@@ -134,6 +147,35 @@ export default async function HarborCustomersPage({
           </tbody>
         </table>
       </div>
+
+      {total > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--text-secondary)]">
+          <p>Showing {offset + 1}–{offset + rows.length} of {total} {total === 1 ? "facility" : "facilities"}</p>
+          {pageCount > 1 ? (
+            <nav aria-label="Customer pages" className="flex items-center gap-2">
+              {page > 1 ? (
+                <Link
+                  href={customersHref(query, filter, page - 1)}
+                  rel="prev"
+                  className="inline-flex min-h-11 items-center rounded-md border border-[var(--border)] bg-white px-3 hover:text-[var(--foreground)]"
+                >
+                  Previous
+                </Link>
+              ) : null}
+              <span className="px-1">Page {page} of {pageCount}</span>
+              {page < pageCount ? (
+                <Link
+                  href={customersHref(query, filter, page + 1)}
+                  rel="next"
+                  className="inline-flex min-h-11 items-center rounded-md border border-[var(--border)] bg-white px-3 hover:text-[var(--foreground)]"
+                >
+                  Next
+                </Link>
+              ) : null}
+            </nav>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
