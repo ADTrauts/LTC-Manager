@@ -237,6 +237,32 @@ export async function loadHarborToday(client: PrismaClient) {
   return { setupFollowUp, paymentProblems: billingRows.filter((row) => row.paymentProblem) };
 }
 
+/** Pre-participation handoff metadata only. Detailed scope and evidence stay
+ * behind the Implementation service's participant checks. */
+export async function loadHarborUnassignedImplementation(client: PrismaClient, actor: Actor) {
+  return client.$transaction(async tx => {
+    await authorizeImplementationStaff(tx, actor);
+    const where = implementationWorkWhere("unassigned");
+    const total = await tx.implementationEngagement.count({ where });
+    const rows = total ? await tx.implementationEngagement.findMany({
+      where,
+      select: {
+        id: true, facilityId: true, createdAt: true,
+        facility: { select: {
+          displayName: true,
+          organization: { select: { name: true, displayName: true } },
+        } },
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: 5,
+    }) : [];
+    return { total, rows: rows.map(row => ({
+      id: row.id, facilityId: row.facilityId, facilityName: row.facility.displayName,
+      organizationName: organizationDisplayLabel(row.facility.organization), requestedAt: row.createdAt,
+    })) };
+  }, { isolationLevel: "RepeatableRead" });
+}
+
 export async function loadHarborOrganizationProfile(client: Db, organizationId: string) {
   return client.organization.findUnique({
     where: { id: organizationId },
