@@ -38,12 +38,17 @@ export default async function HarborCustomersPage({
           </p>
         </div>
         {canProvision ? (
-          <Link
-            href="/console/customers/new"
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--run-aside)] px-4 text-sm font-semibold text-[var(--run-aside-fg)]"
-          >
-            New customer
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/console/customers/invitation-follow-up" className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-2">
+              Administrator invitation follow-up
+            </Link>
+            <Link
+              href="/console/customers/new"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--run-aside)] px-4 text-sm font-semibold text-[var(--run-aside-fg)]"
+            >
+              New customer
+            </Link>
+          </div>
         ) : null}
         <form key={JSON.stringify([query, filter, setupFilter, page])} className="flex flex-wrap items-end gap-2" action="/console/customers">
           <input

@@ -4,6 +4,7 @@ import { deriveFacilityDepartmentCatalog } from "@/lib/department-products/facil
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { authorizeImplementationStaff, type Actor } from "@/lib/implementation/authority";
 import { implementationWorkWhere, type ImplementationWorkFilter } from "@/lib/implementation/work-queue";
+import { HARBOR_CUSTOMER_PAGE_SIZE, harborCustomerPageWindow } from "@/lib/harbor-console/pagination";
 
 import {
   billingStatusLabel,
@@ -189,29 +190,20 @@ export async function listHarborFacilities(
   return rows.map(toRow);
 }
 
-const DIRECTORY_PAGE_SIZE = 25;
-
 export async function loadHarborCustomerDirectoryPage(
   client: PrismaClient,
   input: { query?: string; implementation?: ImplementationFilter; setup?: HarborSetupFilter; page?: string | string[] },
 ) {
-  const rawPage = input.page;
-  const parsedPage = typeof rawPage === "string" && /^[1-9][0-9]{0,15}$/.test(rawPage) ? Number(rawPage) : 1;
-  const requestedPage = Number.isSafeInteger(parsedPage) ? parsedPage : 1;
-
   return client.$transaction(async (tx) => {
     const where = await harborFacilityWhere(tx, input.query, input.implementation, input.setup);
     const total = await tx.facility.count({ where });
-    const pageCount = Math.max(1, Math.ceil(total / DIRECTORY_PAGE_SIZE));
-    // Clamp to the verified result count before constructing a database offset.
-    const page = Math.min(requestedPage, pageCount);
-    const offset = (page - 1) * DIRECTORY_PAGE_SIZE;
+    const { page, pageCount, offset } = harborCustomerPageWindow(total, input.page);
     const rows = total ? await tx.facility.findMany({
       where,
       select: facilitySelect,
       orderBy: [{ displayName: "asc" }, { id: "asc" }],
       skip: offset,
-      take: DIRECTORY_PAGE_SIZE,
+      take: HARBOR_CUSTOMER_PAGE_SIZE,
     }) : [];
 
     return { rows: rows.map(toRow), total, page, pageCount, offset };

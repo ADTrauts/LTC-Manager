@@ -126,6 +126,7 @@ test("harbor console — facility roles never enter /console", () => {
     "/console",
     "/console/customers",
     "/console/customers/new",
+    "/console/customers/invitation-follow-up",
     "/console/customers/organizations/cm000organization01",
     "/console/partners",
     "/console/tickets",

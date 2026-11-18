@@ -148,7 +148,7 @@ export default async function HarborCustomerPage({
           <Field label="Billing email" value={facility.billingEmail ?? "—"} />
         </dl>
         {administratorActivation ? (
-          <div className="mt-4 border-t border-[var(--border)] pt-3">
+          <div id="administrator-activation" className="mt-4 scroll-mt-4 border-t border-[var(--border)] pt-3">
             <h3 className="text-sm font-semibold">Administrator activation</h3>
             <p className="mt-1 text-sm">{administratorActivation.label}</p>
             {administratorActivation.expiresAt ? (
