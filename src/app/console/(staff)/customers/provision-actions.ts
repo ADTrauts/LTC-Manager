@@ -15,6 +15,7 @@ import {
   type HarborProvisionPreviewUser,
 } from "@/lib/facility-provisioning/harbor";
 import { isOrganizationType } from "@/lib/organization";
+import { replaceHarborAdministratorInvitation } from "@/lib/harbor-console/administrator-invite-recovery";
 import { isHarborOwnerSession, requireHarborOwner, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/telemetry";
@@ -180,34 +181,31 @@ export async function provisionFacilityAction(
   return { ok: true, message: "Facility provisioned.", nextPath: `/console/customers/${result.facility.id}?${params.toString()}` };
 }
 
-export async function resendHarborProvisionInviteAction(formData: FormData): Promise<HarborProvisionState> {
-  await requireHarborOwner();
+export async function resendHarborProvisionInviteAction(_previous: HarborProvisionState, formData: FormData): Promise<HarborProvisionState> {
+  const session = await requireHarborOwner();
   const facilityId = String(formData.get("facilityId") ?? "").trim();
   const userId = String(formData.get("userId") ?? "").trim();
-  if (!facilityId || !userId) {
-    return { ok: false, message: "Unable to resend the invite." };
+  const periodId = String(formData.get("periodId") ?? "").trim();
+  const email = String(formData.get("email") ?? "");
+  if (!facilityId || !userId || !periodId || !email || formData.get("confirmReplacement") !== "1") {
+    return { ok: false, message: "Confirm the replacement invitation and its recipient." };
   }
 
-  const user = await prisma.user.findFirst({
-    where: {
-      id: userId,
-      isActive: true,
-      passwordHash: null,
-      facilityAccesses: { some: { facilityId, isActive: true, revokedAt: null } },
-    },
-    select: { id: true },
-  });
-  if (!user) {
-    return { ok: false, message: "That administrator is not waiting on an invite." };
+  let outcome;
+  try {
+    outcome = await replaceHarborAdministratorInvitation(prisma, session, { facilityId, userId, periodId, email }, requestOrigin(await headers()));
+  } catch {
+    return { ok: false, message: "Unable to prepare a replacement invitation. Review activation status before trying again." };
+  }
+  if (outcome === "ineligible") {
+    return { ok: false, message: "This account is no longer eligible for a replacement invitation. Reload to review the current Administrator." };
   }
 
-  const origin = requestOrigin(await headers());
-  const delivery = await issueAndSendAccountInvite({ userId: user.id, origin });
   revalidatePath(`/console/customers/${facilityId}`);
-  const params = new URLSearchParams({
-    provisioned: "1",
-    user: "new",
-    invite: delivery.sent ? "sent" : "failed",
-  });
-  redirect(`/console/customers/${facilityId}?${params.toString()}`);
+  return {
+    ok: true,
+    message: outcome === "delivery_requested"
+      ? "Replacement invitation issued and email submitted for delivery. This does not confirm receipt."
+      : "Replacement invitation issued. Email delivery could not be confirmed.",
+  };
 }
