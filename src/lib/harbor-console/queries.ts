@@ -8,9 +8,9 @@ import { implementationWorkWhere, type ImplementationWorkFilter } from "@/lib/im
 import {
   billingStatusLabel,
   isPaymentProblem,
-  isStuckSetup,
   onboardingLabel,
   setupPathLabel,
+  type HarborSetupFilter,
 } from "@/lib/harbor-console/presentation";
 import {
   listDepartmentProducts,
@@ -57,7 +57,6 @@ export type HarborFacilityRow = {
   billingStatusRaw: string | null;
   setupPath: string;
   licensedDepartments: string[];
-  stuckSetup: boolean;
   paymentProblem: boolean;
 };
 
@@ -103,7 +102,6 @@ function toRow(
     billingStatusRaw: facility.billing?.status ?? null,
     setupPath: setupPathLabel(facility.billing?.setupPath),
     licensedDepartments,
-    stuckSetup: isStuckSetup(facility.onboardingCompletedAt),
     paymentProblem: isPaymentProblem(facility.billing?.status ?? null),
   };
 }
@@ -148,14 +146,21 @@ function billingSourceLabel(input: {
 
 type ImplementationFilter = { filter: ImplementationWorkFilter; actor: Actor };
 
+function setupFilterWhere(setup?: HarborSetupFilter): Prisma.FacilityWhereInput {
+  if (setup === "awaiting") return { onboardingCompletedAt: null };
+  if (setup === "acknowledged") return { onboardingCompletedAt: { not: null } };
+  return {};
+}
+
 async function harborFacilityWhere(
   client: Db,
   query?: string,
   implementation?: ImplementationFilter,
+  setup?: HarborSetupFilter,
 ): Promise<Prisma.FacilityWhereInput> {
   if (implementation) await authorizeImplementationStaff(client, implementation.actor);
   const trimmed = query?.trim() ?? "";
-  const where: Prisma.FacilityWhereInput = {};
+  const where = setupFilterWhere(setup);
   if (trimmed) {
     where.OR = [
       { displayName: { contains: trimmed, mode: "insensitive" } },
@@ -188,14 +193,14 @@ const DIRECTORY_PAGE_SIZE = 25;
 
 export async function loadHarborCustomerDirectoryPage(
   client: PrismaClient,
-  input: { query?: string; implementation?: ImplementationFilter; page?: string | string[] },
+  input: { query?: string; implementation?: ImplementationFilter; setup?: HarborSetupFilter; page?: string | string[] },
 ) {
   const rawPage = input.page;
   const parsedPage = typeof rawPage === "string" && /^[1-9][0-9]{0,15}$/.test(rawPage) ? Number(rawPage) : 1;
   const requestedPage = Number.isSafeInteger(parsedPage) ? parsedPage : 1;
 
   return client.$transaction(async (tx) => {
-    const where = await harborFacilityWhere(tx, input.query, input.implementation);
+    const where = await harborFacilityWhere(tx, input.query, input.implementation, input.setup);
     const total = await tx.facility.count({ where });
     const pageCount = Math.max(1, Math.ceil(total / DIRECTORY_PAGE_SIZE));
     // Clamp to the verified result count before constructing a database offset.
@@ -213,12 +218,31 @@ export async function loadHarborCustomerDirectoryPage(
   }, { isolationLevel: "RepeatableRead" });
 }
 
-export async function loadHarborToday(client: Db) {
-  const rows = await listHarborFacilities(client);
-  return {
-    stuckSetups: rows.filter((row) => row.stuckSetup),
-    paymentProblems: rows.filter((row) => row.paymentProblem),
-  };
+export async function loadHarborToday(client: PrismaClient) {
+  const [billingRows, setupFollowUp] = await Promise.all([
+    listHarborFacilities(client),
+    client.$transaction(async (tx) => {
+      const where = setupFilterWhere("awaiting");
+      const total = await tx.facility.count({ where });
+      const rows = total ? await tx.facility.findMany({
+        where,
+        select: {
+          id: true, displayName: true, onboardingCompletedAt: true, onboardingCurrentStep: true,
+          organization: { select: { name: true, displayName: true } },
+        },
+        orderBy: [{ displayName: "asc" }, { id: "asc" }],
+        take: 5,
+      }) : [];
+      return {
+        total,
+        rows: rows.map((row) => ({
+          id: row.id, displayName: row.displayName,
+          organizationName: organizationDisplayLabel(row.organization), onboarding: onboardingLabel(row),
+        })),
+      };
+    }, { isolationLevel: "RepeatableRead" }),
+  ]);
+  return { setupFollowUp, paymentProblems: billingRows.filter((row) => row.paymentProblem) };
 }
 
 export async function loadHarborOrganizationProfile(client: Db, organizationId: string) {

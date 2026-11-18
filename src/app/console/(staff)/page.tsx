@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
+import { harborCustomersHref } from "@/lib/harbor-console/presentation";
 import { loadHarborToday } from "@/lib/harbor-console/queries";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_SUPPORT_STATUSES } from "@/lib/support/queues";
@@ -8,7 +9,7 @@ import { formatSupportTicketNumber } from "@/lib/support/ticket-number";
 
 export default async function HarborTodayPage() {
   await requireHarborStaff();
-  const [{ stuckSetups, paymentProblems }, openTickets, newTickets] = await Promise.all([
+  const [{ setupFollowUp, paymentProblems }, openTickets, newTickets] = await Promise.all([
     loadHarborToday(prisma),
     prisma.supportTicket.count({
       where: { status: { in: ACTIVE_SUPPORT_STATUSES } },
@@ -26,12 +27,12 @@ export default async function HarborTodayPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Stuck setups, open tickets, and payment problems.
+          Guided setup follow-up, open tickets, and payment problems.
         </p>
       </header>
 
       <section className="grid grid-cols-3 gap-3">
-        <Stat value={String(stuckSetups.length)} label="Stuck setups" />
+        <Stat value={String(setupFollowUp.total)} label="Awaiting setup acknowledgment" />
         <Stat value={String(openTickets)} label="Open tickets" />
         <Stat value={String(paymentProblems.length)} label="Payment problems" />
       </section>
@@ -46,9 +47,11 @@ export default async function HarborTodayPage() {
         }))}
       />
       <Queue
-        title="Stuck setups"
-        empty="No facilities are still in setup."
-        rows={stuckSetups.map((row) => ({
+        title="Guided setup follow-up"
+        empty="No facilities are awaiting setup acknowledgment."
+        followUp={harborCustomersHref({ setup: "awaiting" })}
+        summary={setupFollowUp.total > setupFollowUp.rows.length ? `Showing ${setupFollowUp.rows.length} of ${setupFollowUp.total} facilities awaiting acknowledgment.` : undefined}
+        rows={setupFollowUp.rows.map((row) => ({
           href: `/console/customers/${row.id}`,
           title: row.displayName,
           detail: `${row.organizationName} · ${row.onboarding}`,
@@ -82,10 +85,14 @@ function Queue({
   title,
   empty,
   rows,
+  followUp,
+  summary,
 }: {
   title: string;
   empty: string;
   rows: Array<{ href: string; title: string; detail: string }>;
+  followUp?: string;
+  summary?: string;
 }) {
   return (
     <section className="rounded-md border border-[var(--border)] bg-white">
@@ -104,6 +111,14 @@ function Queue({
           ))}
         </ul>
       )}
+      {followUp ? (
+        <div className="flex flex-wrap items-center gap-x-4 border-t border-[var(--border)] px-4 text-sm">
+          {summary ? <p className="text-xs text-[var(--text-secondary)]">{summary}</p> : null}
+          <Link href={followUp} className="inline-flex min-h-11 items-center font-medium underline underline-offset-2">
+            View setup follow-up in Customers
+          </Link>
+        </div>
+      ) : null}
     </section>
   );
 }
