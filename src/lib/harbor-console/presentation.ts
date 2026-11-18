@@ -1,7 +1,21 @@
 import type { FacilityBillingStatus } from "@prisma/client";
+import type { ImplementationWorkFilter } from "@/lib/implementation/work-queue";
 
-export function isStuckSetup(onboardingCompletedAt: Date | null | undefined): boolean {
-  return onboardingCompletedAt == null;
+export type HarborSetupFilter = "awaiting" | "acknowledged";
+
+export function harborCustomersHref({ query, work, setup, page = 1 }: {
+  query?: string;
+  work?: ImplementationWorkFilter | null;
+  setup?: HarborSetupFilter | null;
+  page?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  if (work) params.set("work", work);
+  if (setup) params.set("setup", setup);
+  if (page > 1) params.set("page", String(page));
+  const search = params.toString();
+  return search ? `/console/customers?${search}` : "/console/customers";
 }
 
 export function isPaymentProblem(status: FacilityBillingStatus | null | undefined): boolean {

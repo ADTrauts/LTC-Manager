@@ -7,15 +7,8 @@ import {
   billingStatusLabel,
   departmentKeyLabel,
   isPaymentProblem,
-  isStuckSetup,
   onboardingLabel,
 } from "@/lib/harbor-console/presentation";
-
-test("stuck setup is any facility that has not completed onboarding", () => {
-  assert.equal(isStuckSetup(null), true);
-  assert.equal(isStuckSetup(undefined), true);
-  assert.equal(isStuckSetup(new Date("2026-09-17T12:00:00.000Z")), false);
-});
 
 test("payment problems are past due or incomplete only", () => {
   assert.equal(isPaymentProblem("PAST_DUE"), true);

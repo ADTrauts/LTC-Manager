@@ -1,21 +1,13 @@
 import Link from "next/link";
 
 import { isHarborOwnerSession, peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
+import { harborCustomersHref } from "@/lib/harbor-console/presentation";
 import { loadHarborCustomerDirectoryPage } from "@/lib/harbor-console/queries";
 import { HARBOR_WORK_CLEANUP_PATH } from "@/lib/harbor-console/session";
 import { prisma } from "@/lib/prisma";
 
 type SearchParam = string | string[] | undefined;
-type SearchParams = Promise<{ q?: SearchParam; work?: SearchParam; page?: SearchParam }>;
-
-function customersHref(query: string, filter: "open" | "unassigned" | null, page = 1) {
-  const params = new URLSearchParams();
-  if (query) params.set("q", query);
-  if (filter) params.set("work", filter);
-  if (page > 1) params.set("page", String(page));
-  const search = params.toString();
-  return search ? `/console/customers?${search}` : "/console/customers";
-}
+type SearchParams = Promise<{ q?: SearchParam; work?: SearchParam; setup?: SearchParam; page?: SearchParam }>;
 
 export default async function HarborCustomersPage({
   searchParams,
@@ -23,13 +15,15 @@ export default async function HarborCustomersPage({
   searchParams: SearchParams;
 }) {
   const session = await requireHarborStaff();
-  const [{ q, work, page: requestedPage }, workFacilityId] = await Promise.all([searchParams, peekHarborWorkFacilityId()]);
+  const [{ q, work, setup, page: requestedPage }, workFacilityId] = await Promise.all([searchParams, peekHarborWorkFacilityId()]);
   const query = typeof q === "string" ? q.trim() : "";
   // A submitted filter must not narrow the directory while a legacy work context is present.
   const filter = !workFacilityId && (work === "open" || work === "unassigned") ? work : null;
+  const setupFilter = setup === "awaiting" || setup === "acknowledged" ? setup : null;
   const { rows, total, page, pageCount, offset } = await loadHarborCustomerDirectoryPage(prisma, {
     query,
     page: requestedPage,
+    setup: setupFilter ?? undefined,
     implementation: filter ? { filter, actor: { kind: "staff", session, workFacilityId } } : undefined,
   });
   const canProvision = isHarborOwnerSession(session);
@@ -51,7 +45,7 @@ export default async function HarborCustomersPage({
             New customer
           </Link>
         ) : null}
-        <form key={JSON.stringify([query, filter, page])} className="flex flex-wrap items-end gap-2" action="/console/customers">
+        <form key={JSON.stringify([query, filter, setupFilter, page])} className="flex flex-wrap items-end gap-2" action="/console/customers">
           <input
             type="search"
             name="q"
@@ -74,6 +68,18 @@ export default async function HarborCustomersPage({
               </select>
             </label>
           ) : null}
+          <label className="flex flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
+            Guided setup
+            <select
+              name="setup"
+              defaultValue={setupFilter ?? "all"}
+              className="min-h-11 rounded-md border border-[var(--border-strong)] bg-white px-3 py-2 text-sm text-[var(--foreground)]"
+            >
+              <option value="all">All setup statuses</option>
+              <option value="awaiting">Awaiting acknowledgment</option>
+              <option value="acknowledged">Acknowledged</option>
+            </select>
+          </label>
           <button
             type="submit"
             className="min-h-11 rounded-md border border-[var(--border-strong)] bg-white px-3 py-2 text-sm font-medium"
@@ -81,8 +87,13 @@ export default async function HarborCustomersPage({
             Search
           </button>
           {filter ? (
-            <Link href={customersHref(query, null)} className="inline-flex min-h-11 items-center px-2 text-sm underline">
+            <Link href={harborCustomersHref({ query, setup: setupFilter })} className="inline-flex min-h-11 items-center px-2 text-sm underline">
               Clear work filter
+            </Link>
+          ) : null}
+          {setupFilter ? (
+            <Link href={harborCustomersHref({ query, work: filter })} className="inline-flex min-h-11 items-center px-2 text-sm underline">
+              Clear setup filter
             </Link>
           ) : null}
         </form>
@@ -109,7 +120,7 @@ export default async function HarborCustomersPage({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-[var(--text-secondary)]">
-                  {filter
+                  {setupFilter ? "No facilities match the selected setup filters." : filter
                     ? (query ? "No facilities match this search and work filter." : "No facilities match this work filter.")
                     : "No facilities match."}
                 </td>
@@ -159,7 +170,7 @@ export default async function HarborCustomersPage({
             <nav aria-label="Customer pages" className="flex items-center gap-2">
               {page > 1 ? (
                 <Link
-                  href={customersHref(query, filter, page - 1)}
+                  href={harborCustomersHref({ query, work: filter, setup: setupFilter, page: page - 1 })}
                   rel="prev"
                   className="inline-flex min-h-11 items-center rounded-md border border-[var(--border)] bg-white px-3 hover:text-[var(--foreground)]"
                 >
@@ -169,7 +180,7 @@ export default async function HarborCustomersPage({
               <span className="px-1">Page {page} of {pageCount}</span>
               {page < pageCount ? (
                 <Link
-                  href={customersHref(query, filter, page + 1)}
+                  href={harborCustomersHref({ query, work: filter, setup: setupFilter, page: page + 1 })}
                   rel="next"
                   className="inline-flex min-h-11 items-center rounded-md border border-[var(--border)] bg-white px-3 hover:text-[var(--foreground)]"
                 >

@@ -8,7 +8,7 @@ import type { FacilitySession } from "@/lib/auth";
 import { createHarborSessionToken, verifyHarborSessionToken } from "@/lib/harbor-console/session";
 import { assertDisposableDatabaseUrl } from "@/lib/verify/database-target";
 import { applyFacilitySubscription } from "@/lib/billing/apply-stripe-event";
-import { listHarborFacilities, loadHarborCustomerDirectoryPage } from "@/lib/harbor-console/queries";
+import { listHarborFacilities, loadHarborCustomerDirectoryPage, loadHarborToday } from "@/lib/harbor-console/queries";
 import { previewImport, confirmImport, getImportResults } from "@/lib/setup-imports/service";
 import type { Dataset, Preview } from "@/lib/setup-imports/contract";
 import { requestEngagement, addParticipant, assignEngagement, issueQuote, approveQuote, recordDelivery, recordMappingDecision, receiveSource, linkImport, sharedResults, reviewHandoff, acceptHandoff, getEngagement, loadStaffImplementationWorkCounts } from "./service";
@@ -91,7 +91,7 @@ test("SQL work counts: same staff scope as the index, without including accepted
   await assert.rejects(() => loadStaffImplementationWorkCounts(db, reviewer, current.facility.id), /Console authority changed/);
 }));
 
-test("SQL directory: paginates search and Implementation work past 200 with stable name ties", { skip }, () => run(async db => {
+test("SQL directory: composes search, guided setup, and Implementation work past 200 with stable name ties", { skip }, () => run(async db => {
   const prefix = `Ops filter ${randomUUID()}`;
   const assigned = await setup(db);
   const awaiting = await fixture(db, assigned.org.id);
@@ -105,11 +105,15 @@ test("SQL directory: paginates search and Implementation work past 200 with stab
   await db.facility.createMany({ data: fillers });
   await db.facility.update({ where: { id: assigned.facility.id }, data: {
     displayName: `${prefix} B Assigned`, billingEmail: `assigned-${assigned.user.email}`,
+    onboardingCompletedAt: new Date(),
   } });
   await db.facility.update({ where: { id: awaiting.facility.id }, data: {
     displayName: `${prefix} C Unassigned`, billingEmail: `unassigned-${awaiting.user.email}`,
+    onboardingCompletedAt: null, onboardingCurrentStep: "locations",
   } });
-  await db.facility.update({ where: { id: accepted.facility.id }, data: { displayName: `${prefix} D Accepted` } });
+  await db.facility.update({ where: { id: accepted.facility.id }, data: {
+    displayName: `${prefix} D Accepted`, onboardingCompletedAt: new Date(),
+  } });
   await requestEngagement(db, { kind: "customer", session: awaiting.session }, awaiting.facility.id, assigned.scope);
   await approveQuote(db, accepted.c, accepted.id, accepted.order.id, accepted.order.digest);
   for (const stage of STAGES) await recordDelivery(db, accepted.s, accepted.id, {
@@ -156,6 +160,20 @@ test("SQL directory: paginates search and Implementation work past 200 with stab
   assert.equal(filtered.total, 2);
   assert.equal(filtered.page, 1);
   assert.deepEqual(filtered.rows.map(row => row.id), [assigned.facility.id, awaiting.facility.id]);
+  const setupPage = await loadHarborCustomerDirectoryPage(db, { query: prefix, setup: "awaiting", page: "9" });
+  assert.equal(setupPage.total, 201);
+  assert.equal(setupPage.offset, 200);
+  assert.deepEqual(setupPage.rows.map(row => row.id), [awaiting.facility.id]);
+  assert.equal(setupPage.rows[0]?.onboarding, "Setup: locations");
+  const combined = await loadHarborCustomerDirectoryPage(db, { query: prefix.toUpperCase(), implementation: open, setup: "awaiting" });
+  assert.equal(combined.total, 1);
+  assert.deepEqual(combined.rows.map(row => row.id), [awaiting.facility.id]);
+  const acknowledged = await loadHarborCustomerDirectoryPage(db, { query: prefix, implementation: open, setup: "acknowledged" });
+  assert.equal(acknowledged.total, 1);
+  assert.deepEqual(acknowledged.rows.map(row => row.id), [assigned.facility.id]);
+  const today = await loadHarborToday(db);
+  assert.ok(today.setupFollowUp.total >= 201, "The Today total must include all 201 pending fixtures even though its preview is bounded");
+  assert.equal(today.setupFollowUp.rows.length, 5);
   const empty = await loadHarborCustomerDirectoryPage(db, { query: `${prefix} D Accepted`, implementation: unassigned, page: "9" });
   assert.deepEqual(empty, { rows: [], total: 0, page: 1, pageCount: 1, offset: 0 });
   await assert.rejects(() => loadHarborCustomerDirectoryPage(db, {
