@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import { CustomerBillingSyncForm } from "@/components/harbor-console/customer-billing-sync-form";
 import { SupportHistoryPanel } from "@/components/harbor-console/support-history-panel";
 import { resendHarborProvisionInviteAction } from "../provision-actions";
-import { peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
+import { isHarborOwnerSession, peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
+import { loadHarborAdministratorActivation } from "@/lib/harbor-console/administrator-activation";
 import { loadHarborFacility } from "@/lib/harbor-console/queries";
 import { HARBOR_WORK_CLEANUP_PATH, HARBOR_WORK_COOKIE } from "@/lib/harbor-console/session";
 import {
@@ -32,9 +33,10 @@ export default async function HarborCustomerPage({
   if (!facility) {
     notFound();
   }
-  const [supportHistory, implementationWork] = await Promise.all([
+  const [supportHistory, implementationWork, administratorActivation] = await Promise.all([
     loadSupportFacilityHistory(prisma, facility.id),
     workFacilityId ? null : loadStaffImplementationWorkCounts(prisma, { kind: "staff", session, workFacilityId }, facility.id),
+    isHarborOwnerSession(session) ? loadHarborAdministratorActivation(prisma, facility.id) : null,
   ]);
 
   await prisma.harborAuditEvent.create({
@@ -155,6 +157,25 @@ export default async function HarborCustomerPage({
           <Field label="Guided setup" value={facility.setupAcknowledged ? "Acknowledged" : "In progress"} />
           <Field label="Billing email" value={facility.billingEmail ?? "—"} />
         </dl>
+        {administratorActivation ? (
+          <div className="mt-4 border-t border-[var(--border)] pt-3">
+            <h3 className="text-sm font-semibold">Administrator activation</h3>
+            <p className="mt-1 text-sm">{administratorActivation.label}</p>
+            {administratorActivation.expiresAt ? (
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                Invitation expiry:{" "}
+                <time dateTime={administratorActivation.expiresAt.toISOString()}>
+                  {new Intl.DateTimeFormat("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                    timeZone: "America/New_York",
+                  }).format(administratorActivation.expiresAt)} ET
+                </time>
+              </p>
+            ) : null}
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">This status does not confirm email delivery.</p>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-md border border-[var(--border)] bg-white p-4">
