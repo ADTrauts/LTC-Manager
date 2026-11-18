@@ -171,7 +171,9 @@ async function harborFacilityWhere(
     ];
   }
   if (implementation) {
-    where.implementationEngagements = { some: implementationWorkWhere(implementation.filter) };
+    where.implementationEngagements = { some: implementationWorkWhere(
+      implementation.filter, implementation.actor.kind === "staff" ? implementation.actor.session.uid : undefined,
+    ) };
   }
   return where;
 }
@@ -239,10 +241,10 @@ export async function loadHarborToday(client: PrismaClient) {
 
 /** Pre-participation handoff metadata only. Detailed scope and evidence stay
  * behind the Implementation service's participant checks. */
-export async function loadHarborUnassignedImplementation(client: PrismaClient, actor: Actor) {
+async function loadHarborImplementationQueue(client: PrismaClient, actor: Actor, filter: "unassigned" | "assigned") {
   return client.$transaction(async tx => {
     await authorizeImplementationStaff(tx, actor);
-    const where = implementationWorkWhere("unassigned");
+    const where = implementationWorkWhere(filter, actor.kind === "staff" ? actor.session.uid : undefined);
     const total = await tx.implementationEngagement.count({ where });
     const rows = total ? await tx.implementationEngagement.findMany({
       where,
@@ -261,6 +263,14 @@ export async function loadHarborUnassignedImplementation(client: PrismaClient, a
       organizationName: organizationDisplayLabel(row.facility.organization), requestedAt: row.createdAt,
     })) };
   }, { isolationLevel: "RepeatableRead" });
+}
+
+export function loadHarborUnassignedImplementation(client: PrismaClient, actor: Actor) {
+  return loadHarborImplementationQueue(client, actor, "unassigned");
+}
+
+export function loadHarborAssignedImplementation(client: PrismaClient, actor: Actor) {
+  return loadHarborImplementationQueue(client, actor, "assigned");
 }
 
 export async function loadHarborOrganizationProfile(client: Db, organizationId: string) {

@@ -13,7 +13,7 @@ test.skip(!url, "Requires disposable PostgreSQL and a matching local application
 const db = new PrismaClient({ datasourceUrl: url });
 test.afterAll(() => db.$disconnect());
 
-test("customer intake reaches Today and Member self-claim; retired context keeps other queues available", async ({ page, browser, baseURL }) => {
+test("Member claims intake and returns through My assigned work; retired context preserves the other queues", async ({ page, browser, baseURL }) => {
   const secret = process.env.AUTH_SECRET;
   if (!secret || !baseURL) throw new Error("Provide the disposable local server secret and origin.");
   const customerPassword = randomUUID(), staffPassword = randomUUID();
@@ -51,6 +51,8 @@ test("customer intake reaches Today and Member self-claim; retired context keeps
     await login(consolePage, "staff", staff.email, staffPassword);
     await consolePage.goto("/console");
     const queue = consolePage.getByRole("region", { name: "Unassigned Implementation requests", exact: true });
+    const mine = consolePage.getByRole("region", { name: "My assigned Implementation work", exact: true });
+    await expect(mine).toContainText("Showing 0 of 0 requests assigned to you.");
     await expect(queue).toContainText("Showing 1 of 1 unassigned requests.");
     await expect(queue).toContainText(f.facility.displayName);
     await expect(queue).toContainText(f.organization.name);
@@ -77,6 +79,25 @@ test("customer intake reaches Today and Member self-claim; retired context keeps
     await consolePage.goto("/console");
     await expect(queue).toContainText("No Implementation requests are awaiting staff assignment.");
     await expect(queue).toContainText("Showing 0 of 0 unassigned requests.");
+    await expect(mine).toContainText("Showing 1 of 1 requests assigned to you.");
+    expect(await consolePage.content()).not.toContain(scopeText);
+    const myCustomers = mine.getByRole("link", { name: "View my assigned work in Customers", exact: true });
+    await expect(myCustomers).toHaveAttribute("href", "/console/customers?work=assigned");
+    await myCustomers.click();
+    // A caller-supplied staff ID cannot select a different responsibility scope.
+    await consolePage.goto(`/console/customers?work=assigned&staffId=${randomUUID()}`);
+    await expect(consolePage.getByRole("combobox", { name: "Implementation work", exact: true })).toHaveValue("assigned");
+    await consolePage.getByRole("searchbox", { name: "Search name or email", exact: true }).fill(f.facility.displayName);
+    await consolePage.getByRole("combobox", { name: "Guided setup", exact: true }).selectOption("awaiting");
+    await consolePage.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(consolePage).toHaveURL(/work=assigned/);
+    await expect(consolePage).toHaveURL(/setup=awaiting/);
+    await expect(consolePage.getByRole("link", { name: f.facility.displayName, exact: true })).toBeVisible();
+    await consolePage.goto("/console");
+    await mine.getByRole("link", { name: new RegExp(f.facility.displayName) }).click();
+    await expect(consolePage).toHaveURL(new URL(href, baseURL).href);
+    await expect(consolePage.getByRole("textbox", { name: "Deliverables, one per line", exact: true })).toHaveValue(scopeText);
+    expect(await db.implementationEvent.count({ where: { engagementId, kind: "ASSIGNED" } })).toBe(1);
 
     const retired = await new SignJWT({ tokenUse: "harbor_work", staffId: staff.id, facilityId: f.facility.id })
       .setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("10m").sign(new TextEncoder().encode(secret));
@@ -85,6 +106,8 @@ test("customer intake reaches Today and Member self-claim; retired context keeps
     await expect(consolePage.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
     await expect(queue).toContainText("unavailable while a retired Facility work context is present");
     await expect(queue).not.toContainText("Showing 0 of 0");
+    await expect(mine).toContainText("unavailable while a retired Facility work context is present");
+    await expect(mine).not.toContainText("Showing 1 of 1");
     for (const title of ["New tickets", "Guided setup follow-up", "Payment problems"]) {
       await expect(consolePage.getByRole("region", { name: title, exact: true })).toBeVisible();
     }
@@ -95,6 +118,7 @@ test("customer intake reaches Today and Member self-claim; retired context keeps
     await expect(consolePage).toHaveURL(/\/console\/customers$/);
     await consolePage.goto("/console");
     await expect(queue).toContainText("Showing 0 of 0 unassigned requests.");
+    await expect(mine).toContainText("Showing 1 of 1 requests assigned to you.");
     expect((await staffContext.cookies()).some(c => c.name === "harbor_work")).toBe(false);
   } finally { await staffContext.close(); }
 });
