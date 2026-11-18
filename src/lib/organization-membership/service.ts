@@ -1,6 +1,10 @@
 import { Prisma, type OrganizationMembershipRole, type PrismaClient } from "@prisma/client";
 
-import { closeCurrentPartnerAssignmentsForOrganizationMembership } from "@/lib/partner-user-access/service";
+import {
+  closeCurrentPartnerAssignmentsForOrganizationMembership,
+  lockPartnershipsForOrganizationMembership,
+  partnerAccessEffectiveTime,
+} from "@/lib/partner-user-access/service";
 import { revokeAllPushSubscriptionsForUser } from "@/lib/notifications/push-subscription";
 import { revokeUserSessions } from "@/lib/session-revocation";
 import { trackEvent } from "@/lib/telemetry";
@@ -416,7 +420,9 @@ export async function endOrganizationMembership(
 ): Promise<OrganizationMembershipView> {
   const endsAt = await runInTransaction(db, async (tx) => {
     await lockOrganizationForAdminMutation(tx, input.organizationId);
-    const endsAt = input.endsAt ?? new Date();
+    const lockedPartnershipIds = await lockPartnershipsForOrganizationMembership(tx, input.organizationId);
+    // A partner assignment can commit while membership end is waiting for these locks.
+    const endsAt = await partnerAccessEffectiveTime(tx, input.endsAt);
     const row = await loadMembershipRow(tx, {
       userId: input.userId,
       organizationId: input.organizationId,
@@ -436,6 +442,7 @@ export async function endOrganizationMembership(
       organizationId: input.organizationId,
       endsAt,
       actorUserId: input.actorUserId ?? null,
+      lockedPartnershipIds,
     });
     const stillCurrent = findPeriodContainingInstant(
       (
