@@ -1,4 +1,8 @@
-import type { OrganizationType, PrismaClient } from "@prisma/client";
+import { Prisma, type OrganizationType, type PrismaClient } from "@prisma/client";
+
+import { lockHarborStaffSession, type HarborJwtPayload } from "@/lib/harbor-console/auth";
+import { listOrganizationsByNormalizedName } from "@/lib/organization/partner-company";
+import { normalizeOrganizationKey } from "@/lib/organization/types";
 
 import {
   bootstrapFacilityCustomer,
@@ -22,6 +26,7 @@ export type HarborProvisionInput = {
   administratorName: string;
   administratorEmail: string;
   confirmDuplicateName?: boolean;
+  distinctOrganization?: { attested: boolean; verificationBasis: string; reviewedMatchIds: readonly string[] };
 };
 
 export type HarborProvisionPreviewUser = {
@@ -30,6 +35,25 @@ export type HarborProvisionPreviewUser = {
   displayName: string;
   email: string;
 };
+
+export type HarborOrganizationMatch = {
+  id: string;
+  name: string;
+  displayName: string | null;
+  legalName: string | null;
+  isActive: boolean;
+};
+
+export class HarborOrganizationNameMatchError extends FacilityProvisioningError {
+  constructor(readonly proposedName: string, readonly matches: HarborOrganizationMatch[]) {
+    super("ORGANIZATION_NAME_MATCH", "Review the matching Organizations. Select an active Organization or record verified evidence for a distinct one.");
+  }
+}
+
+function validateVerificationBasis(raw: string): string | null {
+  const basis = raw.trim();
+  return basis.length >= 8 && basis.length <= 240 && !/[\u0000-\u001f\u007f]/.test(basis) ? basis : null;
+}
 
 export async function previewHarborAdministrator(
   db: DbClient,
@@ -58,7 +82,62 @@ export async function previewHarborAdministrator(
 }
 
 export async function provisionFacilityForHarbor(
-  db: DbClient,
+  db: PrismaClient,
+  session: HarborJwtPayload,
+  input: HarborProvisionInput,
+): Promise<FacilityBootstrapResult & { overrideRecorded: boolean }> {
+  const organizationName = input.organizationName?.trim() ?? "";
+  if (input.organizationMode === "create" && (organizationName.length < 2 || organizationName.length > 200)) {
+    throw new FacilityProvisioningError("INVALID_INPUT", "Organization name must be 2–200 characters.");
+  }
+
+  return db.$transaction(async (tx) => {
+    if (input.organizationMode === "create") {
+      // The matching read must run after this lock, with a new READ COMMITTED snapshot.
+      // Only Harbor provisioning uses this lock domain. Collisions just serialize two names.
+      await tx.$queryRaw`SELECT 1::int AS locked FROM pg_advisory_xact_lock(617884, hashtext(${normalizeOrganizationKey(organizationName)}))`;
+    }
+    const authority = await lockHarborStaffSession(session, tx);
+    if (!authority.valid || authority.staff.role !== "OWNER") {
+      throw new FacilityProvisioningError("FORBIDDEN", "Only a signed-in Harbor Owner can provision a Facility.");
+    }
+
+    let override: { matchedOrganizationIds: string[]; verificationBasis: string } | undefined;
+    if (input.organizationMode === "create") {
+      const rows = await tx.organization.findMany({
+        select: { id: true, name: true, displayName: true, legalName: true, isActive: true },
+        orderBy: { id: "asc" },
+      });
+      const matches = listOrganizationsByNormalizedName(rows, [organizationName]);
+      if (matches.length) {
+        const evidence = input.distinctOrganization;
+        const reviewedIds = new Set(evidence?.reviewedMatchIds);
+        const basis = evidence?.attested ? validateVerificationBasis(evidence.verificationBasis) : null;
+        if (!basis || reviewedIds.size !== matches.length || !matches.every((match) => reviewedIds.has(match.id))) {
+          throw new HarborOrganizationNameMatchError(organizationName, matches);
+        }
+        override = { matchedOrganizationIds: matches.map(({ id }) => id), verificationBasis: basis };
+      }
+    }
+
+    const result = await bootstrapHarborProvision(tx, { ...input, organizationName });
+    if (override) {
+      await tx.harborAuditEvent.create({
+        data: {
+          staffId: authority.staff.id,
+          action: "PROVISION_FACILITY",
+          facilityId: result.facility.id,
+          provisioningOverride: { create: { organizationId: result.organization.id, ...override } },
+        },
+        select: { id: true },
+      });
+    }
+    return { ...result, overrideRecorded: !!override };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+}
+
+async function bootstrapHarborProvision(
+  db: Prisma.TransactionClient,
   input: HarborProvisionInput,
 ): Promise<FacilityBootstrapResult> {
   const facilityDisplayName = input.facilityDisplayName.trim();
@@ -84,6 +163,7 @@ export async function provisionFacilityForHarbor(
   let organizationId: string | null = null;
 
   if (input.organizationMode === "existing") {
+    await db.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${input.organizationId ?? ""} FOR SHARE`;
     const organization = await db.organization.findUnique({
       where: { id: input.organizationId ?? "" },
       select: { id: true, isActive: true },
@@ -95,8 +175,6 @@ export async function provisionFacilityForHarbor(
       throw new FacilityProvisioningError("ORGANIZATION_INACTIVE", "Organization is inactive.");
     }
     organizationId = organization.id;
-  } else if (!input.organizationName?.trim()) {
-    throw new FacilityProvisioningError("INVALID_INPUT", "Organization name is required.");
   }
 
   if (organizationId && preview.exists && preview.userId) {

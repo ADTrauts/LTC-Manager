@@ -5,6 +5,7 @@ export type FacilityProvisioningCode =
   | "ROLE_MISSING"
   | "INVALID_TIMEZONE"
   | "DUPLICATE_NAME"
+  | "ORGANIZATION_NAME_MATCH"
   | "USER_INACTIVE"
   | "FORBIDDEN";
 

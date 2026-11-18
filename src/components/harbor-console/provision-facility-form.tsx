@@ -55,7 +55,11 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
   const [confirmDuplicateName, setConfirmDuplicateName] = useState(false);
   const [state, action] = useActionState<HarborProvisionState, FormData>(provisionFacilityAction, null);
 
-  const selectedOrganization = organizations.find((row) => row.id === organizationId) ?? null;
+  const selectedMatch = state?.organizationConflict?.matches.find((row) => row.id === organizationId && row.isActive);
+  const selectedOrganization = organizations.find((row) => row.id === organizationId) ?? selectedMatch;
+  const conflict = organizationMode === "create" && state?.organizationConflict?.proposedName === organizationName.trim()
+    ? state.organizationConflict
+    : null;
   const organizationLabel =
     organizationMode === "existing"
       ? selectedOrganization
@@ -117,6 +121,7 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
                 Organization name
                 <input
                   value={organizationName}
+                  maxLength={200}
                   onChange={(event) => setOrganizationName(event.target.value)}
                   className="mt-1 w-full rounded-md border border-[var(--border-strong)] px-3 py-2"
                 />
@@ -145,6 +150,9 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
                 className="mt-1 w-full rounded-md border border-[var(--border-strong)] px-3 py-2"
               >
                 <option value="">Select by ID</option>
+                {selectedMatch && !organizations.some((row) => row.id === selectedMatch.id) ? (
+                  <option value={selectedMatch.id}>{selectedMatch.displayName || selectedMatch.name} · {selectedMatch.id}</option>
+                ) : null}
                 {organizations.map((row) => (
                   <option key={row.id} value={row.id}>
                     {(row.displayName?.trim() || row.name)
@@ -321,10 +329,59 @@ export function ProvisionFacilityForm({ organizations }: { organizations: Harbor
               A Facility with this name already exists under this Organization. Create another anyway.
             </label>
           ) : null}
+          {conflict ? (
+            <fieldset className="space-y-3 rounded-md border border-[var(--border-strong)] p-3 text-sm">
+              <legend className="px-1 font-semibold">Matching Organizations</legend>
+              <p role="status">{state?.message}</p>
+              <ul className="space-y-2">
+                {conflict.matches.map((match) => (
+                  <li key={match.id} className="rounded border border-[var(--border)] p-2">
+                    <p className="font-semibold">{match.displayName?.trim() || match.name}</p>
+                    <p className="text-[var(--text-secondary)]">
+                      {match.name}{match.legalName ? ` · ${match.legalName}` : ""} · {match.isActive ? "Active" : "Inactive"}
+                    </p>
+                    <p className="break-all text-xs">ID: {match.id}</p>
+                    {match.isActive ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrganizationId(match.id);
+                          setOrganizationMode("existing");
+                          setConfirmOwnership(false);
+                          setConfirmDuplicateName(false);
+                        }}
+                        className="mt-1 font-semibold underline"
+                      >
+                        Use this Organization
+                      </button>
+                    ) : null}
+                    <input type="hidden" name="reviewedOrganizationMatchId" value={match.id} />
+                  </li>
+                ))}
+              </ul>
+              <label className="block">
+                Verification basis or reference
+                <input
+                  name="organizationVerificationBasis"
+                  minLength={8}
+                  maxLength={240}
+                  aria-describedby="organization-verification-help"
+                  className="mt-1 w-full rounded-md border border-[var(--border-strong)] px-3 py-2"
+                />
+              </label>
+              <p id="organization-verification-help" className="text-xs text-[var(--text-secondary)]">
+                Enter 8–240 characters describing what you verified, such as a registry reference. Do not enter private documents, links, or secrets.
+              </p>
+              <label className="flex items-start gap-2">
+                <input type="checkbox" name="attestDistinctOrganization" value="1" />
+                I verified that this is a distinct Organization and want to create it.
+              </label>
+            </fieldset>
+          ) : null}
           {confirmOwnership ? <input type="hidden" name="confirmOwnership" value="1" /> : null}
           {confirmExistingUser ? <input type="hidden" name="confirmExistingUser" value="1" /> : null}
           {confirmDuplicateName ? <input type="hidden" name="confirmDuplicateName" value="1" /> : null}
-          {state && !state.ok ? <p className="text-sm text-red-700">{state.message}</p> : null}
+          {state && !state.ok && !state.organizationConflict ? <p className="text-sm text-red-700">{state.message}</p> : null}
           <div className="flex gap-2">
             <button type="button" onClick={() => setStep(3)} className="text-sm underline">
               Back

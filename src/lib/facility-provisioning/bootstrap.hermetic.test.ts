@@ -6,6 +6,13 @@ import test from "node:test";
 import { bootstrapFacilityCustomer } from "./bootstrap";
 import { previewHarborAdministrator, provisionFacilityForHarbor } from "./harbor";
 import { FacilityProvisioningError } from "./errors";
+import type { HarborJwtPayload } from "@/lib/harbor-console/session";
+
+const ownerSession: HarborJwtPayload = {
+  uid: "staff_owner", email: "owner@example.invalid", name: "Synthetic Owner", staffRole: "OWNER",
+  tokenUse: "harbor_staff_login", sessionVersion: 0, staffMfa: true,
+  jti: "13420afe-3abc-467d-8412-6036fd3b967c", exp: Math.floor(Date.now() / 1000) + 3600,
+};
 
 function source(relative: string) {
   return readFileSync(join(process.cwd(), relative), "utf8");
@@ -93,7 +100,11 @@ function buildDb(seed?: {
       },
       findUnique: async ({ where }: { where: { id: string } }) =>
         organizations.find((row) => row.id === where.id) ?? null,
+      findMany: async () => organizations,
     },
+    platformStaff: { findUnique: async () => ({ id: ownerSession.uid, email: ownerSession.email, isActive: true, role: "OWNER", sessionVersion: 0 }) },
+    harborAssistanceLoginReceipt: { findUnique: async () => null },
+    harborAuditEvent: { create: async () => ({ id: "audit" }) },
     facility: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row = { id: id("fac"), stripeCustomerId: null, onboardingCompletedAt: null, ...data };
@@ -314,7 +325,7 @@ test("new Organization and existing User reuse the global User and skip invite p
   const world = buildDb({
     users: [{ id: "user_sarah", email: "sarah@example.com", displayName: "Sarah", facilityId: "fac_old" }],
   });
-  const result = await provisionFacilityForHarbor(world.db, {
+  const result = await provisionFacilityForHarbor(world.db, ownerSession, {
     organizationMode: "create",
     organizationName: "ABC Senior Living",
     organizationType: "MANAGEMENT_COMPANY",
@@ -361,7 +372,7 @@ test("existing Organization and existing User reuse identity and grant only Sara
 
 test("exact replay reuses the incomplete Facility", async () => {
   const world = buildDb();
-  const first = await provisionFacilityForHarbor(world.db, {
+  const first = await provisionFacilityForHarbor(world.db, ownerSession, {
     organizationMode: "create",
     organizationName: "NewCo",
     organizationType: "OTHER",
@@ -371,7 +382,7 @@ test("exact replay reuses the incomplete Facility", async () => {
     administratorName: "Sarah Admin",
     administratorEmail: "sarah@newco.example",
   });
-  const second = await provisionFacilityForHarbor(world.db, {
+  const second = await provisionFacilityForHarbor(world.db, ownerSession, {
     organizationMode: "existing",
     organizationId: first.organization.id,
     facilityDisplayName: "Facility X",
@@ -393,7 +404,7 @@ test("same Organization name with a different FA requires explicit duplicate con
   });
   await assert.rejects(
     () =>
-      provisionFacilityForHarbor(world.db, {
+      provisionFacilityForHarbor(world.db, ownerSession, {
         organizationMode: "existing",
         organizationId: "org_1",
         facilityDisplayName: "Terrace View",
@@ -404,7 +415,7 @@ test("same Organization name with a different FA requires explicit duplicate con
       }),
     (error: unknown) => error instanceof FacilityProvisioningError && error.code === "DUPLICATE_NAME",
   );
-  const created = await provisionFacilityForHarbor(world.db, {
+  const created = await provisionFacilityForHarbor(world.db, ownerSession, {
     organizationMode: "existing",
     organizationId: "org_1",
     facilityDisplayName: "Terrace View",
@@ -479,8 +490,8 @@ test("signup and Harbor share bootstrap and do not install products or claims", 
   assert.doesNotMatch(actions, /stripe\.customers|subscriptions\.create|checkout\.sessions/);
   assert.doesNotMatch(actions, /PUBLIC_SIGNUP_ENABLED|BILLING_ENTITLEMENTS_ENABLED/);
   assert.match(actions, /issueAndSendAccountInvite/);
-  assert.match(actions, /PROVISION_FACILITY/);
-  assert.ok(actions.indexOf("prisma.$transaction") < actions.indexOf("issueAndSendAccountInvite({"));
+  assert.match(harbor, /PROVISION_FACILITY/);
+  assert.ok(actions.indexOf("await provisionFacilityForHarbor(") < actions.indexOf("issueAndSendAccountInvite({"));
   assert.match(detail, /Facility created\. Administrator invite could not be delivered/);
   assert.match(detail, /resendHarborProvisionInviteAction/);
   assert.doesNotMatch(actions, /createHarborWorkToken|WORK_SESSION_START/);
