@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
+import { accountInviteStatus, ACCOUNT_INVITE_STATUS_LABEL } from "@/lib/account-invite/status";
 import { loadFacilityAdministratorSeat } from "@/lib/facility-administrator";
 
 export type HarborAdministratorInviteTarget = { userId: string; periodId: string; email: string };
@@ -25,11 +26,10 @@ export async function loadHarborAdministratorActivation(
       orderBy: { expiresAt: "desc" },
       select: { expiresAt: true },
     });
-    if (!invite) return { label: "No unused account invite", expiresAt: null, recovery };
-
+    const expiresAt = invite?.expiresAt ?? null;
     return {
-      label: invite.expiresAt > now ? "Account invite valid" : "Account invite expired",
-      expiresAt: invite.expiresAt,
+      label: ACCOUNT_INVITE_STATUS_LABEL[accountInviteStatus(expiresAt, now)],
+      expiresAt,
       recovery,
     };
   }, { isolationLevel: "RepeatableRead" });

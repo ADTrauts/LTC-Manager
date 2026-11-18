@@ -179,6 +179,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Harbor OWNER provisions a Facility shell. Page re-checks OWNER; MEMBER is redirected.",
   },
   {
+    pattern: "/console/customers/invitation-follow-up",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Read-only invitation follow-up. Page and data reader re-check Harbor OWNER before reading queue data.",
+  },
+  {
     pattern: "/console/customers/[facilityId]",
     match: "EXACT",
     surface: "PAGE",
