@@ -54,6 +54,7 @@ test("Facility Administrator account invitation opens and resumes guided setup",
   await expect(resume).toBeVisible();
   await resume.click();
   await expect(page.getByRole("heading", { name: "Set up your Vssyl" })).toBeVisible();
+  await page.getByRole("button", { name: /Self setup/ }).click();
   await page.getByRole("checkbox", { name: /I confirm this is the timezone/ }).check();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Continue with no Products", exact: true }).click();
@@ -65,7 +66,10 @@ test("Facility Administrator account invitation opens and resumes guided setup",
   await expect(dashboard).toBeVisible();
   await expect(resume).toHaveCount(0);
   expect((await db.facility.findUniqueOrThrow({ where: { id: pending.facility.id } })).onboardingCompletedAt).not.toBeNull();
-  expect(await db.facilityBilling.count({ where: { facilityId: pending.facility.id } })).toBe(0);
+  expect(await db.facilityBilling.findUnique({
+    where: { facilityId: pending.facility.id },
+    select: { setupPath: true, status: true, stripeSubscriptionId: true, entitlements: true },
+  })).toEqual({ setupPath: "SELF_SERVE", status: "UNMANAGED", stripeSubscriptionId: null, entitlements: [] });
   expect(await db.department.count({ where: { facilityId: pending.facility.id } })).toBe(0);
 
   const completed = await provision();
