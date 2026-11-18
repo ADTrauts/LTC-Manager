@@ -276,7 +276,8 @@ function makeDb(seed: { organizations: Org[]; users: User[] }) {
       findMany: async () => [],
     },
     $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
-    $queryRaw: async () => [{ id: "locked" }],
+    $queryRaw: async (query: { strings?: string[] }) =>
+      query.strings?.join(" ").includes("clock_timestamp()") ? [{ now: new Date() }] : [{ id: "locked" }],
     _users: users,
     _memberships: memberships,
     _periods: periods,
