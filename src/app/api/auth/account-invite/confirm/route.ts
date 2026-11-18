@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { findValidAccountInviteToken } from "@/lib/account-invite/tokens";
 import { internalFacilityContextKey } from "@/lib/available-contexts";
+import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
+import { canContinueFacilityAdministratorSetup } from "@/lib/onboarding/facility-administrator-setup";
 import {
   applyAuthenticatedUserLandingCookies,
   enterGrantedContext,
@@ -94,7 +96,11 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({
       ok: true,
-      nextPath: landing.redirectPath,
+      nextPath: landing.kind === "context" &&
+        landing.destinationKind === "facility_internal" &&
+        await canContinueFacilityAdministratorSetup(prisma, landing)
+        ? ONBOARDING_ENTRY_PATH
+        : landing.redirectPath,
     });
     applyAuthenticatedUserLandingCookies(response.cookies, landing);
     return response;

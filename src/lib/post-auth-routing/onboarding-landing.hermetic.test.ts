@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
+import { canContinueFacilityAdministratorSetup } from "@/lib/onboarding/facility-administrator-setup";
+
 const DIRECT_MINTS = [
   "createSessionToken",
   "createOrganizationSessionToken",
@@ -66,6 +68,13 @@ test("Facility account invite enters the home Facility without repairing grants"
     assert.equal(text.includes(name), false, name);
   }
   assertNoDirectMints("src/app/api/auth/account-invite/confirm/route.ts");
+});
+
+test("setup status failure leaves the existing invitation destination available", async () => {
+  const db = { facility: { findFirst: async () => { throw new Error("Setup read unavailable"); } } };
+  assert.equal(await canContinueFacilityAdministratorSetup(db as never, {
+    role: "FACILITY_ADMINISTRATOR", facilityId: "synthetic-facility",
+  }), false);
 });
 
 test("Organization invite and claim enter the accepted Organization", () => {

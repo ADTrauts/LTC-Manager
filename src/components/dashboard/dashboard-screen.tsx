@@ -18,6 +18,8 @@ import {
 import { loadFacilityDashboardDefault, loadPersonalDashboardLayout } from "@/lib/dashboard/layouts/store";
 import { isFacilityAdministratorRole } from "@/lib/facility-admin";
 import { dashboardEditHref, dashboardScopeChoiceLabel, dashboardScopeHref, dashboardScopeParam } from "@/lib/dashboard/lens";
+import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
+import { canContinueFacilityAdministratorSetup } from "@/lib/onboarding/facility-administrator-setup";
 import { prisma } from "@/lib/prisma";
 import type { DashboardViewer } from "@/lib/dashboard/viewer/types";
 
@@ -297,6 +299,11 @@ export async function DashboardScreen({
     ? chosen.map((item) => ({ id: item.card, size: item.size, rows: item.rows }))
     : defaultLayoutFor(viewer);
   const cards = placeDashboardCards(eligible, layout);
+  const showSetupLink = !editing && viewer.departments.length === 0 &&
+    viewer.session.authKind === "user" &&
+    !cards.some(({ eligible }) => eligible.drillDown?.href === ONBOARDING_ENTRY_PATH) &&
+    isDashboardHrefAuthorized(viewer, ONBOARDING_ENTRY_PATH) &&
+    await canContinueFacilityAdministratorSetup(prisma, viewer.session);
   const currentScope = viewer.scope ? dashboardScopeParam(viewer.scope) : null;
   const returnHref = viewer.scope ? dashboardScopeHref(viewer.scope, onboardingComplete, homePath) : homePath;
   const editorItems: DashboardEditorCard[] = cards.map((placed) => ({
@@ -352,6 +359,11 @@ export async function DashboardScreen({
           </form>
         </div>
       </div>
+      {showSetupLink ? (
+        <Link href={ONBOARDING_ENTRY_PATH} className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-2">
+          Continue guided setup
+        </Link>
+      ) : null}
       {viewer.availableScopes.length > 1 ? (
         <nav className="flex flex-wrap gap-2" aria-label="Dashboard lens" data-testid="dashboard-lens">
           {viewer.availableScopes.map((scope) => {
