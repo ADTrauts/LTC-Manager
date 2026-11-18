@@ -1,13 +1,21 @@
+import Link from "next/link";
+
 import { requireHarborOwner } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
 
 import { PartnerCompanyForm } from "./partner-company-form";
 import { PartnerInviteForms } from "./partner-invite-forms";
 
-export default async function HarborPartnerCompaniesPage() {
+export default async function HarborPartnerCompaniesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ organizationId?: string | string[] }>;
+}) {
   await requireHarborOwner();
+  const { organizationId: requestedOrganization } = await searchParams;
+  const organizationId = typeof requestedOrganization === "string" && requestedOrganization ? requestedOrganization : undefined;
   const companies = await prisma.organization.findMany({
-    where: { isActive: true, facilities: { none: {} } },
+    where: { id: organizationId, isActive: true, facilities: { none: {} } },
     orderBy: { createdAt: "desc" },
     take: 30,
     select: {
@@ -33,6 +41,9 @@ export default async function HarborPartnerCompaniesPage() {
     <div className="mx-auto max-w-3xl space-y-6" data-testid="harbor-partner-companies-page">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Partner companies</h1>
+        {organizationId ? (
+          <Link href="/console/partners" className="mt-2 inline-block text-sm underline">View all partner companies</Link>
+        ) : null}
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           Create a company that does not own a facility, then invite its first administrator and members.
           An invitation opens the company workspace only.
@@ -54,7 +65,11 @@ export default async function HarborPartnerCompaniesPage() {
                 data-testid="partner-company-card"
               >
                 <div>
-                  <h2 className="text-lg font-semibold">{company.displayName?.trim() || company.name}</h2>
+                  <h2 className="text-lg font-semibold">
+                    <Link href={`/console/customers/organizations/${company.id}`} className="underline underline-offset-2">
+                      {company.displayName?.trim() || company.name}
+                    </Link>
+                  </h2>
                   <p className="text-sm text-[var(--text-secondary)]">No facility.</p>
                   {claim ? (
                     <p className="mt-1 text-sm text-[var(--text-secondary)]">

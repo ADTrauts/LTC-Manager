@@ -1,3 +1,4 @@
+import { organizationDisplayLabel } from "@/lib/organization-membership/types";
 import { isBillingEntitlementsEnabled } from "@/lib/feature-flags";
 import { deriveFacilityDepartmentCatalog } from "@/lib/department-products/facility-catalog";
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -48,6 +49,7 @@ const facilitySelect = {
 export type HarborFacilityRow = {
   id: string;
   displayName: string;
+  organizationId: string;
   organizationName: string;
   billingEmail: string | null;
   onboarding: string;
@@ -70,7 +72,6 @@ export type HarborLicensingRow = {
 };
 
 export type HarborFacilityDetail = HarborFacilityRow & {
-  organizationId: string;
   setupAcknowledged: boolean;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
@@ -91,7 +92,8 @@ function toRow(
   return {
     id: facility.id,
     displayName: facility.displayName,
-    organizationName: facility.organization.displayName?.trim() || facility.organization.name,
+    organizationId: facility.organizationId,
+    organizationName: organizationDisplayLabel(facility.organization),
     billingEmail: facility.billingEmail,
     onboarding: onboardingLabel({
       onboardingCompletedAt: facility.onboardingCompletedAt,
@@ -219,6 +221,22 @@ export async function loadHarborToday(client: Db) {
   };
 }
 
+export async function loadHarborOrganizationProfile(client: Db, organizationId: string) {
+  return client.organization.findUnique({
+    where: { id: organizationId },
+    select: {
+      id: true,
+      name: true,
+      displayName: true,
+      isActive: true,
+      facilities: {
+        orderBy: [{ displayName: "asc" }, { id: "asc" }],
+        select: { id: true, displayName: true },
+      },
+    },
+  });
+}
+
 export async function loadHarborFacility(
   client: Db,
   facilityId: string,
@@ -301,7 +319,6 @@ export async function loadHarborFacility(
 
   return {
     ...toRow(facility),
-    organizationId: facility.organizationId,
     setupAcknowledged: facility.onboardingCompletedAt != null,
     stripeCustomerId: facility.stripeCustomerId,
     stripeSubscriptionId: facility.billing?.stripeSubscriptionId ?? null,

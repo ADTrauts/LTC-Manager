@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { HarborOrganizationClaimActions } from "@/components/harbor-console/organization-claim-actions";
 import { HarborOrganizationClaimRequestForm } from "@/components/harbor-console/organization-claim-request-form";
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
@@ -18,12 +20,18 @@ function formatTimestamp(date: Date | null | undefined): string {
   }).format(date);
 }
 
-export default async function HarborOrganizationClaimsPage() {
+export default async function HarborOrganizationClaimsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ organizationId?: string | string[] }>;
+}) {
   await requireHarborStaff();
+  const { organizationId: requestedOrganization } = await searchParams;
+  const organizationId = typeof requestedOrganization === "string" && requestedOrganization ? requestedOrganization : undefined;
   const [queue, organizations] = await Promise.all([
-    listHarborClaimQueue(prisma, { includeTerminal: false }),
+    listHarborClaimQueue(prisma, { includeTerminal: false, organizationId }),
     prisma.organization.findMany({
-      where: { isActive: true },
+      where: { isActive: true, id: organizationId },
       select: { id: true, name: true, displayName: true },
       orderBy: { name: "asc" },
       take: 200,
@@ -34,6 +42,9 @@ export default async function HarborOrganizationClaimsPage() {
     <div className="space-y-8" data-testid="harbor-organization-claims-page">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Organization Claims</h1>
+        {organizationId ? (
+          <Link href="/console/organization-claims" className="mt-2 inline-block text-sm underline">View all Organization claims</Link>
+        ) : null}
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
           Harbor reviews first Organization Administrator bootstrap requests. Approving does not
           grant Facility access to the recipient.
@@ -63,12 +74,15 @@ export default async function HarborOrganizationClaimsPage() {
                 <li key={claim.id} className="space-y-3 px-4 py-4" data-testid="harbor-claim-row">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-zinc-900">
+                      <Link
+                        href={`/console/customers/organizations/${claim.organizationId}`}
+                        className="text-sm font-semibold text-zinc-900 underline"
+                      >
                         {organizationDisplayLabel({
                           name: claim.organizationName,
                           displayName: claim.organizationDisplayName,
                         })}
-                      </p>
+                      </Link>
                       <p className="mt-1 text-xs text-zinc-500">
                         {organizationClaimInvitationStatusLabel(claim.displayStatus)}
                         {" · "}

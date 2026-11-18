@@ -828,7 +828,7 @@ export async function acceptOrganizationClaim(
 
 export async function listHarborClaimQueue(
   db: DbClient,
-  input?: { now?: Date; includeTerminal?: boolean },
+  input?: { now?: Date; includeTerminal?: boolean; organizationId?: string },
 ): Promise<
   Array<
     OrganizationClaimInvitationView & {
@@ -842,9 +842,10 @@ export async function listHarborClaimQueue(
 > {
   const now = input?.now ?? new Date();
   const rows = await db.organizationClaimInvitation.findMany({
-    where: input?.includeTerminal
-      ? undefined
-      : { status: { in: ["REQUESTED", "APPROVED"] } },
+    where: {
+      organizationId: input?.organizationId,
+      ...(input?.includeTerminal ? {} : { status: { in: ["REQUESTED", "APPROVED"] } }),
+    },
     select: {
       ...claimSelect,
       organization: { select: { id: true, name: true, displayName: true } },

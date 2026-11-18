@@ -135,7 +135,11 @@ export default async function HarborCustomersPage({
                       </Link>
                     ) : null}
                   </td>
-                  <td className="px-4 py-3 text-[var(--text-secondary)]">{row.organizationName}</td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">
+                    <Link href={`/console/customers/organizations/${row.organizationId}`} className="underline underline-offset-2">
+                      {row.organizationName}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">{row.onboarding}</td>
                   <td className="px-4 py-3">{row.billingStatus}</td>
                   <td className="px-4 py-3 text-[var(--text-secondary)]">
