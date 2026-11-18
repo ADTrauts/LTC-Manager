@@ -62,7 +62,9 @@ export default async function HarborCustomerPage({
           <span>{facility.displayName}</span>
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{facility.displayName}</h1>
-        <p className="text-sm text-[var(--text-secondary)]">{facility.organizationName}</p>
+        <Link href={`/console/customers/organizations/${facility.organizationId}`} className="text-sm text-[var(--text-secondary)] underline underline-offset-2">
+          {facility.organizationName}
+        </Link>
         {provisionQuery.provisioned === "1" ? (
           <p className="mt-3 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm">
             {provisionQuery.replayed === "1"
