@@ -18,7 +18,7 @@ export async function performImplementationAction(actor: Actor, data: FormData):
     if (!ref || ref.facilityId !== facilityId) throw new ImplementationError("Facility or engagement changed. Reload the intended workspace.");
   }
   const scope = () => ({ departmentKeys: data.getAll("departmentKey").map(String), deliverables: String(data.get("deliverables") || "").split("\n").map(s => s.trim()).filter(Boolean) });
-  if (command === "request") return { ok: true, message: "Engagement requested. No file, configuration or charge has been authorized.", engagementId: await requestEngagement(prisma,actor,facilityId,scope()) };
+  if (command === "request") return { ok: true, message: "Engagement requested. No file, configuration or charge has been authorized.", engagementId: await requestEngagement(prisma,actor,facilityId,scope(),data.has("requestId") ? String(data.get("requestId")) : undefined) };
   if (command === "assign") await assignEngagement(prisma,actor,id,String(data.get("responsibleStaffId")));
   else if (command === "participant") await addParticipant(prisma,actor,id,String(data.get("userId")));
   else if (command === "quote") await issueQuote(prisma,actor,id,Number(data.get("revision")),scope(),String(data.get("waiverReason") || "") || undefined);

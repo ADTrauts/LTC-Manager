@@ -17,6 +17,8 @@ import type { Actor } from "./authority";
 import { prepareImplementationPayment, reconcileImplementationPayment, handleImplementationCheckout } from "@/lib/billing/implementation-payment";
 import { handleStripeBillingEvent } from "@/lib/billing/webhook-handlers";
 import { createMemorySupportAttachmentStore } from "@/lib/support/attachment-store";
+import { inviteFacilityAdministratorSuccessor, acceptFacilityAdministratorInvitation } from "@/lib/facility-administrator/service";
+import { bootstrapFacilityCustomer } from "@/lib/facility-provisioning/bootstrap";
 const url=process.env.ONBOARDING_TEST_DATABASE_URL;if(url)assertDisposableDatabaseUrl(url);const skip=!url;
 process.env.AUTH_SECRET ||= "onb05-test-secret";
 async function run(body:(db:PrismaClient)=>Promise<void>){const db=traceDisposableTransactions(new PrismaClient({datasources:{db:{url:url!}}}),"implementation");try{await body(db);}finally{await db.$disconnect();}}
@@ -59,6 +61,103 @@ function provider(){
   return {stripe,sessions,get creates(){return creates;},loseResponse(){failAfterCreate=true;},listFailure(){failList=true;},paid(){const s=[...sessions.values()][0]!;s.status="complete";s.payment_status="paid";s.payment_intent ||= `pi_${randomUUID()}`;return s;}};
 }
 async function prepare(db:PrismaClient,f:Awaited<ReturnType<typeof setup>>,p:ReturnType<typeof provider>){return prepareImplementationPayment({db,stripe:p.stripe},f.c,f.id,f.order.id,f.order.digest,"https://test.example",`/admin/billing/implementation?engagement=${f.id}`);}
+
+test("SQL Implementation request replay: concurrent normalized retries have one aggregate and new intent remains explicit", {skip},()=>run(async db=>{
+ const f=await fixture(db),actor:Actor={kind:"customer",session:f.session},requestId=randomUUID();
+ const scope={departmentKeys:["DIETARY","PLANT"],deliverables:["Map the site","Review the roster"]};
+ const results=await Promise.all([
+   requestEngagement(db,actor,f.facility.id,scope,requestId),
+   requestEngagement(db,actor,f.facility.id,{departmentKeys:["PLANT","HEALTHCARE_FOOD_NUTRITION","DIETARY"],deliverables:[" Map the site ","Review the roster "]},requestId),
+ ]);
+ assert.deepEqual(results,[requestId,requestId]);
+ assert.equal(await db.implementationEngagement.count({where:{facilityId:f.facility.id}}),1);
+ assert.equal(await db.supportTicket.count({where:{facilityId:f.facility.id}}),1);
+ assert.equal(await db.implementationParticipant.count({where:{engagementId:requestId,userId:f.user.id}}),1);
+ assert.equal(await db.implementationEvent.count({where:{engagementId:requestId,kind:"REQUESTED",actorUserId:f.user.id}}),1);
+ assert.equal(await db.supportTicketEvent.count({where:{ticket:{facilityId:f.facility.id},type:"CREATED"}}),1);
+ await assert.rejects(()=>requestEngagement(db,actor,f.facility.id,scope,"invalid-key"),/valid request identifier/);
+ await assert.rejects(()=>requestEngagement(db,actor,f.facility.id,{...scope,deliverables:["Changed work"]},requestId),/different request/);
+ const next=await requestEngagement(db,actor,f.facility.id,scope,randomUUID());
+ assert.notEqual(next,requestId);
+ const legacyA=await requestEngagement(db,actor,f.facility.id,scope),legacyB=await requestEngagement(db,actor,f.facility.id,scope);
+ assert.notEqual(legacyA,legacyB);
+ await db.userFacilityAccess.update({where:{id:f.grant.id},data:{isActive:false,revokedAt:new Date()}});
+ await assert.rejects(()=>requestEngagement(db,actor,f.facility.id,scope,requestId),/authority|session/i);
+}));
+
+test("SQL Implementation request replay: an authorized successor cannot adopt the former requester's identifier", {skip},()=>run(async db=>{
+ const f=await fixture(db),requestId=randomUUID(),scope={departmentKeys:["PLANT"],deliverables:["Review synthetic setup"]};
+ await requestEngagement(db,{kind:"customer",session:f.session},f.facility.id,scope,requestId);
+ const role=await db.role.findUniqueOrThrow({where:{key:"MANAGER"}});
+ const successor=await db.user.create({data:{email:`successor-${randomUUID()}@example.invalid`,displayName:"Synthetic successor",facilityId:f.facility.id,roleId:role.id,passwordHash:"unused-fixture",emailVerifiedAt:new Date()}});
+ await db.userFacilityAccess.create({data:{userId:successor.id,facilityId:f.facility.id,rolePeriods:{create:{roleKey:"MANAGER",startsAt:new Date(0)}}}});
+ const invite=await inviteFacilityAdministratorSuccessor(db,{actorUserId:f.user.id,facilityId:f.facility.id,invitedUserId:successor.id,outgoingRoleKey:"GM"});
+ await acceptFacilityAdministratorInvitation(db,{actorUserId:successor.id,invitationId:invite.id});
+ const current=await db.user.findUniqueOrThrow({where:{id:successor.id}});
+ const actor:Actor={kind:"customer",session:{...f.session,uid:current.id,email:current.email,name:current.displayName,sessionVersion:current.sessionVersion}};
+ await assert.rejects(()=>requestEngagement(db,actor,f.facility.id,scope,requestId),/different request/);
+ assert.notEqual(await requestEngagement(db,actor,f.facility.id,scope,randomUUID()),requestId);
+}));
+
+test("SQL Implementation request replay: the same Administrator cannot move a request into another authorized Facility", {skip},()=>run(async db=>{
+ const f=await fixture(db),requestId=randomUUID(),scope={departmentKeys:["PLANT"],deliverables:["Review synthetic setup"]};
+ await requestEngagement(db,{kind:"customer",session:f.session},f.facility.id,scope,requestId);
+ const other=await db.$transaction(tx=>bootstrapFacilityCustomer(tx,{
+   organization:{mode:"existing",organizationId:f.org.id},
+   facility:{displayName:`Additional synthetic Facility ${randomUUID()}`,billingEmail:f.user.email,timezone:"America/New_York"},
+   administrator:{mode:"reuse",userId:f.user.id},
+ }));
+ const actor:Actor={kind:"customer",session:{...f.session,facilityId:other.facility.id}};
+ await assert.rejects(()=>requestEngagement(db,actor,other.facility.id,scope,requestId),/different request/);
+ assert.notEqual(await requestEngagement(db,actor,other.facility.id,scope,randomUUID()),requestId);
+}));
+
+test("SQL Implementation request replay: a racing actor and Facility cannot reuse another request key or leave an orphan ticket", {skip},()=>run(async db=>{
+ const a=await fixture(db),b=await fixture(db),requestId=randomUUID(),scope={departmentKeys:["PLANT"],deliverables:["Map the synthetic building"]};
+ let arrivals=0,release!:()=>void;
+ const together=new Promise<void>(resolve=>{release=resolve;});
+ const racing=db.$extends({query:{implementationEngagement:{async findUnique({args,query}){
+   const row=await query(args);
+   if(args.where.id===requestId&&!row&&arrivals<2){if(++arrivals===2)release();await together;}
+   return row;
+ }}}}) as unknown as PrismaClient;
+ const outcomes=await Promise.allSettled([a,b].map(f=>requestEngagement(racing,{kind:"customer",session:f.session},f.facility.id,scope,requestId)));
+ assert.equal(outcomes.filter(r=>r.status==="fulfilled").length,1);
+ const failure=outcomes.find(r=>r.status==="rejected");
+ assert.ok(failure?.status==="rejected");
+ assert.match(String(failure.reason),/different request/);
+ assert.equal(await db.implementationEngagement.count({where:{facilityId:{in:[a.facility.id,b.facility.id]}}}),1);
+ assert.equal(await db.supportTicket.count({where:{facilityId:{in:[a.facility.id,b.facility.id]}}}),1);
+ const winner=await db.implementationEngagement.findUniqueOrThrow({where:{id:requestId}});
+ const loser=winner.facilityId===a.facility.id?b:a;
+ await assert.rejects(()=>requestEngagement(db,{kind:"customer",session:loser.session},loser.facility.id,scope,requestId),/different request/);
+}));
+
+test("SQL Implementation request replay: audit failure rolls back intake and a lost COMMIT response recovers the same request", {skip},()=>run(async db=>{
+ const f=await fixture(db),actor:Actor={kind:"customer",session:f.session},requestId=randomUUID(),scope={departmentKeys:["PLANT"],deliverables:["Prepare synthetic setup"]};
+ const faulty=db.$extends({query:{implementationEvent:{async create({args,query}){
+   if(args.data.kind==="REQUESTED")throw Error("injected request audit failure");
+   return query(args);
+ }}}}) as unknown as PrismaClient;
+ await assert.rejects(()=>requestEngagement(faulty,actor,f.facility.id,scope,requestId),/injected request audit/);
+ assert.equal(await db.supportTicket.count({where:{facilityId:f.facility.id}}),0);
+ assert.equal(await db.implementationEngagement.count({where:{id:requestId}}),0);
+ assert.equal(await db.implementationParticipant.count({where:{engagementId:requestId}}),0);
+ let lost=false;
+ const uncertain=new Proxy(db,{get(target,key){
+   if(key==="$transaction")return async(work:unknown,options:unknown)=>{
+     const result=await (target.$transaction as unknown as (work:unknown,options:unknown)=>Promise<unknown>).call(target,work,options);
+     if(!lost){lost=true;throw Error("lost request COMMIT response");}
+     return result;
+   };
+   const value=Reflect.get(target,key);return typeof value==="function"?value.bind(target):value;
+ }}) as PrismaClient;
+ await assert.rejects(()=>requestEngagement(uncertain,actor,f.facility.id,scope,requestId),/lost request COMMIT response/);
+ assert.equal(await requestEngagement(db,actor,f.facility.id,scope,requestId),requestId);
+ assert.equal(await db.supportTicket.count({where:{facilityId:f.facility.id}}),1);
+ assert.equal(await db.implementationParticipant.count({where:{engagementId:requestId}}),1);
+ assert.equal(await db.implementationEvent.count({where:{engagementId:requestId,kind:"REQUESTED"}}),1);
+}));
 
 test("SQL work counts: same staff scope as the index, without including accepted or other Facility engagements", { skip }, () => run(async db => {
   const current = await setup(db, true);
