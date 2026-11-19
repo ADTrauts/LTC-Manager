@@ -37,7 +37,7 @@ export async function changeFacilityOperationsSuspension(
       return { ok: false as const, error: "Password confirmation failed.", passwordRejected: true };
     }
     // Exact concurrent retries serialize before reading their receipt. No duplicate transitions/audits.
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`facility-suspension:${input.requestKey}`}, 0))`;
+    await tx.$queryRaw`SELECT 1::int AS locked FROM pg_advisory_xact_lock(hashtextextended(${`facility-suspension:${input.requestKey}`}, 0))`;
     const fingerprint = createHash("sha256").update(JSON.stringify([
       authority.staff.id, input.facilityId, input.operation, input.expectedRevision, input.reason, input.confirmationName,
     ])).digest("hex");
