@@ -2,7 +2,7 @@
 
 ## Operational connections follow-up — November 19, 2026
 
-**Latest position: the owner-approved restricted Stripe connection is configured; deployment and callback activation remain pending. Scanning is explicitly deferred.** No tests, builds, synthetic messages, scans, payment events, price changes, charges or manual job executions ran for this follow-up.
+**Latest position: the owner-approved restricted Stripe connection is configured and activated on the promoted Production rebuild. Scanning is explicitly deferred.** The owner separately approved one rebuild/promotion of the already released source and callback activation. No tests, synthetic messages, scans, payment events, price changes, charges or manual job executions ran for this follow-up.
 
 The owner previously approved promotion of main `a77819f9182437938bcf2a5ba95408e26eb459f1` as deployment `dpl_BJHH9hbR4TeLJHvqWojcFKgfeexQ`; both public domains were observed assigned to it. Earlier unmerged/unpromoted statements below describe the original batch checkpoint. The current follow-up source is local and unreleased on `feat/harbor-operational-connections`.
 
@@ -30,17 +30,25 @@ All three saved project variables are scoped to **Production only**, with no bra
 
 Secret values were transferred directly between approved provider pages in memory. They were not printed, written to source/reports or committed. The task clipboard and transfer variables were cleared. Metadata-only provider inspection confirmed the three names, types and Production-only targets. No Preview, pilot or Development setting was changed.
 
-The account-only Snapshot callback is **`we_1UdZSdRFfs539UXRXvt8Ohom`**, named `Vssyl Production billing`, URL `https://vssyl.com/api/billing/webhook`. It is **Disabled**, awaiting deployment/activation approval. Stripe created it Active by default; it was immediately disabled, with zero recorded deliveries. No test or replay was requested. Its signing secret is saved in the Production variable above.
+The account-only Snapshot callback is **`we_1UdZSdRFfs539UXRXvt8Ohom`**, named `Vssyl Production billing`, URL `https://vssyl.com/api/billing/webhook`. It is now **Active** after the separately approved Production rebuild and promotion. During initial configuration Stripe created it Active by default; it was immediately disabled until release approval. The activation view still records zero deliveries. No test or replay was requested. Its signing secret is saved in the Production variable above.
 
 Exactly these ten handled events were selected: `setup_intent.succeeded`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`.
 
 The callback is pinned to **`2026-08-26.dahlia`**. The installed SDK pins `2026-04-22.dahlia`; Stripe's UI offered the current monthly Dahlia release, not the older exact month. This retains the same major release family and avoids the newer Endive major. Stripe documents [monthly releases as backward compatible](https://docs.stripe.com/api/versioning); compatibility here follows that vendor contract, not a runtime test or a changed SDK.
 
-### Concrete activation decision
+### Approved activation completed
 
-Vercel's save confirmation explicitly states that a new deployment is needed before the variables take effect. The owner's connection approval explicitly excluded deployment. No build, redeploy, merge, domain movement or callback activation was performed under that approval. The live deployment still predates these settings; configured is not active.
+The owner selected **Approve deploy and activate Stripe** for exact source `a77819f9182437938bcf2a5ba95408e26eb459f1`. This superseded only the earlier deployment exclusion for that bounded action; no repeat tests, new source, price changes or charges were included.
 
-The next bounded proposal is one fresh **Production** deployment of the already released exact commit `a77819f9182437938bcf2a5ba95408e26eb459f1`, loading the three new Production settings, followed by promotion and activation of only callback `we_1UdZSdRFfs539UXRXvt8Ohom`. Keep the existing database bindings, schema, public-domain configuration, offline/authentication keys, feature flags, staff/customer authority, Postmark, both existing schedules, scanning pause and pilot unchanged. Do not include the local follow-up source. No tests, synthetic requests/events, price/catalog changes, customer/subscription creation or charges are included. Record build/alias/provider status only; do not label that as an end-to-end payment verification.
+One fresh Production build was created by redeploying the previously released `dpl_BJHH9hbR4TeLJHvqWojcFKgfeexQ` with `withLatestCommit: false`, target `production`, and the current saved project settings. New deployment **`dpl_DKqe41eZUKD1APy9EFPkoENzHoPF`**, URL `https://ltc-manager-di91qrwfb-adtrauts-projects.vercel.app`, reached **READY**. Its metadata confirms the exact approved SHA and repository. The build compiled successfully; no independent test or CI workflow was dispatched.
+
+After Ready and source/target confirmation, the deployment was promoted. Both `vssyl.com` and `www.vssyl.com` resolve in Vercel alias metadata to `dpl_DKqe41eZUKD1APy9EFPkoENzHoPF`; WWW retains its apex redirect. All three aliases in the promotion request completed. Only then was callback **`we_1UdZSdRFfs539UXRXvt8Ohom`** enabled. Stripe shows **Active**, the approved account-only URL and ten events, Dahlia snapshot version, a masked signing secret and zero recorded deliveries. Its old deployment-pending description was replaced with a current descriptive note, preserving URL, name, scope, version and events.
+
+Provider evidence was recorded at **2026-11-19T18:07:03Z (1:07 p.m. Eastern)**. A bounded read of existing error/fatal logs for the new deployment returned no records in the queried ten-minute window. No application sign-in, HTTP health probe, webhook test/replay or actual payment was performed. This is deployment/alias/provider-configuration evidence, not end-to-end payment certification. Runtime drains and long-term monitoring were not changed or newly certified.
+
+No GitHub source was pushed or merged. The local billing configuration-response fix and other follow-up source were not included in this release. No database binding, schema, authentication/offline key, staff/customer authority, feature flag, Postmark configuration, scan setting, pilot setting or hosting plan was changed by this activation. Both existing jobs remain defined by the unchanged released source; no new scanner schedule was added.
+
+Retain the previous compatible deployment `dpl_BJHH9hbR4TeLJHvqWojcFKgfeexQ` and existing database recovery resources. If returning traffic to that older environment snapshot, pause this callback first because the old deployment predates these Stripe variables. Do not remove current logout receipts or their protections during a configuration rollback.
 
 After this operational connection step, real staff lifecycle still needs the trusted roster/work domains, designated administrators and independent sole-owner recovery approver. Deferred lifecycle commands retain their separate product policy. New commercial prices or actual customer transactions are outside this setup.
 
