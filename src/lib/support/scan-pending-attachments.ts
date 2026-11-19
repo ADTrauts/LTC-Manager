@@ -4,15 +4,14 @@ import { lockHarborStaffSession } from "@/lib/harbor-console/auth";
 import { getSupportAttachmentStore, type SupportAttachmentStore } from "./attachment-store";
 import { failedScan, getSupportAttachmentScanner, validateScanResult, type ScanResult, type SupportAttachmentScanner } from "./attachment-scanner";
 import { isBlockedSupportAttachmentType, looksLikeExecutableContent, SUPPORT_ATTACHMENT_MAX_BYTES } from "./attachment-limits";
-const LEASE_MS = 90_000;
-const BACKOFF = [60_000,5*60_000];
+import { pendingSupportScanWhere, SUPPORT_SCAN_BACKOFF_MS, SUPPORT_SCAN_LEASE_MS, SUPPORT_SCAN_MAX_ATTEMPTS } from "./scan-scheduling";
 export const sha256Bytes = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 export async function processPendingSupportAttachments(db: PrismaClient, options: { scanner?: SupportAttachmentScanner | null; store?: SupportAttachmentStore | null; attachmentIds?: string[]; limit?: number; now?: () => Date } = {}) {
   const scanner = options.scanner === undefined ? getSupportAttachmentScanner() : options.scanner;
   if (!scanner) return { configured: false, claimed: 0, results: [] as { attachmentId: string; status: string; code: string }[] };
   const store = options.store === undefined ? getSupportAttachmentStore() : options.store;
   const now = options.now ?? (()=>new Date());
-  const candidates = await db.supportTicketAttachment.findMany({ where: { scanStatus: "PENDING", AND: [{ OR: [{ scanLeaseExpiresAt: null },{ scanLeaseExpiresAt: { lte: now() } }] }], ...(options.attachmentIds ? { id: { in: options.attachmentIds } } : {}), OR: [{ nextScanAt: null },{ nextScanAt: { lte: now() } }] }, orderBy: [{ createdAt: "asc" },{ id: "asc" }], select: { id: true }, take: Math.min(10,Math.max(1,options.limit ?? 3))*2 });
+  const candidates = await db.supportTicketAttachment.findMany({ where: { ...pendingSupportScanWhere(now()), ...(options.attachmentIds ? { id: { in: options.attachmentIds } } : {}) }, orderBy: [{ createdAt: "asc" },{ id: "asc" }], select: { id: true }, take: Math.min(10,Math.max(1,options.limit ?? 3))*2 });
   const results: { attachmentId: string; status: string; code: string }[] = []; let claimed = 0;
   for (const candidate of candidates) {
     if (claimed >= Math.min(10,Math.max(1,options.limit ?? 3))) break;
@@ -22,11 +21,11 @@ export async function processPendingSupportAttachments(db: PrismaClient, options
       if (row.scanStatus !== "PENDING" || row.scanLeaseExpiresAt && +row.scanLeaseExpiresAt > +now() || row.nextScanAt && +row.nextScanAt > +now()) return null;
       await tx.supportAttachmentScanAttempt.updateMany({ where: { attachmentId: row.id, status: "RUNNING" }, data: { status: "FAILED", resultCode: "LEASE_EXPIRED", finishedAt: now() } });
       const previous = await tx.supportAttachmentScanAttempt.findFirst({ where: { attachmentId: row.id, cycle: row.scanCycle }, orderBy: { attempt: "desc" } });
-      if ((previous?.attempt ?? 0) >= 3 || !row.storageKey || !row.checksumSha256 || row.sizeBytes < 1 || row.sizeBytes > SUPPORT_ATTACHMENT_MAX_BYTES) {
+      if ((previous?.attempt ?? 0) >= SUPPORT_SCAN_MAX_ATTEMPTS || !row.storageKey || !row.checksumSha256 || row.sizeBytes < 1 || row.sizeBytes > SUPPORT_ATTACHMENT_MAX_BYTES) {
         await tx.supportTicketAttachment.update({ where: { id: row.id }, data: { scanStatus: "SCAN_FAILED", scanResultCode: !row.checksumSha256 ? "HASH_MISSING" : "SCANNER_FAILURE", scanLeaseToken: null, scanLeaseExpiresAt: null } }); return null;
       }
       const id = randomUUID(); const attempt = await tx.supportAttachmentScanAttempt.create({ data: { id, attachmentId: row.id, cycle: row.scanCycle, attempt: (previous?.attempt ?? 0)+1, expectedSha256: row.checksumSha256, expectedSizeBytes: row.sizeBytes } });
-      await tx.supportTicketAttachment.update({ where: { id: row.id }, data: { scanLeaseToken: id, scanLeaseExpiresAt: new Date(+now()+LEASE_MS) } });
+      await tx.supportTicketAttachment.update({ where: { id: row.id }, data: { scanLeaseToken: id, scanLeaseExpiresAt: new Date(+now()+SUPPORT_SCAN_LEASE_MS) } });
       return { row, attempt };
     });
     if (!claim) continue;
@@ -56,10 +55,10 @@ export async function processPendingSupportAttachments(db: PrismaClient, options
         return { attachmentId: row.id, status: "unavailable", code: "STALE_RESULT" };
       }
       const permanentFailure = result.code === "HASH_MISMATCH";
-      const status = result.verdict === "CLEAN" ? "CLEAN" : result.verdict === "BLOCKED" ? "BLOCKED" : attempt.attempt >= 3 || permanentFailure ? "SCAN_FAILED" : "PENDING";
+      const status = result.verdict === "CLEAN" ? "CLEAN" : result.verdict === "BLOCKED" ? "BLOCKED" : attempt.attempt >= SUPPORT_SCAN_MAX_ATTEMPTS || permanentFailure ? "SCAN_FAILED" : "PENDING";
       const metadata = { scannedAt: new Date(result.scannedAt), engineVersion: result.engineVersion, signatureVersion: result.signatureVersion, signatureUpdatedAt: result.signatureUpdatedAt ? new Date(result.signatureUpdatedAt) : undefined };
       await tx.supportAttachmentScanAttempt.update({ where: { id: attempt.id }, data: { ...metadata, status: result.verdict === "FAILED" ? "FAILED" : result.verdict, resultCode: result.code, finishedAt: now() } });
-      await tx.supportTicketAttachment.update({ where: { id: row.id }, data: { scanStatus: status, scanLeaseToken: null, scanLeaseExpiresAt: null, nextScanAt: status === "PENDING" ? new Date(+now()+BACKOFF[attempt.attempt-1]!) : null, scannedAt: metadata.scannedAt, scannerProvider: result.provider, scannerEngineVersion: result.engineVersion ?? null, scannerSignatureVersion: result.signatureVersion ?? null, scanResultCode: result.code, scanFailureReason: result.verdict === "FAILED" ? result.code : null } });
+      await tx.supportTicketAttachment.update({ where: { id: row.id }, data: { scanStatus: status, scanLeaseToken: null, scanLeaseExpiresAt: null, nextScanAt: status === "PENDING" ? new Date(+now()+SUPPORT_SCAN_BACKOFF_MS[attempt.attempt-1]!) : null, scannedAt: metadata.scannedAt, scannerProvider: result.provider, scannerEngineVersion: result.engineVersion ?? null, scannerSignatureVersion: result.signatureVersion ?? null, scanResultCode: result.code, scanFailureReason: result.verdict === "FAILED" ? result.code : null } });
       return { attachmentId: row.id, status, code: result.code };
     });
     results.push(committed);

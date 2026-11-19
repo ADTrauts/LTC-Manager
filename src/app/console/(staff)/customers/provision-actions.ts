@@ -1,7 +1,6 @@
 "use server";
 
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { issueAndSendAccountInvite } from "@/lib/account-invite/send";
@@ -202,6 +201,8 @@ export async function resendHarborProvisionInviteAction(_previous: HarborProvisi
   }
 
   revalidatePath(`/console/customers/${facilityId}`);
+  revalidatePath(`/console/customers/${facilityId}/lifecycle`);
+  revalidatePath("/console/customers/invitation-follow-up");
   return {
     ok: true,
     message: outcome === "delivery_requested"

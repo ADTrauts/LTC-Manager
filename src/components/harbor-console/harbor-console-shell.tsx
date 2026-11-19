@@ -9,6 +9,7 @@ import type { SupportStaffNotificationItem } from "@/lib/support/notifications";
 
 const NAV = [
   { href: "/console", label: "Today", enabled: true },
+  { href: "/console/operations", label: "Operations", enabled: true },
   { href: "/console/customers", label: "Customers", enabled: true },
   { href: "/console/partners", label: "Partners", enabled: true, ownerOnly: true },
   { href: "/console/organization-claims", label: "Org Claims", enabled: true },
@@ -61,6 +62,7 @@ export function HarborConsoleShell({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={item.href === "/console/operations" ? false : undefined}
                   className={`rounded-md px-3 py-2 text-sm ${
                     active ? "bg-white/10 font-semibold" : "text-[var(--run-aside-fg)] hover:bg-white/10"
                   }`}

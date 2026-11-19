@@ -57,5 +57,8 @@ export async function syncCustomerBillingFromStripeAction(
 
   revalidatePath(`/console/customers/${facility.id}`);
   revalidatePath("/console/customers");
+  revalidatePath(`/console/customers/${facility.id}/lifecycle`);
+  revalidatePath("/console/operations");
+  revalidatePath("/console");
   return result;
 }

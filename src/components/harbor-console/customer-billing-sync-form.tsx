@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 
 import {
   syncCustomerBillingFromStripeAction,
@@ -29,6 +30,7 @@ export function CustomerBillingSyncForm({ facilityId }: { facilityId: string }) 
           {state.message}
         </p>
       ) : null}
+      {state ? <p className="text-sm"><Link prefetch={false} href={`/console/customers/${encodeURIComponent(facilityId)}/lifecycle#licensing`} className="underline underline-offset-2">Review current licensing and customer access</Link></p> : null}
     </form>
   );
 }

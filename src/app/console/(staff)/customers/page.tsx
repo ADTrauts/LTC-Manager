@@ -141,6 +141,14 @@ export default async function HarborCustomersPage({
                     {row.billingEmail ? (
                       <p className="text-xs text-[var(--text-secondary)]">{row.billingEmail}</p>
                     ) : null}
+                    <Link
+                      href={`/console/customers/${row.id}/lifecycle`}
+                      prefetch={false}
+                      aria-label={`View lifecycle for ${row.displayName}`}
+                      className="mt-1 flex min-h-8 w-fit items-center text-xs underline"
+                    >
+                      Lifecycle and readiness
+                    </Link>
                     {filter ? (
                       <Link
                         href={`/console/customers/${row.id}/implementation`}

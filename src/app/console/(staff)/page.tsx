@@ -12,7 +12,7 @@ export default async function HarborTodayPage() {
   const session = await requireHarborStaff();
   const workFacilityId = await peekHarborWorkFacilityId();
   const actor = { kind: "staff" as const, session, workFacilityId };
-  const [{ setupFollowUp, paymentProblems }, unassigned, assigned, openTickets, newTickets] = await Promise.all([
+  const [{ setupFollowUp, paymentFollowUp }, unassigned, assigned, openTickets, newTickets] = await Promise.all([
     loadHarborToday(prisma),
     workFacilityId ? null : loadHarborUnassignedImplementation(prisma, actor),
     workFacilityId ? null : loadHarborAssignedImplementation(prisma, actor),
@@ -34,13 +34,16 @@ export default async function HarborTodayPage() {
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           Implementation requests, guided setup follow-up, open tickets, and payment problems.
         </p>
+        <Link href="/console/operations" prefetch={false} className="mt-2 inline-block text-sm underline underline-offset-2">
+          Review operations exceptions and recorded job evidence
+        </Link>
       </header>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat value={unassigned ? String(unassigned.total) : "Unavailable"} label="Unassigned Implementation requests" muted={!unassigned} />
         <Stat value={String(setupFollowUp.total)} label="Awaiting setup acknowledgment" />
         <Stat value={String(openTickets)} label="Open tickets" />
-        <Stat value={String(paymentProblems.length)} label="Payment problems" />
+        <Stat value={String(paymentFollowUp.total)} label="Payment problems" />
       </section>
 
       <ImplementationQueue work="assigned" data={assigned} />
@@ -67,8 +70,11 @@ export default async function HarborTodayPage() {
       />
       <Queue
         title="Payment problems"
-        empty="No past-due or incomplete billing."
-        rows={paymentProblems.map((row) => ({
+        empty="No payment problems recorded in the local billing mirror."
+        followUp="/console/operations?queue=billing"
+        followUpLabel="Review all payment follow-up in Operations"
+        summary={`Showing ${paymentFollowUp.rows.length} of ${paymentFollowUp.total} Facilities with a payment problem.`}
+        rows={paymentFollowUp.rows.map((row) => ({
           href: `/console/customers/${row.id}`,
           title: row.displayName,
           detail: `${row.billingStatus} · ${row.licensedDepartments.join(", ") || "No licensed departments"}`,
