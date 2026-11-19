@@ -1,14 +1,14 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 
 import { handleStripeBillingEvent } from "@/lib/billing/webhook-handlers";
-import { getStripeServerClient } from "@/lib/stripe";
+import { getStripeServerClient, isStripeSecretConfigured } from "@/lib/stripe";
 
 export async function POST(request: Request) {
-  const stripe = getStripeServerClient();
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    return NextResponse.json({ error: "Webhook is not configured." }, { status: 500 });
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  if (!webhookSecret || !isStripeSecretConfigured()) {
+    return NextResponse.json({ error: "Webhook is not configured." }, { status: 503 });
   }
 
   const body = await request.text();
@@ -17,8 +17,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing signature." }, { status: 400 });
   }
 
-  let event;
+  let event: Stripe.Event;
   try {
+    const stripe = getStripeServerClient();
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch {
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });

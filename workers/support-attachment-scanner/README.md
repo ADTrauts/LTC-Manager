@@ -19,6 +19,22 @@ Configure the application/processor with HTTPS `SUPPORT_SCANNER_URL` ending in `
 
 Run the support-specific processor separately from inbound email: `npx tsx scripts/support/process-pending-attachments.ts`. It requires a disposable database by default. `--allow-live` is reserved for separately authorized production operation. Production scheduling must invoke this durable PENDING processor; no best-effort webhook tail job or generic job platform is introduced. Repeated processor invocations recover expired claims. Confirm the database URL before any invocation.
 
+## Application scheduler connection
+
+The application now defines `GET /api/internal/support/attachment-scans`, registered as an internal Support route and requiring the existing `Authorization: Bearer <CRON_SECRET>`. It runs the same durable processor, with at most three claims per invocation and a 300-second function allowance. It requires both the private store and approved scanner configuration before querying attachments. An absent scanner/store returns an uncached 503 without claiming files. Wrong or absent credentials return 401; missing cron configuration returns 503. HEAD returns 405 without processing.
+
+`vercel.json` schedules this route once daily at 17:00 UTC, independently of Support automation and Plant preventive maintenance. This is compatible with the current Hobby daily-cron limit, not a promise of immediate scanning. At this cadence the batch can process at most three attachments per day, including retries; the processor still honors the existing one-minute/five-minute minimum backoff, but automatic retry waits until a later daily invocation. A faster cadence requires an approved hosting-plan or scheduler change. Do not represent this daily schedule as a production turnaround SLA.
+
+The response and completion log contain aggregate counts only: claimed, clean, blocked, pending retry, failed and unavailable. Individual scan results and their immutable bindings stay with the existing processor. Scheduling/configuration is not evidence that the worker ran or that a file was clean.
+
+Deploying the application route does not provision a scanner host, certificate, token or signature volume. Complete that separate infrastructure choice and configure the exact worker host before releasing the scheduled connection. No scanner, mail, billing, database or browser test was run for this connection at the owner's instruction.
+
+### Hosting proposal awaiting the owner's cost decision
+
+Use one dedicated DigitalOcean Basic Regular server with 2 vCPUs, 4 GiB RAM and 80 GiB SSD in the eastern US, named `vssyl-support-scanner`. The listed base price is [$24/month](https://www.digitalocean.com/pricing/droplets), before tax or extra usage; no paid backup/add-on is proposed. Reuse the existing private ClamAV image and limits. Retain signatures on the host, keep originals only in bounded temporary storage, leave raw clamd on its Unix socket, and expose only the authenticated TLS scanner. Provision the service certificate and a fresh app-specific bearer token privately. Proposed application URL: `https://scanner.vssyl.com/scan`; the new hostname must not move the app's public domains or alter its database bindings. This proposal has not created a server, account, DNS record, certificate, credential or charge.
+
+For prompt processing, the recommended follow-up is Vercel Pro and a five-minute scan schedule (`*/5 * * * *`). [Pro's base fee](https://vercel.com/docs/plans/pro-plan) is $20/month including one deploying seat and $20 usage credit; extra seats, usage and taxes may add to that. The combined base estimate is $44/month. [Hobby legacy Cron](https://vercel.com/docs/schedules/cron-jobs/usage-and-pricing) is daily, so the current source retains its daily schedule until the owner chooses. No plan upgrade or billing change has been made.
+
 ## Inspectability and bounds
 
 Uploads retain the 10 MiB cap and blocked types/content. The worker rejects standalone archives and macro-enabled Office extensions. Initial inspectable formats are UTF-8 text/CSV/TSV, bounded valid unencrypted PDFs without embedded/active content, and `.xlsx`/`.docx`/`.pptx` Office containers containing inspectable XML/relationship parts. Embedded media/binaries, unknown formats, encrypted/corrupt containers, external entity declarations and macros are unavailable. Receiving these originals into private custody is still possible; they cannot download as CLEAN. This does not implement a spreadsheet domain reader or evaluate formulas.

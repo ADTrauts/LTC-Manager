@@ -310,6 +310,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     notes: "Vercel Cron. Handler requires Bearer CRON_SECRET; no Harbor session. Hobby is daily.",
   },
   {
+    pattern: "/api/internal/support/attachment-scans",
+    match: "EXACT",
+    surface: "API",
+    access: { kind: "PUBLIC" },
+    module: "harbor-console",
+    notes:
+      "Vercel Cron. Handler requires Bearer CRON_SECRET and a configured private scanner/store. Processes a bounded batch through existing durable scan claims; returns counts only. Hobby is daily.",
+  },
+  {
     pattern: "/api/internal/plant/preventive-maintenance",
     match: "EXACT",
     surface: "API",

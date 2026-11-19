@@ -6,6 +6,10 @@
       "schedule": "0 16 * * *"
     },
     {
+      "path": "/api/internal/support/attachment-scans",
+      "schedule": "0 17 * * *"
+    },
+    {
       "path": "/api/internal/plant/preventive-maintenance",
       "schedule": "0 6 * * *"
     }
