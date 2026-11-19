@@ -18,7 +18,7 @@ export default async function HarborCustomersPage({
   const [{ q, work, setup, page: requestedPage }, workFacilityId] = await Promise.all([searchParams, peekHarborWorkFacilityId()]);
   const query = typeof q === "string" ? q.trim() : "";
   // A submitted filter must not narrow the directory while a legacy work context is present.
-  const filter = !workFacilityId && (work === "open" || work === "unassigned") ? work : null;
+  const filter = !workFacilityId && (work === "open" || work === "unassigned" || work === "assigned") ? work : null;
   const setupFilter = setup === "awaiting" || setup === "acknowledged" ? setup : null;
   const { rows, total, page, pageCount, offset } = await loadHarborCustomerDirectoryPage(prisma, {
     query,
@@ -70,6 +70,7 @@ export default async function HarborCustomersPage({
                 <option value="all">All Facilities</option>
                 <option value="open">Open work</option>
                 <option value="unassigned">Unassigned work</option>
+                <option value="assigned">Assigned to me</option>
               </select>
             </label>
           ) : null}

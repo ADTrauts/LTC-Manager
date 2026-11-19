@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
 import { harborCustomersHref } from "@/lib/harbor-console/presentation";
-import { loadHarborToday, loadHarborUnassignedImplementation } from "@/lib/harbor-console/queries";
+import { loadHarborToday, loadHarborUnassignedImplementation, loadHarborAssignedImplementation } from "@/lib/harbor-console/queries";
 import { HARBOR_WORK_CLEANUP_PATH } from "@/lib/harbor-console/session";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_SUPPORT_STATUSES } from "@/lib/support/queues";
@@ -11,9 +11,11 @@ import { formatSupportTicketNumber } from "@/lib/support/ticket-number";
 export default async function HarborTodayPage() {
   const session = await requireHarborStaff();
   const workFacilityId = await peekHarborWorkFacilityId();
-  const [{ setupFollowUp, paymentProblems }, unassigned, openTickets, newTickets] = await Promise.all([
+  const actor = { kind: "staff" as const, session, workFacilityId };
+  const [{ setupFollowUp, paymentProblems }, unassigned, assigned, openTickets, newTickets] = await Promise.all([
     loadHarborToday(prisma),
-    workFacilityId ? null : loadHarborUnassignedImplementation(prisma, { kind: "staff", session, workFacilityId }),
+    workFacilityId ? null : loadHarborUnassignedImplementation(prisma, actor),
+    workFacilityId ? null : loadHarborAssignedImplementation(prisma, actor),
     prisma.supportTicket.count({
       where: { status: { in: ACTIVE_SUPPORT_STATUSES } },
     }),
@@ -41,22 +43,8 @@ export default async function HarborTodayPage() {
         <Stat value={String(paymentProblems.length)} label="Payment problems" />
       </section>
 
-      {unassigned ? <Queue
-        title="Unassigned Implementation requests"
-        empty="No Implementation requests are awaiting staff assignment."
-        followUp={harborCustomersHref({ work: "unassigned" })}
-        followUpLabel="View unassigned work in Customers"
-        summary={`Showing ${unassigned.rows.length} of ${unassigned.total} unassigned requests.`}
-        rows={unassigned.rows.map(row => ({
-          href: `/console/customers/${row.facilityId}/implementation?engagement=${encodeURIComponent(row.id)}`,
-          title: row.facilityName,
-          detail: `${row.organizationName} · Requested ${row.requestedAt.toISOString().slice(0, 16).replace("T", " ")} UTC`,
-        }))}
-      /> : <section aria-label="Unassigned Implementation requests" className="space-y-3 rounded-md border border-[var(--border)] bg-white p-4">
-        <h2 className="text-sm font-semibold">Unassigned Implementation requests</h2>
-        <p className="text-sm">This queue is unavailable while a retired Facility work context is present. Clear that context before managing Implementation requests.</p>
-        <Link href={HARBOR_WORK_CLEANUP_PATH} className="inline-flex min-h-11 items-center text-sm font-medium underline">Clear retired Facility context</Link>
-      </section>}
+      <ImplementationQueue work="assigned" data={assigned} />
+      <ImplementationQueue work="unassigned" data={unassigned} />
       <Queue
         title="New tickets"
         empty="No new tickets."
@@ -88,6 +76,31 @@ export default async function HarborTodayPage() {
       />
     </div>
   );
+}
+
+function ImplementationQueue({ work, data }: {
+  work: "assigned" | "unassigned";
+  data: Awaited<ReturnType<typeof loadHarborUnassignedImplementation>> | null;
+}) {
+  const mine = work === "assigned";
+  const title = mine ? "My assigned Implementation work" : "Unassigned Implementation requests";
+  if (!data) return <section aria-label={title} className="space-y-3 rounded-md border border-[var(--border)] bg-white p-4">
+    <h2 className="text-sm font-semibold">{title}</h2>
+    <p className="text-sm">This queue is unavailable while a retired Facility work context is present. Clear that context before managing Implementation requests.</p>
+    <Link href={HARBOR_WORK_CLEANUP_PATH} className="inline-flex min-h-11 items-center text-sm font-medium underline">Clear retired Facility context</Link>
+  </section>;
+  return <Queue
+    title={title}
+    empty={mine ? "No Implementation requests are assigned to you." : "No Implementation requests are awaiting staff assignment."}
+    followUp={harborCustomersHref({ work })}
+    followUpLabel={mine ? "View my assigned work in Customers" : "View unassigned work in Customers"}
+    summary={`Showing ${data.rows.length} of ${data.total} ${mine ? "requests assigned to you" : "unassigned requests"}.`}
+    rows={data.rows.map(row => ({
+      href: `/console/customers/${row.facilityId}/implementation?engagement=${encodeURIComponent(row.id)}`,
+      title: row.facilityName,
+      detail: `${row.organizationName} · Requested ${row.requestedAt.toISOString().slice(0, 16).replace("T", " ")} UTC`,
+    }))}
+  />;
 }
 
 function Stat({ value, label, muted }: { value: string; label: string; muted?: boolean }) {
