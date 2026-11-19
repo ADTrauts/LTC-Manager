@@ -18,7 +18,7 @@ export default async function HarborOwnActivityPage({ searchParams }: {
     <header>
       <h1 className="text-2xl font-semibold tracking-tight">My activity</h1>
       <p className="mt-2 text-sm text-[var(--text-secondary)]">
-        Recorded sign-ins, customer reviews, Facility provisions and Marketplace actions for {data.staffName}. Times are shown in UTC.
+        Recorded sign-ins, customer reviews, Facility provisions, operational pause changes and Marketplace actions for {data.staffName}. Times are shown in UTC.
       </p>
     </header>
 

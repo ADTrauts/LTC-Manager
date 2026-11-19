@@ -251,6 +251,7 @@ export async function evaluateResponsibilityReconciliation(input: {
     : await readEvaluationCheckpoint(input.db, "notifications.responsibility-reconciliation");
   const discovered = await input.db.notification.findMany({
     where: {
+      facility: { operationsSuspendedAt: null },
       resolvedAt: null,
       expiresAt: null,
       kind: NotificationKind.OPERATIONAL,

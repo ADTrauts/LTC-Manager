@@ -21,6 +21,7 @@ import { dashboardEditHref, dashboardScopeChoiceLabel, dashboardScopeHref, dashb
 import { ONBOARDING_ENTRY_PATH } from "@/lib/onboarding";
 import { canContinueFacilityAdministratorSetup } from "@/lib/onboarding/facility-administrator-setup";
 import { prisma } from "@/lib/prisma";
+import { facilityOperationsAreSuspended } from "@/lib/facility-operations-suspension";
 import type { DashboardViewer } from "@/lib/dashboard/viewer/types";
 
 function scopeLabel(viewer: DashboardViewer): string {
@@ -273,7 +274,10 @@ export async function DashboardScreen({
   /** Lens and Arrange stay on this path. Partner sessions use `/partner`. */
   homePath?: string;
 }) {
-  const capabilities = await resolveDepartmentDashboardCapabilities(viewer);
+  const [capabilities, operationsSuspended] = await Promise.all([
+    resolveDepartmentDashboardCapabilities(viewer), facilityOperationsAreSuspended(prisma, viewer.facilityId),
+  ]);
+  if (operationsSuspended) editing = false;
   const facts = createDashboardFactPack(viewer, {
     resolveDepartmentDashboardCapabilities: async () => capabilities,
   });
@@ -388,7 +392,7 @@ export async function DashboardScreen({
           {notice.message}
         </p>
       ))}
-      <DashboardSettleReporter cardCount={editing ? 0 : cards.length} scope={currentScope} />
+      {operationsSuspended ? null : <DashboardSettleReporter cardCount={editing ? 0 : cards.length} scope={currentScope} />}
       {editing && viewer.canCustomize && viewer.scope ? (
         <DashboardEditor
           scopeKind={viewer.scope.kind}

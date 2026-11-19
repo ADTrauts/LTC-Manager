@@ -28,6 +28,7 @@
 | **User / Employee** | App identity vs frontline roster identity (PIN sessions attach to Employee). Email/password authenticates the global `User`. Workspace eligibility is available contexts, not a facility-native vs organization-only identity class. |
 | **User home Facility** | Optional `User.facilityId` presentation marker. Not login authority and not the active Facility. |
 | **Active Facility** | Session/JWT facility context when `scopeKind = facility`. Switching does not rewrite home. |
+| **Manual operational pause** | `Facility.operationsSuspendedAt` and its revision. OWNER transitions are recorded in Harbor audit detail. Independent of billing, identity, ownership and Department authority; see the [Phase 5 implementation draft](../console/HARBOR_CONSOLE_PHASE_5_OPERATIONAL_SUSPENSION.md). |
 | **Organization membership** | `UserOrganizationMembership` + `UserOrganizationRolePeriod` (`ORG_ADMIN` / `ORG_MEMBER`). Independent of Facility access. |
 | **Role** | Facility Capability ladder (RoleKey): Staff → Lead → Supervisor → Manager → GM → Facility Administrator. Not Organization membership roles. |
 | **Operation** | **Retired** September 25, 2026 ([RETIRED](../platform-vision/RETIRED.md)). The window is an Operational Cycle. Remaining `operationInstanceId` code is removed in LEG-05, and the tables drop at LEG-06. |

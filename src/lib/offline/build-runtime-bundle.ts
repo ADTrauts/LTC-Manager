@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { MealType, PrismaClient } from "@prisma/client";
+import { facilityOperationsAreSuspended } from "@/lib/facility-operations-suspension";
 
 import type { FacilitySession } from "@/lib/auth";
 import {
@@ -114,6 +115,9 @@ export async function buildRuntimeBundle(
   input: BuildRuntimeBundleInput,
   client: PrismaClient = defaultPrisma,
 ): Promise<BuildRuntimeBundleResult> {
+  if (await facilityOperationsAreSuspended(client, input.session.facilityId)) {
+    return { ok: false, reason: "FACILITY_OPERATIONS_PAUSED", status: 403 };
+  }
   const now = input.now ?? new Date();
   const actor = await resolveMilestoneActor(input.session);
 

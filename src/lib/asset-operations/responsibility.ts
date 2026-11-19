@@ -14,6 +14,7 @@
  */
 
 import type { PrismaClient } from "@prisma/client";
+import { facilityOperationsAreSuspended } from "@/lib/facility-operations-suspension";
 
 import { customerCurrentDepartmentLabel } from "@/lib/department-products";
 
@@ -138,7 +139,7 @@ export async function ensureAndListResponsibleOrganizations(
     managementCompanyName: facility.managementCompanyName,
   });
 
-  for (const name of defaults) {
+  for (const name of await facilityOperationsAreSuspended(client, facilityId) ? [] : defaults) {
     const existing = await client.facilityOrganization.findFirst({
       where: {
         facilityId,

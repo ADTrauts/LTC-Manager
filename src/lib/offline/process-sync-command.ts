@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { facilityOperationsAreSuspended } from "@/lib/facility-operations-suspension";
 
 import type { FacilitySession } from "@/lib/auth";
 import { reportAssetIssue } from "@/lib/asset-operations";
@@ -79,6 +80,9 @@ export async function processSyncCommand(
   }
   if (input.deviceBoundUnitId && input.deviceBoundUnitId !== command.unitId) {
     return reject(command.clientCommandId, "DEVICE_UNIT_CONFLICT");
+  }
+  if (await facilityOperationsAreSuspended(client, command.facilityId)) {
+    return { ...reject(command.clientCommandId, "FACILITY_OPERATIONS_PAUSED"), category: "RETRY_REQUIRED", retryAfterSeconds: 60 };
   }
 
   if (command.commandType === "SUBMIT_OPERATIONAL_EVIDENCE") {

@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { assertFacilityOperationsAvailable } from "@/lib/facility-operations-suspension";
 import { Prisma, type PrismaClient, type OfflineBundleIssuance } from "@prisma/client";
 import type { FacilitySession } from "@/lib/auth";
 import { sessionUserIdForFk } from "@/lib/auth";
@@ -39,6 +40,7 @@ export async function authorize(tx: Tx, s: FacilitySession, scope: SpaceScope, d
     if (s.authKind === "employee" && s.activeUnitId !== scope.unitId) fail("PIN device binding changed. Authenticate again in the current Neighborhood.");
     // Facility lock is also held by billing/install owners. Order stays consistent.
     await tx.$queryRaw `SELECT "id" FROM "Facility" WHERE "id"=${scope.facilityId} FOR UPDATE`;
+    await assertFacilityOperationsAvailable(tx, scope.facilityId);
     if (s.authKind === "user") {
         await tx.$queryRaw `SELECT "id" FROM "User" WHERE "id"=${s.uid} FOR SHARE`;
         await tx.$queryRaw `SELECT "id" FROM "UserFacilityAccess" WHERE "userId"=${s.uid} AND "facilityId"=${s.facilityId} FOR SHARE`;

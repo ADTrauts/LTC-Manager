@@ -298,6 +298,7 @@ export async function evaluateAcknowledgementEscalation(input: {
     : await readEvaluationCheckpoint(input.db, "notifications.escalation");
   const discovered = await input.db.notification.findMany({
     where: {
+      facility: { operationsSuspendedAt: null },
       resolvedAt: null,
       expiresAt: null,
       escalatedAt: null,

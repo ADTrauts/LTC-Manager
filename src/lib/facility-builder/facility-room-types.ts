@@ -3,6 +3,7 @@
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { facilityOperationsAreSuspended } from "@/lib/facility-operations-suspension";
 
 import {
   baseTypeKeyFromLegacyRoomIdentity,
@@ -353,5 +354,8 @@ export async function ensureFacilityRoomTypesBackfilled(
   facilityId: string,
   client: DbClient,
 ): Promise<FacilityRoomTypeBackfillReport> {
+  if (await facilityOperationsAreSuspended(client, facilityId)) {
+    return { facilityId, typesCreated: 0, roomsLinked: 0, ambiguousLabels: [] };
+  }
   return backfillFacilityRoomTypesForFacility(facilityId, client);
 }

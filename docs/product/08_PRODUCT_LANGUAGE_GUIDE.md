@@ -53,6 +53,7 @@ Do not label Run / Build / Admin as Workspace. Do not treat Department, My Accou
 | Use this | Meaning | Avoid |
 |----------|---------|-------|
 | **Facility** | Operational site | Site *(vision alias — migrate language to Facility)* |
+| **Operational changes paused** | A reversible OWNER pause on changing a Facility's operational data. Existing read authority, billing, Support and independent security restrictions remain in force. | Subscription cancelled; account deleted; Department disabled; operationally ready after reactivation |
 | **Organization** | Canonical company entity (Facility parent and/or Department operator) | Company, Tenant *(unless billing copy)*; do not invent ManagementCompany / OperatorCompany tables |
 | **Parent Organization** | Organization that owns/groups the Facility | Treating a contracted department operator as the Facility parent |
 | **Operating Organization** | The company that runs one Department for a period of dates. Customer language for a company other than the facility's own is **vendor-run**. | A stored self-operated switch; a repair vendor; the parent Organization |

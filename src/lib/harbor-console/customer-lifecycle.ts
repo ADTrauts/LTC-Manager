@@ -26,6 +26,7 @@ export async function loadHarborCustomerLifecycle(db: PrismaClient, session: Har
       where: { id: facilityId },
       select: {
         id: true, displayName: true, onboardingStartedAt: true, onboardingCurrentStep: true,
+        operationsSuspendedAt: true, operationsSuspensionRevision: true,
         onboardingEntryConfirmedAt: true, onboardingCompletedAt: true,
         organization: { select: { id: true, name: true, displayName: true, isActive: true } },
         departments: { take: DETAIL_LIMIT, orderBy: { id: "asc" }, select: { id: true, key: true, isActive: true } },
@@ -40,6 +41,11 @@ export async function loadHarborCustomerLifecycle(db: PrismaClient, session: Har
       },
     });
     if (!facility) return { kind: "missing" as const };
+    const suspensionHistory = isHarborOwnerSession(session) ? await tx.harborFacilitySuspensionAuditDetail.findMany({
+      where: { facilityId }, orderBy: { revision: "desc" }, take: 10,
+      select: { revision: true, reason: true, suspendedAt: true, event: { select: { createdAt: true, staff: { select: { displayName: true } } } } },
+    }) : null;
+    const suspensionHistoryTotal = suspensionHistory ? await tx.harborFacilitySuspensionAuditDetail.count({ where: { facilityId } }) : null;
     const actor: Actor = { kind: "staff", session, workFacilityId };
     const assignedWhere = { facilityId, ...implementationWorkWhere("assigned", session.uid), participants: { some: { staffId: session.uid } } };
     const [seat, activation, implementation, activeSupport, waitingSupport, myWork, myWorkTotal, unlinkedLicenses] = await Promise.all([
@@ -95,6 +101,7 @@ export async function loadHarborCustomerLifecycle(db: PrismaClient, session: Har
     return {
       kind: "found" as const,
       facility: { id: facility.id, displayName: facility.displayName },
+      suspension: { at: facility.operationsSuspendedAt, revision: facility.operationsSuspensionRevision, history: suspensionHistory, total: suspensionHistoryTotal },
       organization: { id: facility.organization.id, name: organizationDisplayLabel(facility.organization), active: facility.organization.isActive },
       setup: { label: onboardingLabel(facility), path: setupPathLabel(facility.billing?.setupPath), startedAt: facility.onboardingStartedAt, entryConfirmedAt: facility.onboardingEntryConfirmedAt, acknowledgedAt: facility.onboardingCompletedAt },
       administrator: {

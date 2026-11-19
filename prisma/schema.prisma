@@ -134,6 +134,9 @@ model Facility {
   organizationId                        String
   organization                          Organization                            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   displayName                           String
+  /// Manual operational pause; independent of billing, identity and Department authority.
+  operationsSuspendedAt                 DateTime?
+  operationsSuspensionRevision          Int                                     @default(0)
   /// Legacy operator label. Organization is the canonical parent; kept for compatibility (do not dual-write).
   managementCompanyName                 String?
   billingEmail                          String?
@@ -4675,6 +4678,8 @@ enum PlatformStaffRole {
 
 enum HarborAuditAction {
   LOGIN
+  FACILITY_SUSPEND
+  FACILITY_REACTIVATE
   VIEW_CUSTOMER
   WORK_SESSION_START
   WORK_SESSION_END
@@ -4872,9 +4877,25 @@ model HarborAuditEvent {
   assistance HarborAssistanceAuditDetail?
   catalogPublication HarborCatalogPublicationAuditDetail?
   provisioningOverride HarborProvisioningOverrideAuditDetail?
+  facilitySuspension HarborFacilitySuspensionAuditDetail?
 
   @@index([staffId, createdAt])
   @@index([facilityId, createdAt])
+}
+
+/// One reasoned, retry-safe transition of a Facility's manual operational pause.
+model HarborFacilitySuspensionAuditDetail {
+  eventId               String           @id
+  event                 HarborAuditEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  facilityId            String
+  revision              Int
+  requestKey            String           @unique @db.Uuid
+  fingerprint           String
+  reason                String           @db.VarChar(1000)
+  previousSuspendedAt   DateTime?
+  suspendedAt           DateTime?
+
+  @@unique([facilityId, revision])
 }
 
 /// Canonical identity of the published version, retained independently of the Catalog row.

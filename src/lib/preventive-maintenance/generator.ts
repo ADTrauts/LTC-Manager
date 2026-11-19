@@ -12,6 +12,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { facilityOperationsAreSuspended } from "@/lib/facility-operations-suspension";
 
 import { isPmActiveWorkOrderStatus } from "./active-work-order";
 import { facilityCivilToday, parseCivilDate } from "./civil-date";
@@ -161,6 +162,7 @@ export async function generatePmForFacility(
   input: { facilityId: string; now?: Date; timezone?: string | null },
 ): Promise<PmGeneratorResult> {
   const result = emptyResult();
+  if (await facilityOperationsAreSuspended(client, input.facilityId)) return result;
   const now = input.now ?? new Date();
   const facility =
     input.timezone !== undefined
@@ -228,7 +230,7 @@ export async function runPmGeneration(
 ): Promise<PmGeneratorResult> {
   const now = input.now ?? new Date();
   const facilities = await client.facility.findMany({
-    where: { preventiveMaintenancePlans: { some: { status: "PUBLISHED" } } },
+    where: { operationsSuspendedAt: null, preventiveMaintenancePlans: { some: { status: "PUBLISHED" } } },
     select: { id: true, timezone: true },
   });
 

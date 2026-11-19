@@ -1,5 +1,7 @@
 # Harbor customer lifecycle — selected release scope and future commands
 
+**November 19 follow-through:** after the read-only first release and PR #43 release, the owner approved OWNER-only, reasoned, reversible Facility suspension/reactivation as recommended. That command is now an implementation draft in [Phase 5](HARBOR_CONSOLE_PHASE_5_OPERATIONAL_SUSPENSION.md), with no tests, hosted migration, merge or promotion approved. Earlier deferral of that one command is superseded; full-customer export and offboarding/deletion remain deferred. Scanning, staff invitations and independent recovery remain disabled.
+
 Status: **first-release scope selected by the product owner**: read-only customer lifecycle, retaining existing approved billing, recovery, Support and Implementation handling. The owner accepted this recommendation in the coordinating chat and subsequently authorized combined verification, fixes, commit/push and draft review. Neither instruction authorizes merge, hosted database changes, assistance activation, Production promotion or changes to existing billing enforcement.
 
 The read-only implementation and its deferred evidence are recorded in [the batch checklist](HARBOR_CONSOLE_OPERATIONS_LIFECYCLE_BATCH.md). New manual suspension/reactivation, bulk or full-customer export, and offboarding/deletion commands are **deferred future scope**, not blockers to this selected release. Recommendations below remain unapproved proposals for that future scope; no retention periods or new command authority have been adopted.

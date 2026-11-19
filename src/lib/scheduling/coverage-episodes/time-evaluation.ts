@@ -70,6 +70,7 @@ export async function evaluateCoverageTimeBoundaries(input: {
     : await readEvaluationCheckpoint(input.db, "coverage.time-boundaries");
   const discovered = await input.db.coverageEpisode.findMany({
     where: {
+      facility: { operationsSuspendedAt: null },
       closedAt: null,
       ...(input.facilityIds ? { facilityId: { in: input.facilityIds } } : {}),
     },

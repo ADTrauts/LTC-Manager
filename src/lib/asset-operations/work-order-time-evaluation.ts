@@ -50,7 +50,7 @@ export async function evaluateWorkOrderOverdue(input: {
         status: { in: OPEN_WORK_ORDER_STATUSES },
         dueAt: { lte: input.now },
         ...(afterId ? { id: { gt: afterId } } : {}),
-        ...(input.facilityIds ? { unit: { facilityId: { in: [...input.facilityIds] } } } : {}),
+        unit: { facility: { operationsSuspendedAt: null }, ...(input.facilityIds ? { facilityId: { in: [...input.facilityIds] } } : {}) },
       },
       select: {
         id: true,
