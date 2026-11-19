@@ -4,7 +4,7 @@
 
 **Latest position: the owner-approved restricted Stripe connection is configured and activated on the promoted Production rebuild. Scanning is explicitly deferred.** The owner separately approved one rebuild/promotion of the already released source and callback activation. No tests, synthetic messages, scans, payment events, price changes, charges or manual job executions ran for this follow-up.
 
-The owner previously approved promotion of main `a77819f9182437938bcf2a5ba95408e26eb459f1` as deployment `dpl_BJHH9hbR4TeLJHvqWojcFKgfeexQ`; both public domains were observed assigned to it. Earlier unmerged/unpromoted statements below describe the original batch checkpoint. The current follow-up source is local and unreleased on `feat/harbor-operational-connections`.
+The owner previously approved promotion of main `a77819f9182437938bcf2a5ba95408e26eb459f1` as deployment `dpl_BJHH9hbR4TeLJHvqWojcFKgfeexQ`; both public domains were observed assigned to it. Earlier unmerged/unpromoted statements below describe the original batch checkpoint. The current follow-up source is local and unreleased on `feat/harbor-owner-activity`.
 
 ### Existing connections and scanner decision
 
@@ -50,7 +50,29 @@ No GitHub source was pushed or merged. The local billing configuration-response 
 
 Retain the previous compatible deployment `dpl_BJHH9hbR4TeLJHvqWojcFKgfeexQ` and existing database recovery resources. If returning traffic to that older environment snapshot, pause this callback first because the old deployment predates these Stripe variables. Do not remove current logout receipts or their protections during a configuration rollback.
 
-After this operational connection step, real staff lifecycle still needs the trusted roster/work domains, designated administrators and independent sole-owner recovery approver. Deferred lifecycle commands retain their separate product policy. New commercial prices or actual customer transactions are outside this setup.
+The owner subsequently chose to remain the only OWNER and explicitly deferred invitations and independent recovery. Those features stay disabled and no longer hold up unrelated build work. Deferred customer lifecycle commands retain their separate product policy. New commercial prices or actual customer transactions are outside this setup.
+
+### Phase 1D follow-through — own activity view, local draft
+
+The follow-up adds `/console/activity` (My activity) to the OWNER navigation. It composes the current owner's recorded sign-ins, customer reviews, Facility provisions and Marketplace actions from the existing `HarborAuditEvent` store. Four filters and stable 25-row pagination cover the full matching count. Publication rows retain the exact recorded version; a link is available only when that exact definition is still platform-owned. Old events without a recorded target remain explicitly unknown. Current Facility names are labelled as current metadata rather than historical snapshots.
+
+The page and reader both require OWNER authority. Every query is fixed to the validated current staff ID; callers cannot choose another staff member. A PostgreSQL read-only RepeatableRead transaction assembles the projection, followed by a fresh live session/role check. Assistance events, lifecycle cases, logout receipts/keys, provisioning evidence text, messages, private Records and other staff activity are not selected. Links disable prefetch. The reader creates no audit entries and does not change retention or domain action authority. Existing ticket and Implementation histories remain their owning projections.
+
+This is new source awaiting review, not a declaration that all Phase 1D requirements are complete or that the page is live. No migration, test, local app launch, browser run, build or provider request was performed for the new activity implementation. Source was inspected against the existing schema, authority helpers, route registry and read-only projection pattern. Automated test execution will be skipped when publishing the draft, at the owner's instruction; skipped checks are not a PASS and no required repository gate is removed or bypassed.
+
+### Current phase position
+
+| Phase | Current result | Remaining decision/work |
+| --- | --- | --- |
+| 0 — security boundaries | Core protections released; private Blob metadata confirmed | Historical Catalog provenance remains unresolved; no ownership changes made. |
+| 1A — staff capabilities | Existing OWNER publication guard released | Any further capability reassignment requires a specific policy. |
+| 1B — customer assistance | Legacy authority retired; scoped foundation implemented | Assistance and grants stay disabled; no new pilot window or enablement approved. |
+| 1C — staff identity/lifecycle | Normal OWNER access and targeted logout released | Owner explicitly deferred invitations and independent recovery; no second employee is required to continue other work. |
+| 1D — accountability | Publication and Implementation attribution released | Own-activity view added to this draft; no global/reviewer audit policy inferred. |
+| 2 — Customers/Organizations | Directory, profiles, matching and pagination released | No additional feature identified in the selected scope. |
+| 3 — onboarding | Safe retries, invitations/recovery and Implementation handoffs released | No additional onboarding microphase identified in the selected scope. |
+| 4 — operations | Queues released; Stripe connection activated; existing schedules Active | Scanning deliberately deferred; external transaction behavior was not exercised. |
+| 5 — customer lifecycle | Read-only lifecycle/follow-through released | Manual suspension/reactivation, full export and offboarding/deletion remain unapproved command scope. |
 
 Status: implementation complete for the selected scope; **combined local verification passed**. Actual results and resolved failures are recorded in the [November 19 certification](HARBOR_CONSOLE_OPERATIONS_LIFECYCLE_CERTIFICATION_2026-11-19.md). The owner authorized testing, fixes, commit/push and draft review; no merge, hosted migration, pilot activation or Production approval is implied.
 
