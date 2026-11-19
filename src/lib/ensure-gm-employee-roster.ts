@@ -5,6 +5,7 @@ import { EmployeeStatus, EmploymentType, RoleKey } from "@prisma/client";
 
 import { findEmployeeForUserFacility } from "@/lib/employee-identity";
 import { prisma } from "@/lib/prisma";
+import { facilityOperationsAreSuspended } from "@/lib/facility-operations-suspension";
 import { rosterNameFromSignupDisplayName } from "@/lib/roster-name";
 
 function displayNameSourceForRoster(displayName: string, email: string): string {
@@ -26,6 +27,7 @@ function rosterRoleTypeForEmailUser(role: AppRole): RoleKey | null {
 }
 
 export async function ensureGmEmployeeRosterRow(session: FacilitySession): Promise<void> {
+  if (await facilityOperationsAreSuspended(prisma, session.facilityId)) return;
   const rosterRoleType = rosterRoleTypeForEmailUser(session.role);
   if (session.authKind !== "user" || !rosterRoleType || !session.facilityId) {
     return;

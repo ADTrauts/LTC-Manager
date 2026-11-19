@@ -13,7 +13,7 @@ export const HARBOR_ACTIVITY_FILTERS = [
 
 export type HarborActivityFilter = (typeof HARBOR_ACTIVITY_FILTERS)[number]["key"];
 
-const customerActions: HarborAuditAction[] = ["VIEW_CUSTOMER", "PROVISION_FACILITY"];
+const customerActions: HarborAuditAction[] = ["VIEW_CUSTOMER", "PROVISION_FACILITY", "FACILITY_SUSPEND", "FACILITY_REACTIVATE"];
 const catalogActions: HarborAuditAction[] = [
   "CATALOG_CREATE", "CATALOG_PUBLISH", "CATALOG_RETIRE", "CATALOG_DRAFT_SUCCESSOR",
 ];
@@ -27,6 +27,8 @@ const labels: Partial<Record<HarborAuditAction, string>> = {
   LOGIN: "Signed in to the Console",
   VIEW_CUSTOMER: "Reviewed a customer",
   PROVISION_FACILITY: "Provisioned a Facility",
+  FACILITY_SUSPEND: "Suspended Facility operational changes",
+  FACILITY_REACTIVATE: "Reactivated Facility operational changes",
   CATALOG_CREATE: "Created a Marketplace draft",
   CATALOG_PUBLISH: "Published a Marketplace Record",
   CATALOG_RETIRE: "Retired a Marketplace Record",
@@ -89,7 +91,7 @@ export async function loadHarborOwnActivity(
         id: event.id, label: labels[event.action] ?? "Recorded activity", occurredAt: event.createdAt,
         detail: null as string | null, href: null as string | null, linkLabel: null as string | null,
       };
-      if (event.action === "VIEW_CUSTOMER" || event.action === "PROVISION_FACILITY") {
+      if (customerActions.includes(event.action)) {
         const facility = event.facilityId ? facilityById.get(event.facilityId) : null;
         row.detail = facility ? `Current Facility: ${facility.displayName}` : event.facilityId
           ? "The recorded Facility is no longer available." : "A Facility reference was not recorded.";

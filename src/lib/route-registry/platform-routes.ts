@@ -168,7 +168,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "HARBOR_STAFF" },
     module: "harbor-console",
     requiresDownstreamAuthorization: true,
-    notes: "Owner's own recorded sign-ins, customer metadata activity and Marketplace actions only. Live session revalidation; no assistance, lifecycle, receipt-key or other-staff audit projection.",
+    notes: "Owner's own recorded sign-ins, customer metadata activity (including manual operational pauses) and Marketplace actions. Live session revalidation; no assistance, staff-lifecycle, receipt-key or other-staff audit projection.",
   },
   {
     pattern: "/console/operations",
@@ -221,7 +221,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "HARBOR_STAFF" },
     module: "harbor-console",
     requiresDownstreamAuthorization: true,
-    notes: "Read-only tenancy/setup/commercial status, not Facility workspace admission. Reader validates Harbor authority; account activation details require OWNER.",
+    notes: "Tenancy/setup/commercial status, not Facility workspace admission. Reader validates Harbor authority. Manual operational pause commands and reason/history require a live OWNER; commands also require current password, exact Facility confirmation and revision.",
   },
   {
     pattern: "/console/customers/[facilityId]",

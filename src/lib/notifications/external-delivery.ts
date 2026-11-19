@@ -46,6 +46,7 @@ export async function evaluateExternalDelivery(input: {
     : await readEvaluationCheckpoint(input.db, "notifications.external-delivery");
   const discovered = await input.db.notification.findMany({
     where: {
+      facility: { operationsSuspendedAt: null },
       resolvedAt: null,
       OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }],
       recipients: { some: { snoozedUntil: { gte: horizonStart, lte: input.now } } },

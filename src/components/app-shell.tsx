@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 
 import { KioskUnitAccessBanner } from "@/components/kiosk-unit-access-banner";
+import { FacilityOperationsPauseBanner } from "@/components/facility-operations-pause-banner";
 import { ProductModeBanner } from "@/components/product-mode-banner";
 import { ShellBrandBlock } from "@/components/shell-brand-block";
 import { WorkspaceSelector } from "@/components/shell/workspace-selector";
@@ -181,6 +182,7 @@ export async function AppShell({ children }: AppShellProps) {
       <ShellModeFrame brandColor={facility?.brandColor ?? "#0f766e"}>
         <main data-shell-main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <SpaceIdentityBoundary session={anySession} />
+          {facility?.operationsSuspendedAt ? <FacilityOperationsPauseBanner administrator={isFacilityAdministratorRole(session.role)} /> : null}
           {children}
         </main>
       </ShellModeFrame>
@@ -274,6 +276,7 @@ export async function AppShell({ children }: AppShellProps) {
       />
 
       <ProductModeBanner />
+      {facility?.operationsSuspendedAt ? <FacilityOperationsPauseBanner administrator={isFacilityAdministratorRole(session.role)} /> : null}
 
       {kioskBannerUnitName ? <KioskUnitAccessBanner unitName={kioskBannerUnitName} /> : null}
 

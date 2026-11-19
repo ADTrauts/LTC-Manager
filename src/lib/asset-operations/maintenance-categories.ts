@@ -7,6 +7,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
+import { facilityOperationsAreSuspended } from "@/lib/facility-operations-suspension";
 
 import { DEFAULT_MAINTENANCE_CATEGORIES } from "./work-order-semantics";
 
@@ -26,7 +27,7 @@ export async function ensureDefaultMaintenanceCategories(
   });
   const have = new Set(existing.map((row) => row.key));
   const missing = DEFAULT_MAINTENANCE_CATEGORIES.filter((row) => !have.has(row.key));
-  if (missing.length === 0) {
+  if (missing.length === 0 || await facilityOperationsAreSuspended(client, facilityId)) {
     return client.maintenanceCategory.findMany({
       where: { facilityId },
       orderBy: [{ sortOrder: "asc" }, { key: "asc" }],

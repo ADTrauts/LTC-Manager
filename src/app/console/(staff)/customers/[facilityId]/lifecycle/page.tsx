@@ -1,4 +1,6 @@
 import { notFound, redirect } from "next/navigation";
+import { randomUUID } from "node:crypto";
+import { FacilitySuspensionForm } from "@/components/harbor-console/facility-suspension-form";
 
 import { ConsoleFact, ConsolePanel, ConsoleReadLink, ConsoleTimestamp } from "@/components/harbor-console/operations-ui";
 import { peekHarborWorkFacilityId, requireHarborStaff } from "@/lib/harbor-console/auth";
@@ -24,6 +26,22 @@ export default async function HarborCustomerLifecyclePage({ params }: { params: 
       <p className="text-sm text-[var(--text-secondary)]">Current tenancy, setup, service, and commercial facts. Guided setup acknowledgment and customer operation eligibility do not certify configuration, published Records, or operational readiness.</p>
       <p className="text-xs text-[var(--text-secondary)]">Snapshot: <ConsoleTimestamp value={data.observedAt} />.</p>
     </header>
+
+    <ConsolePanel title="Manual operational pause" id="operational-pause">
+      <p className="font-semibold">{data.suspension.at ? "Operational changes suspended" : "No manual operational pause"}</p>
+      {data.suspension.at ? <p>Paused since <ConsoleTimestamp value={data.suspension.at} />. Existing data, billing and Support remain available.</p> : null}
+      {data.suspension.history ? <>
+        <FacilitySuspensionForm facilityId={data.facility.id} facilityName={data.facility.displayName} suspended={Boolean(data.suspension.at)} revision={data.suspension.revision} requestKey={randomUUID()} />
+        {data.suspension.history.length ? <div className="space-y-2 border-t border-[var(--border)] pt-4">
+          <h3 className="font-semibold">Recent pause history</h3>
+          <p className="text-xs">Showing the newest {data.suspension.history.length} of {data.suspension.total} recorded transitions. Staff names are current display names.</p>
+          <ol className="space-y-3">{data.suspension.history.map((entry) => <li key={entry.revision}>
+            <p><strong>{entry.suspendedAt ? "Suspended" : "Reactivated"}</strong> · <ConsoleTimestamp value={entry.event.createdAt} /> · {entry.event.staff.displayName}</p>
+            <p className="whitespace-pre-wrap break-words">{entry.reason}</p>
+          </li>)}</ol>
+        </div> : null}
+      </> : <p>Only the OWNER can change this pause or read its reasons and history.</p>}
+    </ConsolePanel>
 
     <ConsolePanel title="Continue customer follow-up">
       {data.followUp.length ? <ul className="divide-y divide-[var(--border)]">
@@ -86,7 +104,7 @@ export default async function HarborCustomerLifecyclePage({ params }: { params: 
         <tbody>{data.products.map((item) => <tr key={item.productKey} className="border-t border-[var(--border)]">
           <th scope="row" className="p-2 font-medium">{item.name}</th><td className="p-2">{item.releaseStatus}</td>
           {[item.licensed, item.installed, item.enabled, item.entitled].map((value, index) => <td key={index} className="p-2">{value ? "Yes" : "No"}</td>)}
-          <td className="p-2">{item.operable ? "Eligible" : "Unavailable"}</td>
+          <td className="p-2">{data.suspension.at ? "Operational changes paused" : item.operable ? "Eligible" : "Unavailable"}</td>
         </tr>)}</tbody>
       </table></div> : <p>Licensing projection exceeds the bounded detail limit. No readiness result is inferred from partial data; review the Facility directly.</p>}
       <ConsoleReadLink href={`${customerHref}#billing`}>Review billing and authorized reconciliation</ConsoleReadLink>
@@ -94,8 +112,8 @@ export default async function HarborCustomerLifecyclePage({ params }: { params: 
     </ConsolePanel>
 
     <ConsolePanel title="Lifecycle scope">
-      <p>Lifecycle review is read-only. Continue through the existing account recovery, billing, Support, and Implementation flows above; each keeps its own authorization.</p>
-      <p>New manual suspension or reactivation, full-customer exports, and offboarding or deletion commands are outside this release. Existing billing enforcement and separately gated staff assistance remain unchanged.</p>
+      <p>The OWNER can pause or reactivate operational changes with a reason and current password. Existing account recovery, billing, Support and Implementation flows keep their own authorization.</p>
+      <p>Full-customer exports, offboarding and deletion remain deferred. Removing a manual pause does not remove separate billing or security restrictions.</p>
     </ConsolePanel>
   </div>;
 }

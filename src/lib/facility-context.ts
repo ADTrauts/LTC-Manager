@@ -25,6 +25,7 @@ export async function getFacilityForSession() {
     select: {
       id: true,
       displayName: true,
+      operationsSuspendedAt: true,
       managementCompanyName: true,
       brandColor: true,
       timezone: true,

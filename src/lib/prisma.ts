@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 let prismaSingleton: PrismaClient | undefined;
 
 /** Bump when schema relations must force a fresh client after `prisma generate`. */
-const PRISMA_CLIENT_EPOCH = "retire-generic-work-v1";
+const PRISMA_CLIENT_EPOCH = "facility-operations-suspension-v1";
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -32,6 +32,7 @@ function missingRequiredDelegates(client: PrismaClient): string[] {
     "logAttachment",
     "platformStaff",
     "harborAuditEvent",
+    "harborFacilitySuspensionAuditDetail",
     "supportContact",
     "supportTicket",
     "supportTicketMessage",
@@ -63,7 +64,8 @@ function employeeModelMissingJobRoles(client: PrismaClient): boolean {
 
 /** True when this client instance cannot serve the current schema. */
 function isStructurallyStale(client: PrismaClient): boolean {
-  return missingRequiredDelegates(client).length > 0 || employeeModelMissingJobRoles(client);
+  return missingRequiredDelegates(client).length > 0 || employeeModelMissingJobRoles(client) ||
+    modelMissingFields(client, "Facility", ["operationsSuspendedAt", "operationsSuspensionRevision"]);
 }
 
 function getPrismaClient(): PrismaClient {

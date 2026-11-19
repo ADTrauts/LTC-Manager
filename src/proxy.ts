@@ -23,6 +23,7 @@ import {
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { prisma } from "@/lib/prisma";
+import { FACILITY_OPERATIONS_PAUSED_MESSAGE, facilityOperationsAreSuspended, facilityPauseAllowsMutation } from "@/lib/facility-operations-suspension";
 import { authorizeHarborRequest, rejectRetiredHarborWorkRequest } from "@/lib/harbor-console/proxy-gate";
 import { assistanceNoStore, getAssistancePilot, isAssistancePath } from "@/lib/harbor-console/assistance-pilot";
 import { authorizeRoute, isApiPathname, type RouteAuthorizationDecision } from "@/lib/route-registry";
@@ -322,6 +323,14 @@ export async function proxy(request: NextRequest) {
     }
     // Department authority the identity no longer holds is dropped before it can reach nav scoping.
     session.primaryDepartmentId = authority.effectiveDepartmentId ?? undefined;
+
+    if ((isFacilityScopedSession(session) || isPartnerFacilitySession(session)) &&
+        !["GET", "HEAD", "OPTIONS"].includes(request.method) &&
+        !facilityPauseAllowsMutation(pathname) &&
+        await facilityOperationsAreSuspended(prisma, session.facilityId)) {
+      return NextResponse.json({ error: FACILITY_OPERATIONS_PAUSED_MESSAGE, code: "FACILITY_OPERATIONS_PAUSED" },
+        { status: 403, headers: { "Cache-Control": "no-store" } });
+    }
 
     if (isPartnerFacilitySession(session)) {
       const decision = authorizeRoute({

@@ -57,6 +57,7 @@ export async function evaluateKeyPointOverdue(
     : await readEvaluationCheckpoint(input.db, "key-points.overdue");
   const discovered = await input.db.operationalCycleKeyTimeDayExpectation.findMany({
     where: {
+      facility: { operationsSuspendedAt: null },
       serviceDate: { gte: window.from, lte: window.to },
       ...(input.facilityIds ? { facilityId: { in: input.facilityIds } } : {}),
     },

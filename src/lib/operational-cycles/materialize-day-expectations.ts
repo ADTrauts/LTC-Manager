@@ -4,6 +4,7 @@
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { facilityOperationsAreSuspended } from "@/lib/facility-operations-suspension";
 
 import {
   facilityLocalDateToServiceDate,
@@ -125,7 +126,7 @@ export async function materializeMealServiceDayExpectations(
     serviceDate,
   });
 
-  if (!createIfMissing) {
+  if (!createIfMissing || await facilityOperationsAreSuspended(client, input.facilityId)) {
     return { operationalDateKey, created: 0, timings: existing };
   }
 

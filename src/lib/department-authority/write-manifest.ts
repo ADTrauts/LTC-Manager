@@ -532,7 +532,10 @@ export const WRITE_MANIFEST: WriteManifest = {
   [`${APP}/console/(staff)/customers/[facilityId]/implementation/actions.ts`]: each(AUTH_SYSTEM, [
     "implementationStaffAction",
   ]),
-  [`${APP}/console/(staff)/customers/actions.ts`]: each(AUTH_SYSTEM, ["syncCustomerBillingFromStripeAction"]),
+  [`${APP}/console/(staff)/customers/actions.ts`]: {
+    syncCustomerBillingFromStripeAction: AUTH_SYSTEM,
+    changeFacilitySuspensionAction: GOVERNANCE,
+  },
   [`${APP}/console/(staff)/customers/provision-actions.ts`]: each(AUTH_SYSTEM, [
     "previewHarborProvisionAdministratorAction",
     "provisionFacilityAction",
