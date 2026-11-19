@@ -161,6 +161,9 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     module: "harbor-console",
     requiresDownstreamAuthorization: true,
   },
+  { pattern: "/console/exports", match: "EXACT", surface: "PAGE", access: { kind: "HARBOR_STAFF" }, module: "harbor-console", requiresDownstreamAuthorization: true, notes: "OWNER review of immutable customer export scope only; no report payload or staff download authority." },
+  { pattern: "/admin/exports", match: "EXACT", surface: "PAGE", access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") }, module: "administration", requiresDownstreamAuthorization: true, notes: "Current requesting Administrator only. Record export request, cancellation and scoped download; current read authority and ownership are revalidated." },
+  { pattern: "/api/customer-exports/[requestId]/download", match: "EXACT", surface: "API", access: { kind: "ROLE_RESTRICTED", allowedRoles: rolesAtLeast("FACILITY_ADMINISTRATOR") }, module: "reports", requiresDownstreamAuthorization: true, notes: "POST only, same-origin, authenticated current requesting Administrator. Live unexpired approval and self-operated ownership, private no-store response, no artifact storage." },
   {
     pattern: "/console/activity",
     match: "EXACT",

@@ -15,6 +15,7 @@ const NAV = [
   { href: "/console/organization-claims", label: "Org Claims", enabled: true },
   { href: "/console/tickets", label: "Tickets", enabled: true },
   { href: "/console/catalog", label: "Marketplace", enabled: true },
+  { href: "/console/exports", label: "Export requests", enabled: true, ownerOnly: true },
   { href: "/console/activity", label: "My activity", enabled: true, ownerOnly: true },
 ] as const;
 
@@ -63,7 +64,7 @@ export function HarborConsoleShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch={item.href === "/console/operations" || item.href === "/console/activity" ? false : undefined}
+                  prefetch={item.href === "/console/exports" || item.href === "/console/operations" || item.href === "/console/activity" ? false : undefined}
                   className={`rounded-md px-3 py-2 text-sm ${
                     active ? "bg-white/10 font-semibold" : "text-[var(--run-aside-fg)] hover:bg-white/10"
                   }`}

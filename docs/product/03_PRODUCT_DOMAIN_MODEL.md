@@ -236,3 +236,8 @@ Constitution prefers **product terms** in UI and docs; schema renames are option
 7. **Capability switches** — retired in LEG-05 (LEG-D20). Shared engines come with the installed Department. `CANONICAL_LOGS_ENABLED` remains a code flag. The record-engine rollout table was dropped in LEG-06.
 8. **Generic Work Plans** — retired in the canonical baseline. Explicit Assignments carry supported ONE_OFF behavior.
 9. **Department Job Role** — retired as architecture; still present beside operational qualifications until Phase 2.
+
+
+## Customer-requested Record export governance — November 19, 2026
+
+The approved first export is a customer-requested read composition over canonical Records. `CustomerRecordExportRequest` owns the immutable scope, typed field/version manifest and temporary approval; `CustomerRecordExportEvent` owns only its lifecycle and generation receipts. Neither owns operational truth or stores response/export bytes. The current requesting Facility Administrator keeps the underlying read authority; an OWNER approves delivery scope without gaining customer-data access. See the [Phase 5 draft](../console/HARBOR_CONSOLE_PHASE_5_CUSTOMER_RECORD_EXPORTS.md). Full-customer backup and offboarding are outside this decision.
