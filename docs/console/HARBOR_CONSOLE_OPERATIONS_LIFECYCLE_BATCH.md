@@ -1,5 +1,79 @@
 # Harbor Console — local operations and lifecycle batch
 
+## Operational connections follow-up — November 19, 2026
+
+**Latest position: the owner-approved restricted Stripe connection is configured and activated on the promoted Production rebuild. Scanning is explicitly deferred.** The owner separately approved one rebuild/promotion of the already released source and callback activation. No tests, synthetic messages, scans, payment events, price changes, charges or manual job executions ran for this follow-up.
+
+The owner previously approved promotion of main `a77819f9182437938bcf2a5ba95408e26eb459f1` as deployment `dpl_BJHH9hbR4TeLJHvqWojcFKgfeexQ`; both public domains were observed assigned to it. Earlier unmerged/unpromoted statements below describe the original batch checkpoint. The current follow-up source is local and unreleased on `feat/harbor-owner-activity`.
+
+### Existing connections and scanner decision
+
+- Private store `ltc-manager-private` (`store_WvnKrZ5UUUsYvWLq`) was observed available, private and in `iad1`; no objects were listed or transferred.
+- Postmark server `Vssyl Production` (`19790638`) has a provider-verified outbound callback at `https://vssyl.com/api/support/email-events`, subscribed to Delivery, Bounce and Spam Complaint. The sender domain shows DKIM and Return-Path verified. The inbound stream shows `reply.vssyl.com`; its webhook value is masked, so its exact URL/credential match was not established. No Check/Test/Send control was used.
+- The live Vercel Cron page shows Support automation (`0 16 * * *`) and Plant preventive maintenance (`0 6 * * *`) both Active. Invocation metrics were unavailable. No job was manually invoked, so this records configured scheduling rather than execution health.
+- The owner chose **Keep scanning disabled for now**. No host, Vercel upgrade, scanner credentials, scan invocation or download enablement is approved. The prototype scan endpoint, route registration and schedule were removed from the current follow-up; its source remains recoverable in local commit `35e8ae1c`. See the [worker decision](../../workers/support-attachment-scanner/README.md#hosted-scanning-deferred--november-19-2026).
+- The pending billing source fix checks configuration before constructing the Stripe client and returns 503 when a required secret is missing. Signature verification and the existing reconciliation service remain authoritative. This source fix is not part of the currently released commit and is not required to load the approved credentials into an unchanged-code deployment.
+
+### Completed restricted Stripe setup
+
+The owner explicitly selected **Approve limited Stripe connection** for the existing live account `Vssyl (ATraut Corp)` / `acct_1UGiNYRFfs539UXR`. The selected purpose was **Building your own integration**, not persistent agent account access. The earlier automatic-review approval gap was resolved by that answer. The owner completed Stripe's browser identity verification privately.
+
+The application key is named `Vssyl Production billing`. Its seven custom resource permissions are six write (Customers, Checkout Sessions, Subscriptions, Setup Intents, Payment Methods, Customer Portal) and read-only Payment Intents. Other explicit resource permissions remained None, including payouts, refunds, account administration and webhook management; any implied read dependencies are owned by Stripe's selected resource permission. The first unused key's one-time display was closed before transfer. Stripe rotation with expiration **Now** replaced that key; its replacement remains Limited and was saved privately to Vercel. No provider API operation was performed with either key by this work.
+
+All three saved project variables are scoped to **Production only**, with no branch override:
+
+| Variable | Vercel type | Variable ID |
+| --- | --- | --- |
+| `STRIPE_SECRET_KEY` | Secret (`sensitive`) | `VPzdgkAMWo42bthE` |
+| `STRIPE_WEBHOOK_SECRET` | Secret (`sensitive`) | `mfsDtohumgC3bXDq` |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Config (`plain`) | `u4AUD2fBz19Rf5E2` |
+
+Secret values were transferred directly between approved provider pages in memory. They were not printed, written to source/reports or committed. The task clipboard and transfer variables were cleared. Metadata-only provider inspection confirmed the three names, types and Production-only targets. No Preview, pilot or Development setting was changed.
+
+The account-only Snapshot callback is **`we_1UdZSdRFfs539UXRXvt8Ohom`**, named `Vssyl Production billing`, URL `https://vssyl.com/api/billing/webhook`. It is now **Active** after the separately approved Production rebuild and promotion. During initial configuration Stripe created it Active by default; it was immediately disabled until release approval. The activation view still records zero deliveries. No test or replay was requested. Its signing secret is saved in the Production variable above.
+
+Exactly these ten handled events were selected: `setup_intent.succeeded`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`.
+
+The callback is pinned to **`2026-08-26.dahlia`**. The installed SDK pins `2026-04-22.dahlia`; Stripe's UI offered the current monthly Dahlia release, not the older exact month. This retains the same major release family and avoids the newer Endive major. Stripe documents [monthly releases as backward compatible](https://docs.stripe.com/api/versioning); compatibility here follows that vendor contract, not a runtime test or a changed SDK.
+
+### Approved activation completed
+
+The owner selected **Approve deploy and activate Stripe** for exact source `a77819f9182437938bcf2a5ba95408e26eb459f1`. This superseded only the earlier deployment exclusion for that bounded action; no repeat tests, new source, price changes or charges were included.
+
+One fresh Production build was created by redeploying the previously released `dpl_BJHH9hbR4TeLJHvqWojcFKgfeexQ` with `withLatestCommit: false`, target `production`, and the current saved project settings. New deployment **`dpl_DKqe41eZUKD1APy9EFPkoENzHoPF`**, URL `https://ltc-manager-di91qrwfb-adtrauts-projects.vercel.app`, reached **READY**. Its metadata confirms the exact approved SHA and repository. The build compiled successfully; no independent test or CI workflow was dispatched.
+
+After Ready and source/target confirmation, the deployment was promoted. Both `vssyl.com` and `www.vssyl.com` resolve in Vercel alias metadata to `dpl_DKqe41eZUKD1APy9EFPkoENzHoPF`; WWW retains its apex redirect. All three aliases in the promotion request completed. Only then was callback **`we_1UdZSdRFfs539UXRXvt8Ohom`** enabled. Stripe shows **Active**, the approved account-only URL and ten events, Dahlia snapshot version, a masked signing secret and zero recorded deliveries. Its old deployment-pending description was replaced with a current descriptive note, preserving URL, name, scope, version and events.
+
+Provider evidence was recorded at **2026-11-19T18:07:03Z (1:07 p.m. Eastern)**. A bounded read of existing error/fatal logs for the new deployment returned no records in the queried ten-minute window. No application sign-in, HTTP health probe, webhook test/replay or actual payment was performed. This is deployment/alias/provider-configuration evidence, not end-to-end payment certification. Runtime drains and long-term monitoring were not changed or newly certified.
+
+No GitHub source was pushed or merged. The local billing configuration-response fix and other follow-up source were not included in this release. No database binding, schema, authentication/offline key, staff/customer authority, feature flag, Postmark configuration, scan setting, pilot setting or hosting plan was changed by this activation. Both existing jobs remain defined by the unchanged released source; no new scanner schedule was added.
+
+Retain the previous compatible deployment `dpl_BJHH9hbR4TeLJHvqWojcFKgfeexQ` and existing database recovery resources. If returning traffic to that older environment snapshot, pause this callback first because the old deployment predates these Stripe variables. Do not remove current logout receipts or their protections during a configuration rollback.
+
+The owner subsequently chose to remain the only OWNER and explicitly deferred invitations and independent recovery. Those features stay disabled and no longer hold up unrelated build work. Deferred customer lifecycle commands retain their separate product policy. New commercial prices or actual customer transactions are outside this setup.
+
+### Phase 1D follow-through — own activity view, local draft
+
+The follow-up adds `/console/activity` (My activity) to the OWNER navigation. It composes the current owner's recorded sign-ins, customer reviews, Facility provisions and Marketplace actions from the existing `HarborAuditEvent` store. Four filters and stable 25-row pagination cover the full matching count. Publication rows retain the exact recorded version; a link is available only when that exact definition is still platform-owned. Old events without a recorded target remain explicitly unknown. Current Facility names are labelled as current metadata rather than historical snapshots.
+
+The page and reader both require OWNER authority. Every query is fixed to the validated current staff ID; callers cannot choose another staff member. A PostgreSQL read-only RepeatableRead transaction assembles the projection, followed by a fresh live session/role check. Assistance events, lifecycle cases, logout receipts/keys, provisioning evidence text, messages, private Records and other staff activity are not selected. Links disable prefetch. The reader creates no audit entries and does not change retention or domain action authority. Existing ticket and Implementation histories remain their owning projections.
+
+This is new source awaiting review, not a declaration that all Phase 1D requirements are complete or that the page is live. No migration, test, local app launch, browser run, build or provider request was performed for the new activity implementation. Source was inspected against the existing schema, authority helpers, route registry and read-only projection pattern. Automated test execution will be skipped when publishing the draft, at the owner's instruction; skipped checks are not a PASS and no required repository gate is removed or bypassed.
+
+### Current phase position
+
+| Phase | Current result | Remaining decision/work |
+| --- | --- | --- |
+| 0 — security boundaries | Core protections released; private Blob metadata confirmed | Historical Catalog provenance remains unresolved; no ownership changes made. |
+| 1A — staff capabilities | Existing OWNER publication guard released | Any further capability reassignment requires a specific policy. |
+| 1B — customer assistance | Legacy authority retired; scoped foundation implemented | Assistance and grants stay disabled; no new pilot window or enablement approved. |
+| 1C — staff identity/lifecycle | Normal OWNER access and targeted logout released | Owner explicitly deferred invitations and independent recovery; no second employee is required to continue other work. |
+| 1D — accountability | Publication and Implementation attribution released | Own-activity view added to this draft; no global/reviewer audit policy inferred. |
+| 2 — Customers/Organizations | Directory, profiles, matching and pagination released | No additional feature identified in the selected scope. |
+| 3 — onboarding | Safe retries, invitations/recovery and Implementation handoffs released | No additional onboarding microphase identified in the selected scope. |
+| 4 — operations | Queues released; Stripe connection activated; existing schedules Active | Scanning deliberately deferred; external transaction behavior was not exercised. |
+| 5 — customer lifecycle | Read-only lifecycle/follow-through released | Manual suspension/reactivation, full export and offboarding/deletion remain unapproved command scope. |
+
 Status: implementation complete for the selected scope; **combined local verification passed**. Actual results and resolved failures are recorded in the [November 19 certification](HARBOR_CONSOLE_OPERATIONS_LIFECYCLE_CERTIFICATION_2026-11-19.md). The owner authorized testing, fixes, commit/push and draft review; no merge, hosted migration, pilot activation or Production approval is implied.
 
 Branch: `feat/harbor-operations-lifecycle-batch`, based on PR #41 head `9d9988e3e72c5c4117a119194c5c379d1473fa07`. PR #41 and its branch are unchanged. Commit and push follow successful combined local verification; the draft review workflow retains #41 as an explicit dependency.

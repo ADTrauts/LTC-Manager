@@ -162,6 +162,15 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     requiresDownstreamAuthorization: true,
   },
   {
+    pattern: "/console/activity",
+    match: "EXACT",
+    surface: "PAGE",
+    access: { kind: "HARBOR_STAFF" },
+    module: "harbor-console",
+    requiresDownstreamAuthorization: true,
+    notes: "Owner's own recorded sign-ins, customer metadata activity and Marketplace actions only. Live session revalidation; no assistance, lifecycle, receipt-key or other-staff audit projection.",
+  },
+  {
     pattern: "/console/operations",
     match: "EXACT",
     surface: "PAGE",

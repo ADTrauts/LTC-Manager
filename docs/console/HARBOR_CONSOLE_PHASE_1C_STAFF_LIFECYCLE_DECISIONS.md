@@ -1,5 +1,13 @@
 # Harbor Console Phase 1C — Staff authentication and lifecycle
 
+## Current owner decision — November 19, 2026
+
+The product owner confirmed that Vssyl currently has one person and instructed: **keep the existing sole OWNER; leave invitations and independent recovery disabled; continue the remaining phases without tests**. The owner remains the roster approver and administrator. No additional staff, independent approver or recovery exception is authorized. This supersedes any implication that naming another person is a prerequisite to continuing other Harbor work.
+
+Normal OWNER sign-in and per-login logout remain available. Hosted lifecycle ceremonies remain disabled by the existing gate; no lifecycle mode, roster, passkey requirement, staff role or session version was changed for this decision. The synthetic implementation remains evidence and a future foundation, not an active invitation or recovery service. Any later recovery arrangement for one owner needs its own explicit design and enablement decision.
+
+The recommendations below describe that future lifecycle scope; they do not enable it or block the approved read-only Console work.
+
 The per-login revocation change is ready for review independently of the lifecycle decisions below. It preserves `PlatformStaff` as the staff identity, the staff session version as the account-wide invalidation control, and the separate Facility customer session. The recommendations are proposals for product approval. [Staff authority architecture](HARBOR_CONSOLE_PHASE_1_STAFF_AUTHORITY_ARCHITECTURE.md)
 
 ## Session contract and rollout

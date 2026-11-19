@@ -19,6 +19,12 @@ Configure the application/processor with HTTPS `SUPPORT_SCANNER_URL` ending in `
 
 Run the support-specific processor separately from inbound email: `npx tsx scripts/support/process-pending-attachments.ts`. It requires a disposable database by default. `--allow-live` is reserved for separately authorized production operation. Production scheduling must invoke this durable PENDING processor; no best-effort webhook tail job or generic job platform is introduced. Repeated processor invocations recover expired claims. Confirm the database URL before any invocation.
 
+## Hosted scanning deferred — November 19, 2026
+
+The owner chose **Keep scanning disabled for now** instead of either proposed paid hosting option. Do not provision the scanner server, upgrade Vercel, configure scanner credentials, enable downloads or schedule scans under this decision. Existing PENDING files remain unavailable through the current download guard; ordinary email, Support and billing work continues independently.
+
+The prepared scheduler prototype remains recoverable in local commit `35e8ae1c`. Its endpoint, route registration and daily schedule were removed from the current follow-up, so deploying the remaining billing change cannot introduce scan invocations. Any later hosting/schedule activation needs a new explicit owner decision. No test files or emails were sent and no plan or provider billing changes were made.
+
 ## Inspectability and bounds
 
 Uploads retain the 10 MiB cap and blocked types/content. The worker rejects standalone archives and macro-enabled Office extensions. Initial inspectable formats are UTF-8 text/CSV/TSV, bounded valid unencrypted PDFs without embedded/active content, and `.xlsx`/`.docx`/`.pptx` Office containers containing inspectable XML/relationship parts. Embedded media/binaries, unknown formats, encrypted/corrupt containers, external entity declarations and macros are unavailable. Receiving these originals into private custody is still possible; they cannot download as CLEAN. This does not implement a spreadsheet domain reader or evaluate formulas.
