@@ -19,21 +19,11 @@ Configure the application/processor with HTTPS `SUPPORT_SCANNER_URL` ending in `
 
 Run the support-specific processor separately from inbound email: `npx tsx scripts/support/process-pending-attachments.ts`. It requires a disposable database by default. `--allow-live` is reserved for separately authorized production operation. Production scheduling must invoke this durable PENDING processor; no best-effort webhook tail job or generic job platform is introduced. Repeated processor invocations recover expired claims. Confirm the database URL before any invocation.
 
-## Application scheduler connection
+## Hosted scanning deferred — November 19, 2026
 
-The application now defines `GET /api/internal/support/attachment-scans`, registered as an internal Support route and requiring the existing `Authorization: Bearer <CRON_SECRET>`. It runs the same durable processor, with at most three claims per invocation and a 300-second function allowance. It requires both the private store and approved scanner configuration before querying attachments. An absent scanner/store returns an uncached 503 without claiming files. Wrong or absent credentials return 401; missing cron configuration returns 503. HEAD returns 405 without processing.
+The owner chose **Keep scanning disabled for now** instead of either proposed paid hosting option. Do not provision the scanner server, upgrade Vercel, configure scanner credentials, enable downloads or schedule scans under this decision. Existing PENDING files remain unavailable through the current download guard; ordinary email, Support and billing work continues independently.
 
-`vercel.json` schedules this route once daily at 17:00 UTC, independently of Support automation and Plant preventive maintenance. This is compatible with the current Hobby daily-cron limit, not a promise of immediate scanning. At this cadence the batch can process at most three attachments per day, including retries; the processor still honors the existing one-minute/five-minute minimum backoff, but automatic retry waits until a later daily invocation. A faster cadence requires an approved hosting-plan or scheduler change. Do not represent this daily schedule as a production turnaround SLA.
-
-The response and completion log contain aggregate counts only: claimed, clean, blocked, pending retry, failed and unavailable. Individual scan results and their immutable bindings stay with the existing processor. Scheduling/configuration is not evidence that the worker ran or that a file was clean.
-
-Deploying the application route does not provision a scanner host, certificate, token or signature volume. Complete that separate infrastructure choice and configure the exact worker host before releasing the scheduled connection. No scanner, mail, billing, database or browser test was run for this connection at the owner's instruction.
-
-### Hosting proposal awaiting the owner's cost decision
-
-Use one dedicated DigitalOcean Basic Regular server with 2 vCPUs, 4 GiB RAM and 80 GiB SSD in the eastern US, named `vssyl-support-scanner`. The listed base price is [$24/month](https://www.digitalocean.com/pricing/droplets), before tax or extra usage; no paid backup/add-on is proposed. Reuse the existing private ClamAV image and limits. Retain signatures on the host, keep originals only in bounded temporary storage, leave raw clamd on its Unix socket, and expose only the authenticated TLS scanner. Provision the service certificate and a fresh app-specific bearer token privately. Proposed application URL: `https://scanner.vssyl.com/scan`; the new hostname must not move the app's public domains or alter its database bindings. This proposal has not created a server, account, DNS record, certificate, credential or charge.
-
-For prompt processing, the recommended follow-up is Vercel Pro and a five-minute scan schedule (`*/5 * * * *`). [Pro's base fee](https://vercel.com/docs/plans/pro-plan) is $20/month including one deploying seat and $20 usage credit; extra seats, usage and taxes may add to that. The combined base estimate is $44/month. [Hobby legacy Cron](https://vercel.com/docs/schedules/cron-jobs/usage-and-pricing) is daily, so the current source retains its daily schedule until the owner chooses. No plan upgrade or billing change has been made.
+The prepared scheduler prototype remains recoverable in local commit `35e8ae1c`. Its endpoint, route registration and daily schedule were removed from the current follow-up, so deploying the remaining billing change cannot introduce scan invocations. Any later hosting/schedule activation needs a new explicit owner decision. No test files or emails were sent and no plan or provider billing changes were made.
 
 ## Inspectability and bounds
 
