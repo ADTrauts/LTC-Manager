@@ -35,7 +35,7 @@ import {
 import { describeSupportMacroActions, listSupportMacros } from "@/lib/support/macros";
 import { listSupportSavedReplies, renderSupportSavedReply } from "@/lib/support/saved-replies";
 import { allowedSupportTicketTransitions } from "@/lib/support/status-transition";
-import { loadSupportTicketHistoryContext } from "@/lib/support/history";
+import { loadSupportTicketHistoryContext, supportMessageAnchor } from "@/lib/support/history";
 import { listSupportTags } from "@/lib/support/tags";
 import { formatSupportTicketNumber } from "@/lib/support/ticket-number";
 import {
@@ -528,7 +528,7 @@ const DELIVERY_TONE = {
 function MessageEntry({ message }: { message: SupportTimelineMessage }) {
   if (message.kind === "NOTE") {
     return (
-      <li className="rounded-md border border-dashed border-[var(--border-strong)] bg-[var(--background)] p-4">
+      <li id={supportMessageAnchor(message.id)} className="scroll-mt-4 rounded-md border border-dashed border-[var(--border-strong)] bg-[var(--background)] p-4">
         <p className="text-xs text-[var(--text-secondary)]">
           <span className="font-semibold uppercase tracking-wide text-[var(--foreground)]">Internal note</span>
           {" · "}
@@ -545,7 +545,7 @@ function MessageEntry({ message }: { message: SupportTimelineMessage }) {
     const sender = message.fromEmail ?? message.contactEmail ?? "Unknown sender";
     const attachments = message.attachments ?? [];
     return (
-      <li className="rounded-md border border-[var(--border)] border-l-4 border-l-sky-500 bg-sky-50/40 p-4">
+      <li id={supportMessageAnchor(message.id)} className="scroll-mt-4 rounded-md border border-[var(--border)] border-l-4 border-l-sky-500 bg-sky-50/40 p-4">
         <p className="text-xs text-[var(--text-secondary)]">
           <span className="font-semibold uppercase tracking-wide text-[var(--foreground)]">Customer email</span>
           {" · "}
@@ -578,6 +578,7 @@ function MessageEntry({ message }: { message: SupportTimelineMessage }) {
                     <div>
                       <p className="font-medium text-[var(--foreground)]">{view.filename}</p>
                       <p className="text-xs text-[var(--text-secondary)]">{view.detail}</p>
+                      <Link href={`/console/operations/scans/${encodeURIComponent(view.id)}`} prefetch={false} className="text-xs underline underline-offset-2">Scan attempts and scheduling</Link>
                     </div>
                     {view.downloadHref ? (
                       <a
@@ -601,7 +602,7 @@ function MessageEntry({ message }: { message: SupportTimelineMessage }) {
 
   const delivery = presentOutboundDelivery(message, formatTime);
   return (
-    <li className="rounded-md border border-[var(--border)] border-l-4 border-l-[var(--run-aside)] bg-white p-4">
+    <li id={supportMessageAnchor(message.id)} className="scroll-mt-4 rounded-md border border-[var(--border)] border-l-4 border-l-[var(--run-aside)] bg-white p-4">
       <p className="text-xs text-[var(--text-secondary)]">
         <span className="font-semibold uppercase tracking-wide text-[var(--foreground)]">Vssyl reply</span>
         {" · "}
@@ -621,6 +622,7 @@ function MessageEntry({ message }: { message: SupportTimelineMessage }) {
         ) : null}
       </p>
       <p className="mt-2 whitespace-pre-wrap text-sm">{message.bodyText}</p>
+      {message.deliveryStatus === "SENT" ? <p className="mt-2 text-xs text-[var(--text-secondary)]">Provider acceptance is recorded; a delivery outcome is not. <Link href="/console/operations?queue=pending" prefetch={false} className="underline">Review unconfirmed replies</Link>.</p> : null}
       {message.deliveryStatus === "FAILED" && message.deliveryError ? (
         <p className="mt-2 text-xs text-red-700">Not delivered: {message.deliveryError}</p>
       ) : null}

@@ -124,6 +124,9 @@ test("authentication — a protected API without a session is refused, not redir
 test("harbor console — facility roles never enter /console", () => {
   for (const path of [
     "/console",
+    "/console/operations",
+    "/console/operations/scans/synthetic-attachment",
+    "/console/customers/synthetic-facility/lifecycle",
     "/console/customers",
     "/console/customers/new",
     "/console/customers/invitation-follow-up",

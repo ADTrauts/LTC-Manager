@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 
 import { resendHarborProvisionInviteAction } from "@/app/console/(staff)/customers/provision-actions";
 import type { HarborAdministratorInviteTarget } from "@/lib/harbor-console/administrator-activation";
@@ -24,6 +25,7 @@ export function AdministratorInviteRecoveryForm({ facilityId, target }: { facili
         {pending ? "Preparing invitation…" : "Send replacement invitation"}
       </button>
       {state ? <p role="status" className={state.ok ? undefined : "text-red-700"}>{state.message}</p> : null}
+      {state ? <p><Link prefetch={false} href={`/console/customers/${encodeURIComponent(facilityId)}/lifecycle`} className="underline underline-offset-2">Review current Administrator and setup status</Link></p> : null}
     </form>
   );
 }

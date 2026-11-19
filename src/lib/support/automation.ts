@@ -54,6 +54,10 @@ export function actionForSupportAutomationType(type: SupportAutomationType): Sup
   }
 }
 
+export function supportAutomationRuleAnchor(ruleId: string) {
+  return `support-automation-rule-${ruleId}`;
+}
+
 export function supportAutomationDelayLabel(type: SupportAutomationType, delayMinutes: number): string {
   if (type === "UNASSIGNED_ALERT") {
     if (delayMinutes > 0 && delayMinutes % 60 === 0) {

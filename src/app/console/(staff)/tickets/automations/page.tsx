@@ -17,6 +17,7 @@ import {
   SUPPORT_AUTOMATION_TYPE_LABEL,
   SUPPORT_AUTOMATION_TYPES,
   supportAutomationDelayLabel,
+  supportAutomationRuleAnchor,
 } from "@/lib/support/automation";
 import { listSupportSavedReplies } from "@/lib/support/saved-replies";
 import { formatSupportTicketNumber } from "@/lib/support/ticket-number";
@@ -121,7 +122,7 @@ export default async function SupportAutomationsPage({
           </p>
         ) : (
           rules.map((rule) => (
-            <article key={rule.id} className="space-y-3 rounded-md border border-[var(--border)] bg-white p-4">
+            <article key={rule.id} id={supportAutomationRuleAnchor(rule.id)} className="scroll-mt-4 space-y-3 rounded-md border border-[var(--border)] bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold">{rule.name}</h2>

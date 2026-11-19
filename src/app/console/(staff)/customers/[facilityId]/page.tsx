@@ -108,6 +108,9 @@ export default async function HarborCustomerPage({
 
       <section aria-labelledby="operations-overview" className="rounded-md border border-[var(--border)] bg-white p-4">
         <h2 id="operations-overview" className="text-sm font-semibold">Operations overview</h2>
+        <Link href={`/console/customers/${facility.id}/lifecycle`} prefetch={false} className="mt-2 inline-block text-sm underline underline-offset-2">
+          Review lifecycle and readiness facts
+        </Link>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <OverviewItem title="Setup" status={facility.onboarding} href="#account" action="View setup" />
           <OverviewItem title="Billing" status={facility.billingStatus} href="#billing" action="View billing details" />

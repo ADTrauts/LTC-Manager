@@ -5,6 +5,14 @@ import { ACTIVE_SUPPORT_STATUSES } from "./queues";
 
 export const SUPPORT_HISTORY_RECENT_LIMIT = 5;
 
+export function supportMessageAnchor(messageId: string) {
+  return `support-message-${messageId}`;
+}
+
+export function supportMessageHref(ticketId: string, messageId: string) {
+  return `/console/tickets/${encodeURIComponent(ticketId)}#${encodeURIComponent(supportMessageAnchor(messageId))}`;
+}
+
 export const SUPPORT_HISTORY_TICKET_SELECT = {
   id: true,
   number: true,

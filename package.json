@@ -13,6 +13,7 @@
     "test:hermetic": "node scripts/verify/run-tests.mjs hermetic",
     "test:db": "node scripts/verify/run-tests.mjs db",
     "test:offline-browser": "node scripts/verify/run-offline-browser.mjs",
+    "test:harbor-operations-browser": "node scripts/verify/run-harbor-operations-browser.mjs",
     "test:assignment-browser": "node scripts/verify/run-assignment-browser.mjs",
     "test:operational-cycles-browser": "node scripts/verify/run-operational-cycles-browser.mjs",
     "test:job-flow-browser": "node scripts/verify/run-job-flow-browser.mjs",

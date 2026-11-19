@@ -11,6 +11,7 @@ import {
   isPaymentProblem,
   onboardingLabel,
   setupPathLabel,
+  PAYMENT_PROBLEM_STATUSES,
   type HarborSetupFilter,
 } from "@/lib/harbor-console/presentation";
 import {
@@ -213,8 +214,15 @@ export async function loadHarborCustomerDirectoryPage(
 }
 
 export async function loadHarborToday(client: PrismaClient) {
-  const [billingRows, setupFollowUp] = await Promise.all([
-    listHarborFacilities(client),
+  const [paymentFollowUp, setupFollowUp] = await Promise.all([
+    client.$transaction(async (tx) => {
+      const where = { billing: { is: { status: { in: PAYMENT_PROBLEM_STATUSES } } } } satisfies Prisma.FacilityWhereInput;
+      const total = await tx.facility.count({ where });
+      const rows = total ? await tx.facility.findMany({
+        where, select: facilitySelect, orderBy: [{ displayName: "asc" }, { id: "asc" }], take: 5,
+      }) : [];
+      return { total, rows: rows.map(toRow) };
+    }, { isolationLevel: "RepeatableRead" }),
     client.$transaction(async (tx) => {
       const where = setupFilterWhere("awaiting");
       const total = await tx.facility.count({ where });
@@ -236,7 +244,7 @@ export async function loadHarborToday(client: PrismaClient) {
       };
     }, { isolationLevel: "RepeatableRead" }),
   ]);
-  return { setupFollowUp, paymentProblems: billingRows.filter((row) => row.paymentProblem) };
+  return { setupFollowUp, paymentFollowUp };
 }
 
 /** Pre-participation handoff metadata only. Detailed scope and evidence stay

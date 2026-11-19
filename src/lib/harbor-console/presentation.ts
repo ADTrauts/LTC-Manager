@@ -3,6 +3,18 @@ import type { ImplementationWorkFilter } from "@/lib/implementation/work-queue";
 
 export type HarborSetupFilter = "awaiting" | "acknowledged";
 
+/** Elapsed age, not a delivery SLA or a claim that an attempt is overdue. */
+export function elapsedAgeLabel(since: Date, at: Date): string {
+  const milliseconds = at.getTime() - since.getTime();
+  if (milliseconds < 0) return "Recorded timestamp is ahead of this snapshot";
+  const minutes = Math.floor(milliseconds / 60_000);
+  if (minutes < 1) return "Less than a minute";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ${minutes % 60} min`;
+  return `${Math.floor(hours / 24)} days ${hours % 24} hr`;
+}
+
 export function harborCustomersHref({ query, work, setup, page = 1 }: {
   query?: string;
   work?: ImplementationWorkFilter | null;
@@ -18,8 +30,10 @@ export function harborCustomersHref({ query, work, setup, page = 1 }: {
   return search ? `/console/customers?${search}` : "/console/customers";
 }
 
+export const PAYMENT_PROBLEM_STATUSES: FacilityBillingStatus[] = ["PAST_DUE", "INCOMPLETE", "UNPAID", "PAUSED"];
+
 export function isPaymentProblem(status: FacilityBillingStatus | null | undefined): boolean {
-  return status === "PAST_DUE" || status === "INCOMPLETE" || status === "UNPAID" || status === "PAUSED";
+  return status != null && PAYMENT_PROBLEM_STATUSES.includes(status);
 }
 
 export function billingStatusLabel(status: FacilityBillingStatus | null | undefined): string {

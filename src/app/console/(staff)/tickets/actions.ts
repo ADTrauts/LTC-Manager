@@ -111,6 +111,9 @@ function revalidateTickets(ticketId?: string) {
   revalidatePath("/console/tickets/tags");
   revalidatePath("/console/tickets/macros");
   revalidatePath("/console/tickets/automations");
+  revalidatePath("/console/operations");
+  revalidatePath("/console/operations/scans/[attachmentId]", "page");
+  revalidatePath("/console/customers/[facilityId]/lifecycle", "page");
   if (ticketId) {
     revalidatePath(ticketPath(ticketId));
   }
