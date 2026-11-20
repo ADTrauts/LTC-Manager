@@ -30,9 +30,9 @@ export async function evaluateWorkOrderOverdue(input: {
   db: Db;
   now: Date;
   facilityIds?: string[];
-  control?: { deadline: Date; renew: () => Promise<boolean> };
+  control?: { deadline: Date; owner?: string; renew: () => Promise<boolean> };
 }): Promise<ScheduledEvaluationResult> {
-  const result: ScheduledEvaluationResult = { ...EMPTY, outboxIds: [] };
+  const result: ScheduledEvaluationResult = { ...EMPTY, outboxIds: [], cycleCompleted: false };
   const facilities = new Set<string>();
   let examined = 0;
   const checkpoint = input.facilityIds
@@ -40,6 +40,7 @@ export async function evaluateWorkOrderOverdue(input: {
     : await readEvaluationCheckpoint(input.db, "work-orders.overdue");
   let afterId = input.facilityIds ? null : checkpoint.facilityCursor;
   let wrapped = false;
+  let interrupted = false;
   let lastId: string | null = afterId;
 
   for (let page = 0; page < SCAN_PAGES && result.transitions < CANDIDATE_BATCH; page += 1) {
@@ -68,10 +69,8 @@ export async function evaluateWorkOrderOverdue(input: {
       page -= 1;
       continue;
     }
-    if (rows.length === 0) break;
+    if (rows.length === 0) { result.cycleCompleted = true; break; }
     examined += rows.length;
-    afterId = rows.at(-1)?.id ?? afterId;
-    lastId = afterId;
 
     const prefixes = rows.flatMap((row) =>
       row.dueAt ? [`work-order-overdue:${row.id}:${row.dueAt.toISOString()}`] : [],
@@ -85,6 +84,8 @@ export async function evaluateWorkOrderOverdue(input: {
     const seen = existing.map((row) => row.dedupeKey);
 
     for (const row of rows) {
+      if (input.control && Date.now() >= input.control.deadline.getTime()) { interrupted = true; break; }
+      lastId = row.id;
       if (!row.dueAt || !row.unit.facilityId) continue;
       facilities.add(row.unit.facilityId);
       result.candidates += 1;
@@ -107,7 +108,7 @@ export async function evaluateWorkOrderOverdue(input: {
         );
         result.transitions += 1;
         result.outboxIds.push(outboxId);
-        if (result.transitions >= CANDIDATE_BATCH) break;
+        if (result.transitions >= CANDIDATE_BATCH) { interrupted = true; break; }
       } catch (error) {
         result.failures += 1;
         console.info(
@@ -121,7 +122,10 @@ export async function evaluateWorkOrderOverdue(input: {
         );
       }
     }
+    afterId = lastId;
+    if (interrupted) break;
     if (rows.length < CANDIDATE_BATCH) {
+      result.cycleCompleted = true;
       if (!input.facilityIds) lastId = null;
       break;
     }
@@ -132,7 +136,7 @@ export async function evaluateWorkOrderOverdue(input: {
       facilityCursor: lastId,
       recordCursor: null,
       recordFacilityId: null,
-    });
+    }, { owner: input.control?.owner, cycleCompleted: result.cycleCompleted, now: input.now });
   }
 
   result.facilitiesScanned = facilities.size;

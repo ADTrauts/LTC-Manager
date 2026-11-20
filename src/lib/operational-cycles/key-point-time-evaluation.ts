@@ -74,7 +74,7 @@ export async function evaluateKeyPointOverdue(
     control: input.control,
     visit: async (facilityId, afterId) => {
       try {
-        const scanned = await evaluateFacility(input.db, facilityId, input.now, afterId);
+        const scanned = await evaluateFacility(input.db, facilityId, input.now, afterId, input.control?.deadline);
         if (!afterId) result.facilitiesScanned += 1;
         result.candidates += scanned.candidates;
         result.transitions += scanned.transitions;
@@ -112,6 +112,7 @@ async function evaluateFacility(
   facilityId: string,
   now: Date,
   afterId: string | null,
+  deadline?: Date,
 ): Promise<Pick<ScheduledEvaluationResult, "candidates" | "transitions" | "outboxIds"> & { full: boolean; lastId: string | null }> {
   const timezone = await loadFacilityTimezone(db, facilityId);
   const serviceDate = getFacilityServiceDate(timezone, now);
@@ -173,7 +174,11 @@ async function evaluateFacility(
   const outboxIds: string[] = [];
   let candidates = 0;
   let transitions = 0;
+  let lastId = afterId;
+  let interrupted = false;
   for (const row of expectations) {
+    if (deadline && Date.now() >= deadline.getTime()) { interrupted = true; break; }
+    lastId = row.id;
     if (row.cycle.nodeKind !== "KEY_TIME") continue;
     if (row.cycle.keyPointGrain !== "LOCATION") continue;
     if (row.cycle.occurrenceTracking !== "REQUIRED") continue;
@@ -224,7 +229,7 @@ async function evaluateFacility(
     candidates,
     transitions,
     outboxIds,
-    full: expectations.length === EXPECTATION_BATCH,
-    lastId: expectations.at(-1)?.id ?? null,
+    full: interrupted || expectations.length === EXPECTATION_BATCH,
+    lastId,
   };
 }

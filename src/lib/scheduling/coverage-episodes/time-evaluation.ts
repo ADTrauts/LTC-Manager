@@ -87,7 +87,7 @@ export async function evaluateCoverageTimeBoundaries(input: {
     control: input.control,
     visit: async (facilityId, afterId) => {
       try {
-        const produced = await evaluateFacility(input.db, facilityId, input.now, afterId);
+        const produced = await evaluateFacility(input.db, facilityId, input.now, afterId, input.control?.deadline);
         if (!afterId) result.facilitiesScanned += 1;
         result.candidates += produced.candidates;
         result.transitions += produced.transitions;
@@ -126,6 +126,7 @@ async function evaluateFacility(
   facilityId: string,
   now: Date,
   afterEpisodeId: string | null,
+  deadline?: Date,
 ): Promise<
   Pick<ScheduledEvaluationResult, "candidates" | "transitions" | "reevaluations" | "failures" | "outboxIds"> & {
     full: boolean;
@@ -164,7 +165,9 @@ async function evaluateFacility(
     groups.set(key, group);
   }
 
+  const finished = new Set<string>();
   for (const [key, group] of groups) {
+    if (deadline && Date.now() >= deadline.getTime()) break;
     const separator = key.indexOf(":");
     const departmentId = key.slice(0, separator);
     const serviceDateKey = key.slice(separator + 1);
@@ -246,11 +249,19 @@ async function evaluateFacility(
         }),
       );
     }
+    for (const episode of group) finished.add(episode.id);
+  }
+  // Groups may contain non-contiguous IDs. Only advance past a fully handled
+  // prefix; rechecking a later group is safe, skipping an unfinished one is not.
+  let lastEpisodeId = afterEpisodeId;
+  for (const episode of episodes) {
+    if (!finished.has(episode.id)) break;
+    lastEpisodeId = episode.id;
   }
   return {
     ...produced,
-    full: episodes.length === COVERAGE_TIME_EPISODE_BATCH,
-    lastEpisodeId: episodes.at(-1)?.id ?? null,
+    full: finished.size < episodes.length || episodes.length === COVERAGE_TIME_EPISODE_BATCH,
+    lastEpisodeId,
   };
 }
 

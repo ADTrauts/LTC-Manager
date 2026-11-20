@@ -337,7 +337,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "PUBLIC" },
     module: "platform",
     notes:
-      "Scheduled Evaluation. Handler requires Bearer CRON_SECRET. No session and no facility id from the caller. Not on the Vercel cron schedule until the project plan accepts a sub-hour cron. Hobby is daily.",
+      "Five-minute Scheduled Evaluation on Pro. Requires explicit SCHEDULED_EVALUATION_ENABLED=true and Bearer CRON_SECRET. No session or caller-selected Facility. One bounded pass lease; does not enable Web Push.",
   },
   {
     pattern: "/console/tickets/[ticketId]",

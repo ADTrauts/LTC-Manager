@@ -225,6 +225,7 @@ async function scanFacility(
   facilityId: string,
   now: Date,
   startAfter: string | null,
+  deadline?: Date,
 ): Promise<Pick<ScheduledEvaluationResult, "candidates" | "transitions" | "failures"> & { lastId: string | null; full: boolean }> {
   const totals = { candidates: 0, transitions: 0, failures: 0, lastId: startAfter, full: false };
   let cursor: string | undefined = startAfter ?? undefined;
@@ -255,8 +256,9 @@ async function scanFacility(
       },
     });
     if (threads.length === 0) break;
-    totals.lastId = threads[threads.length - 1]?.id ?? totals.lastId;
     for (const thread of threads) {
+      if (deadline && Date.now() >= deadline.getTime()) return { ...totals, full: true };
+      totals.lastId = thread.id;
       const attention = attentionFor(thread);
       if (attention === "missing_primary" || attention === "invalid") {
         totals.failures += 1;
@@ -321,7 +323,7 @@ export async function evaluateAcknowledgementEscalation(input: {
     control: input.control,
     visit: async (facilityId, afterId) => {
       try {
-        const scanned = await scanFacility(input.db, facilityId, input.now, afterId);
+        const scanned = await scanFacility(input.db, facilityId, input.now, afterId, input.control?.deadline);
         if (!afterId) result.facilitiesScanned += 1;
         result.candidates += scanned.candidates;
         result.transitions += scanned.transitions;

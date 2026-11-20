@@ -10,7 +10,9 @@
  */
 export const SCHEDULED_EVALUATION_CADENCE_MS = 5 * 60 * 1000;
 export const SCHEDULED_EVALUATION_LEASE_MS = 6 * 60 * 1000;
+// One cooperative budget for the entire cron pass, including outbox processing.
 export const SCHEDULED_EVALUATION_EXECUTION_BUDGET_MS = 4 * 60 * 1000;
+export const SCHEDULED_EVALUATION_OUTBOX_RESERVE_MS = 30 * 1000;
 export const SCHEDULED_EVALUATION_OVERDUE_MS = 10 * 60 * 1000;
 export const SCHEDULED_EVALUATION_FACILITY_BATCH = 25;
 export const COVERAGE_TIME_EPISODE_BATCH = 100;

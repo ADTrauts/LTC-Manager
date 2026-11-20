@@ -130,13 +130,14 @@ export async function processNotificationOutboxRow(
 
 export async function processPendingNotificationOutbox(
   db: PrismaClient,
-  input: { limit?: number; facilityId?: string } = {},
+  input: { limit?: number; facilityId?: string; deadline?: Date; excludeSuspended?: boolean } = {},
 ): Promise<NotificationProcessingResult[]> {
   const limit = Math.min(Math.max(input.limit ?? PROCESS_PENDING_LIMIT, 1), 50);
   const rows = await db.notificationOutbox.findMany({
     where: {
       processedAt: null,
       ...(input.facilityId ? { facilityId: input.facilityId } : {}),
+      ...(input.excludeSuspended ? { facility: { operationsSuspendedAt: null } } : {}),
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: limit,
@@ -144,6 +145,7 @@ export async function processPendingNotificationOutbox(
   });
   const results: NotificationProcessingResult[] = [];
   for (const row of rows) {
+    if (input.deadline && Date.now() >= input.deadline.getTime()) break;
     results.push(await processNotificationOutboxRow(db, { outboxId: row.id }));
   }
   return results;
