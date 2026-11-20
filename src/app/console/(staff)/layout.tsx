@@ -2,6 +2,7 @@ import { HarborConsoleShell } from "@/components/harbor-console/harbor-console-s
 import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
 import { listSupportStaffNotifications } from "@/lib/support/notifications";
+import { productionStaffLifecycleConfig } from "@/lib/harbor-console/lifecycle/gate";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function HarborStaffLayout({ children }: { children: React.
       staffRole={session.staffRole}
       notifications={feed.items}
       unreadCount={feed.unreadCount}
+      staffAccessEnabled={productionStaffLifecycleConfig() !== null}
     >
       {children}
     </HarborConsoleShell>

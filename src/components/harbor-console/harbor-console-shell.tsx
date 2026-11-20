@@ -31,12 +31,14 @@ export function HarborConsoleShell({
   staffRole,
   notifications,
   unreadCount,
+  staffAccessEnabled = false,
   children,
 }: {
   staffName: string;
   staffRole: string;
   notifications?: SupportStaffNotificationItem[];
   unreadCount?: number;
+  staffAccessEnabled?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -74,6 +76,7 @@ export function HarborConsoleShell({
               );
             })}
           </nav>
+          {staffAccessEnabled && <Link href="/console/staff" prefetch={false} className="mt-3 block rounded-md px-3 py-2 text-sm text-[var(--run-aside-fg)] hover:bg-white/10">Staff access</Link>}
         </div>
         <div className="space-y-3 px-1">
           <HarborSupportNotifications items={notifications ?? []} unreadCount={unreadCount ?? 0} />

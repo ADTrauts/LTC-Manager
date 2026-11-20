@@ -9,6 +9,7 @@ import {
 } from "@/lib/notifications/push-subscription-http";
 import { pushRegistrationUserId } from "@/lib/notifications/push-registration-session";
 import { prisma } from "@/lib/prisma";
+import { isWebPushSendingEnabled } from "@/lib/notifications/web-push-config";
 
 export async function POST(request: Request): Promise<Response> {
   const session = await getAppSession();
@@ -16,6 +17,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!userId || !session || typeof session.exp !== "number" || typeof session.sessionVersion !== "number") {
     return pushDenied();
   }
+  if (!isWebPushSendingEnabled()) return pushJson({ error: "Browser alerts are not available right now." }, 503);
   const body = await readSubscriptionBody(request);
   if (!body) return pushJson({ error: "Invalid subscription." }, 400);
   const now = new Date();

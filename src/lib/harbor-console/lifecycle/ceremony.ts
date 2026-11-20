@@ -40,8 +40,8 @@ export async function beginAssertion(tx: Tx, config: StaffLifecycleConfig, bindi
   return { challengeId: row.id, options };
 }
 
-export async function beginEnrollment(tx: Tx, config: StaffLifecycleConfig, intentId: string, email: string,
-  loginKey: string | null) {
+export async function beginEnrollment(tx: Tx, config: StaffLifecycleConfig, intentId: string | null, email: string,
+  loginKey: string | null, binding?: { staffId: string; staffVersion: number }) {
   const options = await generateRegistrationOptions({
     rpName: "Vssyl Console", rpID: config.rpID, userName: email,
     userID: new TextEncoder().encode(digest(email).slice(0, 32)),
@@ -50,7 +50,7 @@ export async function beginEnrollment(tx: Tx, config: StaffLifecycleConfig, inte
     supportedAlgorithmIDs: [-7, -257],
   });
   const row = await tx.harborStaffLifecycleChallenge.create({ data: {
-    kind: "ENROLL", intentId, loginKey, challenge: options.challenge, expiresAt: new Date(Date.now() + fiveMinutes),
+    kind: "ENROLL", intentId, loginKey, ...binding, challenge: options.challenge, expiresAt: new Date(Date.now() + fiveMinutes),
   } });
   return { challengeId: row.id, options };
 }

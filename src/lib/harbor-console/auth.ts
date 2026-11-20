@@ -60,11 +60,14 @@ export async function validateHarborStaffSession(
       role: true,
       isActive: true,
       sessionVersion: true,
+      _count: { select: { lifecyclePasskeys: true } },
     },
   });
   if (!staff || !staff.isActive) {
     return { valid: false as const };
   }
+  // Once enrolled, a staff identity cannot fall back to password-only authority when issuance is paused.
+  if (staff._count.lifecyclePasskeys > 0 && session.staffMfa !== true) return { valid: false as const };
   if (staff.sessionVersion !== session.sessionVersion) {
     return { valid: false as const };
   }

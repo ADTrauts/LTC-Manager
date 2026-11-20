@@ -75,7 +75,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Never intercept auth/API — network only, no cache write.
-  if (isAuthOrApiPath(url.pathname) || url.pathname === "/console/assistance") {
+  if (isAuthOrApiPath(url.pathname) || url.pathname === "/console" || url.pathname.startsWith("/console/")) {
     return;
   }
 
