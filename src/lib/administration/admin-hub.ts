@@ -31,6 +31,7 @@ export const ADMIN_HUB_SECTIONS: readonly AdminHubSection[] = [
     id: "organization",
     title: "Organization",
     links: [
+      { id: "record_exports", label: "Requested Record exports", description: "Request OWNER approval and privately download your approved Record reports.", href: "/admin/exports" },
       {
         id: "organization_settings",
         label: "Organization",

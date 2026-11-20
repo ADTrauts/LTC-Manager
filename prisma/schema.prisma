@@ -5854,3 +5854,46 @@ model ScheduledEvaluationLease {
   /// Set only when this pass visited every currently eligible Facility. A fresh lastSucceededAt can still be a partial rotation.
   lastCycleCompletedAt        DateTime?
 }
+
+
+/// Customer-requested report permission. No export payload or bearer download token is stored.
+model CustomerRecordExportRequest {
+  id               String   @id @db.Uuid
+  facilityId       String
+  requesterId      String
+  requesterLabel   String
+  departmentId     String
+  recordKey        String
+  fromDate         String   @db.VarChar(10)
+  toDate           String   @db.VarChar(10)
+  format           String   @db.VarChar(4)
+  dataList         Json
+  manifestVersion  Int      @default(1)
+  fingerprint      String
+  status           String   @default("PENDING")
+  revision         Int      @default(0)
+  approvedById     String?
+  approvedAt       DateTime?
+  expiresAt        DateTime?
+  createdAt        DateTime @default(now())
+  events           CustomerRecordExportEvent[]
+
+  @@index([facilityId, requesterId, createdAt])
+  @@index([status, createdAt])
+}
+
+/// Lifecycle/delivery receipts only; never contains report responses or credentials.
+model CustomerRecordExportEvent {
+  id          String   @id @default(cuid())
+  requestId   String   @db.Uuid
+  request     CustomerRecordExportRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  action      String
+  actorId     String
+  actorKind   String
+  artifactHash String?
+  byteCount   Int?
+  recordCount Int?
+  createdAt   DateTime @default(now())
+
+  @@index([requestId, createdAt])
+}

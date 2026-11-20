@@ -235,3 +235,8 @@ The policy events `readiness.became_at_risk` and `readiness.became_degraded` are
 2. Prefer **Facility** over Site in new docs.  
 3. Prefer **Needs Attention** everywhere readiness is user-visible.  
 4. Stop calling Workspace “Wave 12 Industry” — that overloaded the roadmap term.
+
+
+## Requested Record exports — November 19, 2026
+
+Use **Requested Record exports**, **Request OWNER approval**, **Approved**, **Expired** and **Revoke further downloads** for the first customer export. Say **recorded responses** and **current data at generation**. Do not label it a full-Facility backup, a stored file, an expected/missed-work report or a delivered file. A **generation receipt** records generation, not browser receipt. The [approved scope](../console/HARBOR_CONSOLE_PHASE_5_CUSTOMER_RECORD_EXPORTS.md) excludes vendor/private data, HR, attachments, credentials and internal staff notes.
