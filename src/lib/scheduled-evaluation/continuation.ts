@@ -164,21 +164,26 @@ export async function forFacilityRotation(input: {
       let paging = true;
       let continuations = 0;
       while (paging) {
+        const previousFacilityCursor = checkpoint.facilityCursor;
         const scanned = await input.visit(facilityId, after);
+        if (scanned.full && (!scanned.lastId || scanned.lastId === after)) {
+          // No progress before the deadline: retry this Facility/record cursor.
+          checkpoint.facilityCursor = previousFacilityCursor;
+          stopped = true;
+          break;
+        }
         seen.add(facilityId);
         cursor = facilityId;
         checkpoint.facilityCursor = facilityId;
-        if (
-          scanned.full &&
-          scanned.lastId &&
-          scanned.lastId !== after &&
-          continuations < FACILITY_RECORD_CONTINUATIONS
-        ) {
-          continuations += 1;
+        if (scanned.full && scanned.lastId && scanned.lastId !== after) {
           checkpoint.recordFacilityId = facilityId;
           checkpoint.recordCursor = scanned.lastId;
           after = scanned.lastId;
-          if (input.control && Date.now() >= input.control.deadline.getTime()) {
+          continuations += 1;
+          if (continuations > FACILITY_RECORD_CONTINUATIONS ||
+              (input.control && Date.now() >= input.control.deadline.getTime())) {
+            // A full final page is unfinished, even at the page cap. Preserve
+            // its cursor instead of starting again at the first record.
             stopped = true;
             paging = false;
           }
@@ -190,6 +195,7 @@ export async function forFacilityRotation(input: {
           paging = false;
         }
       }
+      if (stopped) break;
     }
     if (input.oneList) break;
   }

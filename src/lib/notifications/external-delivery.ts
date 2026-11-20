@@ -65,7 +65,7 @@ export async function evaluateExternalDelivery(input: {
     control: input.control,
     visit: async (facilityId, afterId) => {
       try {
-        const scanned = await scanFacility(input.db, facilityId, input.now, horizonStart, afterId);
+        const scanned = await scanFacility(input.db, facilityId, input.now, horizonStart, afterId, input.control?.deadline);
         if (!afterId) result.facilitiesScanned += 1;
         result.candidates += scanned.candidates;
         result.transitions += scanned.transitions;
@@ -86,6 +86,7 @@ export async function evaluateExternalDelivery(input: {
       now: input.now,
     });
   }
+  if (input.control && Date.now() >= input.control.deadline.getTime()) return { ...result, cycleCompleted: false };
   try {
     const deliveryFacilities = input.facilityIds ?? ordered;
     await deliverQueuedPushDispatches(input.db, {
@@ -106,6 +107,7 @@ async function scanFacility(
   now: Date,
   horizonStart: Date,
   startAfter: string | null,
+  deadline?: Date,
 ): Promise<Pick<ScheduledEvaluationResult, "candidates" | "transitions" | "failures"> & { lastId: string | null; full: boolean }> {
   const totals = { candidates: 0, transitions: 0, failures: 0, lastId: startAfter, full: false };
   let cursor = startAfter;
@@ -125,6 +127,8 @@ async function scanFacility(
       take: EXTERNAL_DELIVERY_PAGE,
     });
     for (const recipient of recipients) {
+      if (deadline && Date.now() >= deadline.getTime()) return { ...totals, full: true };
+      totals.lastId = recipient.id;
       totals.candidates += 1;
       if (!recipient.snoozedUntil) continue;
       try {
