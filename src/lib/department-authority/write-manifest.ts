@@ -40,6 +40,8 @@ const PROTECTED = `${APP}/(protected)`;
 const DEPARTMENT_ADMIN = `${PROTECTED}/admin/departments/[departmentId]`;
 
 export const WRITE_MANIFEST: WriteManifest = {
+  [`${PROTECTED}/admin/offboarding/actions.ts`]: each(GOVERNANCE, ["requestCustomerOffboardingAction", "respondCustomerOffboardingAction"]),
+  [`${APP}/console/(staff)/offboarding/actions.ts`]: each(GOVERNANCE, ["reviewCustomerOffboardingAction"]),
   [`${PROTECTED}/admin/exports/actions.ts`]: each(GOVERNANCE, ["requestRecordExportAction", "cancelRecordExportAction"]),
   [`${APP}/console/(staff)/exports/actions.ts`]: each(GOVERNANCE, ["reviewRecordExportAction"]),
   [`${APP}/api/customer-exports/[requestId]/download/route.ts`]: { POST: GOVERNANCE },

@@ -126,6 +126,7 @@ model Organization {
 
 /// One deployment typically has one facility; all operational data is scoped here for future multi-site support.
 model Facility {
+  offboardingRequests                  CustomerOffboardingRequest[]
   harborAssistanceConsents              HarborAssistanceConsent[]
   implementationEngagements             ImplementationEngagement[]
   setupImportBatches                    SetupImportBatch[]
@@ -942,6 +943,7 @@ model MenuOperationalCycleApplicability {
 }
 
 model User {
+  offboardingRequests CustomerOffboardingRequest[]
   harborAssistanceConsents          HarborAssistanceConsent[] @relation("HarborConsentAdministrator")
   harborAssistanceConsentsWithdrawn HarborAssistanceConsent[] @relation("HarborConsentWithdrawal")
   harborAssistanceGrantsRevoked     HarborFacilityGrant[] @relation("HarborGrantCustomerRevoker")
@@ -5895,5 +5897,47 @@ model CustomerRecordExportEvent {
   recordCount Int?
   createdAt   DateTime @default(now())
 
+  @@index([requestId, createdAt])
+}
+
+/// Customer/OWNER coordination only; never an authoritative service, billing or access state.
+model CustomerOffboardingRequest {
+  id                String   @id @db.Uuid
+  facilityId        String
+  facility          Facility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  requesterId       String
+  requester         User     @relation(fields: [requesterId], references: [id], onDelete: Restrict)
+  requesterLabel    String   @db.VarChar(100)
+  requestedDate     String   @db.VarChar(10)
+  facilityTimezone  String   @db.VarChar(100)
+  reason            String   @db.VarChar(1000)
+  fingerprint       String   @db.VarChar(64)
+  status            String   @default("REQUESTED")
+  revision          Int      @default(0)
+  planVersion       Int      @default(0)
+  plan              Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now())
+  events            CustomerOffboardingEvent[]
+
+  @@index([facilityId, requesterId, createdAt])
+  @@index([status, createdAt])
+}
+
+/// Append-only, customer-visible governance receipts; no private staff notes or export payloads.
+model CustomerOffboardingEvent {
+  id          String   @id @db.Uuid
+  requestId   String   @db.Uuid
+  request     CustomerOffboardingRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  revision    Int
+  fingerprint String   @db.VarChar(64)
+  action      String
+  actorId     String
+  actorKind   String
+  actorLabel  String   @db.VarChar(100)
+  detail      Json
+  createdAt   DateTime @default(now())
+
+  @@unique([requestId, revision])
   @@index([requestId, createdAt])
 }

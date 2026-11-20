@@ -10,6 +10,7 @@ import {
   PROCEDURES_RESOURCES_HUB_ID,
   PROCEDURES_RESOURCES_VISIBLE,
 } from "@/lib/knowledge/surface";
+import { offboardingEnabled } from "@/lib/customer-offboarding/contract";
 
 export type AdminHubLink = {
   label: string;
@@ -31,6 +32,7 @@ export const ADMIN_HUB_SECTIONS: readonly AdminHubSection[] = [
     id: "organization",
     title: "Organization",
     links: [
+      { id: "customer_offboarding", label: "Offboarding review", description: "Request and review a shared plan for billing, exports, access and data preservation.", href: "/admin/offboarding" },
       { id: "record_exports", label: "Requested Record exports", description: "Request OWNER approval and privately download your approved Record reports.", href: "/admin/exports" },
       {
         id: "organization_settings",
@@ -87,6 +89,7 @@ export function flattenAdminHubLinks(
 }
 
 function isDisplayedAdminHubLink(link: AdminHubLink): boolean {
+  if (link.id === "customer_offboarding" && !offboardingEnabled()) return false;
   if (link.id === PROCEDURES_RESOURCES_HUB_ID && !PROCEDURES_RESOURCES_VISIBLE) {
     return false;
   }
