@@ -7,9 +7,10 @@ import { harborLoginIdentity } from "../login-receipt";
 import type { HarborJwtPayload } from "../session";
 import { prisma } from "@/lib/prisma";
 import { beginAssertion, digest, liveChallenge, requireLifecycle, secret, verifyStaffAssertion } from "./ceremony";
-import type { StaffLifecycleConfig } from "./gate";
+import { lifecycleEmailAllowed, type StaffLifecycleConfig } from "./gate";
+import { deliverStaffLifecycleMail, type StaffLifecycleMail } from "./mail";
 
-export const staffEmail = z.string().trim().toLowerCase().max(200).email().refine((v) => v.endsWith("@staff.example.invalid"));
+export const staffEmail = z.string().trim().toLowerCase().max(200).email();
 const id = z.string().min(1).max(180);
 const caseReference = z.string().regex(/^CASE-[A-Z0-9-]{1,50}$/);
 export const staffAction = z.discriminatedUnion("action", [
@@ -24,9 +25,7 @@ export const staffAction = z.discriminatedUnion("action", [
 ]);
 type StaffAction = z.infer<typeof staffAction>;
 type Tx = Prisma.TransactionClient;
-type Mail =
-  | { kind: "INVITE" | "RECOVERY"; to: string; token: string; intentId: string }
-  | { kind: "RECOVERY_COMPLETED"; to: string; intentId: string };
+type Mail = StaffLifecycleMail;
 
 export const validFor = (minutes: number) => new Date(Date.now() + minutes * 60_000);
 
@@ -42,15 +41,16 @@ export async function audit(tx: Tx, action: string, subject: string, actorId?: s
   await tx.harborStaffLifecycleAudit.create({ data: { action, subject, actorId, intentId, detail } });
 }
 
-export async function deliverSyntheticMail(config: StaffLifecycleConfig, mail: Mail) {
-  const response = await fetch(config.mailbox, {
-    method: "POST", redirect: "error", signal: AbortSignal.timeout(5000),
-    headers: { "content-type": "application/json" }, body: JSON.stringify(mail), cache: "no-store",
-  });
-  if (!response.ok) throw new Error("Synthetic delivery unavailable");
-}
-
 async function authorize(tx: Tx, config: StaffLifecycleConfig, session: HarborJwtPayload, action: StaffAction) {
+  if (config.mode === "production") {
+    // This release retains the sole OWNER. Authority changes/succession need a separately approved release.
+    requireLifecycle(["approve-roster", "invite", "approve-recovery"].includes(action.action));
+    if (action.action === "approve-recovery") requireLifecycle(config.recoveryEnabled);
+    else requireLifecycle(config.invitationsEnabled);
+  }
+  if (action.action === "approve-roster" || action.action === "invite") {
+    requireLifecycle(lifecycleEmailAllowed(config, action.email));
+  }
   const login = harborLoginIdentity(session);
   requireLifecycle(login && !login.assistance && login);
   const result = await lockHarborStaffSession(session, tx);
@@ -141,7 +141,8 @@ export async function executeStaffAction(
           data: { usedAt: new Date(), tokenHash: null } });
         const token = secret();
         const intent = await tx.harborStaffLifecycleIntent.create({ data: {
-          kind: "INVITE", email: action.email, tokenHash: digest(token), requestedById: staff.id, expiresAt: validFor(1440),
+          kind: "INVITE", email: action.email, tokenHash: digest(token), requestedById: staff.id,
+          requestedByVersion: staff.sessionVersion, expiresAt: validFor(1440),
         } });
         await audit(tx, "INVITATION_ISSUED", action.email, staff.id, intent.id);
         return { intentId: intent.id, mail: { kind: "INVITE", to: intent.email, token, intentId: intent.id } };
@@ -150,11 +151,13 @@ export async function executeStaffAction(
         const intent = await activeIntent(tx, action.intentId, "RECOVERY");
         requireLifecycle(intent.staffId && intent.staffId !== staff.id && !intent.approvedById);
         const subject = await lockSubject(tx, intent.staffId);
+        requireLifecycle(lifecycleEmailAllowed(config, subject.email));
         requireLifecycle(subject.isActive && subject.sessionVersion === intent.staffVersion && subject.email === intent.email);
         await tx.harborStaffLifecycleIntent.update({ where: { id: intent.id }, data: {
           approvedById: staff.id, approvedByVersion: staff.sessionVersion, proofReference: action.proofReference,
         } });
-        await audit(tx, "RECOVERY_PROOF_APPROVED", subject.id, staff.id, intent.id, { proofReference: action.proofReference });
+        await audit(tx, "RECOVERY_PROOF_APPROVED", subject.id, staff.id, intent.id,
+          { proofReference: action.proofReference, ...(config.recoveryProofPolicy ? { policy: config.recoveryProofPolicy } : {}) });
         return { intentId: intent.id };
       }
       case "change-authority": {
@@ -199,6 +202,18 @@ export async function executeStaffAction(
       }
     }
   });
-  if (result.mail) await deliverSyntheticMail(config, result.mail);
+  if (result.mail) {
+    try {
+      await deliverStaffLifecycleMail(config, result.mail);
+    } catch {
+      const mail = result.mail;
+      await lifecycleTransaction(async (tx) => {
+        await tx.harborStaffLifecycleIntent.updateMany({ where: { id: mail.intentId, usedAt: null },
+          data: { usedAt: new Date(), tokenHash: null } });
+        await audit(tx, "INVITATION_DELIVERY_FAILED", mail.to, session.uid, mail.intentId);
+      });
+      throw new Error("Staff email delivery unavailable.");
+    }
+  }
   return { intentId: result.intentId };
 }

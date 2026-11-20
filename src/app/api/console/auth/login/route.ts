@@ -55,6 +55,7 @@ export async function POST(request: Request) {
       role: true,
       isActive: true,
       sessionVersion: true,
+      _count: { select: { lifecyclePasskeys: true } },
     },
   });
 
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
-  if (staffLifecycleRequested()) {
+  if (staffLifecycleRequested() || staff._count.lifecyclePasskeys > 0) {
     const config = staffLifecycleConfig(request);
     if (!config) return NextResponse.json({ error: "Staff sign-in is temporarily unavailable." }, { status: 503 });
     try {

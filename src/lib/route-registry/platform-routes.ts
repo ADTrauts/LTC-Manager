@@ -14,6 +14,9 @@ import { rolesAtLeast, type PlatformRoute } from "@/lib/route-registry/types";
  * Adding a route: add the `src/app` file, add its entry here, run `npm test`.
  */
 export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
+  { pattern: "/console/staff", match: "EXACT", surface: "PAGE", access: { kind: "HARBOR_STAFF" }, module: "harbor-console", requiresDownstreamAuthorization: true, notes: "Production-gated staff management; roster and independent-recovery projections recheck exact live staff authority." },
+  { pattern: "/console/staff-access", match: "EXACT", surface: "PAGE", access: { kind: "PUBLIC" }, module: "harbor-console", requiresDownstreamAuthorization: true, notes: "Production-gated invitation/recovery entry. Opening the page consumes nothing; fragment tokens are submitted by explicit POST." },
+  { pattern: "/api/console/staff-lifecycle/enrollment", match: "EXACT", surface: "API", access: { kind: "HARBOR_STAFF" }, module: "harbor-console", requiresDownstreamAuthorization: true, notes: "Initial sole-OWNER enrollment only: exact configured ID, current login/password and no existing passkey. Not credential recovery." },
   // ── Public entry points ───────────────────────────────────────────────────
   {
     pattern: "/",
@@ -371,7 +374,7 @@ export const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     access: { kind: "PUBLIC" },
     module: "harbor-console",
     requiresDownstreamAuthorization: true,
-    notes: "Requires the synthetic gate plus password-bound MFA or a roster-bound enrollment intent.",
+    notes: "Requires exact environment/origin gate plus password-bound MFA or a roster-bound enrollment intent. Production invitations and independent recovery are separately default-off.",
   },
   {
     pattern: "/api/console/auth/login",

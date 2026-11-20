@@ -2,18 +2,29 @@ import { type HarborStaffLifecycleIntent, type Prisma } from "@prisma/client";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import bcrypt from "bcryptjs";
 
-import { audit, deliverSyntheticMail, hasOtherRecoverableOwner, lifecycleTransaction, lockSubject, validFor } from "./administration";
+import { audit, hasOtherRecoverableOwner, lifecycleTransaction, lockSubject, validFor } from "./administration";
+import { deliverStaffLifecycleMail } from "./mail";
 import { beginAssertion, beginEnrollment, digest, fiveMinutes, liveChallenge, requireLifecycle,
   secret, verifiedEnrollment, verifyStaffAssertion } from "./ceremony";
-import type { StaffLifecycleConfig } from "./gate";
+import { lifecycleEmailAllowed, type StaffLifecycleConfig } from "./gate";
 
 type Tx = Prisma.TransactionClient;
 
-async function tokenIntent(tx: Tx, token: string) {
+async function tokenIntent(tx: Tx, config: StaffLifecycleConfig, token: string) {
   const intent = await tx.harborStaffLifecycleIntent.findUnique({ where: { tokenHash: digest(token) } });
   requireLifecycle(intent && !intent.usedAt && intent.expiresAt.getTime() > Date.now() &&
     intent.kind !== "OWNER_CHANGE" && intent);
   requireLifecycle(await tx.harborStaffRosterEntry.findUnique({ where: { email: intent.email } }));
+  requireLifecycle(lifecycleEmailAllowed(config, intent.email));
+  if (config.mode === "production") {
+    requireLifecycle(intent.kind === "INVITE" ? config.invitationsEnabled : intent.kind === "RECOVERY" && config.recoveryEnabled);
+    if (intent.kind === "INVITE") {
+      requireLifecycle(intent.requestedById && config.administrators.has(intent.requestedById));
+      const issuer = await lockSubject(tx, intent.requestedById);
+      requireLifecycle(issuer.isActive && issuer.role === "OWNER" && issuer.sessionVersion === intent.requestedByVersion);
+      requireLifecycle(await tx.harborStaffRosterEntry.findUnique({ where: { email: issuer.email } }));
+    }
+  }
   return intent;
 }
 
@@ -25,6 +36,7 @@ async function existingSubject(tx: Tx, intent: HarborStaffLifecycleIntent) {
 }
 
 export async function requestRecovery(config: StaffLifecycleConfig, email: string) {
+  if (!lifecycleEmailAllowed(config, email) || (config.mode === "production" && !config.recoveryEnabled)) return;
   const mail = await lifecycleTransaction(async (tx) => {
     if (!await tx.harborStaffRosterEntry.findUnique({ where: { email } })) return null;
     const staff = await tx.platformStaff.findUnique({ where: { email } });
@@ -44,7 +56,7 @@ export async function requestRecovery(config: StaffLifecycleConfig, email: strin
   });
   if (!mail) return;
   try {
-    await deliverSyntheticMail(config, mail);
+    await deliverStaffLifecycleMail(config, mail);
   } catch {
     // The public route responds uniformly. A failed delivery revokes this token so a retry can deliver a new one.
     await lifecycleTransaction(async (tx) => {
@@ -59,7 +71,7 @@ export async function requestRecovery(config: StaffLifecycleConfig, email: strin
 
 export async function beginRecoveryFactor(config: StaffLifecycleConfig, token: string, browserProof: string) {
   return lifecycleTransaction(async (tx) => {
-    const intent = await tokenIntent(tx, token);
+    const intent = await tokenIntent(tx, config, token);
     requireLifecycle(intent.kind === "RECOVERY");
     const staff = await existingSubject(tx, intent);
     return beginAssertion(tx, config, {
@@ -72,7 +84,7 @@ export async function beginRecoveryFactor(config: StaffLifecycleConfig, token: s
 export async function finishRecoveryFactor(config: StaffLifecycleConfig, token: string, challengeId: string,
   response: AuthenticationResponseJSON, browserProof: string) {
   await lifecycleTransaction(async (tx) => {
-    const intent = await tokenIntent(tx, token);
+    const intent = await tokenIntent(tx, config, token);
     requireLifecycle(intent.kind === "RECOVERY");
     const staff = await existingSubject(tx, intent);
     const row = await liveChallenge(tx, challengeId, "RECOVERY_FACTOR");
@@ -103,6 +115,7 @@ async function authorizeEnrollment(tx: Tx, config: StaffLifecycleConfig, intent:
     typeof intent.approvedByVersion === "number" &&
     await tx.platformStaff.findFirst({ where: {
       id: intent.approvedById, isActive: true, sessionVersion: intent.approvedByVersion,
+      lifecyclePasskeys: { some: {} },
     } });
   if (reviewer) return { staff, factor: null };
 
@@ -120,7 +133,7 @@ async function authorizeEnrollment(tx: Tx, config: StaffLifecycleConfig, intent:
 
 export async function beginIdentityEnrollment(config: StaffLifecycleConfig, token: string, browserProof?: string) {
   return lifecycleTransaction(async (tx) => {
-    const intent = await tokenIntent(tx, token);
+    const intent = await tokenIntent(tx, config, token);
     const { factor } = await authorizeEnrollment(tx, config, intent, browserProof);
     return beginEnrollment(tx, config, intent.id, intent.email, factor?.enrollmentKey ?? null);
   });
@@ -130,13 +143,13 @@ export async function finishIdentityEnrollment(
   config: StaffLifecycleConfig, token: string, challengeId: string, response: RegistrationResponseJSON,
   password: string, browserProof?: string, displayName?: string,
 ) {
-  const passwordHash = await bcrypt.hash(password, 12);
   const notice = await lifecycleTransaction(async (tx) => {
-    const intent = await tokenIntent(tx, token);
+    const intent = await tokenIntent(tx, config, token);
     const row = await liveChallenge(tx, challengeId, "ENROLL");
     requireLifecycle(row.intentId === intent.id);
     const { staff: subject, factor } = await authorizeEnrollment(tx, config, intent, browserProof, row.loginKey !== null);
     requireLifecycle(row.loginKey === (factor?.enrollmentKey ?? null));
+    const passwordHash = await bcrypt.hash(password, 12);
     const key = await verifiedEnrollment(tx, config, row, response);
     const now = new Date();
     requireLifecycle(!factor || factor.expiresAt > now.getTime());
@@ -162,7 +175,7 @@ export async function finishIdentityEnrollment(
   if (notice) {
     const { staffId, ...mail } = notice;
     try {
-      await deliverSyntheticMail(config, mail);
+      await deliverStaffLifecycleMail(config, mail);
     } catch {
       await lifecycleTransaction((tx) => audit(tx, "RECOVERY_NOTICE_DELIVERY_FAILED", staffId, undefined, mail.intentId));
     }

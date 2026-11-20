@@ -19,7 +19,7 @@ export const enrollmentBody = credential.extend({
   response: z.object({ attestationObject: base64, clientDataJSON: base64 }),
 });
 export const lifecycleJson = (data: Record<string, unknown>, status = 200) =>
-  NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
+  NextResponse.json(data, { status, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" } });
 export const lifecycleError = (error: unknown) => error instanceof StaffLifecycleDenied
   ? lifecycleJson({ error: error.message }, 403)
   : lifecycleJson({ error: "Staff lifecycle request is temporarily unavailable." }, 503);
