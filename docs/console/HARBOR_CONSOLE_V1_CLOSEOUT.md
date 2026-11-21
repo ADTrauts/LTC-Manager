@@ -43,8 +43,14 @@ The owner reopened missing tests after earlier releases intentionally skipped th
 
 This is focused local assurance, not a new full-platform certification. No live app/Production smoke, payments, messages, scanner requests, real device push delivery or manual hosted jobs ran. Prior intentionally skipped CI remains skipped; these local results do not relabel it as passing CI.
 
+## Hosted verification follow-up
+
+The first PR #49 checks at `6521f709ee78b3616b25d58f1b00b2b78ef1276d` failed with the same nine test failures in both the static/hermetic and database jobs. The failures exposed stale released-navigation/scheduler expectations, a staff-authority fake missing the passkey count, and the existing OWNER enrollment route missing from the static write inventory. These were outside the original focused batch; its 107 passing results remain bounded as stated above.
+
+The follow-up corrects four existing test files and classifies that already-gated enrollment endpoint as `AUTH_SYSTEM` in the verification inventory. It adds no endpoint, runtime behavior, permission, migration or feature activation. The 29 affected tests passed on repository-supported Node 20.19.2, and lint passed for all closeout source/test files. Hosted results for the corrected head must be assessed separately. Approval of the original exact SHA does not authorize merging a replacement SHA.
+
 ## After closeout
 
-Use the released OWNER workflows and address concrete defects if found. Reopen deferred features only through a separate product decision. Documentation/test-only closeout changes do not require a Production deployment and have not been merged or promoted.
+Use the released OWNER workflows and address concrete defects if found. Reopen deferred features only through a separate product decision. Closeout documentation, tests and static verification inventory changes do not require a Production deployment and have not been merged or promoted.
 
 Related scope records: [operational pause](HARBOR_CONSOLE_PHASE_5_OPERATIONAL_SUSPENSION.md), [limited exports](HARBOR_CONSOLE_PHASE_5_CUSTOMER_RECORD_EXPORTS.md), [offboarding coordination](HARBOR_CONSOLE_PHASE_5_OFFBOARDING_SCOPE.md), [staff setup](HARBOR_STAFF_PRODUCTION_SETUP.md), [browser push](../deployment/PRODUCTION_BROWSER_PUSH.md), [five-minute scheduler](../deployment/FIVE_MINUTE_SCHEDULED_EVALUATION.md). Their historical draft/testing statements describe their own checkpoints; this closeout records the later released state and bounded additional verification.

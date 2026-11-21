@@ -206,7 +206,8 @@ test("external delivery is last on the one shared clock and stays bounded", () =
   assert.equal(EXTERNAL_DELIVERY_DISPATCH_LIMIT, 25);
   assert.equal(PUSH_CLAIM_LEASE_MS > WEB_PUSH_REQUEST_TIMEOUT_MS, true);
   const vercel = readFileSync(new URL("../../../vercel.json", import.meta.url), "utf8");
-  assert.equal(vercel.includes("scheduled-evaluation"), false);
+  const schedules = JSON.parse(vercel).crons.filter((entry: { path: string }) => entry.path === "/api/internal/scheduled-evaluation");
+  assert.deepEqual(schedules, [{ path: "/api/internal/scheduled-evaluation", schedule: "*/5 * * * *" }]);
   const page = readFileSync(new URL("../../app/(protected)/notifications/page.tsx", import.meta.url), "utf8");
   assert.equal(page.includes("evaluateExternalDelivery"), false);
   assert.equal(page.includes("deliverQueuedPushDispatches"), false);
