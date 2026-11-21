@@ -332,6 +332,7 @@ test("health keeps the last success when a later pass fails", async () => {
 
 test("the route reports unauthorized, unconfigured, success, and partial failure", async () => {
   const previous = process.env.CRON_SECRET;
+  const previousEnabled = process.env.SCHEDULED_EVALUATION_ENABLED;
   process.env.CRON_SECRET = "reliability-test-secret";
   const url = "https://vssyl.example/api/internal/scheduled-evaluation";
   try {
@@ -346,6 +347,14 @@ test("the route reports unauthorized, unconfigured, success, and partial failure
       {} as never,
     );
     assert.equal(denied.status, 401);
+
+    delete process.env.SCHEDULED_EVALUATION_ENABLED;
+    const disabled = await handleScheduledEvaluationCron(
+      new Request(url, { headers: { authorization: "Bearer reliability-test-secret" } }), {} as never,
+    );
+    assert.equal(disabled.status, 503);
+    assert.equal((await disabled.json()).error, "scheduled_evaluation_disabled");
+    process.env.SCHEDULED_EVALUATION_ENABLED = "true";
 
     const empty = emptyEvaluationDb();
     const ok = await handleScheduledEvaluationCron(
@@ -365,12 +374,16 @@ test("the route reports unauthorized, unconfigured, success, and partial failure
     );
     const failedBody = await failed.json();
     assert.equal(failed.status, 503);
-    assert.equal(failedBody.error, "evaluation_incomplete");
+    assert.equal(failedBody.outcome, "failed");
+    assert.equal(failedBody.completed, false);
+    assert.ok(failedBody.failures > 0);
     assert.equal(JSON.stringify(failedBody).includes("boom"), false);
     assert.equal(JSON.stringify(failedBody).includes("fac-"), false);
   } finally {
     if (previous === undefined) delete process.env.CRON_SECRET;
     else process.env.CRON_SECRET = previous;
+    if (previousEnabled === undefined) delete process.env.SCHEDULED_EVALUATION_ENABLED;
+    else process.env.SCHEDULED_EVALUATION_ENABLED = previousEnabled;
   }
 });
 
@@ -553,10 +566,14 @@ function emptyEvaluationDb() {
     repair: { findMany: empty },
     notification: { findMany: empty },
     notificationRecipient: { findMany: empty },
+    notificationOutbox: { findMany: empty, findFirst: async () => null },
     pushDispatch: { updateMany: async () => ({ count: 0 }), findMany: empty },
     scheduledEvaluationLease: {
       findUnique: async () => ({ resumeAfter: null, resumeFacilityId: null }),
-      update: async () => ({}),
+      update: async ({ where, data }: { where: { evaluatorKey: string }; data: Record<string, unknown> }) => {
+        if (where.evaluatorKey === "scheduled-evaluation.pass") Object.assign(pass, data);
+        return {};
+      },
       upsert: async ({ create, update }: { create: { lastOutcome: string; lastSucceededAt: Date | null }; update: { lastOutcome: string; lastSucceededAt?: Date } }) => {
         pass.lastOutcome = update.lastOutcome ?? create.lastOutcome;
         if (update.lastSucceededAt) pass.lastSucceededAt = update.lastSucceededAt;

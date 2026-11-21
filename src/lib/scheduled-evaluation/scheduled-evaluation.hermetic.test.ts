@@ -65,9 +65,8 @@ test("scheduled evaluation registers coverage and leaves future domains unregist
       "notifications.external-delivery",
     ],
   );
-  for (const key of FUTURE_SCHEDULED_EVALUATOR_KEYS) {
-    assert.equal(listScheduledEvaluators().some((evaluator) => evaluator.key === key), false);
-  }
+  const registeredKeys = new Set<string>(listScheduledEvaluators().map(evaluator => evaluator.key));
+  for (const key of FUTURE_SCHEDULED_EVALUATOR_KEYS) assert.equal(registeredKeys.has(key), false);
   assert.equal(SCHEDULED_EVALUATION_CADENCE_MS, 5 * 60 * 1000);
   const keys = listScheduledEvaluators().map((evaluator) => evaluator.key);
   assert.equal(
@@ -101,7 +100,7 @@ test("attention reevaluation uses coverage policy and expiry is not restoration"
   assert.equal("priority" in expired, false);
 });
 
-test("the scheduled evaluation route requires the cron secret and is not on the daily cron file", () => {
+test("the scheduled evaluation route requires the cron secret and runs every five minutes", () => {
   const secret = "scheduled-evaluation-secret";
   const url = "https://vssyl.com/api/internal/scheduled-evaluation";
   assert.equal(isScheduledEvaluationAuthorized(new Request(url), secret), false);
@@ -114,7 +113,8 @@ test("the scheduled evaluation route requires the cron secret and is not on the 
     true,
   );
   const vercel = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
-  assert.equal(vercel.includes("scheduled-evaluation"), false);
+  const schedule = JSON.parse(vercel).crons.filter((entry: { path: string }) => entry.path === "/api/internal/scheduled-evaluation");
+  assert.deepEqual(schedule, [{ path: "/api/internal/scheduled-evaluation", schedule: "*/5 * * * *" }]);
   const route = readFileSync(
     join(process.cwd(), "src/app/api/internal/scheduled-evaluation/route.ts"),
     "utf8",
