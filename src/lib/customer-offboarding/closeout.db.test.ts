@@ -11,7 +11,7 @@ import { bootstrapFacilityCustomer } from "@/lib/facility-provisioning/bootstrap
 import { createHarborSessionToken, verifyHarborSessionToken } from "@/lib/harbor-console/session";
 import { harborLoginIdentity } from "@/lib/harbor-console/login-receipt";
 import { changeFacilityOperationsSuspension } from "@/lib/harbor-console/facility-suspension";
-import { createExportRequest, decideExportRequest, downloadExport } from "@/lib/customer-record-exports/service";
+import { createExportRequest, decideExportRequest, downloadExport, listCustomerExports } from "@/lib/customer-record-exports/service";
 import { createOffboardingRequest, customerOffboardingCommand, ownerOffboardingCommand, loadOffboardingRequest } from "./service";
 
 const target = process.env.VERIFY_DATABASE_URL;
@@ -84,6 +84,8 @@ test("Harbor v1 lifecycle boundaries on isolated PostgreSQL", { skip: !target &&
       await decideExportRequest(db, owner.session, exportInput.id, 0, "APPROVED");
       const approved = await db.customerRecordExportRequest.findUniqueOrThrow({ where: { id: exportInput.id } });
       assert.equal(+approved.expiresAt! - +approved.approvedAt!, 86400000);
+      const currentList = await listCustomerExports(db, a.session);
+      assert(+currentList.rows.find(row => row.id === exportInput.id)!.expiresAt! > currentList.evaluatedAt);
       await assert.rejects(downloadExport(db, b.session, exportInput.id), /not found/i);
       const artifact = await downloadExport(db, a.session, exportInput.id);
       assert.match(artifact.bytes.toString(), /'\=SUM\(1,2\)/);
@@ -100,7 +102,11 @@ test("Harbor v1 lifecycle boundaries on isolated PostgreSQL", { skip: !target &&
       const realNow = Date.now;
       try {
         Date.now = () => +approved.expiresAt! + 1;
-        await assert.rejects(downloadExport(db, { ...a.session, exp: Math.floor(Date.now() / 1000) + 3600 }, exportInput.id), /approval/i);
+        const laterSession = { ...a.session, exp: Math.floor(Date.now() / 1000) + 3600 };
+        const expiredList = await listCustomerExports(db, laterSession);
+        assert.equal(expiredList.evaluatedAt, Date.now());
+        assert(+expiredList.rows.find(row => row.id === exportInput.id)!.expiresAt! <= expiredList.evaluatedAt);
+        await assert.rejects(downloadExport(db, laterSession, exportInput.id), /approval/i);
       } finally { Date.now = realNow; }
       await decideExportRequest(db, owner.session, exportInput.id, 1, "REVOKED");
       await assert.rejects(downloadExport(db, a.session, exportInput.id), /approval/i);
