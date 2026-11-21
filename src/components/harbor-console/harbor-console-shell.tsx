@@ -32,6 +32,7 @@ export function HarborConsoleShell({
   notifications,
   unreadCount,
   staffAccessEnabled = false,
+  customerOffboardingEnabled = false,
   children,
 }: {
   staffName: string;
@@ -39,6 +40,7 @@ export function HarborConsoleShell({
   notifications?: SupportStaffNotificationItem[];
   unreadCount?: number;
   staffAccessEnabled?: boolean;
+  customerOffboardingEnabled?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -76,6 +78,9 @@ export function HarborConsoleShell({
               );
             })}
           </nav>
+          {customerOffboardingEnabled && staffRole === "OWNER" ? <Link href="/console/offboarding" prefetch={false}
+            aria-current={navActive(pathname, "/console/offboarding") ? "page" : undefined}
+            className={`mt-2 block rounded-md px-3 py-2 text-sm ${navActive(pathname, "/console/offboarding") ? "bg-white/10 font-semibold" : "hover:bg-white/10"}`}>Offboarding reviews</Link> : null}
           {staffAccessEnabled && <Link href="/console/staff" prefetch={false} className="mt-3 block rounded-md px-3 py-2 text-sm text-[var(--run-aside-fg)] hover:bg-white/10">Staff access</Link>}
         </div>
         <div className="space-y-3 px-1">

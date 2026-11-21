@@ -23,7 +23,8 @@ export async function assertFacilityOperationsAvailable(db: Db, facilityId: stri
 
 /** Mutating customer requests that must remain available during a pause. */
 export function facilityPauseAllowsMutation(pathname: string): boolean {
-  return pathname === "/admin/exports" || /^\/api\/customer-exports\/[^/]+\/download$/.test(pathname) || pathname.startsWith("/api/auth/") || pathname.startsWith("/api/billing/") ||
+  return pathname === "/admin/offboarding" || /^\/admin\/offboarding\/[^/]+$/.test(pathname) ||
+    pathname === "/admin/exports" || /^\/api\/customer-exports\/[^/]+\/download$/.test(pathname) || pathname.startsWith("/api/auth/") || pathname.startsWith("/api/billing/") ||
     pathname.startsWith("/api/support/") || pathname === "/access/enter" ||
     pathname === "/access" || pathname === "/partner" ||
     pathname === "/admin/billing" || pathname.startsWith("/admin/billing/") ||

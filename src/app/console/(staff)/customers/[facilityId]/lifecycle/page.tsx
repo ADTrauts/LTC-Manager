@@ -8,6 +8,7 @@ import { loadHarborCustomerLifecycle } from "@/lib/harbor-console/customer-lifec
 import { HARBOR_WORK_CLEANUP_PATH } from "@/lib/harbor-console/session";
 import { prisma } from "@/lib/prisma";
 import { supportFacilityTicketsHref } from "@/lib/support/history";
+import { offboardingEnabled } from "@/lib/customer-offboarding/contract";
 
 export const dynamic = "force-dynamic";
 
@@ -113,7 +114,8 @@ export default async function HarborCustomerLifecyclePage({ params }: { params: 
 
     <ConsolePanel title="Lifecycle scope">
       <p>The OWNER can pause or reactivate operational changes with a reason and current password. Existing account recovery, billing, Support and Implementation flows keep their own authorization.</p>
-      <p>Full-customer exports, offboarding and deletion remain deferred. Removing a manual pause does not remove separate billing or security restrictions.</p>
+      {offboardingEnabled() && data.suspension.history ? <ConsoleReadLink href={`/console/offboarding?facilityId=${encodeURIComponent(data.facility.id)}`}>Review offboarding requests and shared plans</ConsoleReadLink> : null}
+      <p>Offboarding coordination, when enabled, records a shared plan without executing closure. Full-customer exports, automatic closure and deletion remain deferred. Removing a manual pause does not remove separate billing or security restrictions.</p>
     </ConsolePanel>
   </div>;
 }

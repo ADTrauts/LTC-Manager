@@ -30,6 +30,7 @@ The [Phase 1 amendment](product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_202
 
 ## Proposals under review
 
+- [Phase 5 customer offboarding request and review](console/HARBOR_CONSOLE_PHASE_5_OFFBOARDING_SCOPE.md)
 - [Production browser push preparation](deployment/PRODUCTION_BROWSER_PUSH.md)
 - [Internal staff invitations and independent recovery setup](console/HARBOR_STAFF_PRODUCTION_SETUP.md)
 - [Five-minute shared scheduler activation draft](deployment/FIVE_MINUTE_SCHEDULED_EVALUATION.md)

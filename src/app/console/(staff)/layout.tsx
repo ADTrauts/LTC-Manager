@@ -3,6 +3,7 @@ import { requireHarborStaff } from "@/lib/harbor-console/auth";
 import { prisma } from "@/lib/prisma";
 import { listSupportStaffNotifications } from "@/lib/support/notifications";
 import { productionStaffLifecycleConfig } from "@/lib/harbor-console/lifecycle/gate";
+import { offboardingEnabled } from "@/lib/customer-offboarding/contract";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function HarborStaffLayout({ children }: { children: React.
       notifications={feed.items}
       unreadCount={feed.unreadCount}
       staffAccessEnabled={productionStaffLifecycleConfig() !== null}
+      customerOffboardingEnabled={offboardingEnabled()}
     >
       {children}
     </HarborConsoleShell>
