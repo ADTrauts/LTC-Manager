@@ -20,7 +20,7 @@ test("admin hub is Organization and Access only", () => {
   );
 });
 
-test("admin hub cards are Organization, Departments, Billing, and Access", () => {
+test("admin hub catalog includes lifecycle review, exports, Organization, Departments, Billing, and Access", () => {
   const byId = new Map(flattenAdminHubLinks().map((link) => [link.id, link]));
 
   assert.equal(byId.get("organization_settings")?.label, "Organization");
@@ -42,26 +42,45 @@ test("admin hub cards are Organization, Departments, Billing, and Access", () =>
 
   assert.deepEqual(
     flattenAdminHubLinks().map((link) => link.id),
-    ["organization_settings", "departments", "billing", "roles_permissions"],
+    ["customer_offboarding", "record_exports", "organization_settings", "departments", "billing", "roles_permissions"],
   );
 });
 
 test("builders are not primary admin hub cards", () => {
-  const hrefs = adminHubPrimaryHrefs();
-  for (const excluded of ADMIN_HUB_EXCLUDED_PRIMARY_HREFS) {
-    assert.equal(hrefs.includes(excluded), false, excluded);
+  const previous = process.env.CUSTOMER_OFFBOARDING_ENABLED;
+  delete process.env.CUSTOMER_OFFBOARDING_ENABLED;
+  try {
+    const hrefs = adminHubPrimaryHrefs();
+    for (const excluded of ADMIN_HUB_EXCLUDED_PRIMARY_HREFS) {
+      assert.equal(hrefs.includes(excluded), false, excluded);
+    }
+    assert.deepEqual(
+      [...hrefs],
+      ["/admin/exports", "/admin/organization", "/admin/departments", "/admin/billing", "/admin/permissions"],
+    );
+  } finally {
+    if (previous === undefined) delete process.env.CUSTOMER_OFFBOARDING_ENABLED;
+    else process.env.CUSTOMER_OFFBOARDING_ENABLED = previous;
   }
-  assert.deepEqual(
-    [...hrefs],
-    ["/admin/organization", "/admin/departments", "/admin/billing", "/admin/permissions"],
-  );
 });
 
-test("visible admin hub matches the catalog", () => {
-  assert.deepEqual(
-    visibleAdminHubSections().flatMap((section) => section.links.map((link) => link.id)),
-    flattenAdminHubLinks().map((link) => link.id),
-  );
+test("offboarding visibility follows its explicit enable switch", () => {
+  const previous = process.env.CUSTOMER_OFFBOARDING_ENABLED;
+  try {
+    delete process.env.CUSTOMER_OFFBOARDING_ENABLED;
+    assert.deepEqual(
+      visibleAdminHubSections().flatMap(section => section.links.map(link => link.id)),
+      flattenAdminHubLinks().filter(link => link.id !== "customer_offboarding").map(link => link.id),
+    );
+    process.env.CUSTOMER_OFFBOARDING_ENABLED = "true";
+    assert.deepEqual(
+      visibleAdminHubSections().flatMap((section) => section.links.map((link) => link.id)),
+      flattenAdminHubLinks().map((link) => link.id),
+    );
+  } finally {
+    if (previous === undefined) delete process.env.CUSTOMER_OFFBOARDING_ENABLED;
+    else process.env.CUSTOMER_OFFBOARDING_ENABLED = previous;
+  }
 });
 
 test("department and access hub copy does not imply licensing", () => {
