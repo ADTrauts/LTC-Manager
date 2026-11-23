@@ -122,7 +122,7 @@ export function FilmPlayer({ film, title, duration, sizes }: FilmPlayerProps) {
 
 export function FacilityArtwork() {
   const [moving, setMoving] = useState(false);
-  const figure = useRef<HTMLFigureElement>(null);
+  const figure = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!moving || !figure.current) return;
