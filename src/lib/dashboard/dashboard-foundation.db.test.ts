@@ -125,6 +125,7 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
       });
     await space("North Servery", fn.id);
     const dayRoom = await space("Day Room", activities.id);
+    const evsCloset = await space("North Housekeeping Closet", evs.id);
 
     const employee = (firstName: string, roleType: "MANAGER" | "GM" | "SUPERVISOR" | "STAFF", primaryDepartmentId: string) =>
       prisma.employee.create({ data: { facilityId, firstName, lastName: suffix, roleType, primaryDepartmentId } });
@@ -134,6 +135,7 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
     const supervisor = await employee("Sam", "SUPERVISOR", fn.id);
     const fnAide = await employee("Dana", "STAFF", fn.id);
     const activitiesAide = await employee("Alex", "STAFF", activities.id);
+    const evsAide = await employee("Evan", "STAFF", evs.id);
 
     await prisma.departmentOperatorRelationship.createMany({
       data: [
@@ -255,18 +257,17 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
 
       assert.deepEqual(withoutShared(fn.id), [
         "locations.runtime",
-        "meal.milestones",
         "people.roster",
         "plant.requests.filed",
         "records.legacy",
       ]);
-      assert.deepEqual(missing(fn.id), ["cycles.published", "work.expected", "coverage.planned", "menus", "records.legacy"]);
+      assert.deepEqual(missing(fn.id), ["cycles.published", "coverage.planned", "menus", "records.legacy"]);
 
       assert.ok(has(plant.id).includes("plant.maintenance"));
       assert.equal(has(plant.id).includes("locations.runtime"), false);
 
       assert.equal(capabilities.get(activities.id)?.productKey, null);
-      assert.deepEqual(withoutShared(activities.id), ["locations.runtime", "people.roster", "records.legacy", "work.expected"]);
+      assert.deepEqual(withoutShared(activities.id), ["locations.runtime", "people.roster", "records.legacy"]);
       assert.deepEqual(missing(activities.id), ["coverage.planned", "records.legacy"]);
     });
 
@@ -405,12 +406,65 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
 
       const activitiesWork = await activitiesPack.expectedWork(activities.id);
       const fnWork = await fnPack.expectedWork(fn.id);
-      assert.equal(activitiesWork.hasPublishedWorkPlans, true);
+      assert.equal(activitiesWork.hasPublishedWorkPlans, false, "generic Work Plans are retired");
       assert.equal(fnWork.hasPublishedWorkPlans, false);
       const card = await loadExpectedWork({ viewer: activitiesViewer, facts: activitiesPack, size: "M" });
       const fromPage = presentExpectedWork(activitiesWork);
       assert.deepEqual(card, fromPage);
       assertExpectedCounts(activitiesWork, card);
+    });
+
+    await t.test("EVS release gate: capabilities, locations, attention and call-offs stay inside EVS", { skip: sharedClientSkip }, async () => {
+      delete process.env[CDA_FLAG];
+      const admin = await viewerOf(userSession(facilityId, "FACILITY_ADMINISTRATOR"), FIRST_METZ_MORNING, null);
+      assert.equal(admin.scopeDepartmentIds.includes(evs.id), false, "EVS stays DEVELOPMENT");
+      const internal: DashboardViewer = {
+        ...admin,
+        departments: [...admin.departments, { ...admin.departments[0]!, id: evs.id, key: evs.key, name: evs.name, sortOrder: 3 }],
+        scopeDepartmentIds: [...admin.scopeDepartmentIds, evs.id],
+        departmentAccess: { ...admin.departmentAccess, [evs.id]: "MANAGE" },
+      };
+
+      const capabilities = await resolveDepartmentDashboardCapabilities(internal, {
+        db: prisma,
+        plantRuntimeEnabled: true,
+        canonicalLogsEnabled: false,
+        operationalAssignmentsEnabled: false,
+      });
+      const evsCapabilities = capabilities.get(evs.id)!;
+      assert.equal(evsCapabilities.productKey, "EVS");
+      assert.deepEqual([...evsCapabilities.has].sort(), ["locations.runtime", "maintenance.shared", "people.roster", "records.legacy"]);
+      assert.deepEqual(
+        evsCapabilities.notConfigured.map((reason) => reason.capability),
+        ["cycles.published", "coverage.planned", "records.legacy"],
+      );
+      assert.equal(evsCapabilities.has.has("plant.requests.filed"), false, "EVS has no request route");
+
+      const evsViewer: DashboardViewer = { ...internal, scope: { kind: "DEPARTMENT", departmentId: evs.id } };
+      const fnViewer: DashboardViewer = { ...internal, scope: { kind: "DEPARTMENT", departmentId: fn.id } };
+      const evsPack = createDashboardFactPack(evsViewer);
+      const evsStates = await evsPack.runtimeLocations();
+      const fnStates = await createDashboardFactPack(fnViewer).runtimeLocations();
+      assert.deepEqual(evsStates.map((state) => state.identity.location.spaceId), [evsCloset.id]);
+      assert.ok(evsStates.every((state) => state.identity.location.departmentId === evs.id));
+      assert.equal(fnStates.some((state) => state.identity.location.spaceId === evsCloset.id), false);
+
+      const attention = await loadAttention({ viewer: evsViewer, facts: evsPack, size: "L" });
+      if (attention.state === "ready") {
+        assert.ok(attention.attention.every((item) => item.departmentId === evs.id));
+      }
+
+      const evsShift = await prisma.scheduleEntry.create({
+        data: { employeeId: evsAide.id, date: new Date(), shift: "BREAKFAST", departmentId: evs.id },
+      });
+      await prisma.scheduleEntry.update({
+        where: { id: evsShift.id },
+        data: { calledOffAt: new Date(), callOffReason: "[call-down:call-off]" },
+      });
+      const callOffIds = async (departmentId: string) =>
+        (await loadPresenceCallOffs(facilityId, { departmentId })).items.map((item) => item.id);
+      assert.deepEqual(await callOffIds(evs.id), [evsShift.id]);
+      assert.equal((await callOffIds(fn.id)).includes(evsShift.id), false);
     });
   } finally {
     if (previousFlag === undefined) delete process.env[CDA_FLAG];

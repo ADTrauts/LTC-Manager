@@ -1,5 +1,7 @@
 # Dashboard current-state audit — October 20, 2026
 
+> **Historical evidence.** This audit describes the code on October 20, 2026. Later Department Builder and legacy-retirement decisions changed Location Functions, generic Work, and department capability switches. The current Department rules are the [Department Dashboard Contract](./DEPARTMENT_DASHBOARD_CONTRACT.md).
+
 Evidence for the [Dashboard decisions](./DECISIONS.md). The code was inspected on branch `codex/onboarding-integration`. The scale was:
 - 422 commits
 - 127 `page.tsx` files

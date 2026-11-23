@@ -120,7 +120,6 @@ function buildEvsScopeAttachment(input: {
   const scopeSummary = formatAssignedScopeSummary({
     scopeKind,
     unitName: input.assignment.unitName,
-    zoneName: input.assignment.sourceZoneName,
     locations: input.locations,
   });
   const locationSequence =

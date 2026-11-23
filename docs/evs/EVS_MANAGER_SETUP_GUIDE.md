@@ -1,6 +1,6 @@
 # EVS Manager Setup Guide
 
-> **Domain guide.** Current configuration lives in Department Builder: Locations, Operating Rhythm, People & Coverage, and Records. Location Functions are `resident_care` and `service_support`. See `docs/product/01_PRODUCT_CONSTITUTION.md`.
+> **Historical (August 7, 2026).** This guide describes Phase 11C. It is not the current Department Product. Environmental Services stays DEVELOPMENT. Location Functions, generic Work Plans, assignment zones, and `EVS_OPERATIONS_ENABLED` are not the forward design. Current authority is [13 — Department Product](../product/13_DEPARTMENT_PRODUCT.md), [16 — Department Builder](../product/16_DEPARTMENT_BUILDER_ARCHITECTURE.md), and [01B](../product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md).
 
 **Phase:** 11C — EVS Assignment Scope, Zones, and Scale  
 **Audience:** EVS Manager / GM-equivalent with EVS operational authority

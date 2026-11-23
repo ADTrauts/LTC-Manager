@@ -58,7 +58,9 @@ Forward Records (when `CANONICAL_LOGS_ENABLED=true`): `CatalogLogDefinition` →
 
 - RUN top nav shows one **Maintenance** item. Assets (`/assets`) and Repairs (`/repairs`) stay separate screens; they are not peer header links.
 - SUPERVISOR+ land on `/assets`. STAFF land on `/repairs` (Assets is supervisor-gated).
-- Maintenance local nav uses **three square / lightly rounded sub-tabs** (not pills): **Assets**, **Repairs**, **Vendors**. Vendors is still `?subtab=vendors` on `/assets`.
+- Maintenance local nav for SUPERVISOR+ uses square / lightly rounded sub-tabs (not pills): **Assets**, **Work Orders**, **Issues**, **Preventive**, **Vendors**. STAFF do not see that sub-nav. Vendors remains `?subtab=vendors` on `/assets`.
 - **Assets** tab: operational registry (condition, open issues/repairs). Asset identity configuration lives on BUILD **Asset Builder** (`/assets/builder`).
-- **Repairs** tab: work-order queue.
+- **Work Orders** tab: work-order queue (`/repairs`).
+- **Issues** tab: known undesirable conditions (`/asset-issues`).
+- **Preventive** tab: preventive maintenance run board (`/preventive-maintenance`).
 - **Vendors** tab: add-vendor form and vendor list.

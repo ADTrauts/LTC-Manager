@@ -47,7 +47,9 @@ export function presentPlantOverviewCounts(input: PlantOverviewFactCounts): Arra
     { id: "locations", label: "Locations", value: input.locationCount },
     { id: "assets", label: "Assets", value: input.assetCount },
     { id: "people", label: "People", value: input.peopleCount },
-    { id: "work", label: "Work Plans", value: input.workPlanCount },
+    ...(input.workPlanCount > 0
+      ? [{ id: "work", label: "Historical Work Plans", value: input.workPlanCount }]
+      : []),
     { id: "records", label: "Records", value: input.recordCount },
     { id: "pm", label: "Published PM Plans", value: input.publishedPmPlanCount },
   ];

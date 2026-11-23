@@ -155,18 +155,14 @@ test("timing upgrade drafts the missing Key Points once and leaves the published
   );
 });
 
-test("standard Run load does not enable createIfMissing", () => {
-  const files = [
-    "src/lib/operational-cycles/load-employee-cycle-context.ts",
-    "src/lib/operational-cycles/load-supervisor-cycle-overview.ts",
-    "src/lib/operational-cycles/load-run-operation-presentation.ts",
-    "src/lib/offline/build-runtime-bundle.ts",
-    "src/lib/servery/record-milestone.ts",
-  ];
-  for (const file of files) {
-    const source = readFileSync(join(process.cwd(), file), "utf8");
-    assert.doesNotMatch(source, /createIfMissing:\s*true/, file);
-  }
+test("opening the current day prepares Key Point rows and a past day does not", () => {
+  const source = readFileSync(
+    join(process.cwd(), "src/lib/operational-cycles/materialize-key-time-day-expectations.ts"),
+    "utf8",
+  );
+  assert.match(source, /prepareCurrentKeyTimeDayExpectations/);
+  assert.match(source, /operationalDateKey === todayKey/);
+  assert.match(source, /createIfMissing = \(input\.createIfMissing \?\? isCurrentDay\) && isCurrentDay/);
 });
 
 test("Record time cannot append a second original Key Point actual", () => {

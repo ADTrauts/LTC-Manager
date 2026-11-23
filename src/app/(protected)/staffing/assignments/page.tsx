@@ -49,11 +49,6 @@ import {
 import { AssignmentSpaceScopePicker } from "@/components/assignments/assignment-space-scope-picker";
 import { buildLocationCoverageSummary } from "@/lib/scheduling/operational-assignments/location-coverage";
 import { facilityLocalDateToServiceDate } from "@/lib/operational-time";
-import {
-  createDepartmentZoneAction,
-  retireDepartmentZoneAction,
-} from "./zone-actions";
-import { loadZonesForDepartment } from "@/lib/department-zones";
 
 function getToday() {
   const date = new Date();
@@ -170,15 +165,6 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
           callOffEmployeeIds: board.employees.filter((e) => e.hasCallDown).map((e) => e.id),
         })
       : null;
-
-  const zonesForManage =
-    isEvsDept && deptNav.activeDepartmentId
-      ? await loadZonesForDepartment(prisma, {
-          facilityId: session.facilityId,
-          departmentId: deptNav.activeDepartmentId,
-          includeRetired: true,
-        })
-      : [];
 
   const [formOptions, templates] = await Promise.all([
     canEdit && deptNav.activeDepartmentId && deptKey
@@ -426,10 +412,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                 ))}
               </select>
               {isEvsDept && formOptions.spaces.length > 0 ? (
-                <AssignmentSpaceScopePicker
-                  spaces={formOptions.spaces}
-                  zones={formOptions.zones}
-                />
+                <AssignmentSpaceScopePicker spaces={formOptions.spaces} />
               ) : null}
               <div className="grid gap-2 sm:grid-cols-2">
                 <input type="time" name="startsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="Start" />
@@ -490,10 +473,7 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                 </select>
               </div>
               {isEvsDept && formOptions.spaces.length > 0 ? (
-                <AssignmentSpaceScopePicker
-                  spaces={formOptions.spaces}
-                  zones={formOptions.zones}
-                />
+                <AssignmentSpaceScopePicker spaces={formOptions.spaces} />
               ) : null}
               <div className="grid gap-2 sm:grid-cols-2">
                 <input type="time" name="startsAt" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm" placeholder="Start" />
@@ -528,82 +508,6 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
           </article>
         </div>
       )}
-
-      {isEvsDept && canEdit && deptNav.activeDepartmentId && formOptions ? (
-        <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" data-testid="evs-zone-manager">
-          <h2 className="text-sm font-semibold text-zinc-900">Department Zones</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Named groupings of Rooms / Spaces for Assignment convenience and Supervisor filters.
-            Zones are not Assignments and do not grant authority. Membership changes never rewrite
-            existing Assignments.
-          </p>
-          <form action={createDepartmentZoneAction} className="mt-3 space-y-2">
-            <input type="hidden" name="departmentId" value={deptNav.activeDepartmentId} />
-            <input type="hidden" name="activate" value="true" />
-            <div className="grid gap-2 sm:grid-cols-2">
-              <input
-                name="name"
-                required
-                maxLength={120}
-                placeholder="Zone name (e.g. Floor 1 East)"
-                className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-                data-testid="zone-name-input"
-              />
-              <input
-                name="description"
-                maxLength={500}
-                placeholder="Description (optional)"
-                className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-              />
-            </div>
-            <AssignmentSpaceScopePicker
-              spaces={formOptions.spaces}
-              name="unitSpaceIds"
-              zoneFieldName="unusedZoneField"
-            />
-            <button
-              type="submit"
-              className="rounded-md bg-zinc-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700"
-            >
-              Create Zone
-            </button>
-          </form>
-          {zonesForManage.length > 0 ? (
-            <ul className="mt-4 divide-y divide-zinc-100 border-t border-zinc-100">
-              {zonesForManage.map((z) => (
-                <li key={z.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                  <div>
-                    <p className="font-medium text-zinc-900">
-                      {z.name}{" "}
-                      <span className="text-xs font-normal text-zinc-500">
-                        {z.status} · {z.locationCount} locations
-                      </span>
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      {z.locations
-                        .slice(0, 5)
-                        .map((l) => l.label)
-                        .join(", ")}
-                      {z.locations.length > 5 ? ` +${z.locations.length - 5} more` : ""}
-                    </p>
-                  </div>
-                  {z.status !== "RETIRED" ? (
-                    <form action={retireDepartmentZoneAction}>
-                      <input type="hidden" name="zoneId" value={z.id} />
-                      <button
-                        type="submit"
-                        className="rounded border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-50"
-                      >
-                        Retire
-                      </button>
-                    </form>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </article>
-      ) : null}
 
       {/* Fulfillment Summary */}
       {fulfillment.available && (
@@ -809,7 +713,6 @@ export default async function AssignmentBoardPage({ searchParams }: AssignmentPa
                           </p>
                           {a.scopeKind === "SPACES" ? (
                             <p className="mt-0.5 text-xs text-zinc-600" data-testid="assignment-location-scope">
-                              {a.sourceZoneName ? `${a.sourceZoneName} · ` : ""}
                               {a.scopeSummaryLabel}
                             </p>
                           ) : a.unitName ? (

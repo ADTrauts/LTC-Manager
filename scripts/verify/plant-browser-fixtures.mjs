@@ -327,23 +327,6 @@ async function main() {
       });
     }
 
-    // Zones
-    let zone = await db.departmentOperationalZone.findFirst({
-      where: { facilityId: facility.id, departmentId: plant.id, name: "Plant Zone North" },
-    });
-    if (!zone) {
-      zone = await db.departmentOperationalZone.create({
-        data: {
-          id: cuidLike(),
-          facilityId: facility.id,
-          departmentId: plant.id,
-          name: "Plant Zone North",
-          status: "ACTIVE",
-          createdByUserId: manager.id,
-        },
-      });
-    }
-
     // Assets (40)
     const assets = [];
     for (let i = 0; i < 40; i += 1) {
@@ -529,7 +512,6 @@ async function main() {
       waitingPartsWorkOrderId: waitingPartsWo.id,
       completedWorkOrderId: completedWo.id,
       procedureId,
-      zoneId: zone.id,
       users: {
         manager: { email: manager.email, password: SYNTHETIC_PASSWORD },
         supervisor: { email: supervisor.email, password: SYNTHETIC_PASSWORD },

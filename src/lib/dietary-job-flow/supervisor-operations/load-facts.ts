@@ -9,7 +9,6 @@ import {
   isDepartmentWorkPlansEnabled,
 } from "@/lib/department-operations";
 import { loadSupervisorWorkExceptions } from "@/lib/department-work";
-import { loadZonesForDepartment } from "@/lib/department-zones";
 import { isCanonicalLogsEnabled } from "@/lib/feature-flags";
 import { isPlantRuntimeEnabled } from "@/lib/department-products/plant-runtime";
 import { OPEN_WORK_ORDER_STATUSES } from "@/lib/asset-operations/types";
@@ -51,7 +50,6 @@ export type LoadSupervisorOperationsFactsInput = {
   filters?: {
     floor?: string | null;
     unit?: string | null;
-    zone?: string | null;
     employee?: string | null;
   };
 };
@@ -304,25 +302,19 @@ export async function loadSupervisorOperationsFacts(
   }
 
   if (oaEnabled && isEvs) {
-    const [locSummary, zones] = await Promise.all([
-      buildLocationCoverageSummary(prisma, {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        serviceDate,
-        now,
-        callOffEmployeeIds,
-      }),
-      loadZonesForDepartment(prisma, {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-      }),
-    ]);
+    const locSummary = await buildLocationCoverageSummary(prisma, {
+      facilityId: input.facilityId,
+      departmentId: input.departmentId,
+      serviceDate,
+      now,
+      callOffEmployeeIds,
+    });
     coverageCounts = {
       covered: locSummary.covered,
       atRisk: locSummary.atRisk,
       uncovered: locSummary.uncovered,
     };
-    evsOverlay = presentEvsOverlay(locSummary, zones, board.employees, input.filters ?? {});
+    evsOverlay = presentEvsOverlay(locSummary, board.employees, input.filters ?? {});
   }
 
   const syncItems: SupervisorSyncItem[] = [
@@ -378,29 +370,24 @@ export async function loadSupervisorOperationsFacts(
 
 function presentEvsOverlay(
   locSummary: Awaited<ReturnType<typeof buildLocationCoverageSummary>>,
-  zones: Awaited<ReturnType<typeof loadZonesForDepartment>>,
   employees: Array<{ id: string; firstName: string; lastName: string }>,
   filters: {
     floor?: string | null;
     unit?: string | null;
-    zone?: string | null;
     employee?: string | null;
   },
 ): NonNullable<SupervisorOperationsFacts["evsOverlay"]> {
   const filterFloor = filters.floor?.trim() || null;
   const filterUnit = filters.unit?.trim() || null;
-  const filterZone = filters.zone?.trim() || null;
   const filterEmployee = filters.employee?.trim() || null;
 
   const matchesFilters = (row: {
     unitId: string | null;
     floorUnitId: string | null;
-    zoneIds: string[];
     employeeIds: string[];
   }) => {
     if (filterFloor && row.floorUnitId !== filterFloor) return false;
     if (filterUnit && row.unitId !== filterUnit) return false;
-    if (filterZone && !row.zoneIds.includes(filterZone)) return false;
     if (filterEmployee && !row.employeeIds.includes(filterEmployee)) return false;
     return true;
   };
@@ -415,7 +402,6 @@ function presentEvsOverlay(
     floorName: row.floorName,
     state: row.state,
     employeeLabels: row.employeeLabels,
-    zoneIds: row.zoneIds,
   });
 
   const floorOptions = new Map<string, string>();
@@ -428,7 +414,6 @@ function presentEvsOverlay(
   const filterModel: SupervisorOperationsFilters = {
     floor: filterFloor,
     unit: filterUnit,
-    zone: filterZone,
     employee: filterEmployee,
     floors: [...floorOptions.entries()]
       .map(([id, name]) => ({ id, name }))
@@ -436,9 +421,6 @@ function presentEvsOverlay(
     units: [...unitOptions.entries()]
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name)),
-    zones: zones
-      .filter((zone) => zone.status === "ACTIVE" || zone.status === "DRAFT")
-      .map((zone) => ({ id: zone.id, name: zone.name })),
     employees: employees
       .map((employee) => ({
         id: employee.id,

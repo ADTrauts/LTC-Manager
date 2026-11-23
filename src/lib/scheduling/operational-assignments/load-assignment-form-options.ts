@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getRolesForDepartment, type OperationalRoleDefinition } from "@/lib/scheduling/assignment-roles";
 import { formatRoomDisplayName } from "@/lib/facility-builder/load-facility-hierarchy";
-import { loadZonesForDepartment } from "@/lib/department-zones";
 
 export type AssignmentFormSpaceOption = {
   id: string;
@@ -12,19 +11,11 @@ export type AssignmentFormSpaceOption = {
   sortOrder: number;
 };
 
-export type AssignmentFormZoneOption = {
-  id: string;
-  name: string;
-  locationCount: number;
-  unitSpaceIds: string[];
-};
-
 export type AssignmentFormOptions = {
   employees: { id: string; firstName: string; lastName: string }[];
   roles: OperationalRoleDefinition[];
   units: { id: string; name: string }[];
   spaces: AssignmentFormSpaceOption[];
-  zones: AssignmentFormZoneOption[];
 };
 
 export async function loadAssignmentFormOptions(input: {
@@ -32,7 +23,7 @@ export async function loadAssignmentFormOptions(input: {
   departmentId: string;
   departmentKey: string;
 }): Promise<AssignmentFormOptions> {
-  const [employees, units, spaces, zones] = await Promise.all([
+  const [employees, units, spaces] = await Promise.all([
     prisma.employee.findMany({
       where: {
         facilityId: input.facilityId,
@@ -68,13 +59,6 @@ export async function loadAssignmentFormOptions(input: {
           },
         })
       : Promise.resolve([]),
-    input.departmentKey === "EVS"
-      ? loadZonesForDepartment(prisma, {
-          facilityId: input.facilityId,
-          departmentId: input.departmentId,
-          includeRetired: false,
-        })
-      : Promise.resolve([]),
   ]);
 
   const roles = getRolesForDepartment(input.departmentKey);
@@ -91,13 +75,5 @@ export async function loadAssignmentFormOptions(input: {
       roomNumber: s.roomNumber,
       sortOrder: s.sortOrder,
     })),
-    zones: zones
-      .filter((z) => z.status === "ACTIVE" || z.status === "DRAFT")
-      .map((z) => ({
-        id: z.id,
-        name: z.name,
-        locationCount: z.locationCount,
-        unitSpaceIds: z.locations.map((l) => l.unitSpaceId),
-      })),
   };
 }

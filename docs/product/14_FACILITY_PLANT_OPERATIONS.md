@@ -2,7 +2,7 @@
 
 **Status:** Canonical Department Product architecture  
 **Release status:** **AVAILABLE** — certified V1 customer Product; Marketplace-visible for eligible facilities; not a billing/SKU launch  
-**Does not:** Implement runtime, create migrations, rename models/routes, delete legacy code, publish starter content, or change billing/entitlement  
+**November 2026 canon:** [01A](./01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md) and [01B](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md) win where an older paragraph below would still send recurring work to generic Work, Location Functions, or `OperationalTemplate`. Those mechanisms are retired. This file states the current Product.  
 **Platform contract:** [13 — Department Product](./13_DEPARTMENT_PRODUCT.md)  
 **Platform map:** [01 — Product Constitution](./01_PRODUCT_CONSTITUTION.md)  
 **Vocabulary:** [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md)  
@@ -25,9 +25,9 @@ The official Vssyl Department Product name is **Facility Plant Operations**.
 | **Plant** / `PLANT` as the current installation key and internal registry key | Renaming persisted `Department.key` in this phase |
 | **Facility** as the built environment this Product maintains | Assuming this Product is healthcare-only |
 
-The word **Facility** is intentional. This Product represents maintenance of the **built facility environment**. It may apply to hospitals, long-term-care facilities, senior living, assisted living, hotels, resorts, schools, universities, campuses, office buildings, commercial facilities, and institutional/civic facilities.
+The word **Facility** is intentional. This Product maintains the **built facility environment**. The current catalog places it in **Healthcare**, for facilities of type Hospital and Long-Term Care. That is the same industry scope as Food and Nutrition.
 
-It is **not** intended to define all forms of maintenance. Do not automatically treat these as the same Product:
+It does not define every form of maintenance. These stay outside the current Product:
 
 - manufacturing maintenance
 - fleet maintenance
@@ -39,7 +39,7 @@ It is **not** intended to define all forms of maintenance. Do not automatically 
 
 Those domains may share future Vssyl Platform primitives. They are outside the current Product boundary.
 
-**Installation identity (compatibility).** The code registry key remains `PLANT`. The facility Department installation key remains `PLANT`. A facility may locally name the Department Plant, Plant Operations, Facilities, or Maintenance without changing the Product identity. Registry display-name and industry-tag updates wait for a later implementation phase. Do not change release status.
+**Installation identity.** The code registry key is `PLANT`. The facility Department installation key is `PLANT`. The Product name is Facility Plant Operations. A new install is named Plant Operations. A facility may rename that Department. The Product identity does not change when the local name does. Release status is AVAILABLE as of October 7, 2026. Industry is `HEALTHCARE`. Facility types are `HOSPITAL` and `LONG_TERM_CARE`.
 
 ---
 
@@ -92,9 +92,7 @@ Facility
 
 Do not propose `PlantLocation`, `MaintenanceLocation`, duplicate Plant rooms, or copied facility structures.
 
-The Product may define Product-owned Location Functions only if Facility Plant Operations behavior genuinely needs them. Empty is allowed. Do not infer behavior from room names.
-
-**MVP Location Functions:** none required. Optional later if published Work presets need a `functionKey`. Legacy Plant archetypes (`serviceable_space`, `mechanical_room`, and similar) are not Product Location Functions.
+Location Functions are retired. This Product does not define them. Department responsibility and canonical Unit / UnitSpace ids are how Plant participates in the building. Legacy Plant archetypes (`serviceable_space`, `mechanical_room`, and similar) are compatibility debt. Do not extend them. Do not infer behavior from room names.
 
 ### Assets
 
@@ -108,18 +106,11 @@ Asset identity belongs to Platform. Potential shared Asset concepts include name
 
 Technicians are Platform People (`Employee` / `User`). Do not create Technician identity records that duplicate People. The Product may later add Department-specific technician context such as skills/trades. That is NEXT, not MVP.
 
-### Work
+### Recurring work
 
-Use shared Work for recurring operational responsibilities such as:
+Generic Work is retired. Do not put Plant rounds on a Work Plan.
 
-- mechanical-room round
-- exterior inspection
-- daily generator observation
-- maintenance-shop cleanup
-- building walkthrough
-- recurring operational rounds
-
-Do **not** force maintenance Work Orders into generic Work if doing so corrupts the shared Work engine.
+Recurring documented checks use the shared Record engine: boiler readings, generator checks, mechanical-room inspections, and the same class of form. Accepted repair and scheduled service use a Work Order. Calendar repetition of that service is a Preventive Maintenance Plan. A facility may publish an optional Operational Cycle when Plant has a real operating window, such as a morning round. That Cycle is not the PM schedule.
 
 ### Records
 
@@ -131,7 +122,7 @@ Do not propose `PlantInspection`, `PlantReading`, `PlantLog`, or `MaintenanceChe
 
 ### Procedures
 
-Procedures are shared Vssyl knowledge. A Procedure explains **how work should be performed**. A Record is evidence of **what happened**. A Work Order or Work requirement represents **responsibility to perform something**. These remain distinct.
+Procedures are shared Vssyl knowledge. A Procedure explains **how work should be performed**. A Record is evidence of **what happened**. A Work Order is accepted responsibility to perform maintenance. These remain distinct.
 
 ### History
 
@@ -246,23 +237,23 @@ Asset status ≠ Work Order status
 
 ---
 
-## Shared Work vs Work Order
+## Record vs Work Order
 
-### Shared Work
+### Record
 
-Use when the main question is: **was this recurring operational responsibility performed?**
+Use when the main question is: **was this recurring check documented?**
 
-Examples: mechanical-room round; inspect exterior doors; daily generator observation; maintenance-shop cleanup; general building walkthrough.
+Examples: mechanical-room inspection; exterior observation; daily generator reading; building walkthrough checklist.
 
 ### Facility Plant Operations Work Order
 
-Use when maintenance requires a richer persistent lifecycle.
+Use when maintenance requires a persistent lifecycle.
 
 Examples: repair leaking faucet; replace motor; restore dishwasher; investigate electrical failure; replace belt; perform scheduled preventive service.
 
 A Work Order may need source, maintenance kind, priority, category, Issue relationship, Asset/Location context, assignment, Procedure, required Records, persistent state across days, diagnosis, parts used, labor duration, vendor/external cost, resolution, and PM relationship.
 
-Do not expand shared Work into a CMMS engine merely to avoid a Work Order domain capability.
+Do not fold that lifecycle into a Record, a Cycle, or a retired Work Plan.
 
 ---
 
@@ -274,7 +265,7 @@ Work Order number/id, title, description, CORRECTIVE or PREVENTIVE, maintenance 
 
 ### Source
 
-Potentially: Request, Issue, PM Plan occurrence, technician, manager, failed Record, shared Work escalation.
+Potentially: Request, Issue, PM Plan occurrence, technician, manager, or failed Record.
 
 ### Target
 
@@ -434,9 +425,9 @@ This Product fills the contract in [13 — Department Product](./13_DEPARTMENT_P
 | Contract item | Facility Plant Operations |
 |---------------|---------------------------|
 | **Purpose** | Maintain the built facility environment: intake of maintenance attention, known undesirable conditions, corrective and preventive Work Orders, and calendar PM against specific Assets |
-| **Location Functions** | None required. Empty is allowed. Optional later if Work presets need a `functionKey` |
+| **Place participation** | Department responsibility and canonical Unit / UnitSpace ids. No Location Functions. |
 | **Operating Rhythm** | Zero required starter Operational Cycles. Optional facility-configured windows are allowed. PM is not a Cycle |
-| **Work presets** | Optional generic recurring-Work starter pack. Never required. Never auto-published. Facility-owned after install |
+| **Work presets** | Do not define. Generic Work is retired. |
 | **People / coverage needs** | Shared People, Department membership, and operational assignment roles. Technician is a Person, not a second identity |
 | **Record definitions** | Shared Record forms: Reading, Checklist, Inspection, Acknowledgement, On-demand Record. No Plant-owned Record engine |
 | **Assets used** | Shared Platform Asset registry. The Product maintains those Assets; it does not copy them |
@@ -444,8 +435,8 @@ This Product fills the contract in [13 — Department Product](./13_DEPARTMENT_P
 | **Domain-specific capabilities** | Work Order, Preventive Maintenance Plan, maintenance category, maintenance triage, maintenance closeout, maintenance-specific cost/parts/labor facts |
 | **Run requirements** | Plant Manager view, technician view, requester-safe status, repair/request queues, Asset condition, due/overdue PM once implemented |
 | **Historical / Audit questions** | Asset maintenance chronology, Location maintenance chronology, Issue history, Work Order history, PM history — projected from source facts, not a Plant ledger |
-| **Starter content** | Optional **Plant Operations starter configuration**. Select-before-install. Facility-owned copies. Nothing auto-publishes. Nothing claims regulatory compliance. No fake Assets. No generic safety Procedures. PM cadence presets use real Assets |
-| **Facility-configurable values** | Room bindings, people, local labels, optional cycles, published Work Plans, PM plans, Vendor contacts |
+| **Starter content** | Optional **Plant Operations starter configuration**. Select-before-install. Facility-owned copies. Nothing auto-publishes. Nothing claims regulatory compliance. No fake Assets. No generic safety Procedures. Record starters are Catalog forms. PM cadence presets use real Assets. Work-preset rows are not installed. |
+| **Facility-configurable values** | Room bindings, people, local labels, optional cycles, PM plans, Vendor contacts |
 | **Platform-gap test** | See below. Missing reusable Asset/Issue/Request/Procedure/history behavior is Platform. Work Order and PM Plan are Product |
 
 ### Platform-gap test
@@ -474,9 +465,9 @@ Rules that remain binding:
 - No generic Lockout/Tagout, safety, or regulatory Procedures
 - No persisted Preventive Maintenance Plans from starter install
 
-**Recurring Work presets** (shared Work Plan drafts): Mechanical Room Round; Building Walkthrough; Exterior / Grounds Walkthrough; Generator Visual Check.
+**Recurring Work presets** remain in the starter catalog as compatibility metadata. The installer does not copy them into Work Plans. Generic Work authoring is retired.
 
-**Record templates** (compatibility `OperationalTemplate` drafts, not CatalogLogDefinition): Equipment Condition Inspection; Mechanical Room Inspection; Generator Inspection; Basic Equipment Reading; Post-Work Order Verification. Forward Records remain Catalog → install → `LogAttachment`. These drafts are facility-private / PM-WO pin compatibility, not Marketplace definitions.
+**Record starters** are published Catalog forms: Equipment Condition Inspection; Mechanical Room Inspection; Generator Inspection; Basic Equipment Reading; Post-Work Order Verification. Forward Records remain Catalog → install → `LogAttachment`. `OperationalTemplate` is not the Record layer.
 
 **PM cadence presets** are UI-only in the existing PM Plan editor: Monthly (1), Quarterly (3), Semiannual (6), Annual (12), with `generationLeadDays = 7` and Routine priority. The user must select a real Facility Asset and review the Plan before save/publish. Presets are not manufacturer recommendations.
 
@@ -498,7 +489,6 @@ Rules that remain binding:
 - Plant Manager view
 - Technician view
 - Requester-safe status
-- Shared Work integration
 - Shared Record integration
 - Shared Procedures
 - Assignments
@@ -537,7 +527,8 @@ Do not implement during current MVP foundation unless a hard dependency is disco
 - Downtime analytics
 - Maintenance cost analytics
 - SLA/response targets
-- Notifications/escalations
+
+Platform Notifications & Attention already carries Work Order assignment, Work Order overdue, immediate response, Issue created, and Asset out of service. Those are the shared engine. They are not a future Plant notification product. The production Scheduled Evaluation clock is inactive, and production Web Push stays off.
 
 ### LATER
 

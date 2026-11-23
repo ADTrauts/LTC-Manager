@@ -79,8 +79,6 @@ export async function loadDailyAssignmentBoard(
         status: true,
         source: true,
         notes: true,
-        sourceZoneId: true,
-        sourceZone: { select: { name: true } },
         locations: {
           select: {
             unitSpaceId: true,
@@ -177,8 +175,6 @@ export async function loadDailyAssignmentBoard(
       locationCount: a.locations.length,
       scopeSummaryLabel,
       locationLabels,
-      sourceZoneId: a.sourceZoneId,
-      sourceZoneName: a.sourceZone?.name ?? null,
     };
   });
 

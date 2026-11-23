@@ -5,7 +5,7 @@ import {
   type RecordEngineMode,
   type RecordEngineRollout,
 } from "@/lib/canonical-logs/record-engine-rollout";
-import { hasDietaryDomainCapabilities, hasPlantDomainCapabilities } from "@/lib/department-admission";
+import { hasPlantDomainCapabilities } from "@/lib/department-admission";
 import {
   isDepartmentAssetOperationsEnabled,
   isDepartmentOperationalCyclesEnabled,
@@ -79,7 +79,7 @@ type SetupCapability = Exclude<keyof typeof NOT_CONFIGURED_MESSAGES, "records.le
 const SETUP_EXPECTATIONS: Readonly<Record<DepartmentProductKey | "CUSTOM", readonly SetupCapability[]>> = {
   HEALTHCARE_FOOD_NUTRITION: ["locations.runtime", "cycles.published", "coverage.planned", "menus"],
   PLANT: ["plant.maintenance"],
-  EVS: [],
+  EVS: ["locations.runtime", "cycles.published", "coverage.planned"],
   CUSTOM: ["coverage.planned", "people.roster"],
 };
 
@@ -138,7 +138,6 @@ export function deriveDepartmentDashboardCapabilities(
   if (isPlant && facts.plantRuntimeEnabled) has.add("plant.maintenance");
   if (facts.plantRuntimeEnabled && facts.hasPlantRequestRoute === true) has.add("plant.requests.filed");
   if (departmentProductOffersMenus(key) && facts.hasMenuApplicability === true) has.add("menus");
-  if (hasDietaryDomainCapabilities(key)) has.add("meal.milestones");
 
   const missing: Record<SetupCapability, boolean> = {
     "locations.runtime": facts.hasRuntimeLocations === false,

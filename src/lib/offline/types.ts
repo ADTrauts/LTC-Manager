@@ -124,7 +124,6 @@ export type OfflineRuntimeBundle = {
     scopeKind?: "UNIT" | "SPACES";
     locationCount?: number;
     assignedLocations?: Array<{ unitSpaceId: string; label: string }>;
-    sourceZoneName?: string | null;
     /** assignmentId + startsAt + locationCount for stale detection. */
     assignmentRevision?: string;
   } | null;

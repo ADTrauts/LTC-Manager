@@ -28,7 +28,6 @@ export type LocationCoverageRow = {
   employeeIds: string[];
   employeeLabels: string[];
   assignmentIds: string[];
-  zoneIds: string[];
 };
 
 export type LocationCoverageSummary = {
@@ -51,7 +50,6 @@ type AssignmentSlice = {
   endsAt: Date | null;
   status: string;
   hasCallDown: boolean;
-  sourceZoneId: string | null;
   locationSpaceIds: string[];
 };
 
@@ -99,7 +97,6 @@ export async function buildLocationCoverageSummary(
         startsAt: true,
         endsAt: true,
         status: true,
-        sourceZoneId: true,
         employee: { select: { firstName: true, lastName: true } },
         locations: { select: { unitSpaceId: true } },
       },
@@ -168,28 +165,8 @@ export async function buildLocationCoverageSummary(
       endsAt: a.endsAt,
       status: a.status,
       hasCallDown: callOffSet.has(a.employeeId),
-      sourceZoneId: a.sourceZoneId,
       locationSpaceIds,
     });
-  }
-
-  // Preload zone membership for filter tags on rows (optional).
-  const zoneLinks = await client.departmentOperationalZoneLocation.findMany({
-    where: {
-      zone: {
-        facilityId: input.facilityId,
-        departmentId: input.departmentId,
-        status: { not: "RETIRED" },
-      },
-      unitSpaceId: { in: spaces.map((s) => s.id) },
-    },
-    select: { unitSpaceId: true, zoneId: true },
-  });
-  const zonesBySpace = new Map<string, string[]>();
-  for (const link of zoneLinks) {
-    const list = zonesBySpace.get(link.unitSpaceId) ?? [];
-    list.push(link.zoneId);
-    zonesBySpace.set(link.unitSpaceId, list);
   }
 
   let covered = 0;
@@ -242,7 +219,6 @@ export async function buildLocationCoverageSummary(
       employeeIds: [...uniqueEmployees],
       employeeLabels: [...new Set(covering.map((c) => c.employeeLabel))],
       assignmentIds: covering.map((c) => c.id),
-      zoneIds: zonesBySpace.get(space.id) ?? [],
     });
   }
 

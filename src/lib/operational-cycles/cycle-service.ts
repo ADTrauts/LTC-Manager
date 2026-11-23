@@ -1773,6 +1773,16 @@ export async function generateEvsDefaultsDrafts(
         applicableUnitTypes: plan.applicableUnitTypes,
         roomTypeKey: plan.roomTypeKey,
         expectedMilestones: [],
+        ...(plan.nodeKind === "KEY_TIME"
+          ? {
+              occurrenceTracking: plan.occurrenceTracking,
+              keyPointGrain: plan.keyPointGrain,
+              keyTimeGroups: (plan.dueLocals ?? []).map((dueLocal) => ({
+                dueLocal,
+                spaceIds: [] as string[],
+              })),
+            }
+          : {}),
       },
     });
     created.push(row);

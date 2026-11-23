@@ -4,6 +4,10 @@ Canonical Facility Plant Operations Product architecture lives in [`docs/product
 
 This folder holds Plant-specific records. They do not override 14.
 
+## Current canon (November 8, 2026)
+
+[01A](../product/01A_DEPARTMENT_BUILDER_FOUNDATION_AMENDMENT_2026-11-01.md) and [01B](../product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md) win over any sentence in this folder that still treats generic Work presets, Location Functions, or `OperationalTemplate` as the Plant product. The starter installs Catalog forms. It does not install Work Plans. The Product industry in the registry is Healthcare, for Hospital and Long-Term Care. Certifications below remain the record of what was accepted on their dates.
+
 ## Current state (2026-10-07)
 
 Facility Plant Operations V1 is **AVAILABLE**. Eligible customers can see and install it through the canonical Department Product Marketplace. Billing / commercial packaging is not launched.

@@ -160,10 +160,18 @@ async function loadExistingTimings(
 }
 
 /**
- * Materialize Key Time day expectations for one department + operational date.
- * Forward Run loads existing rows only. Pass createIfMissing only from
- * historical tests. Normal Run load leaves it false.
+ * Opening the current operational day prepares any missing rows from the
+ * published Key Point groups effective that day. A past day is left as stored.
+ * A second preparation does not duplicate or overwrite a row. A Draft is not
+ * included. Pass createIfMissing false to read existing rows only.
  */
+export async function prepareCurrentKeyTimeDayExpectations(
+  input: MaterializeKeyTimeDayExpectationsInput,
+  client: DbClient = prisma,
+): Promise<MaterializeKeyTimeDayExpectationsResult> {
+  return materializeKeyTimeDayExpectations({ ...input, createIfMissing: true }, client);
+}
+
 export async function materializeKeyTimeDayExpectations(
   input: MaterializeKeyTimeDayExpectationsInput,
   client: DbClient = prisma,
@@ -172,7 +180,8 @@ export async function materializeKeyTimeDayExpectations(
   const now = input.now ?? new Date();
   const todayKey = toServiceDateKey(getFacilityServiceDate(timezone, now));
   const operationalDateKey = input.operationalDateKey ?? todayKey;
-  const createIfMissing = input.createIfMissing ?? false;
+  const isCurrentDay = operationalDateKey === todayKey;
+  const createIfMissing = (input.createIfMissing ?? isCurrentDay) && isCurrentDay;
   const serviceDate = facilityLocalDateToServiceDate(operationalDateKey);
 
   const existing = await loadExistingTimings(client, {

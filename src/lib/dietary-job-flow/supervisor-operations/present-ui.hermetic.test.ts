@@ -501,11 +501,9 @@ test("EVS and Plant overlays pass through without Dietary relabeling", () => {
           filters: {
             floor: null,
             unit: null,
-            zone: null,
             employee: null,
             floors: [],
             units: [],
-            zones: [],
             employees: [],
           },
         },

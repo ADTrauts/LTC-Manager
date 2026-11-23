@@ -82,9 +82,6 @@ export const DEPARTMENT_OWNER_RESOLVERS = {
       await db.operationalAssignmentTemplate.findFirst({ where: { id, facilityId }, select: departmentIdSelect }),
     ),
 
-  departmentZone: async (db, { facilityId, id }) =>
-    owned(await db.departmentOperationalZone.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
-
   operationalCycle: async (db, { facilityId, id }) =>
     owned(await db.departmentOperationalCycle.findFirst({ where: { id, facilityId }, select: departmentIdSelect })),
 

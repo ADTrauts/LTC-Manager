@@ -1,5 +1,7 @@
 # EVS Assignment Scope — Phase 11C Ownership Decision
 
+> **Historical.** Accepted August 7, 2026 for that phase. Department Builder now lists zones as a retirement candidate. Do not extend them as the Environmental Services product. Current authority is [16 — Department Builder Architecture](../product/16_DEPARTMENT_BUILDER_ARCHITECTURE.md) and [01B](../product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md).
+
 **Date:** 2026-08-07  
 **Branch:** `product/evs-assignment-zones-scale-phase-11c-2026-08-07`  
 **Base tip:** `0c500dca1a0565b2fc8f200249b46938561ea5be` (Phase 11B)  

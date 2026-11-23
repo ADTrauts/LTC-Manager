@@ -122,7 +122,6 @@ function compareWork(a: WorkRequirement, b: WorkRequirement): number {
 export function formatAssignedScopeSummary(input: {
   scopeKind: "UNIT" | "SPACES";
   unitName?: string | null;
-  zoneName?: string | null;
   locations: Array<{ label: string; roomNumber?: string | null }>;
 }): { title: string; detail: string } {
   if (input.scopeKind === "UNIT") {
@@ -132,12 +131,6 @@ export function formatAssignedScopeSummary(input: {
     };
   }
   const count = input.locations.length;
-  if (input.zoneName) {
-    return {
-      title: "Assigned Area",
-      detail: `${input.zoneName} · ${count} Room${count === 1 ? "" : "s"}`,
-    };
-  }
   const numbers = input.locations
     .map((l) => l.roomNumber?.trim())
     .filter((n): n is string => Boolean(n));

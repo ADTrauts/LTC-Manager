@@ -296,21 +296,6 @@ export function SupervisorOperationsBoardView({
               </select>
             </label>
             <label className="text-xs text-zinc-600">
-              Zone
-              <select
-                name="zone"
-                defaultValue={evs.filters.zone ?? ""}
-                className="mt-1 block rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900"
-              >
-                <option value="">All zones</option>
-                {evs.filters.zones.map((zone) => (
-                  <option key={zone.id} value={zone.id}>
-                    {zone.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs text-zinc-600">
               Employee
               <select
                 name="employee"

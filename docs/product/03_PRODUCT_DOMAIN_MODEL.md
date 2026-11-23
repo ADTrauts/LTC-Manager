@@ -34,7 +34,7 @@
 | **Readiness** | Computed location state: Ready / In Progress / Needs Attention. Location answers come from Runtime Location State. |
 | **Task** | **Legacy.** Written only by Task Sync and legacy inspection work. Not Work. Removed in LEG-05, and the table drops at LEG-06 ([LEG-D12](../legacy-retirement/DECISIONS.md#leg-d12--dormant-systems-are-removed-not-kept-dormant--accepted-program-default-october-20-2026)). |
 | **Request** | Intake asking for maintenance attention. Persistence today is `OperationalRequest`. |
-| **Issue** | A known undesirable condition. Persistence today is `AssetIssue` (still Asset-required — see [14](./14_FACILITY_PLANT_OPERATIONS.md)). Not a façade over Repair. |
+| **Issue** | A known undesirable condition. Persistence is `AssetIssue`. The Asset is optional. The location (`unitId`) is required. An Issue is not a Request, a Work Order, or a façade over `Repair`. |
 | **Work Order** | Accepted Facility Plant Operations maintenance work. Persistence today is `Repair`. Distinct from shared Work. |
 | **Repair** | Persistence name for the Work Order row. Legacy `/issues` still redirects here. |
 | **Inspection** | Scheduled or ad-hoc verification with occurrences, submissions, findings/follow-ups. |

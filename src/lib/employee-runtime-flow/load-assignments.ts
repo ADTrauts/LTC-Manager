@@ -46,7 +46,6 @@ export async function loadFrontlineEmployeeAssignments(input: {
       endsAt: true,
       status: true,
       plan: { select: { status: true } },
-      sourceZone: { select: { name: true } },
       locations: {
         select: {
           unitSpaceId: true,
@@ -92,7 +91,6 @@ export async function loadFrontlineEmployeeAssignments(input: {
       scopeKind: locations.length > 0 ? "SPACES" : "UNIT",
       locationCount: locations.length,
       locationLabels: locations.map((location) => location.label),
-      sourceZoneName: row.sourceZone?.name ?? null,
     };
   });
 

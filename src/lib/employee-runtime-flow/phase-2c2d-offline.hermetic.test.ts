@@ -40,7 +40,6 @@ function assignment(
     scopeKind: partial.scopeKind ?? "UNIT",
     locationCount: partial.locationCount,
     locationLabels: partial.locationLabels,
-    sourceZoneName: partial.sourceZoneName ?? null,
   };
 }
 

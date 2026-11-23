@@ -2,16 +2,16 @@
 
 New platform building rules for how every Department appears on the Dashboard. They apply to built Department Products, facility-created custom Departments and every future Product. They are part of the [Department Product blueprint](../product/13_DEPARTMENT_PRODUCT.md#department-product-blueprint) as the "Dashboard contributions" item.
 
-## Short answer: does the new Dashboard work with every built Department?
+## Short answer: does the Dashboard work with every built Department?
 
-**Yes, without restructuring any Department.** Every Department-level data source the Dashboard needs is already scoped by Department and already enforces its own authority. Coverage is uneven, though:
+**Yes.** Cards are platform-owned. A Department contributes capabilities. It does not ship dashboard screens.
 
-- **Food and Nutrition** fits fully today.
-- **Facility Plant Operations** fits through its own services (requests, work orders, PM). It has no Operational Cycle or Location Function, so it needs a shared attention contract to show up in "Needs attention".
-- **Environmental Services** is DEVELOPMENT and contributes nothing until it is released. When released it fits like Food and Nutrition.
+- **Food and Nutrition** contributes locations, a published Operating Rhythm, coverage, people, Records, and Menus when those facts exist. Meal timing is Key Points on that rhythm.
+- **Facility Plant Operations** contributes maintenance: requests, work orders, issues, and preventive maintenance. It has no required cycle starter and no Location Function. Location cards appear only when the facility assigns locations or publishes a cycle.
+- **Environmental Services** is DEVELOPMENT. It contributes nothing to a customer Dashboard.
 - **Custom Departments** get the shared cards their configuration supports, and no product cards.
 
-What is missing is a **rule** for how a Department appears. Without one, the Dashboard either hardcodes each Department (as `workspace-composition.ts` does today) or shows empty, misleading tiles. Plant would show "3 not programmed" locations, for example. This contract is that rule: **cards are platform-owned, and Departments contribute capabilities, not screens.**
+`work.expected` is not admitted. Generic Work Plans are retired. A saved layout that still names that card degrades. It does not show an empty work tile.
 
 ## Rules
 
@@ -52,7 +52,7 @@ What is missing is a **rule** for how a Department appears. Without one, the Das
 - Release status is never changed by Dashboard work.
 
 **R8 — Custom Departments get shared cards only.**
-- A facility-created Department (no Product) is eligible for any shared card its capabilities satisfy. No product cards (Menus, meal milestones, Plant).
+- A facility-created Department (no Product) is eligible for any shared card its capabilities satisfy. No product cards (Menus, Plant maintenance, Food and Nutrition Key Points).
 
 **R9 — Products declare their Dashboard contribution before release.**
 - A Department Product cannot become AVAILABLE, or ship a new operational capability, without:
@@ -73,96 +73,69 @@ Capabilities are facts about one Department on one service date. The resolver ([
 
 | Capability | Meaning | Owner it is derived from | "Not configured" reason when the engine is admitted but this is missing |
 |---|---|---|---|
-| `locations.runtime` | The Department owns Locations that Runtime Location State resolves | Location Function bindings and spaces for the Department | "No locations are assigned to this Department." |
+| `locations.runtime` | The Department is responsible for places Runtime Location State can resolve | Department responsibility on canonical Units / UnitSpaces | "No locations are assigned to this Department." |
 | `cycles.published` | A published Operational Cycle model applies today | Cycles engine admission plus published model | "No Operating Rhythm is published." |
-| `work.expected` | Work Plans are admitted and at least one is published | Work Plans engine admission plus published plans | "No Work Plans are published." |
+| `work.expected` | **Retired.** The resolver never admits it. Generic Work Plans are not a Dashboard capability. | — | — |
 | `coverage.planned` | Coverage templates, or Operational Assignments, exist | Scheduling / coverage owners | "No coverage plan is set." |
 | `people.roster` | The Department has active employees | `Employee` rows | "No employees are in this Department." |
-| `records.canonical` | Record engine is CANONICAL for this Department and date | `resolveRecordEngine` plus `CANONICAL_LOGS_ENABLED` | n/a. The engine choice is not a setup step. |
-| `records.legacy` | Record engine is LEGACY for this Department and date. Produces no cards, only a setup reason (DSH-D19). | `resolveRecordEngine` | "This Department still uses legacy Records." |
+| `records.canonical` | Record engine is CANONICAL for this Department and date | `CANONICAL_LOGS_ENABLED` | n/a. The flag is not a Department setup step. |
+| `records.legacy` | Record engine is LEGACY because canonical logs are off. Produces no count, only a setup reason. | `CANONICAL_LOGS_ENABLED` off | "This Department still uses legacy Records." |
 | `maintenance.shared` | Shared Asset and Repair operations are admitted | Asset engine admission | n/a |
 | `plant.maintenance` | Plant runtime is enabled and this is the Plant Department | `isPlantRuntimeEnabled` | "Plant is installed but not enabled for operation." |
 | `plant.requests.filed` | The Department has an active request route to Plant | `listActiveRoutesForRequestingDepartment` | n/a |
 | `menus` | Product ships Menus and the Department has Menu applicability | Product registry `starters.menus` plus Menu applicability | "No Menu is assigned to this Department's locations." |
-| `meal.milestones` | Food & Nutrition meal milestones apply | `hasDietaryDomainCapabilities` | n/a |
+| `meal.milestones` | **Retired.** Food and Nutrition timing is Key Points on the published Cycle. The resolver does not admit a meal-milestone capability. | — | — |
 
 ## Compatibility matrix
 
-Status today with current flag defaults. ✓ means the card works from existing data. ◐ means it works after a DSH-01 adapter. ✗ means not applicable. Blank means not eligible until the named condition is true.
+Status after the November 2026 foundation. ✓ means the card is eligible when its capability is present. ✗ means the Product does not produce that capability. Hidden means the Product is DEVELOPMENT.
 
-| Card | Food & Nutrition (Dietary) | Facility Plant Operations | Environmental Services | Custom Department |
+| Card | Food and Nutrition | Facility Plant Operations | Environmental Services | Custom Department |
 |---|---|---|---|---|
-| Needs attention | ✓ (Runtime Location State) | ◐ needs Plant attention mappers | Hidden (DEVELOPMENT) | ✓ when `locations.runtime` |
-| Shift now / Today's timeline | ✓ | ✗ no cycle starter. Shows only if the facility builds a Plant cycle. | Hidden | ✓ when a cycle is published |
-| Expected work | ✓ (Work Plans on by default) | ✓ for recurring rounds built as Work Plans | Hidden | ✓ when published |
-| Coverage | ✓ | ✓ | Hidden | ✓ when planned |
-| Call-offs & call-downs | ◐ needs Department filter | ◐ needs Department filter | Hidden | ◐ needs Department filter |
-| Shift handoff / Rounds | ✓ | Only if Plant owns Locations | Hidden | ✓ when `locations.runtime` |
-| Records due | ✓ legacy (`/logs`) today; canonical where the rollout applies | ✓ (Plant PM and work-order templates stay on legacy) | Hidden | ✓ when Records are attached |
-| Work orders & issues | Only if `DIETARY_ASSET_OPERATIONS_ENABLED` | ✓ | Hidden | ✓ (shared engine admitted) |
+| Needs attention | ✓ from Runtime Location State and Key Points | ✓ PM, triage, and asset/work-order mappers | Hidden | ✓ when `locations.runtime` |
+| Shift now / Today's timeline | ✓ when a cycle is published | Only if the facility publishes a Plant cycle | Hidden | ✓ when a cycle is published |
+| Expected work | ✗ retired | ✗ retired | Hidden | ✗ retired |
+| Coverage | ✓ when planned | ✓ when planned | Hidden | ✓ when planned |
+| Shift handoff / Rounds | ✓ when the Department has locations | Only if Plant is responsible for locations | Hidden | ✓ when `locations.runtime` |
+| Records due | ✓ when `CANONICAL_LOGS_ENABLED` is on. Off shows the legacy setup reason. | Same Records rule. PM and Work Order evidence use Catalog forms. | Hidden | ✓ when Records are attached and canonical logs are on |
+| Work orders & issues | ✓ shared Assets are admitted with the installed Department | ✓ | Hidden | ✓ |
 | Preventive maintenance due | ✗ | ✓ | ✗ | ✗ |
 | Requests to triage | ✗ | ✓ | ✗ | ✗ |
-| Our requests to Maintenance (DSH-05) | ✓ when it has a route to Plant | ✗ | Hidden | ✓ when it has a route to Plant |
-| Today's menu | ✓ | ✗ | ✗ | ✗ |
-| Recent activity | ◐ needs query-level Department filter | ◐ | Hidden | ◐ |
+| Our requests to Maintenance | ✓ when it has a route to Plant | ✗ | Hidden | ✓ when it has a route to Plant |
+| Today's menu | ✓ when a Menu applies | ✗ | ✗ | ✗ |
 | Department setup | ✓ | ✓ | Hidden | ✓ |
 
 ## Assessment by Department
 
 ### Food and Nutrition (AVAILABLE)
 
-**Fit: strongest.** It ships everything the Dashboard's location and timeline cards need:
-- a Location Function (`food_service_area`)
-- Breakfast / Lunch / Dinner Cycles with Prep, Service and Cleanup Phases and Key Points
-- Work presets
+**Fit: the rhythm product.** It contributes:
+- Department responsibility for its places
+- Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases
+- Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION)
 - Menus
-- meal milestones
+- People and Coverage
+- Records when canonical logs are on
 
-Its engines are on by default for cycles and Work Plans.
+Capabilities come with the installed Department. There is no dietary capability switch.
 
-**Watch-outs.**
-- **Records.** The default Record engine is LEGACY (`CANONICAL_LOGS_ENABLED` is off). Records cards read only the forward engine ([DSH-D19](./DECISIONS.md)), so a legacy Department shows the setup reason instead of a count. Canonical applies only where a `RecordEngineRollout` row says so, until LEG-01.
-- **Default-off engines.** Job flow, Dietary evidence, Dietary asset operations and Operational Assignments are off by default. Cards depending on them stay hidden until those flags are on. The Dashboard never turns them on. The switches retire in LEG-05 ([LEG-D20](../legacy-retirement/DECISIONS.md#leg-d20--department-capabilities-come-with-the-installed-department--accepted-user-october-20-2026)); after that, eligibility follows the installed Product.
-
-**Work needed.** Department filter for call-offs and recent activity (DSH-01). Otherwise none.
+**Watch-out.** `CANONICAL_LOGS_ENABLED` defaults off. Records cards then show the legacy setup reason instead of a count.
 
 ### Facility Plant Operations (AVAILABLE V1, October 7, 2026)
 
-**Fit: good, through its own services.** Plant's operating loop is request → issue → work order, plus preventive maintenance. Each piece has a Department-scoped service with its own authority check:
-- `listPlantTriageQueue`
-- `listWorkOrders` with `resolveWorkOrderActorAuthority`
-- `loadPmRunBoard`
-- `listIssuesForDepartment`
+**Fit: the maintenance product.** The operating loop is request, issue, work order, and preventive maintenance. Dashboard capabilities are `plant.maintenance` and `maintenance.shared`. Attention mappers cover PM due or overdue, requests awaiting triage, and asset or work-order exceptions.
 
-**Watch-outs.**
-- **Location-centric cards.** Plant has no Location Function and no cycle starter. Location-centric cards (Shift now, Rounds, Handoff) are not eligible unless the facility builds those for Plant. R6 makes sure they are hidden, not shown empty.
-- **Needs attention.** Plant work is invisible to Needs attention today, because it only reads Runtime Location State.
-
-**Work needed (DSH-01).** Attention mappers for PM due or overdue, requests awaiting triage, and urgent open work orders. These are pure translations of existing outputs.
-
-**Boundaries.** No Plant features, migrations or release changes (DSH-D16).
+**Watch-out.** Plant has no cycle starter. Shift and location cards stay hidden until the facility assigns locations or publishes a cycle. That hidden state is correct.
 
 ### Environmental Services (DEVELOPMENT)
 
-**Fit: same as Food & Nutrition once released.** It defines `resident_care` and `service_support` Location Functions and Morning / Afternoon / Evening Operations, and uses the shared engines.
+**Today.** Customer Dashboards omit it (R7). It does not contribute Location Functions or Work Plans.
 
-**Today.** It contributes nothing to customer Dashboards (R7). `EVS_OPERATIONS_ENABLED` is off and the Product is DEVELOPMENT.
-
-**Work needed.** None now. Before EVS can become AVAILABLE, it must publish its Dashboard contribution declaration and pass the release gate below.
+**Before AVAILABLE.** Complete the declaration below and pass the release gate. The declaration uses the same capabilities as any rhythm Department: locations, published cycles, coverage, people, and Records. It does not use `resident_care`, `service_support`, or `work.expected`.
 
 ### Custom (facility-created) Departments
 
-**Fit: shared cards only.** Shared engines admit any active custom Department without a flag. The Dashboard shows exactly the shared cards its configuration supports:
-- coverage
-- call-offs
-- Work Plans
-- cycles (if published)
-- Records
-- maintenance
-
-Product cards (Menus, Plant, meal milestones) never appear (R8).
-
-**Work needed.** Verify in DSH-01, with a custom-Department fixture, that Runtime Location State resolves Locations for a Department without a Product Location Function. If it does not, `locations.runtime` stays absent and location cards stay hidden. That is the correct, calm outcome.
+**Fit: shared cards only.** Shared engines admit any active custom Department. The Dashboard shows the shared cards its configuration supports: coverage, cycles when published, Records, and maintenance. Product cards never appear (R8). `locations.runtime` comes from responsibility rows. A Department with no responsible places has no location cards. That is the correct, calm outcome.
 
 ### Worked example: Terrace View (ECMC) with vendor-run Food & Nutrition (Metz Culinary)
 
@@ -170,7 +143,7 @@ Product cards (Menus, Plant, meal milestones) never appear (R8).
 |---|---|---|
 | Food & Nutrition | Metz Culinary (vendor-run) | Full Food & Nutrition card set for the Metz GM, who signs in with a Metz vendor account, leads it and sees only this Department. The ECMC Facility Administrator sees Summary cards marked "Vendor-run · Metz Culinary": counts and status, no links or people. |
 | Facility Plant Operations | ECMC (self-operated) | Plant cards (requests, work orders, PM). The Plant head has Manage access. The Facility Administrator has View, or Manage if they name themselves head. Food & Nutrition's requests to Plant appear on the Food & Nutrition Dashboard as "Our requests to Maintenance" (DSH-05). The work orders are Plant's records. |
-| Environmental Services | ECMC | The EVS Product is still DEVELOPMENT, so EVS product cards do not appear (R7). If Terrace View runs EVS as a facility-created Department, it gets shared cards (coverage, Work Plans, Records, cycles if published), like any custom Department (R8). Releasing the EVS Product is a separate decision; this program does not change it. |
+| Environmental Services | ECMC | The EVS Product is still DEVELOPMENT, so it does not appear on a customer Dashboard (R7). Releasing it is a separate decision. |
 
 ### Platform areas that are not Departments
 
@@ -189,7 +162,7 @@ They follow the same rules (R3–R6).
 |---|---|---|
 | Department filter on `loadPresenceCallOffs` | It is facility-wide today (`src/lib/todays-work/load-presence-call-offs.ts`) | DSH-01 |
 | Department filter inside `loadWorkspaceNonOperationalExtras` queries | It filters nothing and uses `take: 6`, so filtering afterwards would drop rows | DSH-01 |
-| Plant attention mappers (PM, triage, urgent work orders) | Plant work must appear in Needs attention | DSH-01 |
+| Plant attention mappers (PM, triage, work orders and asset exceptions) | Implemented. Plant work appears in Needs attention through those mappers. | Done |
 | Records attention mapper with engine branch | Legacy vs canonical Records | DSH-01 |
 | Capability resolver | One source of truth for eligibility | DSH-01 |
 | Custom-Department Runtime Location State verification | Confirm `locations.runtime` derivation | DSH-01 |
@@ -204,30 +177,33 @@ Each Department Product keeps one declaration here. Declarations list what the P
 
 | Item | Declaration |
 |---|---|
-| Capabilities it can produce | `locations.runtime`, `cycles.published`, `work.expected`, `coverage.planned`, `people.roster`, `records.legacy` / `records.canonical`, `menus`, `meal.milestones`; `maintenance.shared` only with its asset flag |
-| Attention sources | Runtime Location State interventions (missed Key Points, coverage gaps, Records due), Menu applicability gaps, call-offs |
-| Primary drill-down homes | `/units`, `/staffing/cycles`, `/staffing/work-plans`, `/staffing`, `/menus`, `/logs` or `/staffing/log-book` |
-| "Not configured" states | No locations, no published Operating Rhythm, no Work Plans, no coverage plan, no Menu assignment |
-| Tests | Eligibility with each flag default; count parity with Locations; Menu card hidden for non-Food & Nutrition Departments |
+| Capabilities it can produce | `locations.runtime`, `cycles.published`, `coverage.planned`, `people.roster`, `records.canonical` when canonical logs are on, `menus`, `maintenance.shared` |
+| Attention sources | Runtime Location State, missed REQUIRED Key Points, coverage gaps, Records due, Menu applicability gaps |
+| Primary drill-down homes | Locations, Operating Rhythm, People & Coverage, `/menus`, Records |
+| "Not configured" states | No locations, no published Operating Rhythm, no coverage plan, no Menu assignment |
+| Tests | Menu card hidden for Departments that do not offer Menus. `work.expected` and `meal.milestones` stay absent. |
 
 ### Facility Plant Operations — declared October 20, 2026
 
 | Item | Declaration |
 |---|---|
-| Capabilities it can produce | `plant.maintenance`, `maintenance.shared`, `work.expected` (recurring rounds), `coverage.planned`, `people.roster`, `records.legacy`; not `cycles.published` or `locations.runtime` by default |
-| Attention sources | Requests awaiting triage, PM due or overdue, urgent open work orders and asset exceptions |
-| Cross-Department contribution | Other Departments with a request route get `plant.requests.filed` (Our requests to Maintenance, DSH-05) |
-| Primary drill-down homes | `/repairs` (including triage), `/preventive-maintenance`, `/issues`, `/assets` |
-| "Not configured" states | Plant installed but runtime not enabled; no PM plans published |
-| Tests | Plant attention mappers; location cards not eligible without locations; work-order authority respected for Supervisor sessions |
+| Capabilities it can produce | `plant.maintenance`, `maintenance.shared`, `coverage.planned`, `people.roster`, Records when canonical logs are on. `cycles.published` and `locations.runtime` only when the facility configures them. |
+| Attention sources | Requests awaiting triage, PM due or overdue, open work orders and asset exceptions |
+| Cross-Department contribution | Other Departments with a request route get `plant.requests.filed` |
+| Primary drill-down homes | `/assets`, `/repairs`, `/asset-issues`, `/preventive-maintenance` |
+| "Not configured" states | Plant installed but not operable. No published PM plans show that reason on the PM card. |
+| Tests | Plant attention mappers. Location cards stay ineligible without locations. Work-order authority is respected. |
 
-### Environmental Services — draft, required before AVAILABLE
+### Environmental Services — declared November 23, 2026 (Product stays DEVELOPMENT)
 
-| Item | Declaration (draft) |
+| Item | Declaration |
 |---|---|
-| Capabilities it can produce | `locations.runtime`, `cycles.published`, `work.expected`, `coverage.planned`, `people.roster`, Records |
-| Attention sources | Runtime Location State interventions for `resident_care` and `service_support` locations |
-| Release requirement | Complete this declaration and pass the release gate in the EVS release certification |
+| Capabilities it can produce | `locations.runtime`, `cycles.published`, `coverage.planned`, `people.roster`, `records.canonical` when canonical logs are on, `maintenance.shared`. `plant.requests.filed` only with a request route to Plant and Plant runtime on. Never `work.expected`, `meal.milestones`, `menus` or `plant.maintenance`. No Location Function. |
+| Attention sources | The same platform attention as any rhythm Department: Runtime Location State (overdue REQUIRED Key Points arrive as milestone exceptions), coverage gaps and call-offs, Records due, and shared asset exceptions. No EVS-only event. |
+| Primary drill-down homes | Locations, Operating Rhythm, People & Coverage (`/staffing`, `/staffing/assignments`), Records |
+| "Not configured" states | No locations, no published Operating Rhythm, no coverage plan, legacy Records |
+| Tests | `src/lib/dashboard/evs-release-gate.hermetic.test.ts` covers gate items 2, 3, 5, 6 and 7, and that a DEVELOPMENT EVS reaches only internal Dashboards. The EVS subtest in `src/lib/dashboard/dashboard-foundation.db.test.ts` covers item 4. |
+| Release requirement | The gate passes. Release status is a separate product-owner decision; passing the gate does not change it. |
 
 ## Release gate
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Phase 11C EVS Assignment / Zones scale fixtures (synthetic, no PHI).
+ * Phase 11C EVS Assignment scale fixtures (synthetic, no PHI).
  * Disposable VERIFY_DATABASE_URL only.
  *
  * Seeds ~4 floors, multiple units, 40–60 rooms, 15–25 EVS staff + ≥2 supervisors,
- * ACTIVE zones, under-coverage + overlap hooks, offline staff PIN, work plans,
+ * under-coverage + overlap hooks, offline staff PIN, work plans,
  * inspection template, and asset issue target.
  */
 import { createHmac, randomBytes } from "node:crypto";
@@ -242,65 +242,6 @@ async function ensureScaleFloorsUnitsRooms(db, facilityId, evsId) {
   return { floors, units, roomsByUnitName };
 }
 
-async function ensureActiveZone(db, {
-  facilityId,
-  departmentId,
-  name,
-  description,
-  spaces,
-  actorUserId,
-}) {
-  let zone = await db.departmentOperationalZone.findFirst({
-    where: { facilityId, departmentId, name },
-    select: { id: true, name: true, status: true },
-  });
-  if (!zone) {
-    zone = await db.departmentOperationalZone.create({
-      data: {
-        facilityId,
-        departmentId,
-        name,
-        description,
-        status: "ACTIVE",
-        createdByUserId: actorUserId,
-        lastChangedByUserId: actorUserId,
-        lastChangedAt: new Date(),
-        locations: {
-          create: spaces.map((s, index) => ({
-            unitSpaceId: s.id,
-            unitId: s.unitId ?? null,
-            sortOrder: s.sortOrder ?? index + 1,
-          })),
-        },
-      },
-      select: { id: true, name: true, status: true },
-    });
-  } else if (zone.status !== "ACTIVE") {
-    zone = await db.departmentOperationalZone.update({
-      where: { id: zone.id },
-      data: { status: "ACTIVE", retiredAt: null },
-      select: { id: true, name: true, status: true },
-    });
-  }
-
-  const existingLocCount = await db.departmentOperationalZoneLocation.count({
-    where: { zoneId: zone.id },
-  });
-  if (existingLocCount === 0 && spaces.length > 0) {
-    await db.departmentOperationalZoneLocation.createMany({
-      data: spaces.map((s, index) => ({
-        zoneId: zone.id,
-        unitSpaceId: s.id,
-        unitId: s.unitId ?? null,
-        sortOrder: s.sortOrder ?? index + 1,
-      })),
-      skipDuplicates: true,
-    });
-  }
-
-  return zone;
-}
-
 async function main() {
   if (!SYNTHETIC_PASSWORD) fail("SEED_DEMO_PASSWORD is required");
   if (!AUTH_SECRET) fail("AUTH_SECRET is required");
@@ -472,23 +413,6 @@ async function main() {
     if (roomCount < 40 || roomCount > 60) {
       fail(`expected 40–60 PATIENT_ROOM spaces, got ${roomCount}`);
     }
-
-    const zoneEast = await ensureActiveZone(db, {
-      facilityId: facility.id,
-      departmentId: evs.id,
-      name: "Floor 1 East",
-      description: "Synthetic Zone — Floor 1 East rooms",
-      spaces: eastRooms,
-      actorUserId: manager.id,
-    });
-    const zoneWest = await ensureActiveZone(db, {
-      facilityId: facility.id,
-      departmentId: evs.id,
-      name: "Floor 1 West",
-      description: "Synthetic Zone — Floor 1 West rooms",
-      spaces: westRooms,
-      actorUserId: manager.id,
-    });
 
     const serviceDateKey = new Date().toISOString().slice(0, 10);
     const serviceDate = serviceDateUtc(serviceDateKey);
@@ -672,7 +596,6 @@ async function main() {
           serviceDate,
           employeeId: staffEmp.id,
           unitId: eastUnit.id,
-          sourceZoneId: zoneEast.id,
           status: "PLANNED",
           roleKey: "CLEANING_ROUND",
           roleLabel: "Cleaning Round",
@@ -878,11 +801,6 @@ async function main() {
       ),
       uncoveredUnitId: units.find((u) => u.name === "Floor 2 North")?.id ?? null,
       overlapSpaceId: westRoom1?.id ?? null,
-      zoneEastId: zoneEast.id,
-      zoneEastName: zoneEast.name,
-      zoneWestId: zoneWest.id,
-      zoneWestName: zoneWest.name,
-      activeZoneCount: 2,
       serviceDateKey,
       managerEmail: manager.email,
       faWithEvsEmail: faWithEvs.email,
@@ -933,7 +851,7 @@ async function main() {
       ].join("\n") + "\n",
     );
     console.log(
-      `evs-assignment-browser-fixtures: wrote ${FIXTURE_PATH} (rooms=${roomCount}, employees≈${evsEmployeeCount}, zones=2)`,
+      `evs-assignment-browser-fixtures: wrote ${FIXTURE_PATH} (rooms=${roomCount}, employees≈${evsEmployeeCount})`,
     );
   } finally {
     await db.$disconnect();

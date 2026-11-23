@@ -83,7 +83,6 @@ function assignment(id: string): JobFlowAssignmentSnapshot {
     endsAt: new Date("2026-11-08T20:00:00.000Z"),
     status: "ACTIVE",
     scopeKind: "UNIT",
-    sourceZoneName: null,
   };
 }
 

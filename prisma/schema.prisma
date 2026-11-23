@@ -202,7 +202,6 @@ model Facility {
   assetIssues                           AssetIssue[]
   departmentWorkPlans                   DepartmentWorkPlan[]
   departmentWorkOccurrences             DepartmentWorkOccurrence[]
-  departmentOperationalZones            DepartmentOperationalZone[]
   departmentTeams                       DepartmentTeam[]
   departmentTeamCycles                  DepartmentTeamCycle[]
   facilityTypeLogDefaults               DepartmentFacilityTypeLogDefault[]
@@ -269,7 +268,6 @@ model Department {
   menus                          Menu[]
   departmentWorkPlans            DepartmentWorkPlan[]
   departmentWorkOccurrences      DepartmentWorkOccurrence[]
-  departmentOperationalZones     DepartmentOperationalZone[]
   scheduleEntries                ScheduleEntry[]
   teams                          DepartmentTeam[]
   teamCycles                     DepartmentTeamCycle[]
@@ -1052,8 +1050,6 @@ model User {
   workOccurrencesReassignedBy              DepartmentWorkOccurrence[]              @relation("WorkOccurrenceReassignedByUser")
   workOccurrencesCreated                   DepartmentWorkOccurrence[]              @relation("WorkOccurrenceCreatedByUser")
   workEventsAsActor                        DepartmentWorkEvent[]                   @relation("WorkEventActorUser")
-  departmentZonesCreated                   DepartmentOperationalZone[]             @relation("DepartmentZoneCreatedBy")
-  departmentZonesLastChanged               DepartmentOperationalZone[]             @relation("DepartmentZoneLastChangedBy")
   cycleDayExpectationAdjustments           OperationalCycleDayExpectation[]        @relation("CycleDayExpectationAdjustedByUser")
   keyTimeDayExpectationAdjustments         OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationAdjustedByUser")
   keyTimeDayExpectationCompletions         OperationalCycleKeyTimeDayExpectation[] @relation("KeyTimeDayExpectationCompletedByUser")
@@ -1969,7 +1965,6 @@ model UnitSpace {
   operationalRequests        OperationalRequest[]
   repairs                    Repair[]
   departmentWorkOccurrences  DepartmentWorkOccurrence[]
-  zoneMemberships            DepartmentOperationalZoneLocation[]
   teamMemberships            DepartmentTeamRoomMembership[]
   logSuppressions            DepartmentLocationLogSuppression[]
   assignmentLocations              OperationalAssignmentLocation[]
@@ -3725,62 +3720,8 @@ model OperationalAssignmentPlan {
   @@index([departmentId, serviceDate])
 }
 
-/// Lifecycle for a Department operational Zone (named location grouping).
-/// Zone is never a physical location, Assignment, Work Plan, or authorization boundary.
-enum DepartmentOperationalZoneStatus {
-  DRAFT
-  ACTIVE
-  RETIRED
-}
-
-/// Named Facility + Department grouping of canonical UnitSpaces for Assignment convenience
-/// and Supervisor filtering. Membership changes never rewrite existing Assignments.
-model DepartmentOperationalZone {
-  id                  String                              @id @default(cuid())
-  facilityId          String
-  facility            Facility                            @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  departmentId        String
-  department          Department                          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  name                String
-  description         String?
-  status              DepartmentOperationalZoneStatus     @default(DRAFT)
-  retiredAt           DateTime?
-  createdByUserId     String?
-  createdByUser       User?                               @relation("DepartmentZoneCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  lastChangedByUserId String?
-  lastChangedByUser   User?                               @relation("DepartmentZoneLastChangedBy", fields: [lastChangedByUserId], references: [id], onDelete: SetNull)
-  lastChangedAt       DateTime?
-  locations           DepartmentOperationalZoneLocation[]
-  assignmentsAsSource OperationalAssignment[]             @relation("AssignmentSourceZone")
-  createdAt           DateTime                            @default(now())
-  updatedAt           DateTime                            @updatedAt
-
-  @@unique([facilityId, departmentId, name])
-  @@index([facilityId, departmentId, status])
-  @@index([departmentId, status])
-}
-
-/// Zone membership: existing UnitSpace only (canonical Room / Space).
-model DepartmentOperationalZoneLocation {
-  id          String                    @id @default(cuid())
-  zoneId      String
-  zone        DepartmentOperationalZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  unitSpaceId String
-  unitSpace   UnitSpace                 @relation(fields: [unitSpaceId], references: [id], onDelete: Cascade)
-  /// Denormalized parent Unit for filtering (must match unitSpace.unitId when present).
-  unitId      String?
-  sortOrder   Int                       @default(100)
-  createdAt   DateTime                  @default(now())
-
-  @@unique([zoneId, unitSpaceId])
-  @@index([unitSpaceId])
-  @@index([unitId])
-  @@index([zoneId, sortOrder])
-}
-
 /// Snapshotted Room / Space responsibility for one OperationalAssignment.
 /// Empty set + unitId = unit-wide (Dietary / EVS whole Unit). Non-empty = explicit Spaces.
-/// Zone membership edits never mutate these rows.
 model OperationalAssignmentLocation {
   id            String                @id @default(cuid())
   assignmentId  String
@@ -3814,9 +3755,6 @@ model OperationalAssignment {
   employee            Employee                           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   unitId              String?
   unit                Unit?                              @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  /// Optional Zone used as create-time convenience. Not live membership authority.
-  sourceZoneId        String?
-  sourceZone          DepartmentOperationalZone?         @relation("AssignmentSourceZone", fields: [sourceZoneId], references: [id], onDelete: SetNull)
   templateItemId      String?
   templateItem        OperationalAssignmentTemplateItem? @relation(fields: [templateItemId], references: [id], onDelete: SetNull)
   serviceDate         DateTime                           @db.Date
@@ -3846,7 +3784,6 @@ model OperationalAssignment {
   @@index([departmentId, serviceDate])
   @@index([employeeId, serviceDate])
   @@index([unitId, serviceDate])
-  @@index([sourceZoneId])
   @@index([templateItemId])
   @@index([planId])
 }

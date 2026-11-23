@@ -102,7 +102,9 @@ Installation creates the operational Department. It does not invent local facili
 
 Department Builder is the post-install configuration home:
 
-Overview, Locations, Operating Rhythm, Work, People & Coverage, Records.
+Overview, Facility (the tab may still say Locations), Operating Rhythm, People & Coverage, Records.
+
+Work is not a core section. A residual Work tab is compatibility-only. Food and Nutrition adds Menus. Facility Plant Operations adds Preventive Maintenance.
 
 Food and Nutrition also has Menus. Menus are Department-owned identity records (`Menu`) with optional rotating-cycle content (`MenuCycleSettings` + `MenuItem`). Applicability is explicit: `MenuLocationApplicability` consumes canonical Department locations, and `MenuOperationalCycleApplicability` stores a root Operational Cycle `stableKey` plus a `menuPeriodKey` mapping to existing Menu content. They are not Cycles, Records, or Work, and they are not a facility-wide singleton. Runtime Menu resolution is implemented as `resolveApplicableMenus` in `menu-runtime.ts` / `menu-runtime-db.ts`. It answers which ACTIVE Menus apply at an exact location during a canonical root Operational Cycle on a facility service date, then loads that slot's content. It does not choose a winner, inherit neighborhood rooms, match MealType, bind `DepartmentOperationalCycle.id`, or snapshot historical Menu configuration. The first Run consumer is Today's Menu on the Space workspace Overview. Temperature/log integration is not implemented. Vssyl provides product-owned operating-rhythm starters where a product has one. The customer applies those starters explicitly, edits local facts, and publishes them. Nothing is auto-published.
 
@@ -136,7 +138,7 @@ Facility classification is derived from existing fields. Do not add `Facility.in
 
 Applicability / relevance ≠ release state ≠ entitlement ≠ installation.
 
-Marketplace category tabs (Healthcare | Hospitality | Education) wait until more than one AVAILABLE Product justifies them.
+Both AVAILABLE Products are Healthcare, for Hospital and Long-Term Care. The registry industries are Healthcare and Other. Marketplace category tabs are not built. Hospitality and Education are not registry industries.
 
 Do not revive retired industry packs (`applyIndustryPack()`).
 
@@ -215,7 +217,7 @@ Department Products that exist today:
 | Product | Implemented | Not designed |
 |---------|-------------|--------------|
 | **Food and Nutrition** | Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Menus. Healthcare-scoped. Legacy Work presets / function keys may still exist in code as compatibility debt. | — |
-| **Environmental Services** | Morning / Afternoon / Evening Operations starters (DEVELOPMENT). Legacy function keys may still exist in code. | A second location tree |
+| **Environmental Services** | DEVELOPMENT. Blueprint is [17](./17_ENVIRONMENTAL_SERVICES.md). Morning / Afternoon / Evening Cycles with Opening, Cleaning, and Closeout Phases. Key Points: Shift opened (NONE) and Area ready (REQUIRED, LOCATION, no rooms until the facility names them). Catalog suggestions for restroom, room cleaning, and area inspection. Location Function keys and generic Work presets that remain in code are compatibility debt. Assignment zones are retired. | A second location tree, a cleaning engine, or a Department notification engine |
 | **Facility Plant Operations** | AVAILABLE V1: Request / Issue / Work Order corrective loop, Preventive Maintenance, and optional unpublished starters. Platform Assets and repairs remain shared. See [14](./14_FACILITY_PLANT_OPERATIONS.md) and the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07). | Inventory, meter PM, IoT, predictive maintenance, and dedicated Product billing SKU. |
 
 Configure Overview, Facility, Operating Rhythm, People & Coverage, Records (plus Menus or Preventive Maintenance) in Department Builder. Notification policy configures the shared engine; it does not send notifications. Physical rooms stay in Facility Builder. The engine contract is [16 — Notifications & Attention](./16_NOTIFICATIONS_AND_ATTENTION.md). The Builder contract is [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md).
@@ -226,7 +228,7 @@ Configure Overview, Facility, Operating Rhythm, People & Coverage, Records (plus
 
 A new Department Product is a registry entry plus the blueprint below. It is not a new application, and it does not receive its own copy of the platform.
 
-Facility Plant Operations is the filled example: [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md). Environmental Services has not filled this contract.
+Facility Plant Operations is the filled example: [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md). Environmental Services is filled and remains DEVELOPMENT: [17 — Environmental Services](./17_ENVIRONMENTAL_SERVICES.md).
 
 1. Write every blueprint row before implementation.
 2. Add the Product to `src/lib/department-products/registry.ts` with status **DEVELOPMENT**. Customers cannot see, buy, or install it until a separate decision marks it **AVAILABLE**.

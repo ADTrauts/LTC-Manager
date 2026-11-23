@@ -218,7 +218,7 @@ Department responsibility does not imply Cycle participation.
 
 The Department Product registry is Vssyl-owned code (`src/lib/department-products/`). A Department is the facility's installed instance. The Product name and the local Department name are different facts. Installation keys such as `DIETARY` and `PLANT` are compatibility identity, not a second Product.
 
-Marketplace items run on Platform engines. Today only Records forms are Catalog items (`CatalogLogDefinition`). Work presets and Operating Rhythm starters still ship in code with their Product. Menu templates are not built. Moving those kinds into the Marketplace reuses this Catalog.
+Marketplace items run on Platform engines. Today only Records forms are Catalog items (`CatalogLogDefinition`). Operating Rhythm starters still ship in code with their Product. Menu templates are not built. Generic Work presets are compatibility-only and are not a Marketplace kind. Moving forward kinds into the Marketplace reuses this Catalog.
 
 **Menu** is a Food and Nutrition Department-owned record: identity plus content. Applicability is explicit Department locations and root Operational Cycle stable keys mapped to a Menu period. Menu rotation is not Cycle timing. Runtime resolution is `resolveApplicableMenus`. A Menu is not a facility singleton, a Record, or Work.
 
@@ -315,9 +315,9 @@ While equipment is on site, the using Department, Plant, and the Facility Admini
 
 A **Request** (`OperationalRequest`) is intake: someone is asking for maintenance attention. It may be accepted, declined, marked duplicate, or closed without maintenance work. Reported urgency is an intake signal.
 
-An **Asset Issue** (`AssetIssue`) is the current store for a known undesirable condition in this maintenance loop. The schema treats the Asset as optional and the location as required; a location-only condition is allowed. The [Domain Model](./03_PRODUCT_DOMAIN_MODEL.md) still says the row is asset-required. That sentence is stale against the schema. The row is still maintenance-shaped: it carries maintenance priority, equipment impact, and the relationship to Work Orders. It is not a Request and not a Work Order. See [Domain F](#platform-domain-f--issues-readiness--recovery) before using it for a problem that is not this condition.
+An **Asset Issue** (`AssetIssue`) is the current store for a known undesirable condition in this maintenance loop. The schema treats the Asset as optional and the location as required; a location-only condition is allowed. The Asset is optional and the location is required. The row is maintenance-shaped: it carries maintenance priority, equipment impact, and the relationship to Work Orders. It is not a Request and not a Work Order. See [Domain F](#platform-domain-f--issues-readiness--recovery) before using it for a problem that is not this condition.
 
-A **Work Order** is accepted Facility Plant Operations maintenance work. Persistence is `Repair`. Kinds in the Product architecture are corrective and preventive. A Work Order may target an Asset, a location, or both. Asset is not required on the Work Order. Shared recurring rounds stay on the Work Plan. A Work Order does not become a Work Plan item because Job Flow shows both.
+A **Work Order** is accepted Facility Plant Operations maintenance work. Persistence is `Repair`. Kinds in the Product architecture are corrective and preventive. A Work Order may target an Asset, a location, or both. Asset is not required on the Work Order. Recurring documented checks are Records. Calendar repetition of maintenance is a Preventive Maintenance Plan. Generic Work Plans are not the home for either. A Work Order does not become a Work Plan item because Job Flow shows both.
 
 Work Order priority, reported urgency, and Asset criticality are three facts. A critical Asset does not make every Work Order an emergency.
 
@@ -340,7 +340,7 @@ Other problems already have owners:
 | Late or missed Key Point | Operational Cycle Key Point actual |
 | Food-safety or inspection failure | The submitted Record and its derived outcome |
 | Asset down or degraded | Asset condition, and an Asset Issue when that condition is the maintenance problem |
-| Work not performed | Sparse Work occurrence, or the Work Order lifecycle when the work is maintenance |
+| Work not performed | A missed or overdue Record, an uncovered Assignment, or an open Work Order when the work is maintenance |
 
 Readiness and the Dashboard may show any of those. Showing them together does not make them one Issue, and it does not make recovery a Work Order.
 
@@ -715,18 +715,20 @@ Environmental Services is a Department Product. It does not bring its own engine
 ```text
 Environmental Services Department Product
     ↓
-Location Functions on existing rooms
+Department responsibility on existing rooms
     ↓
-Operational Cycle / Phase where the facility publishes them
+Operational Cycle / Phase / Key Point where the facility publishes them
     ↓
-Work Plan for expected cleaning work
+Records for required cleaning documentation and inspection
     ↓
-Records for required documentation / inspection
+Shift, Assignment, and Coverage for who is covering those places
     ↓
 Job Flow, Locations, and the Dashboard consume that canonical state
     ↓
 Audit / Reports reconstruct historical performance
 ```
+
+Location Functions and generic Work Plans are not steps in this workflow. Environmental Services stays DEVELOPMENT until its blueprint, Dashboard declaration, and write classification are complete.
 
 `EVSLogTemplate`, `EVSLogSubmission`, `EVSInspection`, and `EVSReadiness` are not models to add.
 

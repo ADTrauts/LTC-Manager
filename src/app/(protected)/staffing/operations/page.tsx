@@ -31,7 +31,6 @@ type OperationsPageProps = {
   searchParams?: Promise<{
     floor?: string | string[];
     unit?: string | string[];
-    zone?: string | string[];
     employee?: string | string[];
   }>;
 };
@@ -94,7 +93,6 @@ export default async function SupervisorOperationsBoardPage({
   const query = searchParams ? await searchParams : undefined;
   const filterFloor = firstParam(query?.floor);
   const filterUnit = firstParam(query?.unit);
-  const filterZone = firstParam(query?.zone);
   const filterEmployee = firstParam(query?.employee);
 
   let view;
@@ -106,7 +104,6 @@ export default async function SupervisorOperationsBoardPage({
       filters: {
         floor: filterFloor,
         unit: filterUnit,
-        zone: filterZone,
         employee: filterEmployee,
       },
     });

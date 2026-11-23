@@ -18,6 +18,7 @@
 | [08 — Language Guide](./08_PRODUCT_LANGUAGE_GUIDE.md) | Manager vocabulary |
 | [13 — Department Product](./13_DEPARTMENT_PRODUCT.md) | Install journey and the blueprint required for each Department Product |
 | [14 — Facility Plant Operations](./14_FACILITY_PLANT_OPERATIONS.md) | Canonical Facility Plant Operations Product architecture (AVAILABLE) |
+| [17 — Environmental Services](./17_ENVIRONMENTAL_SERVICES.md) | Environmental Services blueprint (DEVELOPMENT) |
 | [Legacy Surface Register](./LEGACY_SURFACE_REGISTER.md) | Compatibility systems that remain readable |
 | [11 — Commercial Model](./11_COMMERCIAL_MODEL.md) | Facility-plus-departments pricing |
 | [12 — Vssyl Brand](./12_VSSYL_BRAND.md) | Product name |

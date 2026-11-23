@@ -635,11 +635,9 @@ test("EVS overlay uses location coverage engine, not Dietary gaps", () => {
         filters: {
           floor: null,
           unit: null,
-          zone: null,
           employee: null,
           floors: [],
           units: [],
-          zones: [],
           employees: [],
         },
       },

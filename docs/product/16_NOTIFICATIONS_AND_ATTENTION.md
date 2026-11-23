@@ -204,7 +204,9 @@ Facility leadership may set a facility policy that establishes minimums. A Depar
 
 ### How the same engine differs by Department
 
-Presets are examples for the first policies. They are not separate engines.
+Presets below are approved examples for the first policies. They are not separate engines, and they are not a claim that every named condition is already wired.
+
+Live publishers today are assignment changes, coverage at risk / uncovered / restored, Key Point overdue and recorded, evidence failed, issue created, asset out of service and returned, work order assigned, work order overdue, and immediate work-order response. Readiness events, corrective-action overdue, discharge clean, isolation clean, and supply shortage are not event types. The production Scheduled Evaluation clock is inactive. Production Web Push stays off.
 
 **Food and Nutrition.** Call-off affecting today's service. Coverage At Risk. Coverage Uncovered. Assignment changes on the active service day. Readiness Needs Attention. Servery Ready overdue. Meal Service Started overdue. Critical temperature or other critical evidence failure. Corrective action overdue. An equipment issue with operational impact.
 

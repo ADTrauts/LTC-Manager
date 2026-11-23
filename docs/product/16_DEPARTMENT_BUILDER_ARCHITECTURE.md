@@ -54,7 +54,7 @@ Current extensions:
 |---|---|
 | Food and Nutrition | **Menus** |
 | Facility Plant Operations | **Preventive Maintenance** |
-| Environmental Services | None defined yet |
+| Environmental Services | None. Standard sections only. Blueprint: [17](./17_ENVIRONMENTAL_SERVICES.md). |
 
 A new Product does not receive a different Department Builder shell.
 
@@ -364,13 +364,13 @@ PM is not generic Work and is not an Operational Cycle.
 - Experience catalog, Operational Areas, and room experience exceptions
 - Department-owned role system that does not drive the canonical Employee workforce model
 
-### RETIREMENT CANDIDATE — ZONES
+### RETIRED — ZONES (November 23, 2026)
 
-`DepartmentOperationalZone` currently groups existing UnitSpaces for Assignment convenience and Supervisor filters. It is not a physical place.
+`DepartmentOperationalZone` grouped existing UnitSpaces for Assignment convenience and Supervisor filters. It was not a physical place.
 
-Under the target architecture, Zone is not part of the Department Builder Facility model and must not become another location hierarchy. Before deleting its schema/code, trace all remaining readers/writers. If no unique business rule exists beyond saved grouping/filter convenience, retire it and use canonical Facility scope, Team/Role organization, and Assignment/coverage filtering instead.
+The trace found no business rule beyond saved grouping and filtering. An Assignment already snapshots its rooms into `OperationalAssignmentLocation`, and `sourceZoneId` was audit only. Zones are retired. Use canonical Facility scope, Team/Role organization, and Assignment/coverage filtering instead.
 
-No new Zone usage may be added during that trace.
+No code reads or writes Zones. The product owner approved the drop on November 23, 2026. Migration `20261123120000_retire_assignment_zones` removes the `DepartmentOperationalZone` and `DepartmentOperationalZoneLocation` tables, their status enum and `OperationalAssignment.sourceZoneId`. Do not reintroduce a saved room grouping. `UnitType.EVS_ZONE` is a Facility place type, not this grouping.
 
 ---
 

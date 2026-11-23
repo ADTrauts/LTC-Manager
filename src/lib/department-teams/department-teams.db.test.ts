@@ -399,10 +399,6 @@ test(
       assert.equal(resident.rooms.some((room) => room.spaceId === naval.id), false);
       assert.equal(resident.rooms.some((room) => room.spaceId === lighthouse.id), true);
 
-      const zoneCount = await prisma.departmentOperationalZone.count({
-        where: { departmentId: dietary.id },
-      });
-      assert.equal(zoneCount, 0);
       const cycleCount = await prisma.departmentOperationalCycle.count({
         where: { departmentId: dietary.id },
       });

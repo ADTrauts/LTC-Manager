@@ -68,7 +68,6 @@ export type JobFlowAssignmentSnapshot = {
   scopeKind?: "UNIT" | "SPACES";
   locationCount?: number;
   locationLabels?: string[];
-  sourceZoneName?: string | null;
 };
 
 export type JobFlowScopeSummary = {
@@ -305,17 +304,14 @@ export type SupervisorLocationCoverageRow = {
   floorName: string | null;
   state: string;
   employeeLabels: string[];
-  zoneIds: string[];
 };
 
 export type SupervisorOperationsFilters = {
   floor: string | null;
   unit: string | null;
-  zone: string | null;
   employee: string | null;
   floors: Array<{ id: string; name: string }>;
   units: Array<{ id: string; name: string }>;
-  zones: Array<{ id: string; name: string }>;
   employees: Array<{ id: string; name: string }>;
 };
 

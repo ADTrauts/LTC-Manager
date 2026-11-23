@@ -196,11 +196,7 @@ export async function loadSupervisorCycleOverview(input: {
     where: {
       facilityId: input.facilityId,
       isActive: true,
-      ...(expectationUnitIds.length > 0
-        ? { id: { in: expectationUnitIds } }
-        : departmentKey === "DIETARY"
-          ? { unitType: { in: ["SERVERY", "KITCHEN"] as const } }
-          : {}),
+      id: { in: expectationUnitIds },
       departmentResponsibilities: {
         some: { departmentId: input.departmentId },
       },
