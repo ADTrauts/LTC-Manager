@@ -51,6 +51,8 @@ function Screen({ name, label, alt, sizes }: ScreenProps) {
 export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean }) {
   return (
     <div className={styles.page}>
+      <link rel="preload" as="image" href="/marketing/films/facility-small.webp"
+        media="(max-width: 480px)" fetchPriority="high" />
       <a className={styles.skip} href="#top">Skip to content</a>
       <header className={styles.header}>
         <div className={styles.headerInner}>
