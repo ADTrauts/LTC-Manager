@@ -10,6 +10,11 @@ Start with the [New Department Product implementation guide](product/NEW_DEPARTM
 - [Commercial model](product/11_COMMERCIAL_MODEL.md), [Department authority](contracted-departments/README.md) and [write manifest](../src/lib/department-authority/write-manifest.ts)
 - [Dashboard contribution contract](dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md) and [Notifications & Attention](product/16_NOTIFICATIONS_AND_ATTENTION.md)
 
+## Marketing and video production
+
+- [Vssyl Video Standard V1.0 — brand/production playbook, template, asset catalog and first approved film](marketing/video/README.md)
+- [The Day Doesn't Wait — approved V15 script and verified master details](marketing/video/THE_DAY_DOESNT_WAIT_V15.md)
+
 ## Operational modules
 
 | Work | Start here |
