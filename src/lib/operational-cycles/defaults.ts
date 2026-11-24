@@ -1,6 +1,6 @@
 /**
  * Dietary / EVS default Operational Cycle draft plans (pure).
- * Dietary defaults illustrate a nested operating day; EVS stays shallow.
+ * Dietary and Environmental Services defaults illustrate a nested operating day.
  * Never auto-applied to facilities. Never infers hierarchy from labels in existing data.
  */
 
@@ -49,6 +49,9 @@ export type EvsDefaultCyclePlan = {
   expectedMilestones: [];
   locationMode: "ALL_DEPARTMENT_UNITS" | "EXPLICIT_UNITS";
   locationInheritFromParent?: boolean;
+  occurrenceTracking?: "NONE" | "OPTIONAL" | "REQUIRED";
+  keyPointGrain?: "DEPARTMENT" | "LOCATION";
+  dueLocals?: string[];
 };
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -251,57 +254,156 @@ export function buildDietaryDefaultCyclePlans(): DietaryDefaultCyclePlan[] {
 }
 
 /**
- * Example EVS operating day — shallow top-level periods.
+ * Example EVS operating day. Roots cover every place the Department is
+ * responsible for. Area Ready is REQUIRED at location grain and starts with
+ * no rooms, so nothing is overdue until the facility names them.
  */
-export function buildEvsDefaultCyclePlans(): EvsDefaultCyclePlan[] {
+function evsWindow(input: {
+  stableKey: string;
+  label: string;
+  description: string;
+  cycleType: OperationalCycleType;
+  displaySequence: number;
+  startLocal: string;
+  openingEnd: string;
+  cleaningEnd: string;
+  endLocal: string;
+  readyDue: string;
+}): EvsDefaultCyclePlan[] {
+  const base = {
+    overnight: false,
+    applicableDaysOfWeek: [...ALL_DAYS],
+    mealType: null as null,
+    expectedMilestones: [] as [],
+  };
   return [
     {
-      stableKey: "morning_routine",
+      ...base,
+      stableKey: input.stableKey,
       parentStableKey: null,
       nodeKind: "PERIOD",
+      label: input.label,
+      description: input.description,
+      cycleType: input.cycleType,
+      displaySequence: input.displaySequence,
+      startLocal: input.startLocal,
+      endLocal: input.endLocal,
+      locationMode: "ALL_DEPARTMENT_UNITS",
+    },
+    {
+      ...base,
+      stableKey: `${input.stableKey}_opening`,
+      parentStableKey: input.stableKey,
+      nodeKind: "PERIOD",
+      label: `${input.label} opening`,
+      description: `${input.label} opening phase.`,
+      cycleType: "PREPARATION",
+      displaySequence: input.displaySequence + 1,
+      startLocal: input.startLocal,
+      endLocal: input.openingEnd,
+      locationMode: "ALL_DEPARTMENT_UNITS",
+      locationInheritFromParent: true,
+    },
+    {
+      ...base,
+      stableKey: `${input.stableKey}_cleaning`,
+      parentStableKey: input.stableKey,
+      nodeKind: "PERIOD",
+      label: `${input.label} cleaning`,
+      description: `${input.label} cleaning phase.`,
+      cycleType: "CUSTOM",
+      displaySequence: input.displaySequence + 2,
+      startLocal: input.openingEnd,
+      endLocal: input.cleaningEnd,
+      locationMode: "ALL_DEPARTMENT_UNITS",
+      locationInheritFromParent: true,
+    },
+    {
+      ...base,
+      stableKey: `${input.stableKey}_closeout`,
+      parentStableKey: input.stableKey,
+      nodeKind: "PERIOD",
+      label: `${input.label} closeout`,
+      description: `${input.label} closeout phase.`,
+      cycleType: "CLOSEOUT",
+      displaySequence: input.displaySequence + 3,
+      startLocal: input.cleaningEnd,
+      endLocal: input.endLocal,
+      locationMode: "ALL_DEPARTMENT_UNITS",
+      locationInheritFromParent: true,
+    },
+    {
+      ...base,
+      stableKey: `${input.stableKey}_shift_opened`,
+      parentStableKey: input.stableKey,
+      nodeKind: "KEY_TIME",
+      label: `${input.label} shift opened`,
+      description: `${input.label} shift is open. This Key Point does not require an actual.`,
+      cycleType: "CUSTOM",
+      displaySequence: input.displaySequence + 4,
+      startLocal: null,
+      endLocal: null,
+      locationMode: "ALL_DEPARTMENT_UNITS",
+      occurrenceTracking: "NONE",
+      keyPointGrain: "DEPARTMENT",
+      dueLocals: [input.startLocal],
+    },
+    {
+      ...base,
+      stableKey: `${input.stableKey}_area_ready`,
+      parentStableKey: input.stableKey,
+      nodeKind: "KEY_TIME",
+      label: `${input.label} area ready`,
+      description: `${input.label} area ready at each room in this Key Point group.`,
+      cycleType: "CUSTOM",
+      displaySequence: input.displaySequence + 5,
+      startLocal: null,
+      endLocal: null,
+      locationMode: "EXPLICIT_UNITS",
+      occurrenceTracking: "REQUIRED",
+      keyPointGrain: "LOCATION",
+      dueLocals: [input.readyDue],
+    },
+  ];
+}
+
+export function buildEvsDefaultCyclePlans(): EvsDefaultCyclePlan[] {
+  return [
+    ...evsWindow({
+      stableKey: "morning_routine",
       label: "Morning Operations",
-      description: "Morning room and area cleaning window.",
+      description: "Morning room and area cleaning window. Every responsible place participates.",
       cycleType: "PREPARATION",
       displaySequence: 10,
       startLocal: "06:00",
+      openingEnd: "06:30",
+      cleaningEnd: "09:30",
       endLocal: "10:00",
-      overnight: false,
-      applicableDaysOfWeek: [...ALL_DAYS],
-      mealType: null,
-      expectedMilestones: [],
-      locationMode: "ALL_DEPARTMENT_UNITS",
-    },
-    {
+      readyDue: "09:30",
+    }),
+    ...evsWindow({
       stableKey: "day_cleaning",
-      parentStableKey: null,
-      nodeKind: "PERIOD",
       label: "Afternoon Operations",
-      description: "Midday cleaning window.",
+      description: "Afternoon cleaning window. Every responsible place participates.",
       cycleType: "CUSTOM",
       displaySequence: 20,
       startLocal: "10:00",
+      openingEnd: "10:30",
+      cleaningEnd: "15:30",
       endLocal: "16:00",
-      overnight: false,
-      applicableDaysOfWeek: [...ALL_DAYS],
-      mealType: null,
-      expectedMilestones: [],
-      locationMode: "ALL_DEPARTMENT_UNITS",
-    },
-    {
+      readyDue: "15:30",
+    }),
+    ...evsWindow({
       stableKey: "evening_closeout",
-      parentStableKey: null,
-      nodeKind: "PERIOD",
       label: "Evening Operations",
-      description: "Evening cleaning and closeout window.",
+      description: "Evening cleaning and closeout window. Every responsible place participates.",
       cycleType: "CLOSEOUT",
       displaySequence: 30,
       startLocal: "16:00",
+      openingEnd: "16:30",
+      cleaningEnd: "19:30",
       endLocal: "20:00",
-      overnight: false,
-      applicableDaysOfWeek: [...ALL_DAYS],
-      mealType: null,
-      expectedMilestones: [],
-      locationMode: "ALL_DEPARTMENT_UNITS",
-    },
+      readyDue: "19:30",
+    }),
   ];
 }

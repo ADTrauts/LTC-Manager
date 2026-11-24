@@ -1,5 +1,7 @@
 # EVS Supervisor Guide
 
+> **Historical (August 7, 2026).** Phase 11C operations guide. It is not the current Department Product. Environmental Services stays DEVELOPMENT. Current authority is [13 — Department Product](../product/13_DEPARTMENT_PRODUCT.md) and [01B](../product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md).
+
 **Phase:** 11C — EVS Assignment Scope, Zones, and Scale  
 **Audience:** EVS Supervisor with password session (Quick PIN does not grant Supervisor management)
 

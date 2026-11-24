@@ -35,8 +35,6 @@ export type AssignmentBoardEntry = {
   scopeSummaryLabel: string;
   locationLabels: string[];
   spaceIds?: string[];
-  sourceZoneId: string | null;
-  sourceZoneName: string | null;
 };
 
 export type AssignmentWarningKind =

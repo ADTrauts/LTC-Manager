@@ -28,7 +28,7 @@ Location Functions, Operational Types, profiles, archetypes, Experience bindings
 
 Employee Builder owns employee identity, Job Titles, Department membership, operational qualifications and Team organization. Teams may have explicit normal-room membership on canonical Space IDs. Responsibility removal prunes out-of-scope Team room membership. An authorized Supervisor Team lens can filter to those rooms. Team room membership grants no Department access or eligibility and creates no Coverage need or daily placement.
 
-Coverage publishes staffing expectations separately from Team composition and daily Assignment plans. The Assignment Board owns explicit employee/role/location placement, instructions and the completion/reopen lifecycle. An Assignment Zone may assist selection. The stored locations remain the Assignment's snapshot. The accepted ONE_OFF behavior uses Workforce Assignments and supported offline commands. Generic Work Plans, presets, occurrences and a general Task engine are retired.
+Coverage publishes staffing expectations separately from Team composition and daily Assignment plans. The Assignment Board owns explicit employee/role/location placement, instructions and the completion/reopen lifecycle. Assignment zones are retired. The stored locations are the Assignment's snapshot. The accepted ONE_OFF behavior uses Workforce Assignments and supported offline commands. Generic Work Plans, presets, occurrences and a general Task engine are retired.
 
 ## Records, Run and Audit
 

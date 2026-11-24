@@ -215,7 +215,7 @@ Department Products that exist today:
 | Product | Implemented | Not designed |
 |---------|-------------|--------------|
 | **Food and Nutrition** | Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Menus. Healthcare-scoped. | — |
-| **Environmental Services** | Morning / Afternoon / Evening Operations starters (DEVELOPMENT). | A second location tree |
+| **Environmental Services** | DEVELOPMENT. Morning / Afternoon / Evening Operations with Opening, Cleaning, and Closeout Phases. Key Points: Shift Opened (NONE, DEPARTMENT) and Area Ready (REQUIRED, LOCATION, no rooms until the facility names them). Blueprint: [17](./17_ENVIRONMENTAL_SERVICES.md). | A second location tree |
 | **Facility Plant Operations** | AVAILABLE V1: Request / Issue / Work Order corrective loop, Preventive Maintenance, and optional unpublished starters. Platform Assets and repairs remain shared. See [14](./14_FACILITY_PLANT_OPERATIONS.md) and the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07). | Inventory, meter PM, IoT, predictive maintenance, and dedicated Product billing SKU. |
 
 Configure Overview, Facility, Operating Rhythm, People & Coverage, Records (plus Menus or Preventive Maintenance) in Department Builder. Notification policy configures the shared engine; it does not send notifications. Physical rooms stay in Facility Builder. The engine contract is [16 — Notifications & Attention](./16_NOTIFICATIONS_AND_ATTENTION.md). The Builder contract is [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md).

@@ -1758,6 +1758,13 @@ export async function generateEvsDefaultsDrafts(
         locationInheritFromParent: plan.locationInheritFromParent,
 
         expectedMilestones: [],
+        occurrenceTracking: plan.occurrenceTracking,
+        keyPointGrain: plan.keyPointGrain,
+
+        keyTimeGroups: (plan.dueLocals ?? []).map((dueLocal) => ({
+          dueLocal,
+          spaceIds: [],
+        })),
       },
     });
     created.push(row);

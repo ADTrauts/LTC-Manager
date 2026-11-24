@@ -349,10 +349,6 @@ test(
       const resident = afterPrune.find((team) => team.id === residentServices.id);
       assert.ok(resident);
 
-      const zoneCount = await prisma.departmentOperationalZone.count({
-        where: { departmentId: dietary.id },
-      });
-      assert.equal(zoneCount, 0);
       const cycleCount = await prisma.departmentOperationalCycle.count({
         where: { departmentId: dietary.id },
       });

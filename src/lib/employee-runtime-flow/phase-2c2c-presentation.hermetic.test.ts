@@ -36,7 +36,6 @@ function assignment(
     scopeKind: partial.scopeKind ?? "SPACES",
     locationCount: partial.locationCount,
     locationLabels: partial.locationLabels,
-    sourceZoneName: partial.sourceZoneName ?? null,
   };
 }
 

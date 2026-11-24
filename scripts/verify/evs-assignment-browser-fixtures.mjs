@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Phase 11C EVS Assignment / Zones scale fixtures (synthetic, no PHI).
+ * Phase 11C EVS Assignment scale fixtures (synthetic, no PHI).
  * Disposable VERIFY_DATABASE_URL only.
  *
  * Seeds ~4 floors, multiple units, 40–60 rooms, 15–25 EVS staff + ≥2 supervisors,
- * ACTIVE zones, under-coverage + overlap hooks, offline staff PIN, work plans,
+ * under-coverage + overlap hooks, offline staff PIN, work plans,
  * inspection template, and asset issue target.
  */
 import { createHmac, randomBytes } from "node:crypto";
@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 
+import { activateFixtureAccount, linkFixtureAccount } from "./fixture-account.mjs";
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -51,7 +52,7 @@ function serviceDateUtc(key) {
 async function upsertUser(db, { email, displayName, roleKey, facilityId, primaryDepartmentId }) {
   const role = await db.role.findUniqueOrThrow({ where: { key: roleKey } });
   const passwordHash = await bcrypt.hash(SYNTHETIC_PASSWORD, 12);
-  return db.user.upsert({
+  const user = await db.user.upsert({
     where: { email },
     update: {
       displayName,
@@ -73,6 +74,7 @@ async function upsertUser(db, { email, displayName, roleKey, facilityId, primary
     },
     select: { id: true, email: true },
   });
+  return activateFixtureAccount(db, user, { facilityId, roleKey });
 }
 
 async function ensureEmployee(db, {
@@ -242,65 +244,6 @@ async function ensureScaleFloorsUnitsRooms(db, facilityId, evsId) {
   return { floors, units, roomsByUnitName };
 }
 
-async function ensureActiveZone(db, {
-  facilityId,
-  departmentId,
-  name,
-  description,
-  spaces,
-  actorUserId,
-}) {
-  let zone = await db.departmentOperationalZone.findFirst({
-    where: { facilityId, departmentId, name },
-    select: { id: true, name: true, status: true },
-  });
-  if (!zone) {
-    zone = await db.departmentOperationalZone.create({
-      data: {
-        facilityId,
-        departmentId,
-        name,
-        description,
-        status: "ACTIVE",
-        createdByUserId: actorUserId,
-        lastChangedByUserId: actorUserId,
-        lastChangedAt: new Date(),
-        locations: {
-          create: spaces.map((s, index) => ({
-            unitSpaceId: s.id,
-            unitId: s.unitId ?? null,
-            sortOrder: s.sortOrder ?? index + 1,
-          })),
-        },
-      },
-      select: { id: true, name: true, status: true },
-    });
-  } else if (zone.status !== "ACTIVE") {
-    zone = await db.departmentOperationalZone.update({
-      where: { id: zone.id },
-      data: { status: "ACTIVE", retiredAt: null },
-      select: { id: true, name: true, status: true },
-    });
-  }
-
-  const existingLocCount = await db.departmentOperationalZoneLocation.count({
-    where: { zoneId: zone.id },
-  });
-  if (existingLocCount === 0 && spaces.length > 0) {
-    await db.departmentOperationalZoneLocation.createMany({
-      data: spaces.map((s, index) => ({
-        zoneId: zone.id,
-        unitSpaceId: s.id,
-        unitId: s.unitId ?? null,
-        sortOrder: s.sortOrder ?? index + 1,
-      })),
-      skipDuplicates: true,
-    });
-  }
-
-  return zone;
-}
-
 async function main() {
   if (!SYNTHETIC_PASSWORD) fail("SEED_DEMO_PASSWORD is required");
   if (!AUTH_SECRET) fail("AUTH_SECRET is required");
@@ -420,6 +363,13 @@ async function main() {
     });
     await ensureDeptMembership(db, dietaryStaffEmp.id, dietary.id);
 
+    const facilityId = facility.id;
+    await linkFixtureAccount(db, manager, managerEmp, { facilityId, roleKey: "MANAGER" });
+    await linkFixtureAccount(db, supervisor, supervisorEmp, { facilityId, roleKey: "SUPERVISOR" });
+    await linkFixtureAccount(db, supervisor2, supervisor2Emp, { facilityId, roleKey: "SUPERVISOR" });
+    await linkFixtureAccount(db, staff, staffEmp, { facilityId, roleKey: "STAFF" });
+    await linkFixtureAccount(db, dietaryStaff, dietaryStaffEmp, { facilityId, roleKey: "STAFF" });
+
     // Scale roster: 18 additional synthetic EVS aides (total staff-like ≥19 + managers/supervisors).
     const scaleStaff = [];
     for (let i = 1; i <= 18; i += 1) {
@@ -472,23 +422,6 @@ async function main() {
     if (roomCount < 40 || roomCount > 60) {
       fail(`expected 40–60 PATIENT_ROOM spaces, got ${roomCount}`);
     }
-
-    const zoneEast = await ensureActiveZone(db, {
-      facilityId: facility.id,
-      departmentId: evs.id,
-      name: "Floor 1 East",
-      description: "Synthetic Zone — Floor 1 East rooms",
-      spaces: eastRooms,
-      actorUserId: manager.id,
-    });
-    const zoneWest = await ensureActiveZone(db, {
-      facilityId: facility.id,
-      departmentId: evs.id,
-      name: "Floor 1 West",
-      description: "Synthetic Zone — Floor 1 West rooms",
-      spaces: westRooms,
-      actorUserId: manager.id,
-    });
 
     const serviceDateKey = new Date().toISOString().slice(0, 10);
     const serviceDate = serviceDateUtc(serviceDateKey);
@@ -596,7 +529,6 @@ async function main() {
           serviceDate,
           employeeId: staffEmp.id,
           unitId: eastUnit.id,
-          sourceZoneId: zoneEast.id,
           status: "PLANNED",
           roleKey: "CLEANING_ROUND",
           roleLabel: "Cleaning Round",
@@ -802,11 +734,6 @@ async function main() {
       ),
       uncoveredUnitId: units.find((u) => u.name === "Floor 2 North")?.id ?? null,
       overlapSpaceId: westRoom1?.id ?? null,
-      zoneEastId: zoneEast.id,
-      zoneEastName: zoneEast.name,
-      zoneWestId: zoneWest.id,
-      zoneWestName: zoneWest.name,
-      activeZoneCount: 2,
       serviceDateKey,
       managerEmail: manager.email,
       faWithEvsEmail: faWithEvs.email,
@@ -851,7 +778,7 @@ async function main() {
       ].join("\n") + "\n",
     );
     console.log(
-      `evs-assignment-browser-fixtures: wrote ${FIXTURE_PATH} (rooms=${roomCount}, employees≈${evsEmployeeCount}, zones=2)`,
+      `evs-assignment-browser-fixtures: wrote ${FIXTURE_PATH} (rooms=${roomCount}, employees≈${evsEmployeeCount})`,
     );
   } finally {
     await db.$disconnect();

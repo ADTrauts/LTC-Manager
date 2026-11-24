@@ -327,11 +327,6 @@ export const WRITE_MANIFEST: WriteManifest = {
       "applyTemplateAction",
     ]),
   },
-  [`${PROTECTED}/staffing/assignments/zone-actions.ts`]: {
-    createDepartmentZoneAction: department("department"),
-    ...each(department("departmentZone"), ["updateDepartmentZoneAction", "retireDepartmentZoneAction"]),
-  },
-
   [`${PROTECTED}/staffing/cycles/actions.ts`]: {
     delayMealExpectationAction: department("cycleDayExpectation"),
     ...each(department("keyTimeDayExpectation"), [

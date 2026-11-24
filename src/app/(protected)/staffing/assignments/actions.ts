@@ -53,7 +53,6 @@ import {
   resolveDepartmentRoomUnitSpaceIdsFromFloorSelection,
   resolveDepartmentRoomUnitSpaceIdsFromNeighborhoodSelection,
 } from "@/lib/scheduling/operational-assignments/location-scope/department-room-selection";
-import { loadZoneSpaceIds } from "@/lib/department-zones";
 import { requireAssignmentEligibility, recordAssignmentEligibilityOverride } from "@/lib/employee-operational-qualifications/assignment-eligibility";
 import { loadCoverageSlotSnapshot } from "@/lib/scheduling/coverage-episodes/observe";
 import { transitionAssignment } from "@/lib/scheduling/operational-assignments/lifecycle";
@@ -101,7 +100,6 @@ const createSchema = z.object({
   replacementAssignmentId: z.string().min(1).optional(),
   /** Explicit UnitSpace ids. Empty requires a responsible Unit. */
   unitSpaceIds: z.string().optional(),
-  sourceZoneId: z.string().min(1).optional(),
 });
 
 const editSchema = z.object({
@@ -114,7 +112,6 @@ const editSchema = z.object({
   notes: z.string().max(4000).optional(),
   changeReason: z.string().min(1).max(500).optional(),
   unitSpaceIds: z.string().optional(),
-  sourceZoneId: z.string().optional(),
 });
 
 const lifecycleSchema = z.object({
@@ -173,7 +170,6 @@ export async function createAssignmentAction(formData: FormData) {
     clientCommandId: opt(formData.get("clientCommandId")),
     replacementAssignmentId: opt(formData.get("replacementAssignmentId")),
     unitSpaceIds: opt(formData.get("unitSpaceIds")),
-    sourceZoneId: opt(formData.get("sourceZoneId")),
   });
 
   const authority = await requireManageForDepartment(session, parsed.departmentId);
@@ -213,16 +209,9 @@ export async function createAssignmentAction(formData: FormData) {
   let unitSpaceIds = parseUnitSpaceIds(parsed.unitSpaceIds);
   let unitIdForScope: string | null = parsed.unitId ?? null;
 
-  if (unitSpaceIds.length === 0 && parsed.sourceZoneId) {
-    unitSpaceIds = await loadZoneSpaceIds(prisma, {
-      facilityId: session.facilityId,
-      zoneId: parsed.sourceZoneId,
-    });
-  }
-
   // EVS: if the manager selects a structural Floor / Neighborhood unit AND leaves Room/Space scope empty,
   // resolve that selection into actual Department-operating Rooms.
-  if (department.key === "EVS" && unitSpaceIds.length === 0 && unitIdForScope && !parsed.sourceZoneId) {
+  if (department.key === "EVS" && unitSpaceIds.length === 0 && unitIdForScope) {
     const unitRow = await prisma.unit.findFirst({
       where: { id: unitIdForScope, facilityId: session.facilityId, isActive: true },
       select: { id: true, hierarchyRole: true },
@@ -353,7 +342,6 @@ export async function createAssignmentAction(formData: FormData) {
         roleKey: effectiveRoleKey,
         roleLabel,
         unitId: unitIdForScope,
-        sourceZoneId: department.key === "EVS" ? parsed.sourceZoneId ?? null : null,
         startsAt,
         endsAt,
         source,
@@ -408,7 +396,6 @@ export async function createAssignmentAction(formData: FormData) {
         reason: parsed.changeReason ?? null,
         newValuesJson: JSON.stringify({
           unitId: unitIdForScope,
-          sourceZoneId: parsed.sourceZoneId ?? null,
           unitSpaceIds: locationWrites.map((l) => l.unitSpaceId),
           locationCount: locationWrites.length,
         }),
@@ -436,7 +423,6 @@ export async function editAssignmentAction(formData: FormData) {
     notes: formData.has("notes") ? String(formData.get("notes") ?? "") : undefined,
     changeReason: opt(formData.get("changeReason")),
     unitSpaceIds: formData.has("unitSpaceIds") ? String(formData.get("unitSpaceIds") ?? "") : undefined,
-    sourceZoneId: opt(formData.get("sourceZoneId")),
   });
 
   const assignment = await prisma.operationalAssignment.findFirst({
@@ -452,7 +438,6 @@ export async function editAssignmentAction(formData: FormData) {
       roleLabel: true,
       startsAt: true,
       endsAt: true,
-      sourceZoneId: true,
       plan: { select: { status: true } },
       department: { select: { key: true } },
       locations: { select: { unitSpaceId: true } },
@@ -480,7 +465,6 @@ export async function editAssignmentAction(formData: FormData) {
     startsAt: assignment.startsAt?.toISOString() ?? null,
     endsAt: assignment.endsAt?.toISOString() ?? null,
     unitSpaceIds: assignment.locations.map((l) => l.unitSpaceId),
-    sourceZoneId: assignment.sourceZoneId,
   };
 
   if (parsed.roleKey) {
@@ -502,9 +486,6 @@ export async function editAssignmentAction(formData: FormData) {
   }
 
   if (parsed.unitId !== undefined) data.unitId = parsed.unitId || null;
-  if (parsed.sourceZoneId !== undefined && assignment.department.key === "EVS") {
-    data.sourceZoneId = parsed.sourceZoneId || null;
-  }
 
   const nextStarts =
     parsed.startsAt !== undefined
@@ -657,7 +638,6 @@ export async function reassignAction(formData: FormData) {
     notes: opt(formData.get("notes")),
     changeReason: opt(formData.get("changeReason")) ?? opt(formData.get("notes")),
     unitSpaceIds: opt(formData.get("unitSpaceIds")),
-    sourceZoneId: opt(formData.get("sourceZoneId")),
   });
 
   await requireManageForDepartment(session, parsed.departmentId);
@@ -668,7 +648,6 @@ export async function reassignAction(formData: FormData) {
   formData.set("source", mode === "reassignment" ? "REASSIGNMENT" : "CALL_OFF_REPLACEMENT");
   formData.set("changeReason", parsed.changeReason ?? parsed.notes ?? "Coverage");
   if (parsed.unitSpaceIds) formData.set("unitSpaceIds", parsed.unitSpaceIds);
-  if (parsed.sourceZoneId) formData.set("sourceZoneId", parsed.sourceZoneId);
   if (mode === "replace") {
     if (!existingId) throw new Error("Choose the Assignment to replace.");
     formData.set("replacementAssignmentId", existingId);
