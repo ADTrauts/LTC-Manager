@@ -608,6 +608,7 @@ export const WRITE_MANIFEST: WriteManifest = {
   [`${APP}/api/billing/webhook/route.ts`]: { POST: AUTH_SYSTEM },
   [`${APP}/api/console/auth/login/route.ts`]: { POST: AUTH_SYSTEM },
   [`${APP}/api/console/staff-lifecycle/identity/route.ts`]: { POST: AUTH_SYSTEM },
+  [`${APP}/api/console/staff-lifecycle/enrollment/route.ts`]: { POST: AUTH_SYSTEM },
   [`${APP}/api/console/staff-lifecycle/route.ts`]: { POST: GOVERNANCE },
   [`${APP}/api/console/auth/logout/route.ts`]: { POST: AUTH_SYSTEM },
   [`${APP}/api/console/assistance/route.ts`]: { POST: GOVERNANCE },

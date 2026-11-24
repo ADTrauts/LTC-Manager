@@ -30,6 +30,8 @@ The [Phase 1 amendment](product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_202
 
 ## Proposals under review
 
+Harbor's approved sole-OWNER first release is feature-complete. See the [Harbor v1 closeout](console/HARBOR_CONSOLE_V1_CLOSEOUT.md) for the released scope, deliberately disabled features and focused verification. The documents below retain their original design/release checkpoints; a historical draft label does not supersede the closeout's release evidence.
+
 - [Phase 5 customer offboarding request and review](console/HARBOR_CONSOLE_PHASE_5_OFFBOARDING_SCOPE.md)
 - [Production browser push preparation](deployment/PRODUCTION_BROWSER_PUSH.md)
 - [Internal staff invitations and independent recovery setup](console/HARBOR_STAFF_PRODUCTION_SETUP.md)
