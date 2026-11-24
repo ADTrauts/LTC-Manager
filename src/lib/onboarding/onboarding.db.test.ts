@@ -149,7 +149,7 @@ test("SQL: Stripe I/O snapshot cannot overwrite a concurrently changed mirror", 
   assert.equal((await f.snapshot()).status, "CANCELED");
 }));
 
-test("SQL: cross-Facility checkout/customer, DEVELOPMENT metadata and revoked grandfathering fail closed", { skip }, () => run(async (db) => {
+test("SQL: cross-Facility checkout/customer, unknown Product metadata and revoked grandfathering fail closed", { skip }, () => run(async (db) => {
   const f = await fixture(db), foreign = await fixture(db);
   assert.equal((await applyCheckoutSessionId({ checkoutSessionId: "cs", expectedFacilityId: foreign.facility.id }, f.deps)).code, "WRONG_FACILITY");
   assert.equal((await applyResolvedStripeSubscription({ facilityId: foreign.facility.id, subscription: { ...f.current, metadata: { ...f.current.metadata, facilityId: foreign.facility.id } } }, db)).code, "METADATA_FACILITY_MISMATCH");
@@ -159,7 +159,7 @@ test("SQL: cross-Facility checkout/customer, DEVELOPMENT metadata and revoked gr
   if (wrongCustomer.code === "RECONCILED") assert.equal(wrongCustomer.result.code, "METADATA_FACILITY_MISMATCH");
   assert.equal(await db.facilityBilling.count({ where: { facilityId: f.facility.id } }), 0);
   f.setCheckout({ customer: f.facility.stripeCustomerId });
-  f.set("active", "EVS"); assert.equal((await f.sync()).ok, false);
+  f.set("active", "LAUNDRY"); assert.equal((await f.sync()).ok, false);
   f.set("active", "PLANT"); await f.sync();
   await db.facilityDepartmentEntitlement.updateMany({ where: { facilityId: f.facility.id }, data: { status: "REVOKED" } });
   process.env.BILLING_ENTITLEMENTS_ENABLED = "false"; process.env.PLANT_OPERATIONS_ENABLED = "true";

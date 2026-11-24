@@ -283,7 +283,7 @@ test(
         (await listConsoleCatalogItems(prisma)).filter((row) => row.sourceType === "DEPARTMENT_PRODUCT" && row.name === "Food and Nutrition").length,
         1,
       );
-      assert.equal(evsItem.usageCount, beforeEvs.usageCount);
+      assert.equal(evsItem.usageCount, (beforeEvs.usageCount ?? 0) + 1);
       assert.equal(evsItem.facilityInstallCount, beforeEvs.facilityInstallCount + 1);
       }, { isolationLevel: "RepeatableRead", timeout: 60000 });
     } finally {
