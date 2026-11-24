@@ -26,6 +26,8 @@ Accepted targets are also embedded within current documents. The optional Role J
 
 ## Root and agent references
 
+The [Harbor v1 closeout](console/HARBOR_CONSOLE_V1_CLOSEOUT.md) is **CURRENT** for its November 21, 2026 sole-OWNER release scope, live/deferred distinction and focused local verification. It updates Harbor release status only; the broader inventory review above remains at its stated baseline.
+
 | File | Status |
 | --- | --- |
 | [AGENTS.md](../AGENTS.md) | CURRENT |

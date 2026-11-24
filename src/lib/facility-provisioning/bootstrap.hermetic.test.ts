@@ -103,7 +103,7 @@ function buildDb(seed?: {
         organizations.find((row) => row.id === where.id) ?? null,
       findMany: async () => organizations,
     },
-    platformStaff: { findUnique: async () => ({ id: ownerSession.uid, email: ownerSession.email, isActive: true, role: "OWNER", sessionVersion: 0 }) },
+    platformStaff: { findUnique: async () => ({ id: ownerSession.uid, email: ownerSession.email, isActive: true, role: "OWNER", sessionVersion: 0, _count: { lifecyclePasskeys: 0 } }) },
     harborAssistanceLoginReceipt: { findUnique: async () => null },
     harborAuditEvent: { create: async () => ({ id: "audit" }) },
     harborFacilityProvisionReceipt: { findUnique: async () => null, create: async () => ({}) },
