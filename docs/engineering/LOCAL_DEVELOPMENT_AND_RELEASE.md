@@ -1,8 +1,8 @@
 # Local development and releases
 
-GitHub `ADTrauts/LTC-Manager` is the repository. Use `main` as the integrated source. Keep a clean checkout tracking `origin/main`, start each change on a feature branch, and update the base with `git pull --ff-only`. The original Desktop checkout and its archived branches and stash preserve pre-consolidation work for review. Use a clean checkout for current development.
+GitHub `ADTrauts/LTC-Manager` is the repository, and `main` is the integrated source. On Andrew’s Mac, Codex and Cursor both develop and run the app from `/Users/andrewtrautman/Desktop/LTC Manager/vssyl`. Follow the [shared checkout and editor handoff](../../AGENTS.md#shared-local-checkout-for-codex-and-cursor) before editing or switching branches. Existing archived branches and stashes preserve earlier work for review.
 
-Copy `.env.example` to an ignored `.env` in the clean checkout. Use an empty local PostgreSQL database such as `ltc_dev_canonical` with a local role. Set both Prisma URLs to that same local database and generate a separate local `AUTH_SECRET`. Use `ltc_verify_*`, `ltc_test_*` or `ltc_ci_*` for disposable verification databases. Keep hosted Vercel environment pulls and existing Desktop credentials out of this checkout.
+For first-time local setup, copy `.env.example` to an ignored `.env` if one does not already exist. Preserve existing local configuration. Use an empty local PostgreSQL database such as `ltc_dev_canonical` with a local role. Set both Prisma URLs to that same local database and generate a separate local `AUTH_SECRET`. Use `ltc_verify_*`, `ltc_test_*` or `ltc_ci_*` for disposable verification databases. Keep hosted Vercel credentials out of local development configuration.
 
 ```sh
 npm ci
@@ -28,7 +28,7 @@ The original direct credential remains stored in the production project's Vercel
 
 ## Routine releases
 
-1. Update a clean `main` checkout with `git pull --ff-only` and create a feature branch.
+1. In the shared working folder, hand off any active work, update clean local `main` with `git pull --ff-only origin main`, confirm it matches `origin/main`, and create the feature branch in that same folder.
 2. Develop against local or disposable PostgreSQL and run the checks relevant to the change.
 3. Push the branch and open a PR into `main`. Wait for the Verify jobs **Static and hermetic**, **Database integration**, **Offline browser gate**, **Assignment browser gate**, and **Dietary pilot gate**. Review the protected Vercel Preview and verify its staging database scope. Use synthetic data for any Preview writes.
 4. Review and merge with a merge commit. Vercel tracks `main` for automatic builds. Verify that a staged build exists for the merged SHA with Production settings. If the webhook produces no deployment, use the exact Git SHA for a protected, staged Production build and verify its scope before promotion review. Auto-assign Custom Production Domains is disabled, so the result is a staged deployment.
