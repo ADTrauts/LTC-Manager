@@ -22,6 +22,15 @@ This is the current **Vssyl — Current Operations** application and VSSYL Conso
 
 Start new work from GitHub `main` on a feature branch. Use local or disposable PostgreSQL, run tests appropriate to the change, and open a PR with the required Verify checks and a protected Vercel Preview. Merging to `main` builds a staged Production deployment. Review that deployment and apply any approved forward migrations in release order before separately authorizing promotion. Follow the [local development and release guide](docs/engineering/LOCAL_DEVELOPMENT_AND_RELEASE.md).
 
+### One working copy — November 23, 2026
+
+On November 6, 2026 a squash from a branch cut before November 1 was pushed to `main` and overwrote five days of work. On November 23 a session ran on an old checkout and rebuilt work `main` already had. To prevent both:
+
+- Work only in the one clean checkout that tracks `origin/main` (on the owner's machine, `Desktop/LTC Manager/vssyl`). Do not work in an older clone, a worktree of an older branch, or a Codex or Cursor scratch copy.
+- Before the first edit, run `git fetch origin` and confirm the working branch starts from current `origin/main`. If `git rev-list --count HEAD..origin/main` is not 0, stop and update the branch before editing.
+- Start each change on a new branch from fresh `origin/main`. Changes reach `main` only through a pull request.
+- Never copy files or folders between checkouts or from an older branch. When a merge conflicts, keep `main`'s side unless the change you are making is the reason that line differs. Never take an older branch's version of a whole file.
+
 Start with the [canonical documentation index](docs/README.md). For a new Department Product follow the [implementation guide](docs/product/NEW_DEPARTMENT_PRODUCT_IMPLEMENTATION_GUIDE.md), then verify the owning services, schema and relevant tests. The [status register](docs/DOCUMENTATION_STATUS.md) identifies approved targets and historical or superseded material.
 
 The accepted onboarding program lives in [docs/onboarding](docs/onboarding/README.md). Its phase tracker records authorized scope; ONB identifiers do not replace historical wave numbers.
