@@ -10,7 +10,7 @@
   background: white;
   color: var(--ink);
 }
-.page :where(a, button, summary):focus-visible,
+.page :where(a, button, summary, select):focus-visible,
 .page video:focus-visible {
   outline: 3px solid #057e78;
   outline-offset: 4px;
@@ -148,21 +148,52 @@
 .modeList article > p:not(.modeLabel) { color: var(--copy); }
 .modeList .textAction { min-height: 44px; font-size: .85rem; }
 .product { background: var(--background); }
-.roleGrid, .departmentGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: clamp(1.1rem,2.5vw,2.5rem); }
-.roleGrid article, .departmentGrid article { min-width: 0; border-top: 1px solid #9aafad; padding-top: 1.4rem; display: flex; flex-direction: column; align-items: stretch; }
+.roleGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: clamp(1.1rem,2.5vw,2.5rem); }
+.roleGrid article { min-width: 0; border-top: 1px solid #9aafad; padding-top: 1.4rem; display: flex; flex-direction: column; align-items: stretch; }
 .roleName { color: var(--teal); }
 .roleGrid h3 { margin: .55rem 0; }
-.roleGrid article > p:not(.roleName), .departmentGrid article > p { color: var(--copy); margin-bottom: 1.3rem; }
+.roleGrid article > p:not(.roleName) { color: var(--copy); margin-bottom: 1.3rem; }
 .screen {
   color: var(--ink); display: block; background: white; border: 1px solid var(--line); border-radius: .42rem;
   padding: .75rem .75rem 0; margin-top: auto;
 }
 .screenImage { display: block; width: 100%; max-width: 28rem; height: auto; object-fit: contain; margin-inline: auto; }
 .screenCaption { display: inline-flex; align-items: center; gap: .35rem; min-height: 44px; font-size: .8rem; }
-.departmentGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
-.departmentGrid h3 { margin-bottom: .65rem; font-size: clamp(1.6rem,2.45vw,2.4rem); }
-.departmentGrid article > p { max-width: 37rem; }
-.departmentGrid .screen { background: #f7fafa; }
+.explorerHeader {
+  display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 1.25rem 2rem;
+  margin-bottom: clamp(1.25rem, 2.4vw, 2rem);
+}
+.explorerHeader p { margin-top: .65rem; color: var(--copy); }
+.departmentForm { display: grid; gap: .4rem; width: min(100%, 20rem); }
+.departmentForm label { font-size: .85rem; font-weight: 600; }
+.selectWrap { position: relative; }
+.selectWrap::after {
+  content: ""; position: absolute; right: 1.15rem; top: calc(50% - .35rem);
+  width: .52rem; height: .52rem; border-right: 2px solid var(--teal); border-bottom: 2px solid var(--teal);
+  transform: rotate(45deg); pointer-events: none;
+}
+.selectWrap select {
+  display: block; appearance: none; width: 100%; min-height: 48px; padding: .66rem 2.7rem .66rem .95rem;
+  background: white; border: 1px solid #849b97; border-radius: .42rem;
+  color: var(--ink); font: inherit; font-weight: 580; cursor: pointer;
+}
+.selectWrap select:hover { border-color: var(--teal); }
+.departmentProfile {
+  display: grid; grid-template-columns: minmax(0, 1.17fr) minmax(0, 1fr); align-items: stretch;
+  border: 1px solid var(--line); border-radius: .65rem; overflow: hidden; background: #f1f6f4;
+}
+.departmentPhoto { position: relative; min-height: clamp(20rem, 29vw, 25rem); background: #dae4e1; }
+.departmentPhoto img { object-fit: cover; }
+.departmentCopy { align-self: center; padding: clamp(1.5rem, 3.55vw, 3.6rem); }
+.departmentCopy h3 { max-width: 19ch; font-size: clamp(1.9rem, 3.1vw, 3rem); line-height: 1.08; }
+.departmentCopy ul { display: grid; gap: .9rem; margin: 1.25rem 0 0; padding: 0; list-style: none; }
+.departmentCopy li { display: grid; grid-template-columns: .72rem 1fr; gap: .65rem; align-items: baseline; color: var(--copy); line-height: 1.5; }
+.departmentCopy li::before { content: ""; width: .65rem; height: 2px; background: var(--teal); transform: translateY(-.28em); }
+.departmentCopy a { margin-top: 1rem; text-decoration: underline; text-underline-offset: .2em; }
+@media (forced-colors: active) {
+  .selectWrap select { appearance: auto; }
+  .selectWrap::after { display: none; }
+}
 .pricing { border-block: 1px solid var(--line); background: #f5f9f8; }
 .pricingInner {
   display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: clamp(2rem,6vw,7rem);
@@ -199,7 +230,7 @@
   .desktopLinks, .headerActions .desktopSignup { display: none; }
   .mobileMenu { display: block; }
   .headerInner { min-height: 4rem; }
-  .hero, .dayInner, .planGrid, .roleGrid, .departmentGrid, .pricingInner { grid-template-columns: minmax(0,1fr); }
+  .hero, .dayInner, .planGrid, .roleGrid, .pricingInner { grid-template-columns: minmax(0,1fr); }
   .hero { padding-block: 2.3rem 1.5rem; gap: 1.5rem; }
   .heroCopy { padding: 0; }
   .hero h1 { margin-block: 1rem; max-width: 8.5em; font-size: clamp(3rem,8.8vw,4.5rem); }
@@ -211,8 +242,11 @@
   .handoff img { width: 5rem; }
   .planGrid { gap: .9rem; }
   .modeList { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .roleGrid, .departmentGrid { gap: 2rem; }
-  .roleGrid article, .departmentGrid article { padding-top: 1.1rem; }
+  .roleGrid { gap: 2rem; }
+  .departmentProfile { grid-template-columns: minmax(0, 1fr); }
+  .departmentPhoto { min-height: 0; aspect-ratio: 16 / 9; }
+  .departmentForm { width: 100%; }
+  .roleGrid article { padding-top: 1.1rem; }
   .roleGrid h3 { margin-block: .45rem; }
 }
 @media (max-width: 470px) {
