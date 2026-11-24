@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Stay inside the Vssyl structure
 
+Open `/Users/andrewtrautman/Desktop/LTC Manager/vssyl` for local Vssyl work. Before editing, starting a local preview, switching branches or pushing, follow [Shared local checkout for Codex and Cursor](../../AGENTS.md#shared-local-checkout-for-codex-and-cursor). Use the same checkout and the same active task branch as Codex. If another task occupies it, coordinate a handoff. Keep alternate clones, worktrees and project mirrors out of the development workflow.
+
 The current structure lives in the product documents. Read them before a change that adds or reshapes a Department, home, catalog, role, route, store, or engine. Do not rebuild a part that already has a home.
 
 Authority, in order:
