@@ -1,0 +1,50 @@
+Build the Plan. Run the Day.
+Vssyl · Descriptive transcript · 2:01.6
+
+0:00  One facility
+
+Visual description — A sunrise view opens the picture. The camera moves from the full building into rooms, the kitchen, and equipment as the narrator begins.
+
+Narrator — Every facility has a way its day is supposed to run. Breakfast has a time. Rooms have responsibilities. Equipment needs checking. And people need to be in the right places. But how does the software know how your facility operates?
+
+0:15  Build the facility and its operating plan
+
+Visual description — Orange identifies Build. The isometric view highlights rooms in the facility. An authentic Vssyl capture shows the Food & Nutrition department at the fictional Alder Grove facility.
+
+Narrator — With Vssyl, it starts in Build. First, you establish your facility. Its floors, neighborhoods, kitchens, serving areas, and equipment. Then, you add the departments you need and define how each operates within those spaces.
+
+0:30  Operating rhythm, coverage, records, and publication
+
+Visual description — Operating Rhythm shows the breakfast service window, readiness at 7:15 a.m., and a service-start milestone at 7:30 a.m. Other captures show a coverage requirement, department records, and the control to make an operating rhythm live.
+
+Narrator — Set your operating rhythm. Breakfast begins at seven-thirty. Serving stations need to be ready beforehand. Define the staffing coverage each location requires. Establish the records your team needs to complete, and when they're expected. Review your configuration, and publish it when you're ready. That's Build. The operating plan behind your facility.
+
+0:52  From Build to Run
+
+Visual description — The same building stays in place while an orange Build view changes to teal Run. Schematic labels mark people, locations, and equipment.
+
+Narrator — But creating the plan is only part of the story. Now, it's time to put that plan into action. Welcome to Run. The same facility you just configured becomes a visual, interactive view of your daily operations.
+
+1:05  Daily work in the application
+
+Visual description — The Run Dashboard shows items needing attention and today’s timeline. A Garden Servery view shows equipment and assigned coverage. The employee schedule and a separate assignments view show who is scheduled and where people are assigned.
+
+Narrator — For supervisors and managers, the Dashboard brings together what's happening now, what needs attention, and what's coming next. Open a location, and you'll find the equipment that belongs there, who's assigned to work there, and the current state of its operation. Open Employees, and you can see who's scheduled, who's working, and where they've been assigned.
+
+1:24  Records and milestones
+
+Visual description — An illustrated sequence follows a record, a confirmed milestone, and the next cycle. A schematic dashboard summarizes the change in the operation.
+
+Narrator — And as the day progresses, records are completed, service milestones are confirmed, and the operational picture changes to reflect what's actually happening. Run isn't another setup screen. It's your operation, in motion.
+
+1:37  Plan a future change
+
+Visual description — The view returns to orange Build. In a coverage draft, a future effective date of November 24, 2026 is selected. The coverage change is still a draft.
+
+Narrator — And when you need to change how your facility operates tomorrow? You return to Build. Make your adjustments, review them, and choose when they'll take effect. Without rewriting what happened today.
+
+1:48  Expectation and actual operations
+
+Visual description — Two views of the same facility appear side by side. One shows the expected configuration. The other shows the history of confirmed events. A final card reads “Vssyl. Build the plan. Run the day.”
+
+Narrator — Build defines the expectation. Run captures the reality. Together, they connect the way your facility is designed to operate with the people who keep it moving. Vssyl. Build the plan. Run the day.

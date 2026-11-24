@@ -1,503 +1,223 @@
-import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
 import { VssylLockup } from "@/components/brand/vssyl-lockup";
+import { FacilityArtwork, FilmPlayer, MobileMenu } from "./landing-interactions";
+import styles from "./landing-page.module.css";
 
-const navLinkClass =
-  "text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--foreground)]";
+const sectionLinks = [
+  { href: "#the-day", label: "A day on the floor" },
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#product", label: "Product" },
+  { href: "#departments", label: "Departments" },
+  { href: "#pricing", label: "Pricing" },
+];
 
-const primaryCtaClass =
-  "inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0b3d3a] px-5 text-sm font-semibold text-white hover:bg-[#0a3532]";
+function PageLinks() {
+  return sectionLinks.map(({ href, label }) => <a key={href} href={href}>{label}</a>);
+}
 
-const secondaryCtaClass =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border-2 border-[#12202c] bg-white px-5 text-sm font-semibold text-[#12202c] hover:bg-[var(--run-surface)]";
+function Arrow() {
+  return <span className={styles.arrow} aria-hidden="true">↗</span>;
+}
 
-const heroSecondaryCtaClass =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border-2 border-white/80 bg-transparent px-5 text-sm font-semibold text-white hover:bg-white/10";
+type ScreenProps = {
+  name: "dashboard" | "rhythm" | "rounds" | "floor" | "plant";
+  label: string;
+  alt: string;
+  sizes: string;
+};
+
+const screenDimensions = {
+  dashboard: [410, 468],
+  rhythm: [346, 332],
+  rounds: [744, 638],
+  floor: [836, 670],
+  plant: [744, 640],
+} as const;
+
+function Screen({ name, label, alt, sizes }: ScreenProps) {
+  const src = "/marketing/screens/" + name + ".webp";
+  const dimensions = screenDimensions[name];
+  return (
+    <a className={styles.screen} href={src} aria-label={"Enlarge " + label}>
+      <Image className={styles.screenImage} src={src} alt={alt}
+        width={dimensions[0]} height={dimensions[1]} sizes={sizes} />
+      <span className={styles.screenCaption}>Enlarge {label} <Arrow /></span>
+    </a>
+  );
+}
 
 export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean }) {
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,white)] backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-3 sm:px-6">
-          <a href="#top" className="inline-flex items-center">
-            <VssylLockup tone="brand" size="marketing" />
-          </a>
-          <nav className="hidden items-center gap-6 md:flex" aria-label="Page">
-            <a href="#product" className={navLinkClass}>
-              Product
-            </a>
-            <a href="#how-it-works" className={navLinkClass}>
-              How it works
-            </a>
-            <a href="#pricing" className={navLinkClass}>
-              Pricing
-            </a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/login"
-              className={signupEnabled ? `${navLinkClass} px-2 py-2` : primaryCtaClass}
-            >
-              Sign in
-            </Link>
-            {signupEnabled ? (
-              <Link href="/signup" className={primaryCtaClass}>
-                Start free setup
-              </Link>
-            ) : null}
+    <div className={styles.page}>
+      <link rel="preload" as="image" href="/marketing/films/facility-small.webp"
+        media="(max-width: 480px)" fetchPriority="high" />
+      <a className={styles.skip} href="#top">Skip to content</a>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <a href="#top" aria-label="Vssyl home"><VssylLockup tone="brand" size="marketing" /></a>
+          <nav className={styles.desktopLinks} aria-label="Page sections"><PageLinks /></nav>
+          <div className={styles.headerActions}>
+            <Link href="/login" className={styles.signIn}>Sign in <Arrow /></Link>
+            {signupEnabled ? <Link className={styles.desktopSignup} href="/signup">Start free setup</Link> : null}
+            <MobileMenu>
+              <PageLinks />
+              {signupEnabled ? <Link href="/signup">Start free setup</Link> : null}
+            </MobileMenu>
           </div>
         </div>
       </header>
 
-      <main id="top">
-        <section className="relative min-h-[34rem] overflow-hidden bg-[#0b3d3a] text-white lg:min-h-[40rem]">
-          <Image
-            src="/marketing/hero-servery-morning.png"
-            alt="A quiet servery before breakfast, tablet on the pass"
-            fill
-            priority
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0b3d3a]/95 via-[#0b3d3a]/55 to-[#0b3d3a]/20" />
-          <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:py-24">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9ecac3]">
-                Business Operations Platform
-              </p>
-              <h1 className="mt-4 max-w-xl text-4xl font-semibold tracking-tight sm:text-5xl">
-                Your operations. All together.
-              </h1>
-              <p className="mt-5 max-w-lg text-lg leading-relaxed text-[#d7eeea]">
-                See coverage, readiness, logs, and issues for today — from the
-                manager’s board and the tablet on the floor.
-              </p>
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                {signupEnabled ? (
-                  <Link
-                    href="/signup"
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-[#0b3d3a] hover:bg-[#e7f7f4]"
-                  >
-                    Start free setup
-                  </Link>
-                ) : null}
-                <Link
-                  href="/login"
-                  className={signupEnabled ? heroSecondaryCtaClass : "inline-flex min-h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-[#0b3d3a] hover:bg-[#e7f7f4]"}
-                >
-                  Sign in
-                </Link>
-              </div>
-              <p className="mt-4">
-                <a href="#the-day" className="text-sm font-medium text-[#9ecac3] hover:text-white">
-                  See how a day runs
-                </a>
-              </p>
-            </div>
-            <HeroProductFrame />
-          </div>
-        </section>
-
-        <section id="the-day" className="border-b border-[var(--border)] bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0f766e]">
-              A day on the floor
+      <main id="top" tabIndex={-1}>
+        <section className={styles.hero} aria-labelledby="hero-title">
+          <div className={styles.heroCopy}>
+            <p className={styles.eyebrow}>Business Operations Platform</p>
+            <h1 id="hero-title">Your operations. All together.</h1>
+            <p className={styles.heroDescription}>
+              Plan the work for Food &amp; Nutrition and Plant Operations. See today’s coverage,
+              records and maintenance requests in Vssyl.
             </p>
-            <h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight">
-              One picture of the meal — from open to handoff.
-            </h2>
-            <p className="mt-4 max-w-2xl text-[var(--text-secondary)]">
-              Before service, during service, when something breaks, and after. The
-              same facts, wherever you are standing.
-            </p>
-            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <DayCard
-                image="/marketing/day-before-service.png"
-                imageAlt="A commercial kitchen before service"
-                time="6:10"
-                title="Before service"
-                label="Coverage"
-                body="See who is on, who called down, and which locations are short — before the first tray goes out."
-              />
-              <DayCard
-                image="/marketing/day-during-service.png"
-                imageAlt="A tray line during lunch"
-                time="7:02"
-                title="During service"
-                label="Ready"
-                body="Each location shows whether it is ready, in progress, or needs attention. You do not assemble the picture from the radio."
-              />
-              <DayCard
-                image="/marketing/day-warmer-service.png"
-                imageAlt="A technician working on an empty kitchen warmer"
-                time="10:40"
-                title="When something breaks"
-                label="Issues"
-                body="A warmer goes down. The issue lives on that location, with a next step — not in a text thread."
-              />
-              <DayCard
-                image="/marketing/day-after-reset.png"
-                imageAlt="A dining room being reset after the meal"
-                time="2:15"
-                title="After"
-                label="Already recorded"
-                body="Logs and handoffs are attached to the work that just happened. Survey time is not a scavenger hunt."
-              />
+            <div className={styles.actions}>
+              <a className={styles.primary} href="#the-day">
+                <span className={styles.playIcon} aria-hidden="true" /> See a day at Vssyl
+              </a>
+              <a className={styles.textAction} href="#departments">Explore departments <span aria-hidden="true">↓</span></a>
             </div>
           </div>
+          <FacilityArtwork />
         </section>
 
-        <section id="product" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0f766e]">
-            The product
-          </p>
-          <h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight">
-            Three places to stand. One picture of the day.
-          </h2>
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            <HomeCard
-              name="Workspace"
-              question="What needs me now?"
-              body="The manager’s board. Exceptions first. Ready locations stay quiet."
-              frame={<WorkspaceMini />}
-            />
-            <HomeCard
-              name="Today’s Work"
-              question="Where should I walk next?"
-              body="The supervisor walk: coverage, call-downs, and locations that need attention."
-              frame={<TodaysWorkMini />}
-            />
-            <HomeCard
-              name="Unit Workspace"
-              question="What do I do here?"
-              body="A tablet at this location. PIN in. The next log, the next mark, the next issue — nothing else."
-              frame={<UnitMini />}
-            />
-          </div>
-        </section>
-
-        <section className="bg-[#0b3d3a] text-[#e7f7f4]">
-          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9ecac3]">
-              One product
-            </p>
-            <h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-white">
-              Add the departments you run. Keep one picture of the day.
-            </h2>
-            <p className="mt-4 max-w-2xl text-[#9ecac3]">
-              The same board, licensed by the departments you run. Unlimited people
-              at every role.
-            </p>
-            <div className="mt-10 grid gap-4 md:max-w-md">
-              <DepartmentCard
-                name="Dietary"
-                body="Meal periods, servery readiness, coverage, and the logs that happen during service."
-                image="/marketing/hero-servery-morning.png"
-                imageAlt="A servery pass before breakfast"
-              />
-            </div>
-          </div>
-        </section>
-
-        <section id="how-it-works" className="bg-white">
-          <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-20">
-            <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
-              <Image
-                src="/marketing/supervisor-tablet-walk.png"
-                alt="A supervisor checking a tablet in the dining room"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0f766e]">
-                How it works
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-                Built for the people who run the day.
-              </h2>
-              <div className="mt-8 space-y-6">
-                <PrincipleCard
-                  title="Tablet and PIN"
-                  body="Staff sign in at the location. They do not hunt for a portal, and they do not carry the whole facility on one screen."
-                />
-                <PrincipleCard
-                  title="During the work, not after"
-                  body="Logs and meal marks happen on the floor, while the meal is happening. Documentation is a byproduct of doing the work."
-                />
-                <PrincipleCard
-                  title="Knowledge stays with the work"
-                  body="Procedures sit on the unit, the issue, and the asset — not in a separate binder someone has to go find."
-                />
+        <section id="the-day" tabIndex={-1} className={styles.day} aria-labelledby="day-title">
+          <div className={styles.dayInner}>
+            <div className={styles.storyCopy}>
+              <p className={styles.eyebrow}>A day on the floor</p>
+              <h2 id="day-title">The Day Doesn’t Wait</h2>
+              <p>Breakfast starts at 7:30. A call-off leaves a servery short, and a walk-in cooler is warming up.</p>
+              <div className={styles.handoff}>
+                <Image src="/marketing/films/kitchen.webp" width={160} height={90}
+                  alt="" sizes="(max-width: 799px) 80px, 100px" />
+                <p>The kitchen moves food to an approved backup. Plant reviews the request and opens a repair work order.</p>
               </div>
             </div>
+            <FilmPlayer film="day" title="The Day Doesn’t Wait" duration="2:22"
+              sizes="(max-width: 799px) calc(100vw - 32px), (max-width: 1399px) 58vw, 750px" />
           </div>
         </section>
 
-        <section id="pricing" className="border-y border-[var(--border)] bg-[var(--background)]">
-          <div className="mx-auto max-w-xl px-4 py-16 text-center sm:px-6 lg:py-20">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0f766e]">
-              Pricing
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-              One product. Unlimited users.
-            </h2>
-            <p className="mt-4 text-[var(--text-secondary)]">
-              You pay for the first department — not for seats, rooms, or logs.
-            </p>
-            <div className="mt-10 rounded-2xl border border-[var(--border)] bg-white px-8 py-10">
-              <p className="text-sm font-semibold text-[var(--text-secondary)]">First department</p>
-              <p className="mt-3 flex items-baseline justify-center gap-1">
-                <span className="text-5xl font-semibold tracking-tight">$299</span>
-                <span className="text-base text-[var(--text-muted)]">/month</span>
-              </p>
-              <p className="mt-4 text-sm text-[var(--text-secondary)]">
-                Usually Dietary. Facility foundation included.
-              </p>
-              <p className="mt-3 text-sm font-medium text-[#0b3d3a]">
-                Additional departments are $149/month.
-              </p>
-              {signupEnabled ? (
-                <Link href="/signup" className={`${primaryCtaClass} mt-8 w-full`}>
-                  Start free setup
-                </Link>
-              ) : (
-                <Link href="/login" className={`${primaryCtaClass} mt-8 w-full`}>
-                  Sign in
-                </Link>
-              )}
+        <section id="how-it-works" tabIndex={-1} className={styles.section} aria-labelledby="plan-title">
+          <div className={styles.sectionHead}>
+            <p className={styles.eyebrow}>How it works</p>
+            <h2 id="plan-title">Build the plan. Run the day.</h2>
+          </div>
+          <div className={styles.planGrid}>
+            <FilmPlayer film="plan" title="Build the Plan. Run the Day" duration="2:02"
+              sizes="(max-width: 799px) calc(100vw - 32px), (max-width: 1399px) 58vw, 750px" />
+            <div className={styles.modeList}>
+              <article className={styles.buildMode}>
+                <p className={styles.modeLabel}>Build</p>
+                <h3>Before service</h3>
+                <p>Set the meal period, coverage needs and records for the rooms where the work happens.</p>
+                <a href="#breakfast-plan" className={styles.textAction}>See the breakfast plan <span aria-hidden="true">↓</span></a>
+              </article>
+              <article className={styles.runMode}>
+                <p className={styles.modeLabel}>Run</p>
+                <h3>During the shift</h3>
+                <p>Review coverage, record a reading and follow up on equipment that needs attention.</p>
+                <a href="#product" className={styles.textAction}>See the Dashboard <span aria-hidden="true">↓</span></a>
+              </article>
             </div>
-            <p className="mt-6 text-sm leading-relaxed text-[var(--text-muted)]">
-              Annual billing is 10% off. Self-setup is included. Assisted setup is
-              optional, about $1,500 for the first department.
-            </p>
           </div>
         </section>
 
-        <section className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            How is today going?
-          </h2>
-          <p className="mt-4 text-lg text-[var(--text-secondary)]">
-            Answer it in fifteen seconds — without leaving the floor.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            {signupEnabled ? (
-              <Link href="/signup" className={primaryCtaClass}>
-                Start free setup
-              </Link>
-            ) : null}
-            <Link href="/login" className={signupEnabled ? secondaryCtaClass : primaryCtaClass}>
-              Sign in
-            </Link>
+        <section id="product" tabIndex={-1} className={styles.product} aria-labelledby="product-title">
+          <div className={styles.section}>
+            <div className={styles.sectionHead}>
+              <p className={styles.eyebrow}>Inside Vssyl</p>
+              <h2 id="product-title">The view from each role.</h2>
+              <p>Explore three views from the same sample facility.</p>
+            </div>
+            <div className={styles.roleGrid}>
+              <article>
+                <p className={styles.roleName}>Manager · Dashboard</p>
+                <h3>What needs me now?</h3>
+                <p>Find the servery cooler under Needs attention.</p>
+                <Screen name="dashboard" label="Dashboard" alt="A Food & Nutrition Dashboard with the servery cooler under Needs attention."
+                  sizes="(max-width: 799px) calc(100vw - 56px), (max-width: 1399px) 30vw, 410px" />
+              </article>
+              <article>
+                <p className={styles.roleName}>Supervisor · Rounds</p>
+                <h3>Where should I walk next?</h3>
+                <p>Compare coverage and service status for Garden and Willow on the routine walk.</p>
+                <Screen name="rounds" label="Rounds" alt="The Routine walk lists service and coverage for Garden and Willow neighborhoods."
+                  sizes="(max-width: 799px) calc(100vw - 56px), (max-width: 1399px) 30vw, 410px" />
+              </article>
+              <article>
+                <p className={styles.roleName}>Floor team · Location</p>
+                <h3>What do I do here?</h3>
+                <p>At Garden Servery, a server signs in by PIN on the bound device to see their assignment and the next point in service.</p>
+                <Screen name="floor" label="floor view" alt="A server’s Garden Servery workspace shows their responsibility and when dinner ends."
+                  sizes="(max-width: 799px) calc(100vw - 56px), (max-width: 1399px) 30vw, 410px" />
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="departments" tabIndex={-1} className={styles.section} aria-labelledby="departments-title">
+          <div className={styles.sectionHead}>
+            <p className={styles.eyebrow}>Available departments</p>
+            <h2 id="departments-title">Two teams, one facility.</h2>
+            <p>Available for hospitals and long-term care facilities.</p>
+          </div>
+          <div className={styles.departmentGrid}>
+            <article id="breakfast-plan" tabIndex={-1}>
+              <h3>Food &amp; Nutrition</h3>
+              <p>Plan meals and coverage, set the rhythm of service and keep records where the work happens.</p>
+              <Screen name="rhythm" label="Operating Rhythm" alt="Breakfast service and readiness entries in the sample Food & Nutrition Operating Rhythm."
+                sizes="(max-width: 799px) calc(100vw - 56px), (max-width: 1399px) 45vw, 590px" />
+            </article>
+            <article>
+              <h3>Plant Operations</h3>
+              <p>Review maintenance requests, manage work orders, track asset history and schedule preventive maintenance.</p>
+              <Screen name="plant" label="Plant Operations" alt="A Plant Operations work order to inspect a leak at the Garden Servery sink."
+                sizes="(max-width: 799px) calc(100vw - 56px), (max-width: 1399px) 45vw, 590px" />
+            </article>
+          </div>
+        </section>
+
+        <section id="pricing" tabIndex={-1} className={styles.pricing} aria-labelledby="price-title">
+          <div className={styles.pricingInner}>
+            <div>
+              <p className={styles.eyebrow}>Pricing</p>
+              <h2 id="price-title">License the departments you run.</h2>
+              <p>One facility foundation. Unlimited users across your licensed departments.</p>
+              {signupEnabled ? <Link className={styles.primary} href="/signup">Start free setup <Arrow /></Link> : null}
+            </div>
+            <div className={styles.priceDetails}>
+              <div className={styles.priceRow}><h3>First department</h3><p><strong>$299</strong> / month</p></div>
+              <div className={styles.priceRow}><h3>Each additional department</h3><p><strong>$149</strong> / month</p></div>
+              <p>Prices in USD. Save 10% with annual prepayment. Self-setup is included.</p>
+              <details className={styles.feeDetails}>
+                <summary>Optional assisted setup</summary>
+                <p>Each separately approved engagement costs $1,500 for its first department and $500 for each additional department in that engagement.</p>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.close} aria-labelledby="close-title">
+          <h2 id="close-title">How is today going?</h2>
+          <div className={styles.actions}>
+            <a href="#product" className={styles.lightButton}>Explore the product <span aria-hidden="true">↑</span></a>
+            {signupEnabled ? <Link className={styles.lightLink} href="/signup">Start free setup <Arrow /></Link> : null}
           </div>
         </section>
       </main>
-
-      <footer className="border-t border-[var(--border)] bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div>
-            <p className="text-sm font-semibold text-[#0b3d3a]">Vssyl</p>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Business Operations Platform. Your operations. All together.
-            </p>
-          </div>
-          <div className="flex gap-4 text-sm text-[var(--text-secondary)]">
-            <Link href="/login" className="hover:text-[var(--foreground)]">
-              Sign in
-            </Link>
-            {signupEnabled ? (
-              <Link href="/signup" className="hover:text-[var(--foreground)]">
-                Start free setup
-              </Link>
-            ) : null}
-          </div>
-        </div>
+      <footer className={styles.footer}>
+        <VssylLockup tone="brand" size="marketing" />
+        <p>Your operations. All together.</p>
+        <Link href="/login" className={styles.textAction}>Sign in <Arrow /></Link>
       </footer>
-    </div>
-  );
-}
-
-function DayCard({
-  image,
-  imageAlt,
-  time,
-  title,
-  label,
-  body,
-}: {
-  image: string;
-  imageAlt: string;
-  time: string;
-  title: string;
-  label: string;
-  body: string;
-}) {
-  return (
-    <article className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)]">
-      <div className="relative aspect-[4/3]">
-        <Image src={image} alt={imageAlt} fill className="object-cover" />
-      </div>
-      <div className="p-5">
-        <p className="text-xs font-semibold tabular-nums text-[#0f766e]">{time}</p>
-        <h3 className="mt-2 text-base font-semibold">{title}</h3>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          {label}
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">{body}</p>
-      </div>
-    </article>
-  );
-}
-
-function HomeCard({
-  name,
-  question,
-  body,
-  frame,
-}: {
-  name: string;
-  question: string;
-  body: string;
-  frame: ReactNode;
-}) {
-  return (
-    <article className="overflow-hidden rounded-xl border border-[var(--border)] bg-white">
-      <div className="bg-[#e8eef3] p-4">{frame}</div>
-      <div className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#0f766e]">{name}</p>
-        <h3 className="mt-2 text-lg font-semibold">{question}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{body}</p>
-      </div>
-    </article>
-  );
-}
-
-function DepartmentCard({
-  name,
-  body,
-  image,
-  imageAlt,
-}: {
-  name: string;
-  body: string;
-  image: string;
-  imageAlt: string;
-}) {
-  return (
-    <article className="overflow-hidden rounded-xl border border-[#1a5c57] bg-[#0e4844]">
-      <div className="relative aspect-[4/3]">
-        <Image src={image} alt={imageAlt} fill className="object-cover" />
-      </div>
-      <div className="p-5">
-        <h3 className="text-base font-semibold text-white">{name}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-[#9ecac3]">{body}</p>
-      </div>
-    </article>
-  );
-}
-
-function PrincipleCard({ title, body }: { title: string; body: string }) {
-  return (
-    <article>
-      <h3 className="text-base font-semibold">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{body}</p>
-    </article>
-  );
-}
-
-function HeroProductFrame() {
-  return (
-    <div className="relative">
-      <div className="rounded-2xl border border-white/20 bg-white p-3 shadow-[0_24px_60px_-28px_rgba(8,20,24,0.55)]">
-        <div className="mb-3 flex items-center justify-between px-1">
-          <span className="text-xs font-semibold text-[#0b3d3a]">Workspace</span>
-          <span className="rounded-full bg-[#fff4eb] px-2 py-0.5 text-[10px] font-semibold text-[#9a3412]">
-            Lunch · 11:40
-          </span>
-        </div>
-        <WorkspaceMini />
-      </div>
-      <div className="absolute -bottom-8 right-4 hidden w-[220px] rounded-2xl border border-white/30 bg-white p-3 shadow-[0_18px_40px_-20px_rgba(8,20,24,0.5)] sm:block">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-[10px] font-semibold text-[#0b3d3a]">2 West · Tablet</span>
-          <span className="text-[10px] text-[var(--text-muted)]">PIN</span>
-        </div>
-        <UnitMini compact />
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceMini() {
-  return (
-    <div className="space-y-2 rounded-lg bg-white p-3 text-left shadow-sm ring-1 ring-[var(--border)]">
-      <div className="flex items-center justify-between text-[11px]">
-        <span className="font-semibold text-[#12202c]">What needs me</span>
-        <span className="text-[var(--text-muted)]">Dietary</span>
-      </div>
-      <MiniRow tone="alert" title="2 West" detail="Warmer down · Needs attention" />
-      <MiniRow tone="progress" title="South dining" detail="One call-down · coverage short" />
-      <MiniRow tone="ready" title="3 East" detail="Ready for lunch" />
-    </div>
-  );
-}
-
-function TodaysWorkMini() {
-  return (
-    <div className="space-y-2 rounded-lg bg-white p-3 text-left shadow-sm ring-1 ring-[var(--border)]">
-      <div className="flex items-center justify-between text-[11px]">
-        <span className="font-semibold text-[#12202c]">Walk list</span>
-        <span className="text-[var(--text-muted)]">4 locations</span>
-      </div>
-      <MiniRow tone="alert" title="2 West" detail="Needs attention" />
-      <MiniRow tone="progress" title="Kitchen" detail="In progress" />
-      <MiniRow tone="ready" title="3 East" detail="Ready" />
-    </div>
-  );
-}
-
-function UnitMini({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className="space-y-2 rounded-lg bg-white p-3 text-left shadow-sm ring-1 ring-[var(--border)]">
-      <div className="flex items-center justify-between text-[11px]">
-        <span className="font-semibold text-[#12202c]">Next</span>
-        <span className="text-[var(--text-muted)]">2 West</span>
-      </div>
-      <div className="rounded-md bg-[var(--run-surface)] px-3 py-2">
-        <p className="text-[11px] font-semibold text-[#0b3d3a]">Opening temperature log</p>
-        <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Due for lunch</p>
-      </div>
-      {compact ? null : (
-        <div className="rounded-md border border-[var(--border)] px-3 py-2">
-          <p className="text-[11px] font-semibold">Report an issue</p>
-          <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">This location</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MiniRow({
-  tone,
-  title,
-  detail,
-}: {
-  tone: "alert" | "progress" | "ready";
-  title: string;
-  detail: string;
-}) {
-  const dot =
-    tone === "alert" ? "bg-[#b91c1c]" : tone === "progress" ? "bg-[#b45309]" : "bg-[#047857]";
-
-  return (
-    <div className="flex items-start gap-2 rounded-md border border-[var(--border)] px-2.5 py-2">
-      <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
-      <div>
-        <p className="text-[11px] font-semibold text-[#12202c]">{title}</p>
-        <p className="text-[10px] text-[var(--text-secondary)]">{detail}</p>
-      </div>
     </div>
   );
 }
