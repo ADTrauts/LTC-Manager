@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 
+import { activateFixtureAccount, linkFixtureAccount } from "./fixture-account.mjs";
 import { assertDisposableDatabaseUrl } from "./lib/database-target.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -51,7 +52,7 @@ function serviceDateUtc(key) {
 async function upsertUser(db, { email, displayName, roleKey, facilityId, primaryDepartmentId }) {
   const role = await db.role.findUniqueOrThrow({ where: { key: roleKey } });
   const passwordHash = await bcrypt.hash(SYNTHETIC_PASSWORD, 12);
-  return db.user.upsert({
+  const user = await db.user.upsert({
     where: { email },
     update: {
       displayName,
@@ -73,6 +74,7 @@ async function upsertUser(db, { email, displayName, roleKey, facilityId, primary
     },
     select: { id: true, email: true },
   });
+  return activateFixtureAccount(db, user, { facilityId, roleKey });
 }
 
 async function ensureEmployee(db, {
@@ -360,6 +362,13 @@ async function main() {
       departmentId: dietary.id,
     });
     await ensureDeptMembership(db, dietaryStaffEmp.id, dietary.id);
+
+    const facilityId = facility.id;
+    await linkFixtureAccount(db, manager, managerEmp, { facilityId, roleKey: "MANAGER" });
+    await linkFixtureAccount(db, supervisor, supervisorEmp, { facilityId, roleKey: "SUPERVISOR" });
+    await linkFixtureAccount(db, supervisor2, supervisor2Emp, { facilityId, roleKey: "SUPERVISOR" });
+    await linkFixtureAccount(db, staff, staffEmp, { facilityId, roleKey: "STAFF" });
+    await linkFixtureAccount(db, dietaryStaff, dietaryStaffEmp, { facilityId, roleKey: "STAFF" });
 
     // Scale roster: 18 additional synthetic EVS aides (total staff-like ≥19 + managers/supervisors).
     const scaleStaff = [];

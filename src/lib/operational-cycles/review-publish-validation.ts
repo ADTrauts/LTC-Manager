@@ -442,6 +442,7 @@ export function validateDraftsForReviewPublish(input: {
       unitIds: row.unitIds,
       spaceIds: row.spaceIds,
       keyTimeGroups: row.keyTimeGroups,
+      keyPointGrain: row.keyPointGrain,
       roomTypeKey: row.roomTypeKey,
       expectedMilestones: row.expectedMilestones,
       forPublish: true,

@@ -43,6 +43,8 @@ function cycle(
     spaceIds: partial.spaceIds ?? [],
     milestoneTimes: partial.milestoneTimes ?? [],
     keyTimeGroups: partial.keyTimeGroups ?? [],
+    occurrenceTracking: partial.occurrenceTracking,
+    keyPointGrain: partial.keyPointGrain,
   };
 }
 
@@ -157,6 +159,31 @@ test("empty Key Time group emits blocker", () => {
   const result = validateDraftsForReviewPublish({ drafts });
   assert.equal(result.valid, false);
   assert.ok(result.blockers.some((b) => b.code === "key_time_group_rooms_required"));
+});
+
+test("Department-grain Key Point publishes without Rooms", () => {
+  const drafts = [
+    cycle({
+      stableKey: "morning",
+      label: "Morning Operations",
+      locationMode: "ALL_DEPARTMENT_UNITS",
+      startLocal: "06:00",
+      endLocal: "10:00",
+    }),
+    cycle({
+      stableKey: "morning_opened",
+      label: "Shift opened",
+      parentStableKey: "morning",
+      nodeKind: "KEY_TIME",
+      startLocal: null,
+      endLocal: null,
+      occurrenceTracking: "NONE",
+      keyPointGrain: "DEPARTMENT",
+      keyTimeGroups: [{ dueLocal: "06:00", spaceIds: [] }],
+    }),
+  ];
+  const result = validateDraftsForReviewPublish({ drafts });
+  assert.ok(!result.blockers.some((b) => b.code === "key_time_group_rooms_required"));
 });
 
 test("duplicate Room across groups emits blocker with room name", () => {
