@@ -330,3 +330,22 @@ Ready for **deployment approval discussion** after:
 ## 15. STOP
 
 Phase 2D-6 complete for certification documentation. No production deployment, migration, schema deletion, or additional implementation authorized by this report.
+
+
+---
+
+## 16. Final release preflight — November 9, 2026
+
+**Certification: BLOCKED. Deployment recommendation: BLOCKED — REMEDIATION REQUIRED.**
+
+This final gate supersedes the earlier release recommendation in section 14 while preserving all original evidence above. See the [final preflight appendix](./PHASE_2D_FINAL_RELEASE_PREFLIGHT.md) for the full matrix, reproduction and deployment sequence.
+
+- Assessed candidate: `e1fc6d2b56e47d84df0a2a16993cf3a518eacb21`. It is the documentation-only successor of `8abdb94`, with the same non-documentation tree as the previously certified application `9bc5f83`.
+- Eight-persona browser/HTTP matrix: **8 pass / 0 fail / 0 skip**, 21 response bodies inspected. No unauthorized operational disclosure confirmed.
+- Server integration and diagnostics: **12 pass / 2 fail / 0 skip**. Focused Coverage/RLS/Dashboard hermetics: **35 pass / 0 fail / 0 skip**.
+- **PF-2D-001:** `runtime-location-state/prefetch.ts` omits Coverage item `spaceId` from its select and mapping. A published two-person Space requirement with one assignee produces zero RLS slots; a test-only in-memory field-retention control produces the intended AT_RISK slot. Dashboard Coverage can consequently report that coverage is in place. No application fix was made in this preflight.
+- Migration checks pass: certified bytes unchanged, additive ordering intact, fresh disposable database reaches 189. Production remains at 187; both new columns/migrations remain absent. Published Dietary LOCATION Key Times retain 1 group / 9 rooms each.
+- Production health checks pass. Both public aliases still point at READY Phase 2C deployment `dpl_2fjfVAJporEGaDtFwzRVd9TgQhKS`; protected rollback identity remains `7973254`.
+- The original source checkout has a pre-existing deleted canonical Coverage migration and byte-identical untracked duplicate directory. Both were preserved; testing used an isolated clean committed checkout. Local main had already advanced before this task; no branch refs or remote branches were changed here.
+
+Next action: authorize the narrow RLS prefetch `spaceId` propagation fix and database-backed regression, then recertify its new SHA before considering migration/deployment approval. ARR-003, ARR-004 and ARR-008 remain open. No production/staging migration, data mutation, push, deploy, promotion, rollback or next architecture phase was performed.
