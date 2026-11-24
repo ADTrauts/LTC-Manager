@@ -1,5 +1,7 @@
 # EVS Reference Implementation — Phase 11B Ownership Decision
 
+> **Historical.** Accepted August 7, 2026 for that phase. November 2026 foundation retires the capability switch, Location Functions, and generic Work this decision used. It does not authorize a new EVS engine. Current authority is [13 — Department Product](../product/13_DEPARTMENT_PRODUCT.md) and [01B](../product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md).
+
 **Date:** 2026-08-07  
 **Branch:** `product/evs-reference-implementation-phase-11b-2026-08-07`  
 **Base tip:** `00333d191ea8df419674623f2621d313ed12f72d` (Phase 11A sequential-verification docs)  

@@ -75,7 +75,7 @@ type SetupCapability = Exclude<keyof typeof NOT_CONFIGURED_MESSAGES, "records.le
 const SETUP_EXPECTATIONS: Readonly<Record<DepartmentProductKey | "CUSTOM", readonly SetupCapability[]>> = {
   HEALTHCARE_FOOD_NUTRITION: ["locations.runtime", "cycles.published", "coverage.planned", "menus"],
   PLANT: ["plant.maintenance"],
-  EVS: [],
+  EVS: ["locations.runtime", "cycles.published", "coverage.planned"],
   CUSTOM: ["coverage.planned", "people.roster"],
 };
 

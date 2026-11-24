@@ -185,7 +185,12 @@ test("EVS engines stay admitted without a release flag", () => {
   assert.equal(missing.productKey, "EVS");
   assert.equal(missing.has.has("cycles.published"), false);
   assert.equal(missing.has.has("maintenance.shared"), true);
-  assert.deepEqual(missing.notConfigured.map((row) => row.capability), ["records.legacy"]);
+  assert.deepEqual(missing.notConfigured.map((row) => row.capability), [
+    "locations.runtime",
+    "cycles.published",
+    "coverage.planned",
+    "records.legacy",
+  ]);
   assert.ok(deriveDepartmentDashboardCapabilities(facts("EVS")).has.has("cycles.published"));
 });
 

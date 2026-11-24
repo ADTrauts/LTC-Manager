@@ -33,6 +33,14 @@ export const STANDARD_DEPARTMENT_FORMS = [
     field("restroom", "Restroom", "SHORT_TEXT", 10, true),
     field("sanitation_complete", "Sanitation complete", "YES_NO", 20, true),
   ]),
+  form("evs_room_cleaning_checklist", "Room cleaning checklist", "CHECKLIST", "SANITATION", "ONCE_DAILY", ["EVS"], [
+    field("room_cleaned", "Room cleaned", "YES_NO", 10, true),
+    field("notes", "Notes", "OPTIONAL_COMMENT", 20, false),
+  ]),
+  form("evs_area_inspection", "Area inspection", "INSPECTION", "SANITATION", "ONCE_DAILY", ["EVS"], [
+    field("area_condition", "Area condition", "PASS_NEEDS_ATTENTION", 10, true),
+    field("notes", "Notes", "OPTIONAL_COMMENT", 20, false),
+  ]),
   form("dietary_dry_storage_ambient", "Dry storage ambient", "LOG", "TEMPERATURE", "ONCE_DAILY", ["DIETARY"], [
     field("ambient_temperature", "Ambient temperature", "TEMPERATURE", 10, true),
     field("in_range", "Within the posted range", "YES_NO", 20, true),

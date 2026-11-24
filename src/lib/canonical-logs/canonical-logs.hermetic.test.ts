@@ -24,6 +24,8 @@ test("seed includes cooler, dishwashers, opening checklist, food temp, ice machi
     "three_bay_sink_sanitizer_log",
     "dietary_dry_storage_ambient",
     "evs_restroom_sanitation_round",
+    "evs_room_cleaning_checklist",
+    "evs_area_inspection",
     "kitchen_sanitation_audit",
   ]) {
     assert.ok(keys.has(key), key);
