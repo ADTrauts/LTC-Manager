@@ -1,5 +1,5 @@
 /**
- * Phase 11C EVS Assignment location scope, Zones, coverage, and sequencing tests.
+ * Phase 11C EVS Assignment location scope, coverage, and sequencing tests.
  *
  * SQL-backed cases opt in via DEPARTMENT_WORK_TEST_DATABASE_URL (same disposable wiring
  * as Phase 11B). Sequencing and pure helpers always run hermetically.
@@ -10,13 +10,7 @@ import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { AppJwtPayload, FacilitySession } from "@/lib/auth";
-import {
-  createDepartmentZone,
-  retireDepartmentZone,
-  updateDepartmentZone,
-} from "@/lib/department-zones";
 import { resolveAssignmentAuthority } from "@/lib/scheduling/operational-assignments/assignment-authority";
-import type { AssignmentAuthorityDecision } from "@/lib/scheduling/operational-assignments/assignment-authority";
 import { ensureAssignmentPlan } from "@/lib/scheduling/operational-assignments/assignment-plan";
 import {
   assertNoLocationResponsibilityOverlaps,
@@ -403,26 +397,13 @@ test(
 );
 
 test(
-  "phase11c sql: Zone create/membership/retire; membership change does not rewrite Assignment locations",
+  "phase11c sql: Assignment locations are a snapshot of the chosen rooms",
   { skip: skipReason },
   async () => {
     assert.ok(databaseUrl);
     const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
     try {
       const fx = await loadEvs11cFixture(prisma);
-      const zoneName = `11C Zone ${cuidLike().slice(-6)}`;
-      const zone = await createDepartmentZone(prisma, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        name: zoneName,
-        description: "Synthetic zone",
-        unitSpaceIds: fx.spaces.slice(0, 2).map((s) => s.id),
-        actorUserId: fx.manager.id,
-        activate: true,
-      });
-      assert.equal(zone.status, "ACTIVE");
-      assert.equal(zone.locationCount, 2);
-
       const serviceDateKey = "2099-08-13";
       const serviceDate = facilityLocalDateToServiceDate(serviceDateKey);
       const plan = await ensureAssignmentPlan(prisma, {
@@ -448,45 +429,19 @@ test(
           roleKey: "CLEANING_ROUND",
           roleLabel: "Cleaning Round",
           unitId: fx.unit.id,
-          sourceZoneId: zone.id,
           status: "PLANNED",
           source: "MANUAL_ADDITION",
         },
       });
       await replaceAssignmentLocations(prisma, assignment.id, writes);
-      const before = (
+      const stored = (
         await prisma.operationalAssignmentLocation.findMany({
           where: { assignmentId: assignment.id },
           select: { unitSpaceId: true },
           orderBy: { sortOrder: "asc" },
         })
       ).map((l) => l.unitSpaceId);
-
-      await updateDepartmentZone(prisma, {
-        facilityId: fx.facility.id,
-        zoneId: zone.id,
-        unitSpaceIds: [fx.spaces[2]!.id, fx.spaces[3]!.id],
-        actorUserId: fx.manager.id,
-      });
-
-      const after = (
-        await prisma.operationalAssignmentLocation.findMany({
-          where: { assignmentId: assignment.id },
-          select: { unitSpaceId: true },
-          orderBy: { sortOrder: "asc" },
-        })
-      ).map((l) => l.unitSpaceId);
-      assert.deepEqual(after, before);
-
-      await retireDepartmentZone(prisma, {
-        facilityId: fx.facility.id,
-        zoneId: zone.id,
-        actorUserId: fx.manager.id,
-      });
-      const retired = await prisma.departmentOperationalZone.findUniqueOrThrow({
-        where: { id: zone.id },
-      });
-      assert.equal(retired.status, "RETIRED");
+      assert.deepEqual(stored.sort(), fx.spaces.slice(0, 2).map((s) => s.id).sort());
 
       await prisma.operationalAssignmentLocation.deleteMany({
         where: { assignmentId: assignment.id },
@@ -498,23 +453,8 @@ test(
   },
 );
 
-test("phase11c hermetic: Zone is not an authority grant (decision shape)", () => {
-  // Zones never appear on AssignmentAuthorityDecision — management is role × department only.
-  const staff: AssignmentAuthorityDecision = {
-    canViewOwn: true,
-    canViewDepartment: false,
-    canManage: false,
-    canConfirm: false,
-    canReopen: false,
-    canOverride: false,
-    reason: null,
-  };
-  assert.equal("zoneId" in staff, false);
-  assert.equal(staff.canManage, false);
-});
-
 test(
-  "phase11c sql: Zone membership does not elevate STAFF Assignment authority",
+  "phase11c sql: STAFF cannot manage Assignments; cross-facility is denied",
   { skip: skipReason },
   async () => {
     assert.ok(databaseUrl);
@@ -524,14 +464,6 @@ test(
     const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
     try {
       const fx = await loadEvs11cFixture(prisma);
-      await createDepartmentZone(prisma, {
-        facilityId: fx.facility.id,
-        departmentId: fx.evs.id,
-        name: `11C Auth Zone ${cuidLike().slice(-6)}`,
-        unitSpaceIds: [fx.spaces[0]!.id],
-        actorUserId: fx.manager.id,
-        activate: true,
-      });
 
       const staffDecision = await resolveAssignmentAuthority({
         session: session({

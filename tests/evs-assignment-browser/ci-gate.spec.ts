@@ -12,7 +12,7 @@ import {
 } from "../offline-browser/helpers";
 
 /**
- * Phase 11C EVS Assignment / Zones / Scale — scenario classification.
+ * Phase 11C EVS Assignment / Scale — scenario classification.
  *
  * Labels: BROWSER | SQL | HERMETIC | SERVICE | PRIOR GATE | DOCS
  */
@@ -27,9 +27,6 @@ type Fixtures = {
   roomCount: number;
   multiRoomSpaceIds: string[];
   multiRoomLabels: string[];
-  zoneEastId: string;
-  zoneEastName: string;
-  zoneWestId: string;
   serviceDateKey: string;
   managerEmail: string;
   faWithEvsEmail: string;
@@ -100,7 +97,7 @@ async function setActiveDepartment(page: Page, departmentId: string) {
   expect(result.ok, `active-department failed status=${result.status} body=${result.body}`).toBeTruthy();
 }
 
-test.describe("@ci-gate Phase 11C EVS assignment zones scale", () => {
+test.describe("@ci-gate Phase 11C EVS assignment scale", () => {
   const fx = loadFixtures();
 
   test("01 scale fixture has 40–60 rooms and ≥15 EVS employees", async () => {
@@ -111,7 +108,7 @@ test.describe("@ci-gate Phase 11C EVS assignment zones scale", () => {
     expect(fx.multiRoomLabels.every((l) => !/^c[a-f0-9]{20,}$/i.test(l))).toBeTruthy();
   });
 
-  test("02 Supervisor opens Assignment Board with EVS space picker + zone manager", async () => {
+  test("02 Supervisor opens Assignment Board with EVS space picker and no zone manager", async () => {
     const { context, page } = await openPersistent("assign-board");
     try {
       await loginPassword(page, fx.supervisorEmail);
@@ -121,7 +118,7 @@ test.describe("@ci-gate Phase 11C EVS assignment zones scale", () => {
       });
       await expect(page.getByRole("heading", { name: /Daily Assignment Board/i })).toBeVisible();
       await expect(page.getByTestId("assignment-space-scope-picker").first()).toBeVisible();
-      await expect(page.getByTestId("evs-zone-manager")).toBeVisible();
+      await expect(page.getByTestId("evs-zone-manager")).toHaveCount(0);
       await expect(page.getByTestId("evs-location-coverage-summary")).toBeVisible();
       const listText = await page.getByTestId("assignment-space-list").first().innerText();
       expect(listText.length).toBeGreaterThan(20);
@@ -202,7 +199,7 @@ test.describe("@ci-gate Phase 11C EVS assignment zones scale", () => {
       if (await filters.isVisible().catch(() => false)) {
         await expect(filters.locator('select[name="floor"]')).toBeVisible();
         await expect(filters.locator('select[name="unit"]')).toBeVisible();
-        await expect(filters.locator('select[name="zone"]')).toBeVisible();
+        await expect(filters.locator('select[name="zone"]')).toHaveCount(0);
         await expect(filters.locator('select[name="employee"]')).toBeVisible();
       }
       await expect(page.getByText(/Locations unassigned/i).first()).toBeVisible();
@@ -330,31 +327,6 @@ test.describe("@ci-gate Phase 11C EVS assignment zones scale", () => {
           },
         }),
       ).rejects.toThrow();
-    } finally {
-      await db.$disconnect();
-    }
-  });
-
-  test("10 Zone membership change does not rewrite Assignment locations (SQL)", async () => {
-    const db = prisma();
-    try {
-      const before = await db.operationalAssignmentLocation.count({
-        where: { assignmentId: fx.multiRoomAssignmentId },
-      });
-      await db.departmentOperationalZoneLocation
-        .create({
-          data: {
-            zoneId: fx.zoneWestId,
-            unitSpaceId: fx.multiRoomSpaceIds[0]!,
-            unitId: fx.unitId,
-            sortOrder: 999,
-          },
-        })
-        .catch(() => null);
-      const after = await db.operationalAssignmentLocation.count({
-        where: { assignmentId: fx.multiRoomAssignmentId },
-      });
-      expect(after).toBe(before);
     } finally {
       await db.$disconnect();
     }

@@ -226,8 +226,6 @@ function makeEntry(overrides: Partial<AssignmentBoardEntry>): AssignmentBoardEnt
     locationCount: 0,
     scopeSummaryLabel: "Entire Unit",
     locationLabels: [],
-    sourceZoneId: null,
-    sourceZoneName: null,
     ...overrides,
   };
 }

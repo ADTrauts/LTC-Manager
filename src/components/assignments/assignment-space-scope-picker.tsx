@@ -11,19 +11,10 @@ export type AssignmentSpaceOption = {
   sortOrder: number;
 };
 
-export type AssignmentZoneOption = {
-  id: string;
-  name: string;
-  locationCount: number;
-  unitSpaceIds: string[];
-};
-
 type Props = {
   spaces: AssignmentSpaceOption[];
-  zones?: AssignmentZoneOption[];
   /** Hidden input name submitted with the form (comma-separated ids). */
   name?: string;
-  zoneFieldName?: string;
   initialSelectedIds?: string[];
   selectedUnitId?: string | null;
 };
@@ -34,14 +25,11 @@ type Props = {
  */
 export function AssignmentSpaceScopePicker({
   spaces,
-  zones = [],
   name = "unitSpaceIds",
-  zoneFieldName = "sourceZoneId",
   initialSelectedIds = [],
   selectedUnitId = null,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialSelectedIds));
-  const [zoneId, setZoneId] = useState("");
   const [filter, setFilter] = useState("");
 
   const visible = useMemo(() => {
@@ -76,14 +64,6 @@ export function AssignmentSpaceScopePicker({
 
   function clearSelection() {
     setSelected(new Set());
-    setZoneId("");
-  }
-
-  function applyZone(nextZoneId: string) {
-    setZoneId(nextZoneId);
-    const zone = zones.find((z) => z.id === nextZoneId);
-    if (!zone) return;
-    setSelected(new Set(zone.unitSpaceIds));
   }
 
   const selectedList = spaces.filter((s) => selected.has(s.id));
@@ -91,7 +71,6 @@ export function AssignmentSpaceScopePicker({
   return (
     <div className="space-y-2 rounded-md border border-zinc-200 bg-zinc-50 p-3" data-testid="assignment-space-scope-picker">
       <input type="hidden" name={name} value={[...selected].join(",")} />
-      <input type="hidden" name={zoneFieldName} value={zoneId} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-medium text-zinc-800">
@@ -119,22 +98,6 @@ export function AssignmentSpaceScopePicker({
           </button>
         </div>
       </div>
-
-      {zones.length > 0 ? (
-        <select
-          value={zoneId}
-          onChange={(e) => applyZone(e.target.value)}
-          className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm"
-          data-testid="assignment-zone-select"
-        >
-          <option value="">Zone (optional convenience)…</option>
-          {zones.map((z) => (
-            <option key={z.id} value={z.id}>
-              {z.name} · {z.locationCount} locations
-            </option>
-          ))}
-        </select>
-      ) : null}
 
       <input
         type="search"
@@ -189,8 +152,8 @@ export function AssignmentSpaceScopePicker({
         </p>
       ) : (
         <p className="text-xs text-zinc-500">
-          Leave empty to assign the entire Unit. Selecting Rooms snapshots responsibility for this
-          Assignment — later Zone edits will not rewrite it.
+          Leave empty to assign the entire Unit. Selecting Rooms sets responsibility for this
+          Assignment only.
         </p>
       )}
     </div>

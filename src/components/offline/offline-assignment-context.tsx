@@ -19,7 +19,6 @@ export function OfflineAssignmentContext() {
     scopeKind?: "UNIT" | "SPACES";
     locationCount?: number;
     assignedLocations?: Array<{ unitSpaceId: string; label: string }>;
-    sourceZoneName?: string | null;
   } | null | undefined>(undefined);
 
   useEffect(() => {
@@ -40,7 +39,6 @@ export function OfflineAssignmentContext() {
               scopeKind: assignment.scopeKind,
               locationCount: assignment.locationCount,
               assignedLocations: assignment.assignedLocations,
-              sourceZoneName: assignment.sourceZoneName,
             }
           : null,
       );
@@ -94,9 +92,6 @@ export function OfflineAssignmentContext() {
         {ctx.duty}
         {ctx.unitName ? ` — ${ctx.unitName}` : ""}
       </p>
-      {ctx.sourceZoneName ? (
-        <p className="text-xs text-zinc-600">Zone convenience: {ctx.sourceZoneName}</p>
-      ) : null}
       {locationPreview ? (
         <p className="text-xs text-zinc-700" data-testid="offline-assigned-locations">
           {ctx.locationCount} Rooms: {locationPreview}

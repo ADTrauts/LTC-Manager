@@ -181,7 +181,7 @@ async function main() {
 
     run(
       "node",
-      ["scripts/verify/evs-assignment-browser-fixtures.mjs"],
+      ["--import", "tsx", "scripts/verify/evs-assignment-browser-fixtures.mjs"],
       {
         ...baseEnv,
         EVS_ASSIGNMENT_BROWSER_FIXTURE_PATH: FIXTURE_PATH,

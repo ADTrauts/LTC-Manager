@@ -72,7 +72,6 @@ export type EmployeeAssignmentOfflineContext = {
   scopeKind: "UNIT" | "SPACES";
   locationCount: number;
   assignedLocations: Array<{ unitSpaceId: string; label: string }>;
-  sourceZoneName: string | null;
   assignmentRevision: string;
 };
 
@@ -97,7 +96,6 @@ export async function loadEmployeeAssignmentOfflineContext(
       endsAt: true,
       plan: { select: { confirmedAt: true } },
       updatedAt: true,
-      sourceZone: { select: { name: true } },
       locations: {
         select: {
           unitSpaceId: true,
@@ -130,7 +128,6 @@ export async function loadEmployeeAssignmentOfflineContext(
     scopeKind,
     locationCount: assignedLocations.length,
     assignedLocations,
-    sourceZoneName: row.sourceZone?.name ?? null,
     assignmentRevision: `${row.id}|${startsIso ?? ""}|${assignedLocations.length}|${row.updatedAt.toISOString()}`,
   };
 }

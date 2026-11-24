@@ -70,7 +70,6 @@ export type JobFlowAssignmentSnapshot = {
   scopeKind?: "UNIT" | "SPACES";
   locationCount?: number;
   locationLabels?: string[];
-  sourceZoneName?: string | null;
 };
 
 export type JobFlowUnitSnapshot = {
