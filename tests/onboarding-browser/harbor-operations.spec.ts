@@ -82,7 +82,7 @@ test("Harbor operations and lifecycle connect normal role-scoped handling withou
     await page.goto(lifecycle);
     await page.getByRole("link", { name: "Review billing reconciliation", exact: true }).click();
     await expect(page.getByRole("button", { name: "Sync from Stripe", exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "Review lifecycle and readiness facts", exact: true }).click();
+    await page.getByRole("link", { name: "Review lifecycle and operational pause", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${lifecycle}$`));
 
     const ownerPage = await ownerContext.newPage();

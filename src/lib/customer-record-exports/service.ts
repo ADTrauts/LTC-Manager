@@ -367,7 +367,7 @@ export async function listCustomerExports(db: PrismaClient, s: FacilitySession, 
         });
         await requireExportCustomer(tx, s);
         return {
-            rows, total, page: current, pages: Math.ceil(total / 25) || 1
+            rows, total, page: current, pages: Math.ceil(total / 25) || 1, evaluatedAt: Date.now()
         };
     });
 }

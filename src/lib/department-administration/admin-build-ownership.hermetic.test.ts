@@ -29,7 +29,7 @@ describe("Admin vs Build Department ownership", () => {
     const organization = ADMIN_HUB_SECTIONS.find((section) => section.id === "organization");
     assert.deepEqual(
       organization?.links.map((link) => link.id),
-      ["organization_settings", "departments", "billing"],
+      ["customer_offboarding", "record_exports", "organization_settings", "departments", "billing"],
     );
     const departments = flattenAdminHubLinks().find((link) => link.id === "departments");
     assert.equal(departments?.href, "/admin/departments");
