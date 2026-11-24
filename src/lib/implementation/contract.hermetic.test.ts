@@ -17,7 +17,9 @@ test("waiver binds owner, reason and exact scope; changes invalidate the quote d
   assert.throws(()=>quoteScope(one,{staffId:"owner",reason:" "}));
 });
 test("scope rejects missing and unpublished Products; evidence requires explicit delivered/deferred detail",()=>{
-  assert.throws(()=>parseScope({...one,departmentKeys:[]}));assert.throws(()=>parseScope({...one,departmentKeys:["EVS"]}));
+  assert.throws(()=>parseScope({...one,departmentKeys:[]}));
+  assert.throws(()=>parseScope({...one,departmentKeys:["LAUNDRY"]}));
+  assert.deepEqual(parseScope({...one,departmentKeys:["EVS"]}).departmentKeys,["EVS"]);
   assert.throws(()=>deliveryEvidence({stage:"TRAINING",disposition:"READY",notes:"done"}));
   assert.equal(deliveryEvidence({stage:"TRAINING",disposition:"DEFERRED",notes:"Customer requested next week's session"}).disposition,"DEFERRED");
 });

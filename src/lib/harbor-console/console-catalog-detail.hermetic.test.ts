@@ -24,7 +24,8 @@ test("product release presentation uses registry values and em dashes", () => {
   assert.equal(formatProductReleaseDate(plant.releasedOn), "October 7, 2026");
   assert.equal(formatProductVersionLabel(food.versionLabel), CONSOLE_CATALOG_EMPTY);
   assert.equal(formatProductReleaseDate(food.releasedOn), CONSOLE_CATALOG_EMPTY);
-  assert.equal(formatProductVersionLabel(evs.versionLabel), CONSOLE_CATALOG_EMPTY);
+  assert.equal(formatProductVersionLabel(evs.versionLabel), "1.0");
+  assert.equal(formatProductReleaseDate(evs.releasedOn), "November 24, 2026");
   assert.equal(formatProductReleaseDate(null), CONSOLE_CATALOG_EMPTY);
   assert.equal(formatProductReleaseDate("not-a-date"), CONSOLE_CATALOG_EMPTY);
   assert.equal(catalogRecordPublishedVersionLabel(1), "v1");

@@ -85,7 +85,7 @@ function mockDb(options: {
 }
 
 describe("Food and Nutrition product identity", () => {
-  it("publishes Food and Nutrition and Plant as AVAILABLE customer Products and keeps EVS in development", () => {
+  it("publishes Food and Nutrition, EVS, and Plant as AVAILABLE customer Products", () => {
     const catalog = deriveFacilityDepartmentCatalog({
       departments: [],
       entitlements: [],
@@ -103,6 +103,13 @@ describe("Food and Nutrition product identity", () => {
           name: "Food and Nutrition",
           status: "AVAILABLE",
           description: "Food and nutrition operations for hospitals and long-term care.",
+        },
+        {
+          productKey: "EVS",
+          name: "Environmental Services",
+          status: "AVAILABLE",
+          description:
+            "Housekeeping coverage, operating windows, and cleaning Records for hospitals and long-term care.",
         },
         {
           productKey: "PLANT",
@@ -124,13 +131,9 @@ describe("Food and Nutrition product identity", () => {
     assert.deepEqual(catalog[0]?.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
     assert.equal(catalog[0]?.industryLabel, "Healthcare");
     assert.equal(catalog[0]?.applicabilitySummary, "For hospitals and long-term care.");
-    assert.equal(
-      catalog.some((item) => item.productKey === "EVS"),
-      false,
-    );
-    assert.equal(getDepartmentProduct("EVS")?.status, "DEVELOPMENT");
+    assert.equal(getDepartmentProduct("EVS")?.status, "AVAILABLE");
     assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
-    assert.equal(listDepartmentProducts().filter((product) => product.status === "AVAILABLE").length, 2);
+    assert.equal(listDepartmentProducts().filter((product) => product.status === "AVAILABLE").length, 3);
   });
 
   it("resolves legacy DIETARY to Food and Nutrition without a second sellable Product", () => {

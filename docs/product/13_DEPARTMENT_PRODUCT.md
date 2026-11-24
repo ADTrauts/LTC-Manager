@@ -26,7 +26,7 @@ Current catalog:
 | Product | Release status |
 |---------|----------------|
 | Food and Nutrition | AVAILABLE |
-| Environmental Services | DEVELOPMENT |
+| Environmental Services | AVAILABLE |
 | Facility Plant Operations (`PLANT`) | AVAILABLE |
 
 Food and Nutrition is one Product. It is designed for Healthcare facilities of type Hospital and Long-Term Care. It is not `HOSPITAL_FOOD_NUTRITION` plus `LONG_TERM_CARE_FOOD_NUTRITION`, and it is not the generic Vssyl solution for every food-service business. Future food-service Products may use the same Platform mechanisms with different Operating Rhythm, Records, domain capabilities (for example Menus), and starter content — not Location Functions or generic Work.
@@ -215,7 +215,7 @@ Department Products that exist today:
 | Product | Implemented | Not designed |
 |---------|-------------|--------------|
 | **Food and Nutrition** | Breakfast / Lunch / Dinner Cycles with Prep, Service, and Cleanup Phases. Key Points: Meal Due (NONE), Ready and Service Started (REQUIRED, LOCATION). Menus. Healthcare-scoped. | — |
-| **Environmental Services** | DEVELOPMENT. Morning / Afternoon / Evening Operations with Opening, Cleaning, and Closeout Phases. Key Points: Shift Opened (NONE, DEPARTMENT) and Area Ready (REQUIRED, LOCATION, no rooms until the facility names them). Blueprint: [17](./17_ENVIRONMENTAL_SERVICES.md). | A second location tree |
+| **Environmental Services** | AVAILABLE as of November 24, 2026. Morning / Afternoon / Evening Operations with Opening, Cleaning, and Closeout Phases. Key Points: Shift Opened (NONE, DEPARTMENT) and Area Ready (REQUIRED, LOCATION, no rooms until the facility names them). Blueprint: [17](./17_ENVIRONMENTAL_SERVICES.md). | A second location tree |
 | **Facility Plant Operations** | AVAILABLE V1: Request / Issue / Work Order corrective loop, Preventive Maintenance, and optional unpublished starters. Platform Assets and repairs remain shared. See [14](./14_FACILITY_PLANT_OPERATIONS.md) and the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07). | Inventory, meter PM, IoT, predictive maintenance, and dedicated Product billing SKU. |
 
 Configure Overview, Facility, Operating Rhythm, People & Coverage, Records (plus Menus or Preventive Maintenance) in Department Builder. Notification policy configures the shared engine; it does not send notifications. Physical rooms stay in Facility Builder. The engine contract is [16 — Notifications & Attention](./16_NOTIFICATIONS_AND_ATTENTION.md). The Builder contract is [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md).
@@ -250,6 +250,6 @@ Every new Department Product must define these before implementation.
 
 Reuse the existing location tree, Cycle engine, Records engine, domain history and Notifications. Bring a genuinely missing fact or lifecycle to the product owner before introducing a new owner. Generic Work remains retired.
 
-A Department Product cannot become AVAILABLE, or ship a new operational capability, until its Dashboard contribution declaration and the [Dashboard release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate) are complete, and every new Department write is classified in the write manifest (`src/lib/department-authority/write-manifest.ts`). An unclassified write fails that test. Food and Nutrition and Facility Plant Operations were declared on October 20, 2026. The Environmental Services declaration is a draft.
+A Department Product cannot become AVAILABLE, or ship a new operational capability, until its Dashboard contribution declaration and the [Dashboard release gate](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md#release-gate) are complete, and every new Department write is classified in the write manifest (`src/lib/department-authority/write-manifest.ts`). An unclassified write fails that test. Food and Nutrition and Facility Plant Operations were declared on October 20, 2026. Environmental Services was declared on November 23, 2026 and became AVAILABLE on November 24, 2026.
 
 Facility Plant Operations is implemented against this contract. Its architecture is [14](./14_FACILITY_PLANT_OPERATIONS.md). V1 is AVAILABLE as of October 7, 2026.

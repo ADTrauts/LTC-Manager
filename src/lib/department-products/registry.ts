@@ -150,7 +150,16 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
     defaultDepartmentName: "Environmental Services",
     industry: "HEALTHCARE",
     facilityTypes: ["HOSPITAL", "LONG_TERM_CARE"],
-    status: "DEVELOPMENT",
+    status: "AVAILABLE",
+    shortDescription:
+      "Housekeeping coverage, operating windows, and cleaning Records for hospitals and long-term care.",
+    customerCapabilities: [
+      "Operating Rhythm",
+      "Records",
+      "People & Coverage",
+      "Assignments",
+      "Audit / Reports",
+    ],
     sortOrder: 20,
     domainCapability: "evs",
     starters: {
@@ -159,8 +168,8 @@ const DEPARTMENT_PRODUCTS: readonly DepartmentProduct[] = [
       jobRoleTiers: "generic",
       responsibilityPresets: true,
     },
-    versionLabel: null,
-    releasedOn: null,
+    versionLabel: "1.0",
+    releasedOn: "2026-11-24",
   },
   {
     productKey: "PLANT",

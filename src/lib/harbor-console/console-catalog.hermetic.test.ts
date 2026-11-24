@@ -403,10 +403,10 @@ test("unified projection keeps Department and Record sources", async () => {
   assert.equal(food.usageCount, 0);
 
   const evs = requireItem(items, "EVS");
-  assert.equal(evs.statusKey, "DEVELOPMENT");
-  assert.equal(evs.versionDisplay, CONSOLE_CATALOG_EMPTY);
+  assert.equal(evs.statusKey, "AVAILABLE");
+  assert.equal(evs.versionDisplay, "1.0");
   assert.equal(evs.facilityInstallCount, 1);
-  assert.equal(evs.usageCount, 0);
+  assert.equal(evs.usageCount, 1);
   assert.equal(items.filter((row) => row.sourceType === "DEPARTMENT_PRODUCT").length, 3);
 
   const cooler = requireItem(items, "cooler_temperature_log");

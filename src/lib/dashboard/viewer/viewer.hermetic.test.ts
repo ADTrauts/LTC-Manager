@@ -329,33 +329,38 @@ function catalog(overrides: Partial<DashboardDepartmentCatalog> = {}): Dashboard
   };
 }
 
-test("Department selection: released products, custom Departments, Plant by runtime, Harbor sees development", () => {
+test("Department selection: released products, custom Departments, Plant by runtime", () => {
   const ids = (departments: { id: string }[]) => departments.map((department) => department.id);
   assert.deepEqual(
     ids(selectDashboardDepartments({ authKind: "user", catalog: catalog(), plantRuntimeEnabled: false })),
-    [FN.id, ACTIVITIES.id],
-    "EVS is DEVELOPMENT; Plant is hidden without runtime; inactive Departments never appear",
+    [FN.id, EVS.id, ACTIVITIES.id],
+    "EVS is AVAILABLE; Plant is hidden without runtime; inactive Departments never appear",
   );
   assert.deepEqual(
     ids(selectDashboardDepartments({ authKind: "user", catalog: catalog(), plantRuntimeEnabled: true })),
-    [FN.id, PLANT.id, ACTIVITIES.id],
+    [FN.id, EVS.id, PLANT.id, ACTIVITIES.id],
   );
   assert.deepEqual(
     ids(selectDashboardDepartments({ authKind: "harbor_staff", catalog: catalog(), plantRuntimeEnabled: false })),
     [FN.id, EVS.id, PLANT.id, ACTIVITIES.id],
-    "EVS installed internally is visible to Harbor only",
   );
 });
 
 test("Department selection: EVS follows its release status", () => {
   try {
-    overrideDepartmentProductStatusForTest("EVS", "AVAILABLE");
     assert.ok(
       selectDashboardDepartments({ authKind: "user", catalog: catalog(), plantRuntimeEnabled: false }).some(
         (department) => department.id === EVS.id,
       ),
     );
     overrideDepartmentProductStatusForTest("EVS", "RETIRED");
+    assert.equal(
+      selectDashboardDepartments({ authKind: "user", catalog: catalog(), plantRuntimeEnabled: false }).some(
+        (department) => department.id === EVS.id,
+      ),
+      false,
+    );
+    overrideDepartmentProductStatusForTest("EVS", "DEVELOPMENT");
     assert.equal(
       selectDashboardDepartments({ authKind: "user", catalog: catalog(), plantRuntimeEnabled: false }).some(
         (department) => department.id === EVS.id,

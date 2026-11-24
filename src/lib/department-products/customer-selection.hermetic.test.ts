@@ -13,6 +13,8 @@ import {
   installDepartmentsForActiveEntitlements,
   installDepartmentProduct,
   listDepartmentProducts,
+  overrideDepartmentProductStatusForTest,
+  resetDepartmentProductStatusOverridesForTest,
   resolvePublishedDepartmentProductKeys,
   shouldInstallLicensedDepartmentProducts,
 } from "./index";
@@ -132,16 +134,13 @@ describe("Facility Department Product catalog", () => {
     });
     assert.deepEqual(
       catalog.map((item) => item.productKey),
-      ["HEALTHCARE_FOOD_NUTRITION", "PLANT"],
+      ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"],
     );
     assert.equal(
       catalog.every((item) => item.availableToAdd && !item.installed && !item.licensed),
       true,
     );
-    assert.equal(
-      catalog.some((item) => item.productKey === "DRAFT_X" || item.productKey === "EVS"),
-      false,
-    );
+    assert.equal(catalog.some((item) => item.productKey === "DRAFT_X"), false);
   });
 
   it("identifies installed, licensed, and available-to-add AVAILABLE products", () => {
@@ -163,7 +162,11 @@ describe("Facility Department Product catalog", () => {
     assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.availableToAdd, false);
     assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.departmentActive, true);
     assert.equal(byKey.HEALTHCARE_FOOD_NUTRITION?.installationKey, "DIETARY");
-    assert.equal(byKey.EVS, undefined);
+    assert.equal(byKey.EVS?.installed, true);
+    assert.equal(byKey.EVS?.departmentActive, false);
+    assert.equal(byKey.EVS?.licensed, false);
+    assert.equal(byKey.EVS?.operable, false);
+    assert.equal(byKey.EVS?.availableToAdd, true);
     assert.equal(byKey.PLANT?.installed, false);
     assert.equal(byKey.PLANT?.licensed, false);
     assert.equal(byKey.PLANT?.availableToAdd, true);
@@ -171,13 +174,13 @@ describe("Facility Department Product catalog", () => {
 });
 
 describe("Published Department Product selection", () => {
-  it("accepts Dietary and Plant and rejects unpublished or blank keys", () => {
+  it("accepts Dietary, EVS, and Plant and rejects unpublished or blank keys", () => {
     assert.deepEqual(resolvePublishedDepartmentProductKeys(["DIETARY"]), ["DIETARY"]);
+    assert.deepEqual(resolvePublishedDepartmentProductKeys(["EVS"]), ["EVS"]);
     assert.deepEqual(resolvePublishedDepartmentProductKeys(["PLANT"]), ["PLANT"]);
-    assert.throws(
-      () => resolvePublishedDepartmentProductKeys([" EVS ", "DIETARY", "EVS"]),
-      (error: unknown) =>
-        error instanceof DepartmentProductInstallError && error.code === "UNAVAILABLE_PRODUCT",
+    assert.deepEqual(
+      resolvePublishedDepartmentProductKeys([" EVS ", "DIETARY", "EVS"]),
+      ["EVS", "DIETARY"],
     );
     assert.throws(
       () => resolvePublishedDepartmentProductKeys([AQUATICS]),
@@ -217,17 +220,33 @@ describe("Published Department Product selection", () => {
     );
   });
 
-  it("skips DEVELOPMENT EVS keys during reconcile", async () => {
-    const { prisma, created } = mockInstallDb({ facilityId: "fac_2" });
+  it("installs EVS when AVAILABLE and skips it while DEVELOPMENT", async () => {
+    const available = mockInstallDb({ facilityId: "fac_2" });
     await installDepartmentsForActiveEntitlements({
       facilityId: "fac_2",
       productKeys: ["DIETARY", "EVS"],
-      prisma: prisma as never,
+      prisma: available.prisma as never,
     });
     assert.deepEqual(
-      created.map((row) => row.key),
-      ["DIETARY"],
+      available.created.map((row) => row.key),
+      ["DIETARY", "EVS"],
     );
+
+    try {
+      overrideDepartmentProductStatusForTest("EVS", "DEVELOPMENT");
+      const development = mockInstallDb({ facilityId: "fac_3" });
+      await installDepartmentsForActiveEntitlements({
+        facilityId: "fac_3",
+        productKeys: ["DIETARY", "EVS"],
+        prisma: development.prisma as never,
+      });
+      assert.deepEqual(
+        development.created.map((row) => row.key),
+        ["DIETARY"],
+      );
+    } finally {
+      resetDepartmentProductStatusOverridesForTest();
+    }
   });
 });
 

@@ -1,12 +1,12 @@
 # 17 — Environmental Services
 
 **Status:** Department Product blueprint  
-**Release status:** **DEVELOPMENT** — not customer-visible, not purchasable, not a billing change  
+**Release status:** **AVAILABLE** as of November 24, 2026 — customer-visible Marketplace Product; not a dedicated billing/SKU change  
 **Platform contract:** [13 — Department Product](./13_DEPARTMENT_PRODUCT.md)  
 **Builder contract:** [16 — Department Builder Architecture](./16_DEPARTMENT_BUILDER_ARCHITECTURE.md)  
 **Dashboard declaration:** [Department Dashboard Contract](../dashboard/DEPARTMENT_DASHBOARD_CONTRACT.md)
 
-This is the filled blueprint. It does not mark the Product AVAILABLE. Current status and release gaps are in [EVS status](../evs/README.md). The August 2026 guides under `docs/evs/` are historical.
+This is the filled blueprint for the certified Product. Current status is in [EVS status](../evs/README.md). The August 2026 guides under `docs/evs/` are historical.
 
 ## Product identity
 
@@ -31,10 +31,10 @@ The Product is designed for Healthcare facilities of type Hospital and Long-Term
 | **Historical / Audit questions** | Which Records were completed, missed, or waived, and which REQUIRED Area Ready Key Points were recorded, for a past service date. |
 | **Starter content** | The operating-rhythm starter is applied on request and stays unpublished until the facility publishes it. Catalog forms are suggestions. Nothing auto-publishes. No fake rooms or people. |
 | **Facility-configurable values** | Window times, which places the Department is responsible for, which rooms share an Area Ready time, people, and local labels. |
-| **Dashboard contributions** | `locations.runtime`, `cycles.published`, `coverage.planned`, `people.roster`, `maintenance.shared`, and Records when canonical logs are on. `plant.requests.filed` only through a request route to Plant. No `work.expected`, `menus` or Location Function. Customer Dashboards omit this Product while it is DEVELOPMENT. |
+| **Dashboard contributions** | `locations.runtime`, `cycles.published`, `coverage.planned`, `people.roster`, `maintenance.shared`, and Records when canonical logs are on. `plant.requests.filed` only through a request route to Plant. No `work.expected`, `menus` or Location Function. |
 | **Notification policy** | The shared engine. Assignment changes, coverage, and evidence failed apply when those facts exist. Key Point overdue applies when the production Scheduled Evaluation clock is active. It is inactive today. Discharge, isolation, and supply shortage are not event types. |
 | **Platform-gap test** | Cleaning coverage, rhythm, and documentation are Platform mechanisms. A discharge-clean engine, an EVS inspection store, or an EVS notification engine would be a new engine. This blueprint does not add one. |
 
-## What stays DEVELOPMENT
+## Release
 
-The Dashboard release gate passes as of November 23, 2026 (declaration complete; tests listed in the contract). Becoming AVAILABLE still needs a separate release decision. This blueprint does not change price, sellability, or release status.
+The Dashboard release gate passed on November 23, 2026. The product owner marked Environmental Services **AVAILABLE** on November 24, 2026 (`versionLabel` `1.0`). Billing/commercial packaging remains the existing department-count path; this release does not add a dedicated EVS SKU.

@@ -55,11 +55,11 @@ Use the [Phase 1 four-state vocabulary](./01B_PHASE_1_ARCHITECTURE_CONTRACTS_AME
 
 | State | Meaning here |
 |-------|----------------|
-| **Implemented and verified** | Food and Nutrition and Facility Plant Operations V1 as customer-visible AVAILABLE Products; Facility tree + responsibility; Operational Cycles; Records Catalog chain (when Canonical Logs are on); shared Assets and repairs; Shift / Assignment / Coverage core paths |
+| **Implemented and verified** | Food and Nutrition, Environmental Services, and Facility Plant Operations V1 as customer-visible AVAILABLE Products; Facility tree + responsibility; Operational Cycles; Records Catalog chain (when Canonical Logs are on); shared Assets and repairs; Shift / Assignment / Coverage core paths |
 | **Implemented with gaps** | Notifications & Attention (evaluators live; production Scheduled Evaluation cron not in `vercel.json`; Web Push off); Job Flow composes canonical contributors; progressive configuration and historical detail vary by surface |
 | **Approved target** | Unified operational timeline projection; optional Role Job Flows; Marketplace kinds beyond Records forms (without Work presets) |
 | **Retired** | Generic Work, Location Function / profile / archetype and Department Job Role. Historical systems are listed in the [documentation status register](../DOCUMENTATION_STATUS.md) |
-| **In development** | Environmental Services exists in the registry, tests, and internal tooling. It is not customer-visible until marked AVAILABLE. |
+| **In development** | No Department Product currently sits in DEVELOPMENT. |
 
 Status reconciliation (October 17, 2026): Facility Plant Operations V1 became AVAILABLE on October 7, 2026; see the [release addendum](../plant/FACILITY_PLANT_OPERATIONS_V1_RELEASE_CERTIFICATION_2026-10-06.md#release-addendum--2026-10-07) and [14](./14_FACILITY_PLANT_OPERATIONS.md). This corrects stale implementation-status prose; it does not change Product release policy or billing behavior.
 

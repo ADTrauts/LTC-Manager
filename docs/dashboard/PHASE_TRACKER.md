@@ -75,7 +75,7 @@ Accepted by the product owner October 23, 2026.
 ### Accepted limits
 
 - `WorkspacePreference` stays in the database. Dropping it needs a separate decision.
-- EVS stays DEVELOPMENT.
+- Environmental Services became AVAILABLE on November 24, 2026 under a separate product-owner release decision.
 - The full suite was not re-run. Targeted hermetic tests passed, and Terrace View was checked in the browser.
 - The local `ltc_manager` database received both Dashboard layout migrations on October 23, 2026. Staging and `ltc_verify_dsh03` already had them.
 

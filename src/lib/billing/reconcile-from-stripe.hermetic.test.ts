@@ -146,10 +146,21 @@ test("unknown department keys fail safely", () => {
   });
   const plan = planStripeSubscriptionReconciliation({
     facilityId: "fac_1",
-    subscription: sub({ facilityId: "fac_1", departmentKeys: "EVS" }),
+    subscription: sub({ facilityId: "fac_1", departmentKeys: "NOT_A_PRODUCT" }),
     local: emptyLocal,
   });
   assert.deepEqual(plan, { action: "reject", code: "UNKNOWN_DEPARTMENT_KEYS" });
+});
+
+test("AVAILABLE EVS department keys apply", () => {
+  const plan = planStripeSubscriptionReconciliation({
+    facilityId: "fac_1",
+    subscription: sub({ facilityId: "fac_1", departmentKeys: "EVS" }),
+    local: emptyLocal,
+  });
+  assert.equal(plan.action, "apply");
+  if (plan.action !== "apply") return;
+  assert.deepEqual(plan.departmentKeys, ["EVS"]);
 });
 
 test("repeated matching sync is idempotent", () => {

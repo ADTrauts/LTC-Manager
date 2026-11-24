@@ -12,7 +12,7 @@ test("compatibility licensing delegates to canonical rollout, suspension and rel
     assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "PAST_DUE", entitlements: dietary, departmentKey: "DIETARY", installed: true }), true);
     assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "PAST_DUE", entitlements: dietary, departmentKey: "DIETARY", installed: false }), false);
     assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "ACTIVE", entitlements: [{ departmentKey: "DIETARY", status: "REVOKED" }], departmentKey: "DIETARY", installed: true }), false);
-    assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "ACTIVE", entitlements: [{ departmentKey: "EVS", status: "ACTIVE" }], departmentKey: "EVS", installed: true }), false);
+    assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "ACTIVE", entitlements: [{ departmentKey: "EVS", status: "ACTIVE" }], departmentKey: "EVS", installed: true }), true);
   }
   for (const installed of [false, true]) for (const enforcementEnabled of [false, true]) {
     assert.equal(isDepartmentLicensed({ enforcementEnabled, billingStatus: "UNMANAGED", entitlements: [], departmentKey: "DIETARY", installed }), installed && !enforcementEnabled);
