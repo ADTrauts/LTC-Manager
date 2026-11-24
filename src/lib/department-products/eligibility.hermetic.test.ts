@@ -13,6 +13,8 @@ import {
   isCustomerCurrentDepartmentProductKey,
   listDepartmentProducts,
   marketplaceDenialReason,
+  overrideDepartmentProductStatusForTest,
+  resetDepartmentProductStatusOverridesForTest,
   resolveCommercialEntitlement,
   resolvePublishedDepartmentProductKeys,
   selectCustomerOperableDepartments,
@@ -25,10 +27,10 @@ function source(relative: string) {
 }
 
 describe("Department Product release visibility", () => {
-  it("keeps Dietary and Plant AVAILABLE and EVS DEVELOPMENT", () => {
+  it("keeps Dietary, EVS, and Plant AVAILABLE", () => {
     assert.equal(getDepartmentProduct("DIETARY")?.status, "AVAILABLE");
     assert.equal(getDepartmentProduct("HEALTHCARE_FOOD_NUTRITION")?.status, "AVAILABLE");
-    assert.equal(getDepartmentProduct("EVS")?.status, "DEVELOPMENT");
+    assert.equal(getDepartmentProduct("EVS")?.status, "AVAILABLE");
     assert.equal(getDepartmentProduct("PLANT")?.status, "AVAILABLE");
     assert.deepEqual(
       listDepartmentProducts().map((product) => product.productKey),
@@ -36,7 +38,7 @@ describe("Department Product release visibility", () => {
     );
   });
 
-  it("returns Dietary and Plant from the customer marketplace catalog", () => {
+  it("returns Dietary, EVS, and Plant from the customer marketplace catalog", () => {
     const catalog = deriveFacilityDepartmentCatalog({
       departments: [
         { id: "dept_dietary", key: "DIETARY", isActive: true },
@@ -48,19 +50,19 @@ describe("Department Product release visibility", () => {
     });
     assert.deepEqual(
       catalog.map((item) => item.productKey),
-      ["HEALTHCARE_FOOD_NUTRITION", "PLANT"],
+      ["HEALTHCARE_FOOD_NUTRITION", "EVS", "PLANT"],
     );
     assert.equal(catalog[0]?.installationKey, "DIETARY");
     assert.equal(catalog[0]?.installed, true);
     assert.equal(catalog[0]?.availableToAdd, false);
+    const evs = catalog.find((item) => item.productKey === "EVS");
+    assert.equal(evs?.installed, true);
+    assert.equal(evs?.operable, false);
+    assert.equal(evs?.availableToAdd, true);
     const plant = catalog.find((item) => item.productKey === "PLANT");
     assert.equal(plant?.installed, true);
     assert.equal(plant?.operable, false);
     assert.equal(plant?.availableToAdd, true);
-    assert.equal(
-      catalog.some((item) => item.productKey === "EVS"),
-      false,
-    );
   });
 
   it("offers uninstalled Plant as Add and keeps unentitled Plant out of the operable set when entitlements are enforced", () => {
@@ -74,7 +76,7 @@ describe("Department Product release visibility", () => {
     assert.equal(plant?.availableToAdd, true);
   });
 
-  it("does not let unentitled Plant or DEVELOPMENT EVS into the customer operable set", () => {
+  it("does not let unentitled Plant or unentitled EVS into the customer operable set", () => {
     const operable = selectCustomerOperableDepartments(
       [
         { id: "dept_dietary", key: "DIETARY", isActive: true },
@@ -336,22 +338,27 @@ describe("Internal development access", () => {
       }),
       false,
     );
-    assert.throws(
-      () => resolvePublishedDepartmentProductKeys(["EVS"]),
-      (error: unknown) =>
-        error instanceof DepartmentProductInstallError && error.code === "UNAVAILABLE_PRODUCT",
-    );
+    try {
+      overrideDepartmentProductStatusForTest("EVS", "DEVELOPMENT");
+      assert.throws(
+        () => resolvePublishedDepartmentProductKeys(["EVS"]),
+        (error: unknown) =>
+          error instanceof DepartmentProductInstallError && error.code === "UNAVAILABLE_PRODUCT",
+      );
+    } finally {
+      resetDepartmentProductStatusOverridesForTest();
+    }
   });
 });
 
 describe("Customer current Department presentation", () => {
-  it("omits DEVELOPMENT product keys from current customer labels", () => {
+  it("presents AVAILABLE product keys on current customer labels and omits DEVELOPMENT", () => {
     assert.equal(isCustomerCurrentDepartmentProductKey("DIETARY"), true);
-    assert.equal(isCustomerCurrentDepartmentProductKey("EVS"), false);
+    assert.equal(isCustomerCurrentDepartmentProductKey("EVS"), true);
     assert.equal(isCustomerCurrentDepartmentProductKey("PLANT"), true);
     assert.equal(
       shouldPresentDepartmentOnCustomerCurrentSurface("EVS", "customer"),
-      false,
+      true,
     );
     assert.equal(
       shouldPresentDepartmentOnCustomerCurrentSurface("EVS", "internal"),
@@ -369,9 +376,23 @@ describe("Customer current Department presentation", () => {
       "Plant Operations",
     );
     assert.equal(
-      customerCurrentDepartmentLabel({ name: "Environmental Services" }),
-      null,
+      customerCurrentDepartmentLabel({ name: "Environmental Services", key: "EVS" }),
+      "Environmental Services",
     );
+    try {
+      overrideDepartmentProductStatusForTest("EVS", "DEVELOPMENT");
+      assert.equal(isCustomerCurrentDepartmentProductKey("EVS"), false);
+      assert.equal(
+        shouldPresentDepartmentOnCustomerCurrentSurface("EVS", "customer"),
+        false,
+      );
+      assert.equal(
+        customerCurrentDepartmentLabel({ name: "Environmental Services", key: "EVS" }),
+        null,
+      );
+    } finally {
+      resetDepartmentProductStatusOverridesForTest();
+    }
   });
 });
 

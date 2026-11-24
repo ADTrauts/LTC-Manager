@@ -32,7 +32,7 @@ Support               → email + Harbor ticketing
 Department sold       → Food and Nutrition only
 ```
 
-Do not enable `PUBLIC_SIGNUP_ENABLED`. Do not enable `BILLING_ENTITLEMENTS_ENABLED`. Do not select Facility Plant Operations during `/setup`, even if it is visible/AVAILABLE. EVS is DEVELOPMENT and is not sold.
+Do not enable `PUBLIC_SIGNUP_ENABLED`. Do not enable `BILLING_ENTITLEMENTS_ENABLED`. Do not select Facility Plant Operations or Environmental Services during `/setup`, even if they are visible/AVAILABLE. This runbook still sells Food and Nutrition only.
 
 ---
 

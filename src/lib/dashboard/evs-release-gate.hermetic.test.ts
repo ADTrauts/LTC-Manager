@@ -1,7 +1,7 @@
 /**
  * Environmental Services — Dashboard release gate (contract §Release gate, items 2, 3, 5, 6, 7).
  * Item 4 (two-Department isolation) is the EVS subtest in `dashboard-foundation.db.test.ts`.
- * EVS stays DEVELOPMENT; nothing here changes its release status.
+ * EVS is AVAILABLE as of November 24, 2026. This gate locks the Dashboard declaration.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -9,11 +9,7 @@ import test from "node:test";
 import type { AppRole } from "@/lib/access";
 import type { AuthKind, FacilitySession } from "@/lib/auth";
 import type { RunLogRequirementView } from "@/lib/canonical-logs/run-presentation";
-import {
-  getDepartmentProduct,
-  overrideDepartmentProductStatusForTest,
-  resetDepartmentProductStatusOverridesForTest,
-} from "@/lib/department-products/registry";
+import { getDepartmentProduct } from "@/lib/department-products/registry";
 import { buildEvsDefaultCyclePlans } from "@/lib/operational-cycles/defaults";
 import { describeKeyTimeStatus } from "@/lib/operational-cycles/key-time-day-expectation";
 import { authorizeRoute, type RouteFeatureFlags } from "@/lib/route-registry/authorize";
@@ -133,8 +129,8 @@ const BANDS: { role: AppRole; authority: DashboardAuthority }[] = [
   { role: "FACILITY_ADMINISTRATOR", authority: "FACILITY_ADMINISTRATOR" },
 ];
 
-test("R7: EVS is DEVELOPMENT and reaches only internal Dashboards", () => {
-  assert.equal(getDepartmentProduct("EVS")?.status, "DEVELOPMENT");
+test("R7: EVS is AVAILABLE and reaches customer Dashboards when installed", () => {
+  assert.equal(getDepartmentProduct("EVS")?.status, "AVAILABLE");
   const catalog: DashboardDepartmentCatalog = {
     departments: [
       { ...EVS, isActive: true, showInEmployeeApp: true },
@@ -146,14 +142,8 @@ test("R7: EVS is DEVELOPMENT and reaches only internal Dashboards", () => {
   };
   const select = (authKind: AuthKind) =>
     selectDashboardDepartments({ authKind, catalog, plantRuntimeEnabled: false }).map((row) => row.id);
-  assert.deepEqual(select("user"), [FN.id]);
+  assert.deepEqual(select("user"), [EVS.id, FN.id]);
   assert.deepEqual(select("harbor_staff"), [EVS.id, FN.id]);
-  try {
-    overrideDepartmentProductStatusForTest("EVS", "AVAILABLE");
-    assert.ok(select("user").includes(EVS.id), "release, when it is decided, needs no Dashboard change");
-  } finally {
-    resetDepartmentProductStatusOverridesForTest();
-  }
 });
 
 test("capabilities: EVS produces exactly its declared set", () => {

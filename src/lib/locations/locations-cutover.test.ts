@@ -112,7 +112,7 @@ test("Facility Overview — labeled department snapshots, never flattened", () =
   assert.equal(view.departmentKey, null);
   assert.deepEqual(
     view.departmentSnapshots.map((dept) => dept.departmentKey),
-    ["DIETARY", "PLANT"],
+    ["DIETARY", "EVS", "PLANT"],
   );
   for (const dept of view.departmentSnapshots) {
     assert.ok(dept.label.length > 0);
@@ -120,7 +120,7 @@ test("Facility Overview — labeled department snapshots, never flattened", () =
   }
 });
 
-test("Facility Overview internal audience preserves DEVELOPMENT snapshots", () => {
+test("Facility Overview internal audience keeps the same AVAILABLE snapshots", () => {
   const view = adaptProjectionToLocationsView(FACILITY_OVERVIEW_GOLDEN_PROJECTION, {
     audience: "internal",
   });
@@ -174,7 +174,7 @@ test("Golden parity with shadow adapters (rooms + plant)", () => {
   const facilityShadow = adaptProjectionSnapshotToShadowView(FACILITY_OVERVIEW_GOLDEN_PROJECTION);
   assert.deepEqual(
     [...facilityLocations.departmentSnapshots.map((dept) => dept.departmentKey)].sort(),
-    ["DIETARY", "PLANT"],
+    ["DIETARY", "EVS", "PLANT"],
   );
   assert.deepEqual(
     [...facilityShadow.departmentKeys].sort(),

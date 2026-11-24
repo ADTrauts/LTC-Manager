@@ -177,7 +177,7 @@ The model needs new persisted facts:
 Rules for those changes:
 - Each is a new forward-only migration in the phase that needs it, approved explicitly.
 - Applied migrations are never edited. No `prisma migrate reset`.
-- No change to release status, sellability, entitlements or billing. The Facility Administrator still pays for every Department. EVS stays DEVELOPMENT.
+- No change to release status, sellability, entitlements or billing as a side effect of this program. The Facility Administrator still pays for every Department. Environmental Services became AVAILABLE on November 24, 2026 under a separate product-owner release decision.
 - No new Plant features.
 - No parallel Records, requirement or evidence model. Records gain an operator-period stamp; they are not duplicated.
 

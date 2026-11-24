@@ -51,7 +51,7 @@ ECMC owns Terrace View. ECMC runs Environmental Services and Facility Plant Oper
 ## Boundaries
 
 - **Schema changes only where a phase says so.** They are forward-only and approved explicitly. No `prisma migrate reset`.
-- **No commercial side effects.** No change to release status, sellability, entitlements or billing. EVS stays DEVELOPMENT.
+- **No commercial side effects.** Contracted Department Authority does not change release status, sellability, entitlements or billing as a side effect. Environmental Services became AVAILABLE on November 24, 2026 under a separate product-owner release decision.
 - **No new Plant features.** No parallel Records model.
 - **Behind a flag.** Staging enforcement is on. The code default and the production project stay off until production enablement, which still needs LEG-07 or an explicit exception.
 - **Next.js 16.** Read the relevant guide in `node_modules/next/dist/docs/` before writing code.

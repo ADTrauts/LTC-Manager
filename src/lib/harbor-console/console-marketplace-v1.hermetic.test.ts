@@ -60,9 +60,9 @@ test("Department Product registry release metadata stays authoritative", () => {
   const evs = getDepartmentProduct("EVS");
   assert.ok(evs);
   assert.equal(evs.name, "Environmental Services");
-  assert.equal(evs.status, "DEVELOPMENT");
-  assert.equal(evs.versionLabel, null);
-  assert.equal(evs.releasedOn, null);
+  assert.equal(evs.status, "AVAILABLE");
+  assert.equal(evs.versionLabel, "1.0");
+  assert.equal(evs.releasedOn, "2026-11-24");
 
   assert.equal(food.installationKey, "DIETARY");
   assert.equal(

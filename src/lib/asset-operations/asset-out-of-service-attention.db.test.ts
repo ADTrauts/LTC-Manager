@@ -9,6 +9,10 @@ import test from "node:test";
 import { PrismaClient, RepairPriority, RoleKey } from "@prisma/client";
 
 import type { FacilitySession } from "@/lib/auth";
+import {
+  overrideDepartmentProductStatusForTest,
+  resetDepartmentProductStatusOverridesForTest,
+} from "@/lib/department-products/registry";
 import { acknowledgeNotification, markNotificationRead } from "@/lib/notifications/lifecycle";
 import { processNotificationOutboxRow } from "@/lib/notifications/processing";
 import { getActiveAttentionCountForUser, loadNotificationCenter } from "@/lib/notifications/queries";
@@ -391,18 +395,23 @@ test("an Asset outage notifies on-call coverage and one later outage is a new in
     assert.deepEqual(boilerRecipients.map((row) => row.userId), [plantResponder.userId]);
     assert.equal(plantOpened.status, "OUT_OF_SERVICE");
 
-    await assert.rejects(
-      () =>
-        changeAssetStatus(session(facility.id, manager.userId, evs.id), {
-          facilityId: facility.id,
-          departmentId: evs.id,
-          assetId: machine.id,
-          toStatus: "OPERATIONAL",
-          reason: "MANUAL",
-          client: db,
-        }),
-      /Department commercial access is unavailable/,
-    );
+    try {
+      overrideDepartmentProductStatusForTest("EVS", "DEVELOPMENT");
+      await assert.rejects(
+        () =>
+          changeAssetStatus(session(facility.id, manager.userId, evs.id), {
+            facilityId: facility.id,
+            departmentId: evs.id,
+            assetId: machine.id,
+            toStatus: "OPERATIONAL",
+            reason: "MANUAL",
+            client: db,
+          }),
+        /Department commercial access is unavailable/,
+      );
+    } finally {
+      resetDepartmentProductStatusOverridesForTest();
+    }
 
     const calledOffAsset = await assetRow({ name: "Kettle", unitId: kitchen.id, departmentId: dietary.id });
     const night = parseFacilityLocalScheduledStartOnDate("20:00", day, zone)!;

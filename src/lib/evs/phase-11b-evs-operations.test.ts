@@ -8,6 +8,10 @@ import { PrismaClient, type SpaceType } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import type { FacilitySession } from "@/lib/auth";
+import {
+  overrideDepartmentProductStatusForTest,
+  resetDepartmentProductStatusOverridesForTest,
+} from "@/lib/department-products/registry";
 import { processSyncCommand } from "@/lib/offline/process-sync-command";
 import type { OfflineCommandEnvelope } from "@/lib/offline/types";
 import { createDraft as createCycleDraft, publishCycle } from "@/lib/operational-cycles/cycle-service";
@@ -195,39 +199,48 @@ async function withEvsHistory(run: (prisma: PrismaClient, fx: Awaited<ReturnType
 
 test("phase11b sql: DEVELOPMENT denies cycle creation/publication and retains historical draft",
   { skip: skipReason }, async () => withEvsHistory(async (prisma, fx, mgr) => {
-    const actor = { userId: fx.manager.id, label: "EVS Manager" };
-    const draft = { stableKey: cuidLike(), label: "Retained EVS morning", cycleType: "PREPARATION" as const,
-      startLocal: "06:00", endLocal: "10:00", applicableDaysOfWeek: [0,1,2,3,4,5,6],
-      effectiveFrom: "2099-01-01", mealType: null, locationMode: "ALL_DEPARTMENT_UNITS" as const };
-    await assert.rejects(createCycleDraft(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
-      actor, client: prisma, draft }), /commercial access is unavailable/);
-    assert.equal(await prisma.departmentOperationalCycle.count({ where: { departmentId: fx.evs.id, stableKey: draft.stableKey } }), 0);
-    const history = await prisma.departmentOperationalCycle.create({ data: { ...draft,
-      effectiveFrom: new Date("2099-01-01T00:00:00Z"), facilityId: fx.facility.id, departmentId: fx.evs.id } });
-    await assert.rejects(publishCycle(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
-      cycleId: history.id, actor, client: prisma }), /commercial access is unavailable/);
-    assert.deepEqual(await prisma.departmentOperationalCycle.findUniqueOrThrow({ where: { id: history.id } }), history);
-    assert.equal(await prisma.departmentOperationalCycleEvent.count({ where: { cycleId: history.id } }), 0);
+    try {
+      overrideDepartmentProductStatusForTest("EVS", "DEVELOPMENT");
+      const actor = { userId: fx.manager.id, label: "EVS Manager" };
+      const draft = { stableKey: cuidLike(), label: "Retained EVS morning", cycleType: "PREPARATION" as const,
+        startLocal: "06:00", endLocal: "10:00", applicableDaysOfWeek: [0,1,2,3,4,5,6],
+        effectiveFrom: "2099-01-01", mealType: null, locationMode: "ALL_DEPARTMENT_UNITS" as const };
+      await assert.rejects(createCycleDraft(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
+        actor, client: prisma, draft }), /commercial access is unavailable/);
+      assert.equal(await prisma.departmentOperationalCycle.count({ where: { departmentId: fx.evs.id, stableKey: draft.stableKey } }), 0);
+      const history = await prisma.departmentOperationalCycle.create({ data: { ...draft,
+        effectiveFrom: new Date("2099-01-01T00:00:00Z"), facilityId: fx.facility.id, departmentId: fx.evs.id } });
+      await assert.rejects(publishCycle(mgr, { facilityId: fx.facility.id, departmentId: fx.evs.id,
+        cycleId: history.id, actor, client: prisma }), /commercial access is unavailable/);
+      assert.deepEqual(await prisma.departmentOperationalCycle.findUniqueOrThrow({ where: { id: history.id } }), history);
+      assert.equal(await prisma.departmentOperationalCycleEvent.count({ where: { cycleId: history.id } }), 0);
+    } finally {
+      resetDepartmentProductStatusOverridesForTest();
+    }
   }));
 
 test("phase11b sql: DEVELOPMENT denies Records writes; retained Needs Attention evidence stays unchanged",
   { skip: skipReason }, async () => withEvsHistory(async (prisma, fx, mgr) => {
-    // Retained legacy definition is required by the historical Record FK/check.
-    // This is test history, not a new template creation service or forward writer.
-    const definition = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
-    const history = await prisma.operationalEvidenceRecord.create({ data: {
-      facilityId: fx.facility.id, departmentId: fx.evs.id, templateStableKey: definition.stableKey,
-      templateVersion: 1, templateName: "Historical room inspection", purposeType: "INSPECTION",
-      requirementKey: cuidLike(), operationalDate: new Date("2026-08-07T00:00:00Z"),
-      scheduleKind: "ONCE_PER_OPERATIONAL_DATE", occurredAt: new Date("2026-08-07T14:00:00Z"),
-      unitId: fx.unit.id, spaceId: fx.spaces[0]!.id, status: "NEEDS_REVIEW", outOfStandard: true,
-      templateSnapshotJson: { name: "Historical room inspection", fields: [] },
-      values: { create: { fieldKey: "result", label: "Inspection result", fieldType: "PASS_NEEDS_ATTENTION",
-        valueText: "NEEDS_ATTENTION", outOfStandard: true } },
-    }, include: { values: true } });
-    const authority = await resolveEvidenceAuthority(mgr, fx.facility.id, fx.evs.id);
-    assert.equal(authority.canSubmit, false);
-    assert.match(authority.reason!, /commercial access is unavailable/);
-    const title = `Denied rework ${cuidLike()}`;
-    assert.deepEqual(await prisma.operationalEvidenceRecord.findUniqueOrThrow({ where: { id: history.id }, include: { values: true } }), history);
+    try {
+      overrideDepartmentProductStatusForTest("EVS", "DEVELOPMENT");
+      // Retained legacy definition is required by the historical Record FK/check.
+      // This is test history, not a new template creation service or forward writer.
+      const definition = await ({ id: "retired-template", name: "Retired template", version: 1, stableKey: "retired", purposeType: "LOG", status: "PUBLISHED", fields: [] });
+      const history = await prisma.operationalEvidenceRecord.create({ data: {
+        facilityId: fx.facility.id, departmentId: fx.evs.id, templateStableKey: definition.stableKey,
+        templateVersion: 1, templateName: "Historical room inspection", purposeType: "INSPECTION",
+        requirementKey: cuidLike(), operationalDate: new Date("2026-08-07T00:00:00Z"),
+        scheduleKind: "ONCE_PER_OPERATIONAL_DATE", occurredAt: new Date("2026-08-07T14:00:00Z"),
+        unitId: fx.unit.id, spaceId: fx.spaces[0]!.id, status: "NEEDS_REVIEW", outOfStandard: true,
+        templateSnapshotJson: { name: "Historical room inspection", fields: [] },
+        values: { create: { fieldKey: "result", label: "Inspection result", fieldType: "PASS_NEEDS_ATTENTION",
+          valueText: "NEEDS_ATTENTION", outOfStandard: true } },
+      }, include: { values: true } });
+      const authority = await resolveEvidenceAuthority(mgr, fx.facility.id, fx.evs.id);
+      assert.equal(authority.canSubmit, false);
+      assert.match(authority.reason!, /commercial access is unavailable/);
+      assert.deepEqual(await prisma.operationalEvidenceRecord.findUniqueOrThrow({ where: { id: history.id }, include: { values: true } }), history);
+    } finally {
+      resetDepartmentProductStatusOverridesForTest();
+    }
   }));

@@ -173,9 +173,9 @@ describe("Department Product registry", () => {
     assert.equal(evs.name, "Environmental Services");
     assert.equal(evs.industry, "HEALTHCARE");
     assert.deepEqual(evs.facilityTypes, ["HOSPITAL", "LONG_TERM_CARE"]);
-    assert.equal(evs.status, "DEVELOPMENT");
-    assert.equal(evs.versionLabel, null);
-    assert.equal(evs.releasedOn, null);
+    assert.equal(evs.status, "AVAILABLE");
+    assert.equal(evs.versionLabel, "1.0");
+    assert.equal(evs.releasedOn, "2026-11-24");
     assert.equal(evs.domainCapability, "evs");
     assert.equal(evs.starters.cycleStarter, "evs");
     assert.equal("workPresets" in evs.starters, false);
@@ -220,26 +220,14 @@ describe("Department Product registry", () => {
 });
 
 describe("Department Product installation", () => {
-  it("installs Dietary and Plant for customers and EVS only through internal development", async () => {
+  it("installs Dietary, EVS, and Plant for customers", async () => {
     const { prisma, created, operators } = mockDb({ facilityId: "fac_terrace" });
     const dietary = await installDepartmentProduct({
       facilityId: "fac_terrace",
       productKey: "DIETARY",
       prisma: prisma as never,
     });
-    await assert.rejects(
-      () =>
-        installDepartmentProduct({
-          facilityId: "fac_terrace",
-          productKey: "EVS",
-          prisma: prisma as never,
-        }),
-      (error: unknown) =>
-        error instanceof DepartmentProductInstallError && error.code === "UNAVAILABLE_PRODUCT",
-    );
-    assert.equal(created.length, 1, "rejected customer EVS install creates no Department");
-    assert.equal(operators.length, 1, "rejected customer EVS install creates no operator");
-    const evs = await installDepartmentProductForInternalDevelopment({
+    const evs = await installDepartmentProduct({
       facilityId: "fac_terrace",
       productKey: "EVS",
       prisma: prisma as never,
@@ -249,6 +237,8 @@ describe("Department Product installation", () => {
       productKey: "PLANT",
       prisma: prisma as never,
     });
+    assert.equal(created.length, 3);
+    assert.equal(operators.length, 3);
 
     assert.equal(dietary.created, true);
     assert.equal(dietary.key, "DIETARY");

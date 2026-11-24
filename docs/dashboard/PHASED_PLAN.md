@@ -333,7 +333,7 @@ Supporting records:
    - Our requests to Maintenance
    - Departments & licensing
 3. **Partner Dashboard decision.** Accepted by the product owner October 23, 2026 ([DSH-D20](./DECISIONS.md#dsh-d20--remaining-partner-people-use-the-same-dashboard--accepted-user-october-23-2026)). Remaining partner roles use the same card Dashboard on `/partner`. Vendor heads of vendor-run Departments stay Department leaders (DSH-D18).
-4. **EVS.** The EVS declaration was completed and its release-gate tests added on November 23, 2026. EVS stays DEVELOPMENT; its release is a separate product-owner decision outside this program.
+4. **EVS.** The EVS declaration was completed and its release-gate tests added on November 23, 2026. Environmental Services became AVAILABLE on November 24, 2026 under a separate product-owner release decision outside this program.
 5. **WorkspacePreference drop.** A forward migration to drop `WorkspacePreference` happens **only** with explicit product-owner approval, recorded as a decision.
 
 **Exit gate.**

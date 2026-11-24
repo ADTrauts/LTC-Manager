@@ -359,7 +359,7 @@ test.describe("Facility Plant Operations V1 release @plant-release @ci-gate", ()
     );
     expect(registry).toMatch(/productKey: "PLANT"[\s\S]*?status: "AVAILABLE"/);
     expect(registry).toMatch(/productKey: "HEALTHCARE_FOOD_NUTRITION"[\s\S]*?status: "AVAILABLE"/);
-    expect(registry).toMatch(/productKey: "EVS"[\s\S]*?status: "DEVELOPMENT"/);
+    expect(registry).toMatch(/productKey: "EVS"[\s\S]*?status: "AVAILABLE"/);
 
     const { context, page } = await openPersistent("gating");
     try {

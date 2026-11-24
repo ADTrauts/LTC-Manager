@@ -178,7 +178,7 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
       );
       const admin = userSession(facilityId, "FACILITY_ADMINISTRATOR");
       assert.equal(await canManageDepartmentHeadSettings(admin, fn.id), true);
-      assert.equal(await canManageDepartmentHeadSettings(admin, evs.id), false, "EVS is not customer-operable");
+      assert.equal(await canManageDepartmentHeadSettings(admin, evs.id), true, "EVS is AVAILABLE");
     });
 
     await t.test("Facility Administrator: scope Departments and operator periods by service date", async () => {
@@ -187,7 +187,7 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
       delete process.env[CDA_FLAG];
       const flagOff = await viewerOf(admin, FIRST_METZ_MORNING, null);
       assert.deepEqual(flagOff.scope, { kind: "FACILITY" });
-      assert.deepEqual(flagOff.scopeDepartmentIds, [fn.id, plant.id, activities.id], "EVS is not sold yet");
+      assert.deepEqual(flagOff.scopeDepartmentIds, [fn.id, plant.id, evs.id, activities.id], "EVS is AVAILABLE");
       assert.equal(flagOff.departmentAccess[fn.id], "MANAGE");
 
       process.env[CDA_FLAG] = "true";
@@ -384,15 +384,8 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
     await t.test("EVS release gate: capabilities, locations, attention and call-offs stay inside EVS", { skip: sharedClientSkip }, async () => {
       delete process.env[CDA_FLAG];
       const admin = await viewerOf(userSession(facilityId, "FACILITY_ADMINISTRATOR"), FIRST_METZ_MORNING, null);
-      assert.equal(admin.scopeDepartmentIds.includes(evs.id), false, "EVS stays DEVELOPMENT");
-      const internal: DashboardViewer = {
-        ...admin,
-        departments: [...admin.departments, { ...admin.departments[0]!, id: evs.id, key: evs.key, name: evs.name, sortOrder: 3 }],
-        scopeDepartmentIds: [...admin.scopeDepartmentIds, evs.id],
-        departmentAccess: { ...admin.departmentAccess, [evs.id]: "MANAGE" },
-      };
-
-      const capabilities = await resolveDepartmentDashboardCapabilities(internal, {
+      assert.equal(admin.scopeDepartmentIds.includes(evs.id), true, "EVS is AVAILABLE");
+      const capabilities = await resolveDepartmentDashboardCapabilities(admin, {
         db: prisma,
         plantRuntimeEnabled: true,
         canonicalLogsEnabled: false,
@@ -407,8 +400,8 @@ test("dashboard foundation against the real schema", { skip: skipReason }, async
       );
       assert.equal(evsCapabilities.has.has("plant.requests.filed"), false, "EVS has no request route");
 
-      const evsViewer: DashboardViewer = { ...internal, scope: { kind: "DEPARTMENT", departmentId: evs.id } };
-      const fnViewer: DashboardViewer = { ...internal, scope: { kind: "DEPARTMENT", departmentId: fn.id } };
+      const evsViewer: DashboardViewer = { ...admin, scope: { kind: "DEPARTMENT", departmentId: evs.id } };
+      const fnViewer: DashboardViewer = { ...admin, scope: { kind: "DEPARTMENT", departmentId: fn.id } };
       const evsPack = createDashboardFactPack(evsViewer);
       const evsStates = await evsPack.runtimeLocations();
       const fnStates = await createDashboardFactPack(fnViewer).runtimeLocations();

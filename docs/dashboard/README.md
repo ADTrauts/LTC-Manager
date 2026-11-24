@@ -41,7 +41,7 @@ The program uses `DSH-` identifiers. They do not renumber historical waves or th
 ## Boundaries
 
 - **Separate from onboarding.** ONB-07 is on release hold. This program does not change onboarding files, the onboarding release package or its pilot checklist. The one shared contract is the post-onboarding hand-off (`/dashboard?onboarding=complete` shows the launch checklist), which must keep working.
-- **No commercial side effects.** No change to Department Product release status, sellability, entitlements or billing packaging. EVS stays DEVELOPMENT and contributes nothing to customer Dashboards.
+- **No commercial side effects.** Dashboard work does not change Department Product release status, sellability, entitlements or billing packaging as a side effect. Environmental Services became AVAILABLE on November 24, 2026 under a separate product-owner release decision.
 - **No new Plant features or migrations.** Plant cards read existing Plant services only.
 - **No parallel Records model.** Records cards read the forward path (`CatalogLogDefinition` → `FacilityCatalogInstall` → `LogAttachment` → derived requirement → `OperationalEvidenceRecord`) or legacy `/logs` compatibility. They never store facts.
 - **Forward-only Prisma.** The one planned schema change (`DashboardLayout`, DSH-03) is a new migration. Applied migrations are never edited. No `prisma migrate reset`.
