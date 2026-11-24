@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { VssylLockup } from "@/components/brand/vssyl-lockup";
+import { DepartmentExplorer } from "./department-explorer";
+import { getLandingDepartments, landingDescription } from "./landing-departments";
 import { FacilityArtwork, FilmPlayer, MobileMenu } from "./landing-interactions";
 import styles from "./landing-page.module.css";
 
@@ -22,7 +24,7 @@ function Arrow() {
 }
 
 type ScreenProps = {
-  name: "dashboard" | "rhythm" | "rounds" | "floor" | "plant";
+  name: "dashboard" | "rounds" | "floor";
   label: string;
   alt: string;
   sizes: string;
@@ -30,10 +32,8 @@ type ScreenProps = {
 
 const screenDimensions = {
   dashboard: [410, 468],
-  rhythm: [346, 332],
   rounds: [744, 638],
   floor: [836, 670],
-  plant: [744, 640],
 } as const;
 
 function Screen({ name, label, alt, sizes }: ScreenProps) {
@@ -74,10 +74,7 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
           <div className={styles.heroCopy}>
             <p className={styles.eyebrow}>Business Operations Platform</p>
             <h1 id="hero-title">Your operations. All together.</h1>
-            <p className={styles.heroDescription}>
-              Plan the work for Food &amp; Nutrition and Plant Operations. See today’s coverage,
-              records and maintenance requests in Vssyl.
-            </p>
+            <p className={styles.heroDescription}>{landingDescription}</p>
             <div className={styles.actions}>
               <a className={styles.primary} href="#the-day">
                 <span className={styles.playIcon} aria-hidden="true" /> See a day at Vssyl
@@ -118,7 +115,7 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
                 <p className={styles.modeLabel}>Build</p>
                 <h3>Before service</h3>
                 <p>Set the meal period, coverage needs and records for the rooms where the work happens.</p>
-                <a href="#breakfast-plan" className={styles.textAction}>See the breakfast plan <span aria-hidden="true">↓</span></a>
+                <a href="/marketing/screens/rhythm.webp" className={styles.textAction}>See the breakfast plan <span aria-hidden="true">↗</span></a>
               </article>
               <article className={styles.runMode}>
                 <p className={styles.modeLabel}>Run</p>
@@ -163,27 +160,7 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
           </div>
         </section>
 
-        <section id="departments" tabIndex={-1} className={styles.section} aria-labelledby="departments-title">
-          <div className={styles.sectionHead}>
-            <p className={styles.eyebrow}>Available departments</p>
-            <h2 id="departments-title">Two teams, one facility.</h2>
-            <p>Available for hospitals and long-term care facilities.</p>
-          </div>
-          <div className={styles.departmentGrid}>
-            <article id="breakfast-plan" tabIndex={-1}>
-              <h3>Food &amp; Nutrition</h3>
-              <p>Plan meals and coverage, set the rhythm of service and keep records where the work happens.</p>
-              <Screen name="rhythm" label="Operating Rhythm" alt="Breakfast service and readiness entries in the sample Food & Nutrition Operating Rhythm."
-                sizes="(max-width: 799px) calc(100vw - 56px), (max-width: 1399px) 45vw, 590px" />
-            </article>
-            <article>
-              <h3>Plant Operations</h3>
-              <p>Review maintenance requests, manage work orders, track asset history and schedule preventive maintenance.</p>
-              <Screen name="plant" label="Plant Operations" alt="A Plant Operations work order to inspect a leak at the Garden Servery sink."
-                sizes="(max-width: 799px) calc(100vw - 56px), (max-width: 1399px) 45vw, 590px" />
-            </article>
-          </div>
-        </section>
+        <DepartmentExplorer departments={getLandingDepartments()} />
 
         <section id="pricing" tabIndex={-1} className={styles.pricing} aria-labelledby="price-title">
           <div className={styles.pricingInner}>

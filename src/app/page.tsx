@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { landingDescription } from "@/components/marketing/landing-departments";
 import { MarketingLandingPage } from "@/components/marketing/landing-page";
 import {
   getAppSession,
@@ -11,8 +12,6 @@ import { resolveDefaultHomePath } from "@/lib/nav-zones";
 import { isPublicSignupEnabled } from "@/lib/signup-policy";
 
 const title = "Vssyl — Your operations. All together.";
-const description =
-  "Plan the work for Food & Nutrition and Plant Operations. See today’s coverage, records and maintenance requests in Vssyl.";
 const siteUrl = "https://vssyl.com";
 const shareImage = {
   url: `${siteUrl}/marketing/share/facility.jpg`,
@@ -23,20 +22,20 @@ const shareImage = {
 
 export const metadata: Metadata = {
   title,
-  description,
+  description: landingDescription,
   alternates: { canonical: siteUrl },
   openGraph: {
     type: "website",
     url: siteUrl,
     siteName: "Vssyl",
     title,
-    description,
+    description: landingDescription,
     images: [shareImage],
   },
   twitter: {
     card: "summary_large_image",
     title,
-    description,
+    description: landingDescription,
     images: [shareImage],
   },
 };
