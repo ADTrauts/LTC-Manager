@@ -143,6 +143,35 @@ test("counting window restarts after it elapses", { skip }, async () => {
   await db.authRateLimitBucket.delete({ where: { bucketKey: key } });
 });
 
+test("signup reserves both budgets and admits only the remaining capacity during a burst", { skip }, async () => {
+  const { db, lib, BucketType } = await getSuite();
+  const account = uniqueKey("signup-account");
+  const ip = uniqueKey("signup-ip");
+  const freshAccounts = [uniqueKey("new-account-a"), uniqueKey("new-account-b")];
+  const accountLimit = lib.resolvePolicy(BucketType.PASSWORD_ACCOUNT).threshold;
+  const ipLimit = lib.resolvePolicy(BucketType.PIN_FACILITY).threshold;
+  try {
+    for (let index = 0; index < accountLimit - 1; index++) {
+      assert.equal((await lib.consumeSignupAttempt(account, ip, db)).locked, false);
+    }
+    const burst = await Promise.all(Array.from({ length: 3 }, () => lib.consumeSignupAttempt(account, ip, db)));
+    assert.equal(burst.filter((decision) => !decision.locked).length, 1);
+    assert.equal(burst.filter((decision) => decision.locked && decision.retryAfterSec > 0).length, 2);
+    assert.equal((await db.authRateLimitBucket.findUniqueOrThrow({ where: { bucketKey: account } })).attemptCount, accountLimit);
+
+    // Every admitted IP attempt uses capacity, including attempts refused by the account budget.
+    for (let count = accountLimit + 2; count < ipLimit - 1; count++) {
+      await lib.registerAuthFailure([{ key: ip, type: BucketType.PIN_FACILITY }], { db });
+    }
+    const atIpLimit = await Promise.all(freshAccounts.map((key) => lib.consumeSignupAttempt(key, ip, db)));
+    assert.equal(atIpLimit.filter((decision) => !decision.locked).length, 1);
+    assert.equal(await db.authRateLimitBucket.count({ where: { bucketKey: { in: freshAccounts } } }), 1);
+    assert.equal((await db.authRateLimitBucket.findUniqueOrThrow({ where: { bucketKey: ip } })).attemptCount, ipLimit);
+  } finally {
+    await db.authRateLimitBucket.deleteMany({ where: { bucketKey: { in: [account, ip, ...freshAccounts] } } });
+  }
+});
+
 test("concurrent failures cannot lose increments or slip past the threshold", { skip }, async () => {
   const { db, lib, BucketType } = await getSuite();
   const key = uniqueKey("concurrent");

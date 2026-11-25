@@ -98,18 +98,19 @@ export async function checkAuthRateLimit(
 }
 
 /**
- * Atomically record one failure against a bucket.
+ * Atomically count one attempt. Signup reservations leave an existing lock intact.
  *
  * The whole read-modify-write happens inside a single `INSERT ... ON CONFLICT DO UPDATE`, so
  * concurrent requests serialize on the row lock and cannot lose increments or slip past the
  * threshold. Doing this in application code would require an explicit row lock and a
  * transaction round trip per attempt.
  */
-async function registerFailureForBucket(
+async function recordBucketAttempt(
   db: AuthRateLimitDb,
   bucket: AuthRateLimitBucketRef,
   now: Date,
-): Promise<void> {
+  onlyWhenUnlocked = false,
+): Promise<number> {
   const policy = resolvePolicy(bucket.type, bucket.policyOverrides);
   const windowCutoff = new Date(now.getTime() - policy.windowMs);
   const lockedUntil = new Date(now.getTime() + policy.lockMs);
@@ -121,7 +122,7 @@ async function registerFailureForBucket(
   const lockTs = utcTimestamp(lockedUntil);
   const initialLockTs = policy.threshold <= 1 ? lockTs : Prisma.sql`NULL`;
 
-  await db.$executeRaw`
+  return db.$executeRaw`
     INSERT INTO "AuthRateLimitBucket"
       ("id", "bucketKey", "bucketType", "windowStartedAt", "attemptCount",
        "lastAttemptAt", "lockedUntil", "createdAt", "updatedAt")
@@ -149,6 +150,8 @@ async function registerFailureForBucket(
         ELSE "AuthRateLimitBucket"."lockedUntil"
       END,
       "updatedAt" = ${nowTs}
+    ${onlyWhenUnlocked ? Prisma.sql`WHERE "AuthRateLimitBucket"."lockedUntil" IS NULL
+      OR "AuthRateLimitBucket"."lockedUntil" <= ${nowTs}` : Prisma.empty}
   `;
 }
 
@@ -160,8 +163,31 @@ export async function registerAuthFailure(
   const db = options?.db ?? defaultPrisma;
   const now = options?.now ?? new Date();
   for (const bucket of buckets) {
-    await registerFailureForBucket(db, bucket, now);
+    await recordBucketAttempt(db, bucket, now);
   }
+}
+
+/**
+ * Reserve capacity before password work or facility creation. Check the IP first so
+ * requests from a locked IP cannot allocate buckets for additional email addresses.
+ */
+export async function consumeSignupAttempt(
+  accountKey: string,
+  ipKey: string,
+  db: Pick<PrismaClient, "$transaction"> = defaultPrisma,
+): Promise<AuthRateLimitDecision> {
+  const buckets = [
+    { key: ipKey, type: AuthRateLimitBucketType.PIN_FACILITY },
+    { key: accountKey, type: AuthRateLimitBucketType.PASSWORD_ACCOUNT },
+  ];
+  return db.$transaction(async (tx) => {
+    const now = new Date();
+    for (const bucket of buckets) {
+      const counted = await recordBucketAttempt(tx, bucket, now, true);
+      if (counted === 0) return checkAuthRateLimit([bucket], { db: tx, now });
+    }
+    return { locked: false };
+  });
 }
 
 /**

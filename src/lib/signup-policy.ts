@@ -1,16 +1,11 @@
-type SignupEnvironment = {
-  NODE_ENV?: string;
-  PUBLIC_SIGNUP_ENABLED?: string;
-};
+import { isEmailConfigured } from "./email/config";
 
-/**
- * Self-service tenant creation is disabled by default in production.
- * A public launch must opt in explicitly after abuse controls and email verification are present.
- */
-export function isPublicSignupEnabled(environment: SignupEnvironment = process.env): boolean {
+/** Deployed signup requires both an explicit launch decision and verification email. */
+export function isPublicSignupEnabled(environment: Record<string, string | undefined> = process.env): boolean {
+  const deployed = environment.NODE_ENV === "production" ||
+    environment.VERCEL_ENV === "production" || environment.VERCEL_ENV === "preview";
   const configured = environment.PUBLIC_SIGNUP_ENABLED?.trim().toLowerCase();
-  if (configured !== undefined && configured !== "") {
-    return configured === "true" || configured === "1";
-  }
-  return environment.NODE_ENV !== "production";
+  if (deployed && !isEmailConfigured(environment)) return false;
+  if (configured) return configured === "true" || configured === "1";
+  return !deployed;
 }

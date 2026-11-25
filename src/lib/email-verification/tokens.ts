@@ -50,37 +50,36 @@ export async function issueEmailVerificationToken(
   return { rawToken: minted.rawToken, expiresAt: minted.expiresAt };
 }
 
-export async function findValidEmailVerificationToken(
-  db: Db,
+/** Claim the link and verify its active owner in the same database transaction. */
+export async function consumeEmailVerificationToken(
+  db: Pick<PrismaClient, "$transaction">,
   rawToken: string,
-  now = new Date(),
-): Promise<{ id: string; userId: string } | null> {
+): Promise<string | null> {
   const tokenHash = hashEmailVerificationToken(rawToken);
-  const row = await db.emailVerificationToken.findUnique({
-    where: { tokenHash },
-    select: { id: true, userId: true, expiresAt: true, usedAt: true },
-  });
-  if (!row || row.usedAt || row.expiresAt.getTime() <= now.getTime()) {
-    return null;
-  }
-  return { id: row.id, userId: row.userId };
-}
+  return db.$transaction(async (tx) => {
+    // Serialize confirmations for the person, including concurrent use of sibling links.
+    const [user] = await tx.$queryRaw<Array<{ id: string; emailVerifiedAt: Date | null }>>`
+      SELECT u."id", u."emailVerifiedAt"
+      FROM "EmailVerificationToken" t JOIN "User" u ON u."id" = t."userId"
+      WHERE t."tokenHash" = ${tokenHash} AND t."usedAt" IS NULL AND u."isActive"
+      FOR UPDATE OF u
+    `;
+    if (!user) return null;
 
-export async function markEmailVerified(
-  db: Db,
-  input: { userId: string; tokenId: string },
-  now = new Date(),
-): Promise<void> {
-  await db.emailVerificationToken.update({
-    where: { id: input.tokenId },
-    data: { usedAt: now },
-  });
-  await db.user.update({
-    where: { id: input.userId },
-    data: { emailVerifiedAt: now },
-  });
-  await db.emailVerificationToken.updateMany({
-    where: { userId: input.userId, usedAt: null },
-    data: { usedAt: now },
+    const now = new Date();
+    const claim = await tx.emailVerificationToken.updateMany({
+      where: { tokenHash, usedAt: null, expiresAt: { gt: now } },
+      data: { usedAt: now },
+    });
+    if (claim.count !== 1) return null;
+
+    if (!user.emailVerifiedAt) {
+      await tx.user.update({ where: { id: user.id }, data: { emailVerifiedAt: now } });
+      await tx.emailVerificationToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: now },
+      });
+    }
+    return user.id;
   });
 }

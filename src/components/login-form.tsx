@@ -125,7 +125,7 @@ export function LoginForm({ showPinHint, onSwitchToPin, signupEnabled = false }:
           href="/signup"
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-strong)] bg-white px-3 py-2.5 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--run-surface)]"
         >
-          Start free setup
+          Create an account
         </Link>
       ) : null}
     </form>

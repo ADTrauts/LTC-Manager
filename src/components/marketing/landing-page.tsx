@@ -59,12 +59,9 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
           <a href="#top" aria-label="Vssyl home"><VssylLockup tone="brand" size="marketing" /></a>
           <nav className={styles.desktopLinks} aria-label="Page sections"><PageLinks /></nav>
           <div className={styles.headerActions}>
-            <Link href="/login" className={styles.signIn}>Sign in <Arrow /></Link>
-            {signupEnabled ? <Link className={styles.desktopSignup} href="/signup">Start free setup</Link> : null}
-            <MobileMenu>
-              <PageLinks />
-              {signupEnabled ? <Link href="/signup">Start free setup</Link> : null}
-            </MobileMenu>
+            <Link href="/login" className={styles.signIn}>Sign in</Link>
+            {signupEnabled ? <Link className={styles.headerSignup} href="/signup">Sign up</Link> : null}
+            <MobileMenu><PageLinks /></MobileMenu>
           </div>
         </div>
       </header>
@@ -76,8 +73,9 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
             <h1 id="hero-title">Your operations. All together.</h1>
             <p className={styles.heroDescription}>{landingDescription}</p>
             <div className={styles.actions}>
-              <a className={styles.primary} href="#the-day">
-                <span className={styles.playIcon} aria-hidden="true" /> See a day at Vssyl
+              {signupEnabled ? <Link className={styles.primary} href="/signup">Sign up</Link> : null}
+              <a className={signupEnabled ? styles.filmLink : styles.primary} href="#the-day">
+                <span className={styles.playIcon} aria-hidden="true" /> Watch the film
               </a>
               <a className={styles.textAction} href="#departments">Explore departments <span aria-hidden="true">↓</span></a>
             </div>
@@ -168,7 +166,7 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
               <p className={styles.eyebrow}>Pricing</p>
               <h2 id="price-title">License the departments you run.</h2>
               <p>One facility foundation. Unlimited users across your licensed departments.</p>
-              {signupEnabled ? <Link className={styles.primary} href="/signup">Start free setup <Arrow /></Link> : null}
+              {signupEnabled ? <Link className={styles.primary} href="/signup">Sign up <Arrow /></Link> : null}
             </div>
             <div className={styles.priceDetails}>
               <div className={styles.priceRow}><h3>First department</h3><p><strong>$299</strong> / month</p></div>
@@ -186,7 +184,7 @@ export function MarketingLandingPage({ signupEnabled }: { signupEnabled: boolean
           <h2 id="close-title">How is today going?</h2>
           <div className={styles.actions}>
             <a href="#product" className={styles.lightButton}>Explore the product <span aria-hidden="true">↑</span></a>
-            {signupEnabled ? <Link className={styles.lightLink} href="/signup">Start free setup <Arrow /></Link> : null}
+            {signupEnabled ? <Link className={styles.lightLink} href="/signup">Sign up <Arrow /></Link> : null}
           </div>
         </section>
       </main>

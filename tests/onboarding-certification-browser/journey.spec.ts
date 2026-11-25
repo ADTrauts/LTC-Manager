@@ -157,7 +157,20 @@ test("public signup launch-off denies writes; explicitly enabled local signup cr
     expect((await off.request.get("/signup")).status()).toBe(404);
     expect((await off.request.post("/api/auth/signup", { data })).status()).toBe(404);
     expect(await db.user.findUnique({ where: { email } })).toBeNull();
-    const page = await enabled.newPage(); await page.goto("/signup");
+    const closedPage = await off.newPage();
+    await closedPage.goto("/");
+    await expect(closedPage.getByRole("heading", { name: "Your operations. All together." })).toBeVisible();
+    await expect(closedPage.locator('a[href="/signup"]')).toHaveCount(0);
+
+    const page = await enabled.newPage();
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto("/");
+    const headerSignup = page.getByRole("banner").getByRole("link", { name: "Sign up", exact: true });
+    const hero = page.getByRole("region", { name: "Your operations. All together.", exact: true });
+    await expect(headerSignup).toBeVisible();
+    await expect(hero.getByRole("link", { name: "Sign up", exact: true })).toBeVisible();
+    await headerSignup.click();
+    await expect(page).toHaveURL(/\/signup$/);
     await expect(page.getByRole("heading", { name: "Create your Vssyl account" })).toBeVisible();
     await page.getByLabel("Facility Name").fill(data.facilityName); await page.getByLabel("Your Name (Admin)").fill(data.adminName);
     await page.getByLabel("Admin Email").fill(email); await page.getByLabel("Password", { exact: true }).fill(data.password);

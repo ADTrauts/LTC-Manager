@@ -68,6 +68,12 @@ test("the right password reuses the person and keeps their verification", async 
   assert.deepEqual(calls, ["compare:stored-hash"]);
 });
 
+test("an active unverified person can resume verification only with the matching password", async () => {
+  const pending = { id: "pending", isActive: true, passwordHash: "stored-hash", emailVerifiedAt: null };
+  assert.deepEqual(await harness(pending, true).run(true), { outcome: "pending" });
+  assert.deepEqual(await harness(pending, false).run(true), { outcome: "reject" });
+});
+
 test("the wrong password rejects an existing person", async () => {
   const { calls, run } = harness(
     {
