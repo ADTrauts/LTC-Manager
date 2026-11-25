@@ -28,6 +28,10 @@ Start with the [New Department Product implementation guide](product/NEW_DEPARTM
 
 The [Phase 1 amendment](product/01B_PHASE_1_ARCHITECTURE_CONTRACTS_AMENDMENT_2026-11-08.md) records optional Role Job Flow composition and temporal principles. The [Product contract](product/13_DEPARTMENT_PRODUCT.md) distinguishes the implemented Records Marketplace from intended distribution of Rhythm starters and Menu templates. Use the [status register](DOCUMENTATION_STATUS.md) to check whether a document is implementation guidance, an approved target, or evidence. A proposed feature needs acceptance before it becomes an approved target.
 
+## Calendar and temporal architecture
+
+The product owner accepted shared Operational Date Context as the initial direction. The [Calendar program](calendar/README.md) preserves the [CAL-00 discovery audit](calendar/CAL-00_TEMPORAL_ARCHITECTURE_AUDIT.md) and submits the [CAL-01 architecture contracts](calendar/CAL-01_ARCHITECTURE_CONTRACTS.md) for review. The [phase tracker](calendar/PHASE_TRACKER.md) records authorization. The accepted temporal projection target remains in Amendment 01B.
+
 ## Proposals under review
 
 Harbor's approved sole-OWNER first release is feature-complete. See the [Harbor v1 closeout](console/HARBOR_CONSOLE_V1_CLOSEOUT.md) for the released scope, deliberately disabled features and focused verification. The documents below retain their original design/release checkpoints; a historical draft label does not supersede the closeout's release evidence.

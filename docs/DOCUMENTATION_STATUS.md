@@ -7,6 +7,7 @@ Reviewed against canonical `main` at `9477ec0c0c103076935c4347978ac59e9207860c`,
 | CURRENT | Authoritative or verified forward guidance for its stated scope |
 | CURRENT WITH GAPS | Useful reference with remaining stale or incomplete implementation detail |
 | APPROVED TARGET | Accepted future behavior with no claim of current implementation |
+| PROPOSED | Architecture submitted for review and awaiting a product-owner decision |
 | HISTORICAL | Dated decisions, test evidence, snapshots or prior rollout material |
 | SUPERSEDED | Instructions conflict with a newer accepted contract |
 | ARCHIVE CANDIDATE | Retain for reference and exclude from normal implementation navigation |
@@ -46,7 +47,7 @@ The [Harbor v1 closeout](console/HARBOR_CONSOLE_V1_CLOSEOUT.md) is **CURRENT** f
 
 ## Tracked documentation tree
 
-**501 files**. 90 ARCHIVE CANDIDATE, 26 CURRENT, 11 CURRENT WITH GAPS, 266 HISTORICAL, 108 SUPERSEDED.
+**Baseline inventory at the review commit above: 501 files**. 90 ARCHIVE CANDIDATE, 26 CURRENT, 11 CURRENT WITH GAPS, 266 HISTORICAL, 108 SUPERSEDED.
 
 ### administration (2)
 
@@ -143,6 +144,18 @@ The [Harbor v1 closeout](console/HARBOR_CONSOLE_V1_CLOSEOUT.md) is **CURRENT** f
 | [DIETARY_ASSET_OPERATIONS_PHASE_10A_2026-08-06.md](assets/DIETARY_ASSET_OPERATIONS_PHASE_10A_2026-08-06.md) | HISTORICAL |
 | [DIETARY_ASSET_OPERATIONS_PHASE_10A_OWNERSHIP_2026-08-06.md](assets/DIETARY_ASSET_OPERATIONS_PHASE_10A_OWNERSHIP_2026-08-06.md) | HISTORICAL |
 | [DIETARY_WORK_ORDER_GUIDE.md](assets/DIETARY_WORK_ORDER_GUIDE.md) | HISTORICAL |
+
+### calendar (5)
+
+The product owner accepted Option C as program direction. CAL-01 proposes the detailed contracts. Each decision and phase has its own status.
+
+| File | Status | Scope |
+| --- | --- | --- |
+| [README.md](calendar/README.md) | CURRENT | Entry point and accepted program direction |
+| [PHASE_TRACKER.md](calendar/PHASE_TRACKER.md) | CURRENT | Phase authorization and exit evidence |
+| [DECISIONS.md](calendar/DECISIONS.md) | CURRENT | Register of accepted direction and pending decisions |
+| [CAL-00_TEMPORAL_ARCHITECTURE_AUDIT.md](calendar/CAL-00_TEMPORAL_ARCHITECTURE_AUDIT.md) | HISTORICAL | Complete discovery evidence at the audited commit |
+| [CAL-01_ARCHITECTURE_CONTRACTS.md](calendar/CAL-01_ARCHITECTURE_CONTRACTS.md) | PROPOSED | Architecture and prerequisites for review |
 
 ### console (7)
 
