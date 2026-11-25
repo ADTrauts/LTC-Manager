@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -8,36 +8,45 @@ export function VerifyEmailClient({ token }: { token: string | null }) {
   return <VerificationAttempt key={token ?? "missing"} token={token} />;
 }
 
+async function confirmEmail(token: string): Promise<{ nextPath: string } | { error: string }> {
+  try {
+    const response = await fetch("/api/auth/email-verification/confirm", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      return { error: payload.error ?? "This verification link is invalid or expired." };
+    }
+    const payload = (await response.json()) as { nextPath?: string };
+    return { nextPath: payload.nextPath ?? "/setup" };
+  } catch {
+    return { error: "Could not verify this email. Try again." };
+  }
+}
+
 function VerificationAttempt({ token }: { token: string | null }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(token));
 
+  const confirmation = useRef<ReturnType<typeof confirmEmail> | null>(null);
+
   useEffect(() => {
     if (!token) return;
-
+    // A single-use link has one request per keyed mount, even when React re-runs the effect.
+    confirmation.current ??= confirmEmail(token);
     let cancelled = false;
-    (async () => {
-      const res = await fetch("/api/auth/email-verification/confirm", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
+    void confirmation.current.then((result) => {
       if (cancelled) return;
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      if ("error" in result) {
+        setError(result.error);
         setLoading(false);
-        setError(payload.error ?? "This verification link is invalid or expired.");
         return;
       }
-      const payload = (await res.json()) as { nextPath?: string };
-      router.replace(payload.nextPath ?? "/setup");
+      router.replace(result.nextPath);
       router.refresh();
-    })().catch(() => {
-      if (!cancelled) {
-        setLoading(false);
-        setError("Could not verify this email. Try again.");
-      }
     });
 
     return () => {
