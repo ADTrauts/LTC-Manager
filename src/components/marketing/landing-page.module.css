@@ -264,9 +264,9 @@
   .footer a { grid-column: 2; grid-row: 1 / 3; }
 }
 
-@media (max-width: 360px) {
-  .headerInner { width: calc(100% - 1.5rem); }
+@media (max-width: 389px) {
+  .headerInner { width: calc(100% - 1rem); gap: .3rem; }
   .headerActions { gap: .3rem; }
-  .signIn, .headerSignup, .mobileMenu summary { padding-inline: .45rem; }
+  .signIn, .headerSignup, .mobileMenu summary { padding-inline: .375rem; white-space: nowrap; }
   .menuIcon { display: none; }
 }
