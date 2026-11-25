@@ -1,6 +1,6 @@
 /**
  * Public signup finds a person by email. The email already belongs to one User.
- * A matching password adds a facility to that User. A new email creates the User.
+ * A verified person can add a facility. A pending person continues email verification.
  * A wrong password is refused without saying whether the email is in use.
  */
 
@@ -13,7 +13,8 @@ export type ExistingSignupPerson = {
 
 export type SignupPersonResolution =
   | { outcome: "create"; passwordHash: string; emailVerifiedAt: Date | null }
-  | { outcome: "reuse"; userId: string; emailVerifiedAt: Date | null }
+  | { outcome: "reuse"; userId: string; emailVerifiedAt: Date }
+  | { outcome: "pending" }
   | { outcome: "reject" };
 
 export async function resolveSignupPerson(input: {
@@ -35,6 +36,9 @@ export async function resolveSignupPerson(input: {
         await input.comparePassword(input.password, input.absentAccountHash);
       }
       return { outcome: "reject" };
+    }
+    if (!existing.emailVerifiedAt) {
+      return { outcome: "pending" };
     }
     return {
       outcome: "reuse",

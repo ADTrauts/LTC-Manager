@@ -44,19 +44,19 @@
 .headerInner > a { display: inline-flex; align-items: center; min-height: 44px; }
 .desktopLinks, .headerActions { display: flex; align-items: center; gap: clamp(1rem, 2.5vw, 2.3rem); }
 .headerActions { gap: 1rem; }
-.desktopLinks a, .mobileLinks a, .textAction, .signIn, .desktopSignup, .mobileMenu summary,
+.desktopLinks a, .mobileLinks a, .textAction, .signIn, .headerSignup, .mobileMenu summary,
 .lightLink, .transcript, .screenCaption { font-size: .91rem; font-weight: 580; }
 .desktopLinks a, .mobileLinks a { display: flex; align-items: center; min-height: 44px; }
 .desktopLinks a:hover, .mobileLinks a:hover, .textAction:hover, .lightLink:hover, .transcript:hover,
 .screen:hover .screenCaption { text-decoration: underline; text-underline-offset: .24em; }
-.headerActions a, .mobileMenu summary, .primary, .lightButton, .textAction, .lightLink, .motionButton, .transcript {
+.headerActions a, .mobileMenu summary, .primary, .filmLink, .lightButton, .textAction, .lightLink, .motionButton, .transcript {
   min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: .55rem;
 }
-.signIn, .desktopSignup, .mobileMenu summary { padding: .48rem .95rem; border: 1px solid var(--line); border-radius: .38rem; }
+.signIn, .headerSignup, .mobileMenu summary { padding: .48rem .95rem; border: 1px solid var(--line); border-radius: .38rem; }
 .signIn:hover { border-color: var(--ink); }
 .arrow { font-size: 1.1em; }
-.desktopSignup, .primary { background: var(--green); color: white; border-color: var(--green); }
-.desktopSignup:hover, .primary:hover { background: #15534f; }
+.headerSignup, .primary { background: var(--green); color: white; border-color: var(--green); }
+.headerSignup:hover, .primary:hover { background: #15534f; }
 .mobileMenu { display: none; position: static; }
 .mobileMenu summary { cursor: pointer; list-style: none; }
 .mobileMenu summary::-webkit-details-marker { display: none; }
@@ -85,9 +85,11 @@
 .heroDescription { max-width: 33rem; font-size: clamp(1.04rem,1.25vw,1.23rem); color: var(--copy); }
 .actions { display: flex; align-items: center; gap: .75rem 1.5rem; flex-wrap: wrap; }
 .hero .actions { margin-top: 1.7rem; }
-.primary, .lightButton {
+.primary, .filmLink, .lightButton {
   padding: .78rem 1.18rem; font-size: .98rem; font-weight: 610; border-radius: .35rem; gap: .65rem;
 }
+.filmLink { color: var(--ink); border: 1px solid var(--line); }
+.filmLink:hover { border-color: var(--ink); }
 .playIcon {
   display: inline-block; flex: none; width: 0; height: 0; border-width: .34rem 0 .34rem .55rem;
   border-style: solid; border-color: transparent transparent transparent currentColor;
@@ -227,7 +229,7 @@
   .roleGrid { gap: 1rem; }
 }
 @media (max-width: 799px) {
-  .desktopLinks, .headerActions .desktopSignup { display: none; }
+  .desktopLinks { display: none; }
   .mobileMenu { display: block; }
   .headerInner { min-height: 4rem; }
   .hero, .dayInner, .planGrid, .roleGrid, .pricingInner { grid-template-columns: minmax(0,1fr); }
@@ -252,12 +254,19 @@
 @media (max-width: 470px) {
   .page :where(main, section, article)[tabindex="-1"] { scroll-margin-top: 4.85rem; }
   .modeList { grid-template-columns: minmax(0,1fr); gap: 1.15rem; }
-  .primary, .lightButton { font-size: .92rem; }
+  .primary, .filmLink, .lightButton { font-size: .92rem; }
   .headerInner, .headerActions { gap: .45rem; }
-  .signIn, .mobileMenu summary { padding-inline: .65rem; }
+  .signIn, .headerSignup, .mobileMenu summary { padding-inline: .65rem; }
   .priceRow { align-items: baseline; }
   .priceRow strong { font-size: 1.85rem; }
   .footer { display: grid; grid-template-columns: 1fr auto; gap: .25rem 1rem; }
   .footer p { grid-row: 2; }
   .footer a { grid-column: 2; grid-row: 1 / 3; }
+}
+
+@media (max-width: 360px) {
+  .headerInner { width: calc(100% - 1.5rem); }
+  .headerActions { gap: .3rem; }
+  .signIn, .headerSignup, .mobileMenu summary { padding-inline: .45rem; }
+  .menuIcon { display: none; }
 }

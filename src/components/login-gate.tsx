@@ -69,7 +69,7 @@ export function LoginGate({ signupEnabled = false }: LoginGateProps) {
       description="Sign in to run today's work, locations, staffing, and follow-ups from one calm workspace."
       points={HARBOR_PRODUCT_POINTS}
       actions={
-        signupEnabled ? <HarborAsidePrimaryLink href="/signup">Start free setup</HarborAsidePrimaryLink> : null
+        signupEnabled ? <HarborAsidePrimaryLink href="/signup">Create an account</HarborAsidePrimaryLink> : null
       }
     >
       {facility && mode === "pin" ? (

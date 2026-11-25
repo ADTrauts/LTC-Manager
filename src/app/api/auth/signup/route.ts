@@ -1,12 +1,10 @@
+import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
-  AuthRateLimitBucketType,
-  checkAuthRateLimit,
-  registerAuthFailure,
-  resetAuthRateLimitBucket,
+  consumeSignupAttempt,
   signupAccountBucketKey,
   signupIpBucketKey,
 } from "@/lib/auth-rate-limit";
@@ -55,6 +53,36 @@ function rateLimitedResponse(retryAfterSec: number) {
   );
 }
 
+function pendingVerificationResponse(email: string) {
+  return NextResponse.json({
+    ok: true,
+    nextPath: `${CHECK_EMAIL_PATH}?email=${encodeURIComponent(email)}`,
+    pendingVerification: true,
+  });
+}
+
+async function resolveSubmittedPerson(email: string, password: string, mailConfigured: boolean) {
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, passwordHash: true, isActive: true, emailVerifiedAt: true },
+  });
+  return resolveSignupPerson({
+    password,
+    mailConfigured,
+    now: new Date(),
+    existing,
+    absentAccountHash: ABSENT_ACCOUNT_HASH,
+    comparePassword: (candidate, hash) => bcrypt.compare(candidate, hash),
+    hashPassword: (candidate) => bcrypt.hash(candidate, 12),
+  });
+}
+
+function isUserEmailConflict(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") return false;
+  const target = error.meta?.target;
+  return error.meta?.modelName === "User" && Array.isArray(target) && target.length === 1 && target[0] === "email";
+}
+
 export async function POST(request: Request) {
   if (!isPublicSignupEnabled()) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
@@ -82,31 +110,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Server configuration error." }, { status: 500 });
   }
 
-  const buckets = [
-    { key: accountBucketKey, type: AuthRateLimitBucketType.PASSWORD_ACCOUNT },
-    { key: ipBucketKey, type: AuthRateLimitBucketType.PIN_FACILITY },
-  ];
-  const limit = await checkAuthRateLimit(buckets);
+  const limit = await consumeSignupAttempt(accountBucketKey, ipBucketKey);
   if (limit.locked) {
     return rateLimitedResponse(limit.retryAfterSec);
   }
 
-  const existing = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, passwordHash: true, isActive: true, emailVerifiedAt: true },
-  });
   const mailConfigured = isEmailConfigured();
-  const person = await resolveSignupPerson({
-    password: data.password,
-    mailConfigured,
-    now: new Date(),
-    existing,
-    absentAccountHash: ABSENT_ACCOUNT_HASH,
-    comparePassword: (password, hash) => bcrypt.compare(password, hash),
-    hashPassword: (password) => bcrypt.hash(password, 12),
-  });
+  const person = await resolveSubmittedPerson(email, data.password, mailConfigured);
+  if (person.outcome === "pending") return pendingVerificationResponse(email);
   if (person.outcome === "reject") {
-    await registerAuthFailure(buckets);
     return NextResponse.json({ error: GENERIC_SIGNUP_FAILURE }, { status: 400 });
   }
 
@@ -150,14 +162,20 @@ export async function POST(request: Request) {
       };
     });
   } catch (error) {
+    if (person.outcome === "create" && isUserEmailConflict(error)) {
+      // A concurrent signup won. Its transaction owns the facility and sends the first email.
+      const winner = await resolveSubmittedPerson(email, data.password, mailConfigured);
+      if (winner.outcome === "pending") return pendingVerificationResponse(email);
+      if (winner.outcome === "reuse") {
+        return NextResponse.json({ ok: true, nextPath: "/login", sessionPending: true });
+      }
+      return NextResponse.json({ error: GENERIC_SIGNUP_FAILURE }, { status: 400 });
+    }
     if (error instanceof FacilityProvisioningError && error.code === "USER_INACTIVE") {
-      await registerAuthFailure(buckets);
       return NextResponse.json({ error: GENERIC_SIGNUP_FAILURE }, { status: 400 });
     }
     throw error;
   }
-
-  await resetAuthRateLimitBucket(accountBucketKey);
 
   if (!mailConfigured || created.user.emailVerifiedAt) {
     const refreshed = await prisma.user.findUnique({
@@ -216,9 +234,5 @@ export async function POST(request: Request) {
     userId: created.user.id,
   });
 
-  return NextResponse.json({
-    ok: true,
-    nextPath: `${CHECK_EMAIL_PATH}?email=${encodeURIComponent(created.user.email)}`,
-    pendingVerification: true,
-  });
+  return pendingVerificationResponse(created.user.email);
 }
